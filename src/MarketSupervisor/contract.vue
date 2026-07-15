@@ -500,21 +500,14 @@ import {
 }
 from "vue"
 
-import axios
-	from "axios"
+import api
+	from "../services/api"
 
 import MarketSupervisorMenu
 	from "../components/MarketSupervisorMenu.vue"
 
 import SearchField
 	from "../components/SearchField.vue"
-
-
-const CONTRACT_API =
-	"http://localhost:8083/api/contracts"
-
-const STAKEHOLDER_API =
-	"http://localhost:8083/api/stakeholders"
 
 
 // =============================
@@ -557,8 +550,8 @@ async function loadStakeholders() {
 	try {
 
 		const response =
-			await axios.get(
-				STAKEHOLDER_API
+			await api.get(
+				"/stakeholders"
 			)
 
 		stakeholders.value =
@@ -588,8 +581,8 @@ async function loadContracts() {
 	try {
 
 		const response =
-			await axios.get(
-				CONTRACT_API
+			await api.get(
+				"/contracts"
 			)
 
 		contracts.value =
@@ -757,8 +750,8 @@ async function createContract() {
 		)
 
 		const response =
-			await axios.post(
-				CONTRACT_API,
+			await api.post(
+				"/contracts",
 				payload
 			)
 

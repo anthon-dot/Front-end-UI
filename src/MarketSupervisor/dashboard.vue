@@ -329,6 +329,7 @@ import MarketSupervisorMenu
 from '../components/MarketSupervisorMenu.vue'
 
 const applications = ref([])
+const API_ORIGIN = import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '')
 
 const showModal = ref(false)
 
@@ -514,7 +515,7 @@ function statusClass(status) {
 
 function getFileUrl(fileName) {
 
-  return `http://localhost:8083/uploads/${fileName}`
+  return `${API_ORIGIN}/uploads/${fileName}`
 }
 
 // =========================

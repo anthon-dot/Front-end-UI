@@ -128,6 +128,7 @@ const password = ref('')
 const showRolePopup = ref(false)
 const selectedRole = ref('')
 const createdUserId = ref(null)
+const API_URL = import.meta.env.VITE_API_URL
 
 // =========================
 // CREATE ACCOUNT
@@ -139,7 +140,7 @@ async function createAccount() {
 
     const response =
       await fetch(
-        "http://localhost:8083/api/auth/register",
+        `${API_URL}/auth/register`,
         {
           method: "POST",
 
@@ -206,7 +207,7 @@ async function saveRole() {
 
     const response =
       await fetch(
-        `http://localhost:8083/api/auth/update-role/${createdUserId.value}`,
+        `${API_URL}/auth/update-role/${createdUserId.value}`,
         {
           method: "PUT",
 

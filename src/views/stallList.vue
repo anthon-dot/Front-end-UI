@@ -18,6 +18,7 @@ function goBack() {
 const stalls = ref([])
 const isLoading = ref(false)
 const errorMessage = ref('')
+const API_ORIGIN = import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '')
 
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase()
@@ -43,7 +44,7 @@ async function loadStalls() {
       price: Number(stall.monthlyRent || 0),
       status: String(stall.status || 'AVAILABLE').toUpperCase() === 'AVAILABLE' ? 'Available' : 'Occupied',
       description: stall.info || 'Existing public market stall',
-      image: stall.imageUrl ? `http://localhost:8083${stall.imageUrl}` : '/market-stall.png',
+      image: stall.imageUrl ? `${API_ORIGIN}${stall.imageUrl}` : '/market-stall.png',
     }))
   } catch (error) {
     errorMessage.value = error.message || 'Failed to load stalls.'

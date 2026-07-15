@@ -74,6 +74,7 @@ import BPLOMenu from './BPLOMenu.vue'
 import api from '../services/api'
 
 const applications = ref([])
+const API_ORIGIN = import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '')
 async function loadApplications(){
   try {
     const response = await api.get('/stakeholders')
@@ -112,7 +113,7 @@ const selectedApplicant = ref(null)
 function viewFile(a){
   selectedApplicant.value = a
   const doc = (a.documents || []).find(d => d.documentType === 'LETTER' || d.documentType === 'ID')
-  selectedFileUrl.value = doc?.fileName ? `http://localhost:8083/uploads/${doc.fileName}` : ''
+  selectedFileUrl.value = doc?.fileName ? `${API_ORIGIN}/uploads/${doc.fileName}` : ''
   showFileModal.value = true
 }
 function closeFile(){ selectedApplicant.value = null; selectedFileUrl.value = ''; showFileModal.value = false }

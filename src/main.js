@@ -11,40 +11,9 @@ import ToastService from 'primevue/toastservice';
 import Tooltip from 'primevue/tooltip';
 import 'primeicons/primeicons.css'
 import { archivedApplicants, archivedStalls } from './data/archiveSamples.js'
-import axios from 'axios'
-
-axios.interceptors.request.use((config) => {
-    const token =
-        localStorage.getItem('token') ||
-        localStorage.getItem('authToken')
-
-    if (token) {
-        config.headers.Authorization = `Bearer ${token}`
-    }
-
-    return config
-})
-
-axios.interceptors.response.use(
-    (response) => response,
-    (error) => {
-        if (error.response?.status === 401) {
-            localStorage.removeItem('token')
-            localStorage.removeItem('authToken')
-            localStorage.removeItem('role')
-            localStorage.removeItem('userId')
-            localStorage.removeItem('stakeholderId')
-
-            if (window.location.pathname !== '/login') {
-                window.location.href = '/login'
-            }
-        }
-
-        return Promise.reject(error)
-    }
-)
 
 const originalFetch = window.fetch.bind(window)
+const apiBase = import.meta.env.VITE_API_URL
 
 window.fetch = async (input, init = {}) => {
     const token =
@@ -57,8 +26,7 @@ window.fetch = async (input, init = {}) => {
             : input?.url || ''
 
     const isApiRequest =
-        url.includes('localhost:8083/api') ||
-        url.includes('127.0.0.1:8083/api') ||
+        url.startsWith(apiBase) ||
         url.startsWith('/api')
 
     const headers =

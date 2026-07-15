@@ -188,6 +188,9 @@ import 'leaflet/dist/leaflet.css'
 import MarketSupervisorMenu from '../components/MarketSupervisorMenu.vue'
 import SearchField from '../components/SearchField.vue'
 
+const API_URL = import.meta.env.VITE_API_URL
+const API_ORIGIN = API_URL.replace(/\/api\/?$/, '')
+
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
   iconRetinaUrl:
@@ -235,7 +238,7 @@ const stakeholderSearch = ref('')
 const selectedStakeholder = ref(null)
 async function loadStakeholders() {
   const response = await fetch(
-    'http://localhost:8083/api/stakeholders'
+    `${API_URL}/stakeholders`
   )
 
   const data = await response.json()
@@ -263,7 +266,7 @@ function initializeMap() {
 }
 
 async function loadStalls() {
-  const response = await fetch('http://localhost:8083/api/stalls')
+  const response = await fetch(`${API_URL}/stalls`)
   const data = await response.json()
 
   stalls.value = data.map((stall) => ({
@@ -297,7 +300,7 @@ function loadMarkers() {
   <div style="width:200px">
     ${
       stall.imageUrl
-        ? `<img src="http://localhost:8083${stall.imageUrl}"
+        ? `<img src="${API_ORIGIN}${stall.imageUrl}"
              style="width:100%;height:100px;object-fit:cover;border-radius:10px;margin-bottom:8px;" />`
         : ''
     }
@@ -395,7 +398,7 @@ function editStall(stall) {
 
   imagePreview.value =
     stall.imageUrl
-      ? 'http://localhost:8083' +
+      ? API_ORIGIN +
         stall.imageUrl
       : ''
 
@@ -442,7 +445,7 @@ async function saveStall() {
 
       const uploadResponse =
         await fetch(
-          'http://localhost:8083/api/stalls/upload',
+          `${API_URL}/stalls/upload`,
           {
             method: 'POST',
             body: fd
@@ -484,8 +487,8 @@ async function saveStall() {
 
     const url =
       editing.value
-        ? `http://localhost:8083/api/stalls/${editing.value}`
-        : 'http://localhost:8083/api/stalls'
+        ? `${API_URL}/stalls/${editing.value}`
+        : `${API_URL}/stalls`
 
     const method =
       editing.value
@@ -539,8 +542,7 @@ async function saveStall() {
 
       const allocateResponse =
         await fetch(
-
-          `http://localhost:8083/api/occupants/allocate/${savedStall.id}`,
+          `${API_URL}/occupants/allocate/${savedStall.id}`,
 
           {
             method: 'POST',
