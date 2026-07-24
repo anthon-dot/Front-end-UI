@@ -319,22 +319,20 @@
     </div>
 
   </div>
+
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import api from '../services/api'
+import { API_ORIGIN } from '../config/apiConfig'
 
 import MarketSupervisorMenu
 from '../components/MarketSupervisorMenu.vue'
 
 const applications = ref([])
-const API_ORIGIN = import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '')
-
 const showModal = ref(false)
-
 const selected = ref({})
-
 // =========================
 // LOAD STAKEHOLDERS
 // =========================

@@ -11,9 +11,10 @@ import ToastService from 'primevue/toastservice';
 import Tooltip from 'primevue/tooltip';
 import 'primeicons/primeicons.css'
 import { archivedApplicants, archivedStalls } from './data/archiveSamples.js'
+import { API_BASE_URL } from './config/apiConfig'
 
 const originalFetch = window.fetch.bind(window)
-const apiBase = import.meta.env.VITE_API_URL
+const apiBase = API_BASE_URL
 
 window.fetch = async (input, init = {}) => {
     const token =
@@ -26,7 +27,7 @@ window.fetch = async (input, init = {}) => {
             : input?.url || ''
 
     const isApiRequest =
-        url.startsWith(apiBase) ||
+        (apiBase && url.startsWith(apiBase)) ||
         url.startsWith('/api')
 
     const headers =

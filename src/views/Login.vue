@@ -83,6 +83,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getApplicationByUserId, getStakeholderRouteForApplication } from '../services/applicationService'
+import { API_BASE_URL } from '../config/apiConfig'
 
 const router = useRouter()
 
@@ -99,7 +100,7 @@ const isLoading = ref(false)
 // =====================
 // API
 // =====================
-const BASE_URL = import.meta.env.VITE_API_URL
+const BASE_URL = API_BASE_URL
 
 // =====================
 // TOGGLE PASSWORD

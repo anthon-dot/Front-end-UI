@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import SearchField from '../components/SearchField.vue'
 import api from '../services/api'
+import { API_ORIGIN } from '../config/apiConfig'
 
 const search = ref('')
 const router = useRouter()
@@ -18,14 +19,14 @@ function goBack() {
 const stalls = ref([])
 const isLoading = ref(false)
 const errorMessage = ref('')
-const API_ORIGIN = import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '')
 
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase()
   if (!q) return stalls.value
   return stalls.value.filter((s) => {
     return (
-      s.name.toLowerCase().includes(q) || s.section.toLowerCase().includes(q)
+      (s.name && s.name.toLowerCase().includes(q)) ||
+      (s.section && s.section.toLowerCase().includes(q))
     )
   })
 })

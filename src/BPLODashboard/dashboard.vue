@@ -72,9 +72,9 @@
 import { ref, computed, onMounted } from 'vue'
 import BPLOMenu from './BPLOMenu.vue'
 import api from '../services/api'
+import { API_ORIGIN } from '../config/apiConfig'
 
 const applications = ref([])
-const API_ORIGIN = import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '')
 async function loadApplications(){
   try {
     const response = await api.get('/stakeholders')

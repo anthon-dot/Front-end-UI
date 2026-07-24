@@ -187,9 +187,9 @@ import 'leaflet/dist/leaflet.css'
 
 import MarketSupervisorMenu from '../components/MarketSupervisorMenu.vue'
 import SearchField from '../components/SearchField.vue'
+import { API_BASE_URL, API_ORIGIN } from '../config/apiConfig'
 
-const API_URL = import.meta.env.VITE_API_URL
-const API_ORIGIN = API_URL.replace(/\/api\/?$/, '')
+const API_URL = API_BASE_URL
 
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({

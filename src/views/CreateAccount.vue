@@ -86,6 +86,7 @@
             BPLO OFFICE
           </option>
 
+
           <option value="MARKETSUPERVISOR">
             MARKET SUPERVISOR
           </option>
@@ -119,6 +120,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { API_BASE_URL } from '../config/apiConfig'
 
 const router = useRouter()
 
@@ -128,12 +130,6 @@ const password = ref('')
 const showRolePopup = ref(false)
 const selectedRole = ref('')
 const createdUserId = ref(null)
-const API_URL = import.meta.env.VITE_API_URL
-
-// =========================
-// CREATE ACCOUNT
-// =========================
-
 async function createAccount() {
 
   try {
