@@ -130,6 +130,8 @@ const password = ref('')
 const showRolePopup = ref(false)
 const selectedRole = ref('')
 const createdUserId = ref(null)
+const API_URL = API_BASE_URL
+
 async function createAccount() {
 
   try {
