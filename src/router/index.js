@@ -15,6 +15,150 @@ const routes = [
     path: "/login",
     name: "Login",
     component: () => import("../views/Login.vue")
+  },
+  {
+    path: "/admin",
+    redirect: { name: "AdminDashboard" }
+  },
+  {
+    path: "/admin/dashboard",
+    name: "AdminDashboard",
+    component: () => import("../Admin/AdminView.vue"),
+    meta: { roles: ['ADMIN'] }
+  },
+  {
+    path: "/admin/users",
+    name: "AdminUsers",
+    component: () => import("../Admin/AdminView.vue"),
+    meta: { roles: ['ADMIN'] }
+  },
+  {
+    path: "/admin/roles-permissions",
+    redirect: { name: "AdminRoles" }
+  },
+  {
+    path: "/admin/roles",
+    name: "AdminRoles",
+    component: () => import("../Admin/AdminView.vue"),
+    meta: { roles: ['ADMIN'] }
+  },
+  {
+    path: "/admin/login-history",
+    name: "AdminLoginHistory",
+    component: () => import("../Admin/AdminView.vue"),
+    meta: { roles: ['ADMIN'] }
+  },
+  {
+    path: "/admin/stall-map",
+    name: "AdminStallMap",
+    component: () => import("../Admin/AdminView.vue"),
+    meta: { roles: ['ADMIN'] }
+  },
+  {
+    path: "/admin/stalls",
+    name: "AdminStalls",
+    component: () => import("../Admin/AdminView.vue"),
+    meta: { roles: ['ADMIN'] }
+  },
+  {
+    path: "/admin/stall-types",
+    name: "AdminStallTypes",
+    component: () => import("../Admin/AdminView.vue"),
+    meta: { roles: ['ADMIN'] }
+  },
+  {
+    path: "/admin/rental-rates",
+    name: "AdminRentalRates",
+    component: () => import("../Admin/AdminView.vue"),
+    meta: { roles: ['ADMIN'] }
+  },
+  {
+    path: "/admin/applications",
+    name: "AdminApplications",
+    component: () => import("../Admin/AdminView.vue"),
+    meta: { roles: ['ADMIN'] }
+  },
+  {
+    path: "/admin/stakeholders",
+    name: "AdminStakeholders",
+    component: () => import("../Admin/AdminView.vue"),
+    meta: { roles: ['ADMIN'] }
+  },
+  {
+    path: "/admin/contracts",
+    name: "AdminContracts",
+    component: () => import("../Admin/AdminView.vue"),
+    meta: { roles: ['ADMIN'] }
+  },
+  {
+    path: "/admin/payments",
+    name: "AdminPayments",
+    component: () => import("../Admin/AdminView.vue"),
+    meta: { roles: ['ADMIN'] }
+  },
+  {
+    path: "/admin/billing",
+    name: "AdminBilling",
+    component: () => import("../Admin/AdminView.vue"),
+    meta: { roles: ['ADMIN'] }
+  },
+  {
+    path: "/admin/occupancy",
+    name: "AdminOccupancy",
+    component: () => import("../Admin/AdminView.vue"),
+    meta: { roles: ['ADMIN'] }
+  },
+  {
+    path: "/admin/reports/revenue",
+    name: "AdminRevenueReport",
+    component: () => import("../Admin/AdminView.vue"),
+    meta: { roles: ['ADMIN'] }
+  },
+  {
+    path: "/admin/reports/applications",
+    name: "AdminApplicationsReport",
+    component: () => import("../Admin/AdminView.vue"),
+    meta: { roles: ['ADMIN'] }
+  },
+  {
+    path: "/admin/reports/occupancy",
+    name: "AdminOccupancyReport",
+    component: () => import("../Admin/AdminView.vue"),
+    meta: { roles: ['ADMIN'] }
+  },
+  {
+    path: "/admin/reports/system-activity",
+    name: "AdminActivityReport",
+    component: () => import("../Admin/AdminView.vue"),
+    meta: { roles: ['ADMIN'] }
+  },
+  {
+    path: "/admin/reports",
+    redirect: { name: "AdminRevenueReport" }
+  },
+  {
+    path: "/admin/audit-logs",
+    name: "AdminAuditLogs",
+    component: () => import("../Admin/AdminView.vue"),
+    meta: { roles: ['ADMIN'] }
+  },
+  {
+    path: "/admin/notifications",
+    name: "AdminNotifications",
+    component: () => import("../Admin/AdminView.vue"),
+    meta: { roles: ['ADMIN'] }
+  },
+  {
+    path: "/admin/settings",
+    name: "AdminSettings",
+    component: () => import("../Admin/AdminView.vue"),
+    meta: { roles: ['ADMIN'] }
+  },
+  {
+    path: "/admin/profile",
+    name: "AdminProfile",
+    component: () => import("../Admin/AdminView.vue"),
+    meta: { roles: ['ADMIN'] }
   }
   ,
   {
