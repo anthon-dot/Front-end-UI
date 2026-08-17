@@ -202,6 +202,31 @@ const router = createRouter({
   routes
 })
 
+const STALE_CHUNK_RELOAD_KEY = 'front-end-ui:stale-chunk-reloaded'
+
+router.onError((error) => {
+  const message = String(error?.message || error || '')
+
+  const isStaleChunkError =
+    message.includes('Failed to fetch dynamically imported module') ||
+    message.includes('Importing a module script failed') ||
+    message.includes('error loading dynamically imported module')
+
+  if (!isStaleChunkError) return
+
+  if (sessionStorage.getItem(STALE_CHUNK_RELOAD_KEY)) {
+    sessionStorage.removeItem(STALE_CHUNK_RELOAD_KEY)
+    return
+  }
+
+  sessionStorage.setItem(STALE_CHUNK_RELOAD_KEY, 'true')
+  window.location.reload()
+})
+
+router.afterEach(() => {
+  sessionStorage.removeItem(STALE_CHUNK_RELOAD_KEY)
+})
+
 router.beforeEach(async (to) => {
   const authStore = useAuthStore()
   const stakeholderStore = useStakeholderStore()
