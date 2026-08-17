@@ -188,7 +188,10 @@ import SearchField from '../components/SearchField.vue'
 import { API_ORIGIN } from '../config/apiConfig'
 import api from '../services/api'
 
-const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+const GOOGLE_MAPS_API_KEY =
+  import.meta.env.VITE_GOOGLE_MAPS_API_KEY ||
+  window.GOOGLE_MAPS_API_KEY ||
+  'AIzaSyAzA90gDwhL18nqRNIEBklwXp_GFzCmjs4'
 const DEFAULT_CENTER = { lat: 8.399991, lng: 124.291353 }
 
 const search = ref('')
@@ -241,12 +244,6 @@ let mapClickListener = null
 
 function loadGoogleMaps() {
   if (window.google?.maps) return Promise.resolve(window.google.maps)
-
-  if (!GOOGLE_MAPS_API_KEY) {
-    return Promise.reject(
-      new Error('Missing VITE_GOOGLE_MAPS_API_KEY in .env.local')
-    )
-  }
 
   if (!googleMapsPromise) {
     googleMapsPromise = new Promise((resolve, reject) => {
