@@ -193,9 +193,9 @@ const GOOGLE_MAPS_API_KEY =
   window.GOOGLE_MAPS_API_KEY ||
   'AIzaSyAzA90gDwhL18nqRNIEBklwXp_GFzCmjs4'
 const DEFAULT_CENTER = { lat: 8.399991, lng: 124.291353 }
-const DEFAULT_MAP_ZOOM = 17
 const MIN_MAP_ZOOM = 15
 const MAX_MAP_ZOOM = 20
+const DEFAULT_MAP_ZOOM = MIN_MAP_ZOOM + 3
 const MAP_STYLES = [
   {
     elementType: 'labels.icon',
