@@ -194,6 +194,8 @@ const GOOGLE_MAPS_API_KEY =
   'AIzaSyAzA90gDwhL18nqRNIEBklwXp_GFzCmjs4'
 const DEFAULT_CENTER = { lat: 8.399991, lng: 124.291353 }
 const DEFAULT_MAP_ZOOM = 17
+const MIN_MAP_ZOOM = 15
+const MAX_MAP_ZOOM = 20
 const MAP_STYLES = [
   {
     elementType: 'labels.icon',
@@ -284,19 +286,19 @@ async function initializeMap() {
   map = new googleMaps.Map(document.getElementById('map'), {
     center: DEFAULT_CENTER,
     zoom: DEFAULT_MAP_ZOOM,
-    minZoom: DEFAULT_MAP_ZOOM,
-    maxZoom: DEFAULT_MAP_ZOOM,
+    minZoom: MIN_MAP_ZOOM,
+    maxZoom: MAX_MAP_ZOOM,
     clickableIcons: false,
     disableDefaultUI: true,
-    disableDoubleClickZoom: true,
+    disableDoubleClickZoom: false,
     draggable: false,
     fullscreenControl: false,
-    gestureHandling: 'none',
+    gestureHandling: 'cooperative',
     mapTypeControl: false,
-    scrollwheel: false,
+    scrollwheel: true,
     styles: MAP_STYLES,
     streetViewControl: false,
-    zoomControl: false
+    zoomControl: true
   })
 
   infoWindow = new googleMaps.InfoWindow()
