@@ -408,6 +408,7 @@
 
 <script>
 import api from "../services/api";
+import { useAuthStore } from "../stores/auth";
 
 export default {
   name: "TreasurerReports",
@@ -542,7 +543,7 @@ export default {
 
     logout() {
 
-      localStorage.removeItem("authToken");
+      useAuthStore().clearSession();
 
       this.$router.push({
         name: "Landing"

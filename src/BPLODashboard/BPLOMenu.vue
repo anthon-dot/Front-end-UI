@@ -42,11 +42,13 @@
 <script setup>
 import { ref, onMounted, onUnmounted, defineProps } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
 
 const props = defineProps({ forceOpen: { type: Boolean, default: false } })
 
 const router = useRouter()
 const route = useRoute()
+const authStore = useAuthStore()
 
 const items = [
   { id: 'dashboard', label: 'Dashboard', to: '/bplo', routeName: 'BPLO' },
@@ -97,7 +99,7 @@ function toggleProfile() {
 }
 
 function logout() {
-  try { localStorage.removeItem('authToken') } catch (e) {}
+  authStore.clearSession()
   showProfileMenu.value = false
   router.push({ name: 'Landing' }).catch(() => {})
 }

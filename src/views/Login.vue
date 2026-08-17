@@ -83,9 +83,11 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getApplicationByUserId, getStakeholderRouteForApplication } from '../services/applicationService'
-import { API_BASE_URL } from '../config/apiConfig'
+import api from '../services/api'
+import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
+const authStore = useAuthStore()
 
 // =====================
 // FORM
@@ -96,11 +98,6 @@ const password = ref('')
 const showPassword = ref(false)
 const errorMessage = ref('')
 const isLoading = ref(false)
-
-// =====================
-// API
-// =====================
-const BASE_URL = API_BASE_URL
 
 // =====================
 // TOGGLE PASSWORD
@@ -120,40 +117,24 @@ async function onSubmit() {
     // =====================
     // LOGIN REQUEST
     // =====================
-    const loginResponse = await fetch(
-      `${BASE_URL}/auth/login`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          username: username.value,
-          password: password.value
-        })
-      }
-    )
+    const loginResponse = await api.post('/auth/login', {
+      username: username.value,
+      password: password.value
+    })
 
-    if (!loginResponse.ok) {
-      const errorText = await loginResponse.text()
-      throw new Error(
-        errorText || 'Wrong username or password'
-      )
-    }
-
-    const data = await loginResponse.json()
+    const data = loginResponse.data
 
     console.log('LOGIN:', data)
 
     // =====================
     // SAVE SESSION
     // =====================
-    localStorage.setItem('token', data.token)
-    localStorage.setItem('role', data.role)
-    localStorage.setItem(
-      'userId',
-      String(data.userId)
-    )
+    authStore.setSession({
+      token: data.token,
+      role: data.role,
+      userId: data.userId || data.id,
+      user: data
+    })
 
     const rawRole = String(data.role || '').replace('ROLE_', '').toUpperCase()
     const roleAliases = {
@@ -197,7 +178,7 @@ if (role === 'MARKET_SUPERVISOR') {
 // =====================
 if (role === 'STAKEHOLDER') {
   try {
-    const application = await getApplicationByUserId(data.id)
+    const application = await getApplicationByUserId(data.userId || data.id)
     router.push(getStakeholderRouteForApplication(application))
     return
 

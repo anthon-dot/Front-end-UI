@@ -112,9 +112,11 @@ import {
   useRouter,
   useRoute
 } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
 const route = useRoute()
+const authStore = useAuthStore()
 
 const collapsed = ref(false)
 
@@ -154,10 +156,8 @@ const isActive = (item) => {
 }
 
 const logout = () => {
-
-  localStorage.removeItem(
-    'currentStakeholder'
-  )
+  authStore.clearSession()
+  localStorage.removeItem('currentStakeholder')
 
   router.push({
     name: 'Login'

@@ -113,6 +113,7 @@ import {
   useRouter,
   useRoute
 } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
 
 const props = defineProps({
   forceOpen: {
@@ -123,6 +124,7 @@ const props = defineProps({
 
 const router = useRouter()
 const route = useRoute()
+const authStore = useAuthStore()
 
 const collapsed = ref(false)
 
@@ -165,7 +167,7 @@ const baseItems = [
 
 const items = computed(() => {
   const role =
-    String(localStorage.getItem('role') || '')
+    String(authStore.normalizedRole || '')
       .toUpperCase()
 
   return baseItems.filter((item) => {
@@ -192,10 +194,7 @@ const navigate = (item) => {
 }
 
 const logout = () => {
-
-  localStorage.removeItem(
-    'authToken'
-  )
+  authStore.clearSession()
 
   router.push({
     name: 'Landing'

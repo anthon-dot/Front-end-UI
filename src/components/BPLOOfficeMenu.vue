@@ -21,8 +21,10 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
+const authStore = useAuthStore()
 const collapsed = ref(localStorage.getItem('bploOfficeMenuCollapsed') === 'true')
 
 function toggle() {
@@ -32,10 +34,7 @@ function toggle() {
 }
 
 function logout() {
-  localStorage.removeItem('token')
-  localStorage.removeItem('authToken')
-  localStorage.removeItem('role')
-  localStorage.removeItem('userId')
+  authStore.clearSession()
   router.push({ name: 'Landing' })
 }
 

@@ -73,9 +73,11 @@
 <script setup>
 import { ref, watch, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
 const route = useRoute()
+const authStore = useAuthStore()
 
 const collapsed = ref(false)
 
@@ -143,8 +145,7 @@ const toggleSidebar = () => {
 }
 
 const logout = () => {
-  localStorage.removeItem('token')
-  localStorage.removeItem('authToken')
+  authStore.clearSession()
   router.push({ name: 'Landing' })
 }
 

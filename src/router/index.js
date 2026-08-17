@@ -1,9 +1,9 @@
 import { createRouter, createWebHistory } from "vue-router"
 import {
-  getStakeholderByUserId,
-  getStakeholderRequirements,
   isDashboardReady
 } from "../services/applicationService"
+import { useAuthStore, normalizeWorkflowRole } from "../stores/auth"
+import { useStakeholderStore } from "../stores/stakeholder"
 
 const routes = [
   {
@@ -202,72 +202,28 @@ const router = createRouter({
   routes
 })
 
-function getTokenPayload(token) {
-  try {
-    const payload = token.split('.')[1]
-    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/')
-    return JSON.parse(atob(normalized))
-  } catch (error) {
-    return null
-  }
-}
-
-function clearSession() {
-  localStorage.removeItem('token')
-  localStorage.removeItem('authToken')
-  localStorage.removeItem('role')
-  localStorage.removeItem('userId')
-  localStorage.removeItem('stakeholderId')
-}
-
-function normalizeRole(role) {
-  return String(role || '')
-    .replace('ROLE_', '')
-    .trim()
-    .toUpperCase()
-}
-
-function normalizeWorkflowRole(role) {
-  const normalized = normalizeRole(role)
-
-  const aliases = {
-    MARKETSUPERVISOR: 'MARKET_SUPERVISOR',
-    BPLO: 'BPLO_OFFICE',
-    BPLOOFFICE: 'BPLO_OFFICE',
-    ENDORSINGOFFICE: 'ENDORSING_OFFICE',
-    ENDORSING_OFFICER: 'ENDORSING_OFFICE',
-    ENDORISING_OFFICE: 'ENDORSING_OFFICE',
-    TENANT: 'STAKEHOLDER',
-    APPLICANT: 'STAKEHOLDER'
-  }
-
-  return aliases[normalized] || normalized
-}
-
 router.beforeEach(async (to) => {
+  const authStore = useAuthStore()
+  const stakeholderStore = useStakeholderStore()
   const publicRoutes = ['Landing', 'Login', 'CreateAccount', 'Unauthorized']
 
   if (publicRoutes.includes(to.name)) {
     return true
   }
 
-  const token =
-    localStorage.getItem('token') ||
-    localStorage.getItem('authToken')
+  authStore.hydrateFromStorage()
 
-  if (!token) {
+  if (!authStore.isAuthenticated) {
     return { name: 'Login' }
   }
 
-  const payload = getTokenPayload(token)
-
-  if (!payload?.exp || payload.exp * 1000 <= Date.now()) {
-    clearSession()
+  if (authStore.isTokenExpired) {
+    authStore.clearSession()
+    stakeholderStore.clearCache()
     return { name: 'Login' }
   }
 
-  const role =
-    normalizeWorkflowRole(localStorage.getItem('role') || payload.role)
+  const role = authStore.normalizedRole
 
   const allowedRoles =
     to.meta?.roles?.map(normalizeWorkflowRole)
@@ -280,15 +236,16 @@ router.beforeEach(async (to) => {
   }
 
   if (role === 'STAKEHOLDER') {
-    const userId = localStorage.getItem('userId') || payload.userId || payload.id
+    const userId = authStore.resolvedUserId
 
     if (!userId) {
-      clearSession()
+      authStore.clearSession()
+      stakeholderStore.clearCache()
       return { name: 'Login' }
     }
 
     try {
-      const stakeholder = await getStakeholderByUserId(userId)
+      const stakeholder = await stakeholderStore.ensureStakeholderForUser(userId)
 
       if (!stakeholder) {
         if (to.name === 'BusinessApplication') {
@@ -298,14 +255,10 @@ router.beforeEach(async (to) => {
         return { name: 'BusinessApplication' }
       }
 
-      localStorage.setItem('stakeholderId', String(stakeholder.id))
+      authStore.setStakeholderId(stakeholder.id)
 
-      let requirements = null
-      try {
-        requirements = await getStakeholderRequirements(stakeholder.id)
-      } catch (error) {
-        requirements = null
-      }
+      const requirements =
+        await stakeholderStore.ensureRequirements(stakeholder.id)
 
       if (isDashboardReady(stakeholder, requirements)) {
         if (to.name === 'BusinessApplication' || to.name === 'ApplicationProgress' || to.name === 'ApplicantFee') {

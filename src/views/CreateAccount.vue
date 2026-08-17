@@ -120,7 +120,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { API_BASE_URL } from '../config/apiConfig'
+import api from '../services/api'
 
 const router = useRouter()
 
@@ -130,43 +130,22 @@ const password = ref('')
 const showRolePopup = ref(false)
 const selectedRole = ref('')
 const createdUserId = ref(null)
-const API_URL = API_BASE_URL
 
 async function createAccount() {
 
   try {
 
     const response =
-      await fetch(
-        `${API_URL}/auth/register`,
-        {
-          method: "POST",
+      await api.post('/auth/register', {
+        username:
+          username.value,
 
-          headers: {
-            "Content-Type":
-              "application/json"
-          },
-
-          body: JSON.stringify({
-            username:
-              username.value,
-
-            password:
-              password.value
-          })
-        }
-      )
+        password:
+          password.value
+      })
 
     const data =
-      await response.json()
-
-    if (!response.ok) {
-
-      throw new Error(
-        data.message ||
-        "Registration failed"
-      )
-    }
+      response.data
 
     // SAVE USER ID
     createdUserId.value =
@@ -203,34 +182,10 @@ async function saveRole() {
       return
     }
 
-    const response =
-      await fetch(
-        `${API_URL}/auth/update-role/${createdUserId.value}`,
-        {
-          method: "PUT",
-
-          headers: {
-            "Content-Type":
-              "application/json"
-          },
-
-          body: JSON.stringify({
-            role:
-              selectedRole.value
-          })
-        }
-      )
-
-    const text =
-      await response.text()
-
-    if (!response.ok) {
-
-      throw new Error(
-        text ||
-        "Failed to save role"
-      )
-    }
+    await api.put(`/auth/update-role/${createdUserId.value}`, {
+      role:
+        selectedRole.value
+    })
 
     alert(
       "Account created successfully!"
@@ -238,17 +193,6 @@ async function saveRole() {
 
     showRolePopup.value =
       false
-
-    // SAVE USER DATA
-    localStorage.setItem(
-      "userId",
-      createdUserId.value
-    )
-
-    localStorage.setItem(
-      "role",
-      selectedRole.value
-    )
 
     // =========================
     // REDIRECT

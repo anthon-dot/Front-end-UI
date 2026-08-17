@@ -181,25 +181,15 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 
 import MarketSupervisorMenu from '../components/MarketSupervisorMenu.vue'
 import SearchField from '../components/SearchField.vue'
-import { API_BASE_URL, API_ORIGIN } from '../config/apiConfig'
+import { API_ORIGIN } from '../config/apiConfig'
+import api from '../services/api'
 
-const API_URL = API_BASE_URL
-
-delete L.Icon.Default.prototype._getIconUrl
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl:
-    'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl:
-    'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl:
-    'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'
-})
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+const DEFAULT_CENTER = { lat: 8.399991, lng: 124.291353 }
 
 const search = ref('')
 const filterStatus = ref('All')
@@ -237,37 +227,75 @@ const stakeholders = ref([])
 const stakeholderSearch = ref('')
 const selectedStakeholder = ref(null)
 async function loadStakeholders() {
-  const response = await fetch(
-    `${API_URL}/stakeholders`
-  )
-
-  const data = await response.json()
+  const response = await api.get('/stakeholders')
+  const data = response.data
 
   stakeholders.value = data
 }
 
+let googleMapsPromise = null
 let map = null
-let markersLayer = null
+let infoWindow = null
+let markers = []
+let mapClickListener = null
 
-function initializeMap() {
-  map = L.map('map', {
-    center: [8.399991, 124.291353],
-    zoom: 18
+function loadGoogleMaps() {
+  if (window.google?.maps) return Promise.resolve(window.google.maps)
+
+  if (!GOOGLE_MAPS_API_KEY) {
+    return Promise.reject(
+      new Error('Missing VITE_GOOGLE_MAPS_API_KEY in .env.local')
+    )
+  }
+
+  if (!googleMapsPromise) {
+    googleMapsPromise = new Promise((resolve, reject) => {
+      const existingScript = document.querySelector(
+        'script[data-google-maps-loader="true"]'
+      )
+
+      if (existingScript) {
+        existingScript.addEventListener('load', () => resolve(window.google.maps))
+        existingScript.addEventListener('error', reject)
+        return
+      }
+
+      const script = document.createElement('script')
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}`
+      script.async = true
+      script.defer = true
+      script.dataset.googleMapsLoader = 'true'
+      script.onload = () => resolve(window.google.maps)
+      script.onerror = reject
+      document.head.appendChild(script)
+    })
+  }
+
+  return googleMapsPromise
+}
+
+async function initializeMap() {
+  const googleMaps = await loadGoogleMaps()
+
+  map = new googleMaps.Map(document.getElementById('map'), {
+    center: DEFAULT_CENTER,
+    zoom: 18,
+    mapTypeControl: false,
+    streetViewControl: false,
+    fullscreenControl: true
   })
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map)
+  infoWindow = new googleMaps.InfoWindow()
 
-  markersLayer = L.layerGroup().addTo(map)
-
-  map.on('click', (e) => {
-    form.value.lat = e.latlng.lat
-    form.value.lng = e.latlng.lng
+  mapClickListener = map.addListener('click', (e) => {
+    form.value.lat = e.latLng.lat()
+    form.value.lng = e.latLng.lng()
   })
 }
 
 async function loadStalls() {
-  const response = await fetch(`${API_URL}/stalls`)
-  const data = await response.json()
+  const response = await api.get('/stalls')
+  const data = response.data
 
   stalls.value = data.map((stall) => ({
     id: stall.id,
@@ -285,18 +313,49 @@ async function loadStalls() {
 }
 
 function loadMarkers() {
-  if (!markersLayer) return
+  if (!map || !window.google?.maps) return
 
-  markersLayer.clearLayers()
+  markers.forEach((marker) => marker.setMap(null))
+  markers = []
 
   const validStalls = stalls.value.filter(
     (s) => s.lat != null && s.lng != null
   )
 
   validStalls.forEach((stall, index) => {
-    const marker = L.marker([stall.lat, stall.lng]).addTo(markersLayer)
+    const marker = new window.google.maps.Marker({
+      position: { lat: Number(stall.lat), lng: Number(stall.lng) },
+      map,
+      title: stall.number
+    })
 
-    marker.bindPopup(`
+    marker.addListener('click', () => {
+      openStallInfoWindow(marker, stall, index)
+    })
+
+    markers.push(marker)
+  })
+
+  window.previousStall = function (currentIndex) {
+    if (!validStalls.length) return
+
+    const previousIndex =
+      (currentIndex - 1 + validStalls.length) % validStalls.length
+
+    openStallByIndex(validStalls, previousIndex)
+  }
+
+  window.nextStall = function (currentIndex) {
+    if (!validStalls.length) return
+
+    const nextIndex = (currentIndex + 1) % validStalls.length
+
+    openStallByIndex(validStalls, nextIndex)
+  }
+}
+
+function getStallInfoContent(stall, index) {
+  return `
   <div style="width:200px">
     ${
       stall.imageUrl
@@ -327,33 +386,23 @@ function loadMarkers() {
 
     </div>
   </div>
-`)
-  })
-   window.previousStall = function (currentIndex) {
-   const previousIndex = (currentIndex - 1) % validStalls.length
-   const previous = validStalls[previousIndex]
-   
-   map.setView([previous.lat, previous.lng], 19, { animate: true })
-   markersLayer.eachLayer((layer) => {
-	 const pos = layer.getLatLng()
-	 if (pos.lat === previous.lat && pos.lng === previous.lng) {
-	   layer.openPopup()
-	 }
-   })
-  }
-  window.nextStall = function (currentIndex) {
-    const nextIndex = (currentIndex + 1) % validStalls.length
-    const next = validStalls[nextIndex]
+`
+}
 
-    map.setView([next.lat, next.lng], 19, { animate: true })
+function openStallInfoWindow(marker, stall, index) {
+  infoWindow.setContent(getStallInfoContent(stall, index))
+  infoWindow.open(map, marker)
+}
 
-    markersLayer.eachLayer((layer) => {
-      const pos = layer.getLatLng()
-      if (pos.lat === next.lat && pos.lng === next.lng) {
-        layer.openPopup()
-      }
-    })
-  }
+function openStallByIndex(validStalls, index) {
+  const stall = validStalls[index]
+  const marker = markers[index]
+
+  if (!stall || !marker) return
+
+  map.panTo({ lat: Number(stall.lat), lng: Number(stall.lng) })
+  map.setZoom(19)
+  openStallInfoWindow(marker, stall, index)
 }
 
 function resetForm() {
@@ -375,7 +424,7 @@ function resetForm() {
 }
 
 function openAdd() {
-  map?.closePopup()
+  infoWindow?.close()
   editing.value = null
   selectedImage.value = null
   imagePreview.value = ''
@@ -385,7 +434,7 @@ function openAdd() {
 
 function editStall(stall) {
 
-  map?.closePopup()
+  infoWindow?.close()
 
   editing.value = stall.id
 
@@ -444,16 +493,10 @@ async function saveStall() {
       )
 
       const uploadResponse =
-        await fetch(
-          `${API_URL}/stalls/upload`,
-          {
-            method: 'POST',
-            body: fd
-          }
-        )
+        await api.post('/stalls/upload', fd)
 
       imageUrl =
-        await uploadResponse.text()
+        uploadResponse.data
     }
 
     // =========================
@@ -487,39 +530,18 @@ async function saveStall() {
 
     const url =
       editing.value
-        ? `${API_URL}/stalls/${editing.value}`
-        : `${API_URL}/stalls`
-
-    const method =
-      editing.value
-        ? 'PUT'
-        : 'POST'
+        ? `/stalls/${editing.value}`
+        : '/stalls'
 
     const response =
-      await fetch(url, {
-
-        method,
-
-        headers: {
-          'Content-Type':
-            'application/json'
-        },
-
-        body:
-          JSON.stringify(payload)
-      })
-
-    if (!response.ok) {
-
-      throw new Error(
-        'Failed to save stall'
-      )
-    }
+      editing.value
+        ? await api.put(url, payload)
+        : await api.post(url, payload)
 
     // IMPORTANT:
     // get saved stall id
     const savedStall =
-      await response.json()
+      response.data
 
     // =========================
     // ASSIGN OCCUPANT
@@ -540,33 +562,10 @@ async function saveStall() {
 
     ) {
 
-      const allocateResponse =
-        await fetch(
-          `${API_URL}/occupants/allocate/${savedStall.id}`,
-
-          {
-            method: 'POST',
-
-            headers: {
-              'Content-Type':
-                'application/json'
-            },
-
-            body: JSON.stringify({
-
-              stakeholderId:
-                selectedStakeholder.value.id
-            })
-          }
-        )
-
-      if (!allocateResponse.ok) {
-
-        const errorText =
-          await allocateResponse.text()
-
-        throw new Error(errorText)
-      }
+      await api.post(`/occupants/allocate/${savedStall.id}`, {
+        stakeholderId:
+          selectedStakeholder.value.id
+      })
     }
 
     await loadStalls()
@@ -596,12 +595,21 @@ function formatCurrency(n) {
 }
 
 onMounted(async () => {
-  initializeMap()
+  try {
+    await initializeMap()
 
-  await Promise.all([
-    loadStalls(),
-    loadStakeholders()
-  ])
+    await Promise.all([
+      loadStalls(),
+      loadStakeholders()
+    ])
+  } catch (error) {
+    console.error(error)
+
+    alert(
+      error.message ||
+      'Failed to load Google Maps'
+    )
+  }
 })
 const filteredStakeholders = computed(() => {
   return stakeholders.value.filter((s) => {
@@ -623,6 +631,15 @@ function selectStakeholder(person) {
     `${person.firstName}
      ${person.lastName}`
 }
+
+onBeforeUnmount(() => {
+  mapClickListener?.remove()
+  markers.forEach((marker) => marker.setMap(null))
+  markers = []
+  infoWindow?.close()
+  delete window.previousStall
+  delete window.nextStall
+})
 </script>
 
 <style scoped>
