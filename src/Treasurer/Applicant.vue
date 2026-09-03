@@ -438,6 +438,38 @@ function paymentTooltip(item) {
 // VIEW MODAL
 // =========================
 function openModal(item) {
+  console.log('Applicant data:', JSON.parse(JSON.stringify(item)))
+
+  // If item already has a documents array, use it.
+  // Otherwise, build one from flat fileName fields the backend may return.
+  if (!item.documents || !item.documents.length) {
+    const docs = []
+    const fieldMap = [
+      { key: 'letterOfIntent', label: 'Letter of Intent' },
+      { key: 'validID', label: 'Valid ID' },
+      { key: 'postUpload1', label: 'Post-Contract Upload 1' },
+      { key: 'postUpload2', label: 'Post-Contract Upload 2' },
+      { key: 'applicationForm', label: 'Application Form' },
+      { key: 'avatar', label: 'Profile Photo' },
+    ]
+    for (const { key, label } of fieldMap) {
+      const fileName = item[key + 'FileName'] || item[key + 'File'] || item[key + 'Url']
+      if (fileName && typeof fileName === 'string' && fileName.trim() !== '') {
+        docs.push({ id: key, documentType: label, fileName })
+      }
+    }
+    // Also check for idFileName / letterFileName (from /applications endpoint)
+    if (item.idFileName && typeof item.idFileName === 'string') {
+      docs.push({ id: 'id', documentType: 'Valid ID', fileName: item.idFileName })
+    }
+    if (item.letterFileName && typeof item.letterFileName === 'string') {
+      docs.push({ id: 'letter', documentType: 'Letter of Intent', fileName: item.letterFileName })
+    }
+    if (docs.length) {
+      item.documents = docs
+    }
+  }
+
   selectedApplicant.value = item
   showModal.value = true
 }
