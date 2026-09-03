@@ -5,113 +5,60 @@
 
       <h2>Create Account</h2>
 
+      <p class="subtitle">Enter your credentials to create a new account.</p>
+
+      <!-- ERROR -->
+      <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
+
       <form @submit.prevent="createAccount">
 
-        <div class="row two">
+        <div class="field">
+          <label>Username</label>
+          <input
+            v-model="username"
+            type="text"
+            placeholder="Enter username"
+            required
+          />
+        </div>
 
-          <div class="field">
-            <label>Username</label>
+        <div class="field">
+          <label>Password</label>
+          <input
+            v-model="password"
+            type="password"
+            placeholder="Enter password"
+            required
+          />
+        </div>
 
-            <input
-              v-model="username"
-              type="text"
-              required
-            />
-          </div>
-
-          <div class="field">
-            <label>Password</label>
-
-            <input
-              v-model="password"
-              type="password"
-              required
-            />
-          </div>
-
+        <div class="field">
+          <label>Confirm Password</label>
+          <input
+            v-model="confirmPassword"
+            type="password"
+            placeholder="Re-enter password"
+            required
+          />
         </div>
 
         <div class="actions">
 
-          <router-link
-            to="/"
-            class="btn cancel"
-          >
+          <router-link to="/" class="btn cancel">
             Cancel
           </router-link>
 
           <button
             class="btn submit"
             type="submit"
+            :disabled="isLoading"
           >
-            Create Account
+            {{ isLoading ? 'Creating...' : 'Create Account' }}
           </button>
 
         </div>
 
       </form>
-    </div>
-
-    <!-- ========================= -->
-    <!-- ROLE POPUP -->
-    <!-- ========================= -->
-
-    <div
-      v-if="showRolePopup"
-      class="modal-overlay"
-    >
-      <div class="modal">
-
-        <h3>Select Role</h3>
-
-        <select v-model="selectedRole">
-
-          <option disabled value="">
-            Select Role
-          </option>
-
-          <option value="STAKEHOLDER">
-            STAKEHOLDER
-          </option>
-
-          <option value="TREASURER">
-            TREASURER
-          </option>
-
-          <option value="ENDORSING_OFFICE">
-            ENDORSING OFFICE
-          </option>
-
-          <option value="BPLO_OFFICE">
-            BPLO OFFICE
-          </option>
-
-
-          <option value="MARKETSUPERVISOR">
-            MARKET SUPERVISOR
-          </option>
-
-        </select>
-
-        <div class="modal-actions">
-
-          <button
-            class="btn cancel"
-            @click="closePopup"
-          >
-            Cancel
-          </button>
-
-          <button
-            class="btn submit"
-            @click="saveRole"
-          >
-            Save Role
-          </button>
-
-        </div>
-
-      </div>
     </div>
 
   </div>
@@ -124,102 +71,44 @@ import api from '../services/api'
 
 const router = useRouter()
 
-const username = ref('')
-const password = ref('')
-
-const showRolePopup = ref(false)
-const selectedRole = ref('')
-const createdUserId = ref(null)
+const username        = ref('')
+const password        = ref('')
+const confirmPassword = ref('')
+const errorMessage    = ref('')
+const isLoading       = ref(false)
 
 async function createAccount() {
+  errorMessage.value = ''
 
-  try {
-
-    const response =
-      await api.post('/auth/register', {
-        username:
-          username.value,
-
-        password:
-          password.value
-      })
-
-    const data =
-      response.data
-
-    // SAVE USER ID
-    createdUserId.value =
-      data.id
-
-    // OPEN ROLE POPUP
-    showRolePopup.value =
-      true
-
-  } catch (error) {
-
-    console.error(error)
-
-    alert(
-      error.message
-    )
+  // ── Client-side validation ────────────────────────────────────────────────
+  if (password.value !== confirmPassword.value) {
+    errorMessage.value = 'Passwords do not match.'
+    return
   }
-}
 
-// =========================
-// SAVE ROLE
-// =========================
+  if (password.value.length < 6) {
+    errorMessage.value = 'Password must be at least 6 characters.'
+    return
+  }
 
-async function saveRole() {
+  isLoading.value = true
 
   try {
-
-    if (!selectedRole.value) {
-
-      alert(
-        "Please select role"
-      )
-
-      return
-    }
-
-    await api.put(`/auth/update-role/${createdUserId.value}`, {
-      role:
-        selectedRole.value
+    // Register — backend sets role=STAKEHOLDER and status=ACTIVE automatically
+    await api.post('/auth/register', {
+      username: username.value,
+      password: password.value
     })
 
-    alert(
-      "Account created successfully!"
-    )
-
-    showRolePopup.value =
-      false
-
-    // =========================
-    // REDIRECT
-    // =========================
-
-    router.push(
-      "/login"
-    )
+    // Go straight to login — no role popup needed
+    router.push('/login')
 
   } catch (error) {
-
-    console.error(error)
-
-    alert(
-      error.message
-    )
+    errorMessage.value =
+      error.message || 'Failed to create account. Please try again.'
+  } finally {
+    isLoading.value = false
   }
-}
-
-// =========================
-// CLOSE POPUP
-// =========================
-
-function closePopup() {
-
-  showRolePopup.value =
-    false
 }
 </script>
 
@@ -229,95 +118,103 @@ function closePopup() {
   padding: 40px;
   background: #f5f7fb;
   min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .container {
-  max-width: 900px;
-  margin: auto;
+  width: min(100%, 460px);
   background: white;
   padding: 40px;
-  border-radius: 12px;
+  border-radius: 16px;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
 }
 
-.row.two {
-  display: flex;
-  gap: 20px;
+h2 {
+  margin: 0 0 6px;
+  font-size: 1.7rem;
+  color: #101828;
+}
+
+.subtitle {
+  margin: 0 0 28px;
+  color: #667085;
+  font-size: 0.92rem;
 }
 
 .field {
-  flex: 1;
-  margin-bottom: 20px;
+  margin-bottom: 18px;
 }
 
 .field label {
   display: block;
-  margin-bottom: 8px;
-  font-weight: bold;
+  margin-bottom: 6px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #344054;
 }
 
 .field input {
   width: 100%;
-  padding: 12px;
-  border-radius: 8px;
+  padding: 12px 14px;
+  border-radius: 10px;
   border: 1px solid #d1d5db;
+  font-size: 0.95rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  box-sizing: border-box;
+}
+
+.field input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.error {
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #fff1f2;
+  color: #be123c;
+  font-weight: 700;
+  font-size: 0.9rem;
 }
 
 .actions {
   display: flex;
   gap: 12px;
+  margin-top: 24px;
 }
 
 .btn {
   padding: 12px 20px;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .cancel {
   background: #e5e7eb;
+  color: #374151;
+  flex: 0 0 auto;
 }
 
 .submit {
-  background: #2563eb;
+  background: linear-gradient(135deg, #2563eb, #0f766e);
   color: white;
+  flex: 1;
 }
 
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,0,.4);
-
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.modal {
-  background: white;
-  width: 400px;
-  padding: 30px;
-  border-radius: 12px;
-}
-
-.modal h3 {
-  margin-bottom: 20px;
-}
-
-.modal select {
-  width: 100%;
-  padding: 12px;
-  border-radius: 8px;
-  margin-bottom: 20px;
-}
-
-.modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
+.submit:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
 </style>

@@ -1116,8 +1116,8 @@ const UsersView = defineComponent({
         h(Column, { header: 'Actions' }, { body: ({ data }) => h('div', { class: 'table-actions' }, [
           h(Button, { icon: 'pi pi-eye', text: true, rounded: true, onClick: () => emit('view', data), ariaLabel: 'View' }),
           h(Button, { icon: 'pi pi-pencil', text: true, rounded: true, onClick: () => emit('edit', data), ariaLabel: 'Edit' }),
-          h(Button, { icon: 'pi pi-check', text: true, rounded: true, severity: 'success', onClick: () => emit('activate', data), ariaLabel: 'Activate' }),
-          h(Button, { icon: 'pi pi-ban', text: true, rounded: true, severity: 'danger', onClick: () => emit('disable', data), ariaLabel: 'Disable' }),
+          data.status !== 'ACTIVE'   ? h(Button, { icon: 'pi pi-check', text: true, rounded: true, severity: 'success',   onClick: () => emit('activate', data), ariaLabel: 'Activate' }) : null,
+          data.status !== 'INACTIVE' ? h(Button, { icon: 'pi pi-ban',   text: true, rounded: true, severity: 'danger',    onClick: () => emit('disable',  data), ariaLabel: 'Disable'  }) : null,
           h(Button, { icon: 'pi pi-key', text: true, rounded: true, severity: 'secondary', onClick: () => emit('reset', data), ariaLabel: 'Reset Password' })
         ]) })
       ]
