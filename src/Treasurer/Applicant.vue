@@ -167,9 +167,81 @@
               </div>
             </div>
           </div>
+
+          <!-- SUBMITTED DOCUMENTS / IMAGES -->
+          <div class="mt-6 pt-6 border-t border-slate-200">
+            <h4 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">Submitted Documents</h4>
+            <div v-if="selectedApplicant.documents && selectedApplicant.documents.length" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div
+                v-for="doc in selectedApplicant.documents"
+                :key="doc.id"
+                class="group relative bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden cursor-pointer hover:shadow-md hover:border-indigo-200 transition-all"
+                @click="openImagePreview(doc)"
+              >
+                <div class="aspect-square bg-slate-100 flex items-center justify-center overflow-hidden">
+                  <img
+                    v-if="isImageFile(doc.fileName)"
+                    :src="getFileUrl(doc.fileName)"
+                    :alt="doc.documentType"
+                    class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    @error="handleImageError($event)"
+                  />
+                  <div v-else class="flex flex-col items-center gap-2 text-slate-400">
+                    <i class="pi pi-file text-3xl"></i>
+                    <span class="text-xs">{{ getFileExtension(doc.fileName) }}</span>
+                  </div>
+                </div>
+                <div class="p-2.5">
+                  <p class="text-xs font-semibold text-slate-700 truncate">{{ doc.documentType }}</p>
+                  <p class="text-[10px] text-slate-400 truncate mt-0.5">{{ doc.fileName }}</p>
+                </div>
+                <div class="absolute inset-0 bg-indigo-600/0 group-hover:bg-indigo-600/10 transition-colors flex items-center justify-center">
+                  <i class="pi pi-eye text-white text-xl opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg"></i>
+                </div>
+              </div>
+            </div>
+            <div v-else class="bg-white rounded-xl border border-slate-100 p-6 text-center">
+              <i class="pi pi-image text-3xl text-slate-300 mb-2"></i>
+              <p class="text-sm text-slate-400">No documents uploaded by this applicant.</p>
+            </div>
+          </div>
         </div>
         <template #footer>
           <Button label="Close" icon="pi pi-times" text @click="closeModal" class="text-slate-600" />
+        </template>
+      </Dialog>
+
+      <!-- IMAGE PREVIEW DIALOG -->
+      <Dialog v-model:visible="showImagePreview" modal :header="previewDoc?.documentType || 'Document Preview'" :style="{ width: '80vw', maxWidth: '900px' }" :breakpoints="{ '960px': '90vw', '641px': '98vw' }" class="modern-dialog">
+        <div v-if="previewDoc" class="flex flex-col items-center">
+          <div class="w-full bg-slate-100 rounded-xl overflow-hidden flex items-center justify-center min-h-[300px] max-h-[70vh]">
+            <img
+              v-if="isImageFile(previewDoc.fileName)"
+              :src="getFileUrl(previewDoc.fileName)"
+              :alt="previewDoc.documentType"
+              class="max-w-full max-h-[70vh] object-contain"
+              @error="handleImageError($event)"
+            />
+            <iframe
+              v-else-if="isPdfFile(previewDoc.fileName)"
+              :src="getFileUrl(previewDoc.fileName)"
+              class="w-full h-[70vh] border-0"
+            ></iframe>
+            <div v-else class="flex flex-col items-center gap-3 p-8 text-slate-400">
+              <i class="pi pi-file text-5xl"></i>
+              <p class="text-sm">This file type cannot be previewed inline.</p>
+            </div>
+          </div>
+          <div class="mt-4 flex items-center gap-3">
+            <a :href="getFileUrl(previewDoc.fileName)" target="_blank" class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-colors shadow-sm">
+              <i class="pi pi-external-link"></i>
+              Open in New Tab
+            </a>
+            <span class="text-xs text-slate-400">{{ previewDoc.fileName }}</span>
+          </div>
+        </div>
+        <template #footer>
+          <Button label="Close" icon="pi pi-times" text @click="showImagePreview = false" class="text-slate-600" />
         </template>
       </Dialog>
 
@@ -232,6 +304,7 @@
 <script setup>
 import { ref, onMounted, computed, onUnmounted } from 'vue'
 import api from '../services/api'
+import { API_ORIGIN } from '../config/apiConfig'
 import { FilterMatchMode } from '@primevue/core/api'
 import TreasurerMenu from '../components/TreasurerMenu.vue'
 import DataTable from 'primevue/datatable'
@@ -267,6 +340,10 @@ const selectedPaymentStakeholder = ref({})
 const receiptPreview = ref('')
 const isRecordingPayment = ref(false)
 const approvingId = ref(null)
+
+// IMAGE PREVIEW
+const showImagePreview = ref(false)
+const previewDoc = ref(null)
 
 // =========================
 // COMPUTED
@@ -368,6 +445,47 @@ function openModal(item) {
 function closeModal() {
   showModal.value = false
   selectedApplicant.value = {}
+}
+
+// =========================
+// IMAGE / DOCUMENT HELPERS
+// =========================
+function getFileUrl(fileName) {
+  if (!fileName) return ''
+  if (fileName.startsWith('http')) return fileName
+  return `${API_ORIGIN}/uploads/${fileName}`
+}
+
+function isImageFile(fileName) {
+  if (!fileName) return false
+  const ext = fileName.split('.').pop().toLowerCase()
+  return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(ext)
+}
+
+function isPdfFile(fileName) {
+  if (!fileName) return false
+  return fileName.split('.').pop().toLowerCase() === 'pdf'
+}
+
+function getFileExtension(fileName) {
+  if (!fileName) return ''
+  return '.' + fileName.split('.').pop().toUpperCase()
+}
+
+function openImagePreview(doc) {
+  previewDoc.value = doc
+  showImagePreview.value = true
+}
+
+function handleImageError(event) {
+  event.target.style.display = 'none'
+  const parent = event.target.parentElement
+  if (parent) {
+    const fallback = document.createElement('div')
+    fallback.className = 'flex flex-col items-center gap-2 text-slate-400 p-4'
+    fallback.innerHTML = '<i class="pi pi-image text-3xl"></i><span class="text-xs">Image unavailable</span>'
+    parent.appendChild(fallback)
+  }
 }
 
 // =========================
