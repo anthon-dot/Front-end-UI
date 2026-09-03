@@ -10,7 +10,7 @@ export async function getAdminUsers() {
 }
 
 export function createUser(payload) {
-  return api.post('/auth/register', payload)
+  return api.post('/admin/users', payload)
 }
 
 export function updateUser(id, payload) {
