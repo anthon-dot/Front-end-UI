@@ -179,13 +179,40 @@
                 @click="openImagePreview(doc)"
               >
                 <div class="aspect-square bg-slate-100 flex items-center justify-center overflow-hidden relative">
+                  <!-- Loading spinner -->
+                  <div v-if="loadingImages[doc.fileName]" class="flex flex-col items-center justify-center gap-1.5 text-indigo-500">
+                    <i class="pi pi-spin pi-spinner text-2xl"></i>
+                    <span class="text-[10px] text-slate-400">Loading...</span>
+                  </div>
+
+                  <!-- Image loaded via blob -->
                   <img
-                    v-if="isImageFile(doc.fileName)"
-                    :src="loadedImageUrls[doc.fileName] || getFileUrl(doc.fileName)"
+                    v-else-if="isImageFile(doc.fileName) && loadedImageUrls[doc.fileName]"
+                    :src="loadedImageUrls[doc.fileName]"
+                    :alt="doc.documentType"
+                    class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+
+                  <!-- Image failed (missing or error) -->
+                  <div
+                    v-else-if="isImageFile(doc.fileName) && imageFailed[doc.fileName]"
+                    class="flex flex-col items-center justify-center gap-1 text-slate-400 p-2 text-center w-full h-full"
+                  >
+                    <i class="pi pi-exclamation-triangle text-2xl text-amber-400"></i>
+                    <span class="text-xs font-semibold text-slate-600">File Not Found</span>
+                    <span class="text-[9px] text-slate-400 leading-tight">Storage reset or 404</span>
+                  </div>
+
+                  <!-- Direct URL image (for base64/external) -->
+                  <img
+                    v-else-if="isImageFile(doc.fileName)"
+                    :src="getFileUrl(doc.fileName)"
                     :alt="doc.documentType"
                     class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     @error="handleImageError($event, doc)"
                   />
+
+                  <!-- PDF / other document type -->
                   <div v-else class="flex flex-col items-center gap-2 text-slate-400">
                     <i class="pi pi-file text-3xl"></i>
                     <span class="text-xs">{{ getFileExtension(doc.fileName) }}</span>
@@ -347,6 +374,7 @@ const showImagePreview = ref(false)
 const previewDoc = ref(null)
 const loadedImageUrls = ref({})
 const loadingImages = ref({})
+const imageFailed = ref({})
 
 // =========================
 // COMPUTED
@@ -514,18 +542,31 @@ async function fetchImageBlob(fileName) {
   }
 
   loadingImages.value[fileName] = true
+  imageFailed.value[fileName] = false
+
   try {
     const token = localStorage.getItem(AUTH_TOKEN_KEY) || localStorage.getItem('token')
     const headers = token ? { Authorization: `Bearer ${token}` } : {}
-    const res = await fetch(url, { headers })
+
+    let res = await fetch(url, { headers })
+    if (!res.ok && !url.includes('/api/uploads/')) {
+      const altUrl = url.replace('/uploads/', '/api/uploads/')
+      try {
+        const altRes = await fetch(altUrl, { headers })
+        if (altRes.ok) res = altRes
+      } catch (ignored) {}
+    }
+
     if (res.ok) {
       const blob = await res.blob()
       loadedImageUrls.value[fileName] = URL.createObjectURL(blob)
     } else {
       console.warn(`[ImageLoad] Server returned ${res.status} for ${url}`)
+      imageFailed.value[fileName] = true
     }
   } catch (err) {
     console.warn(`[ImageLoad] Error fetching ${url}:`, err)
+    imageFailed.value[fileName] = true
   } finally {
     loadingImages.value[fileName] = false
   }
