@@ -20,7 +20,13 @@ const router = useRouter()
 function goHome() {
   const role = String(localStorage.getItem('role') || '').replace('ROLE_', '').toUpperCase()
 
-  if (role === 'TREASURER' || role === 'ADMIN') {
+  // ADMIN — must go to admin dashboard, not treasurer
+  if (role === 'ADMIN') {
+    router.push('/admin/dashboard')
+    return
+  }
+
+  if (role === 'TREASURER') {
     router.push('/treasurer')
     return
   }

@@ -114,9 +114,9 @@ async function onSubmit() {
   isLoading.value = true
 
   try {
-    // =====================
-    // LOGIN REQUEST
-    // =====================
+    // ─── 1. HTTP REQUEST ──────────────────────────────────────────────────────
+    console.log('[AUTH] Sending login request for username:', username.value)
+
     const loginResponse = await api.post('/auth/login', {
       username: username.value,
       password: password.value
@@ -124,86 +124,141 @@ async function onSubmit() {
 
     const data = loginResponse.data
 
-    console.log('LOGIN:', data)
-
-    // =====================
-    // SAVE SESSION
-    // =====================
-    authStore.setSession({
-      token: data.token,
-      role: data.role,
-      userId: data.userId || data.id,
-      user: data
+    // ─── 2. RESPONSE SHAPE ───────────────────────────────────────────────────
+    // Diagnose missing fields so you can tell backend vs. frontend problems.
+    console.log('[AUTH] Login response received:', {
+      hasToken:  Boolean(data.token),
+      hasRole:   Boolean(data.role),
+      rawRole:   data.role,
+      userId:    data.userId ?? data.id ?? '(missing)',
+      username:  data.username ?? '(missing)'
     })
 
+    if (!data.token) {
+      console.error('[AUTH] ❌ Backend did not return a token. Check /auth/login JWT generation.')
+    }
+    if (!data.role) {
+      console.error('[AUTH] ❌ Backend did not return a role. Check that the users table has a role column and AdminSeeder set it to ADMIN.')
+    }
+
+    // ─── 3. ROLE NORMALIZATION ────────────────────────────────────────────────
+    // Strip Spring Security "ROLE_" prefix, then apply aliases.
     const rawRole = String(data.role || '').replace('ROLE_', '').toUpperCase()
+
     const roleAliases = {
-      MARKETSUPERVISOR: 'MARKET_SUPERVISOR',
-      BPLO: 'BPLO_OFFICE',
-      BPLOOFFICE: 'BPLO_OFFICE',
-      ENDORSINGOFFICE: 'ENDORSING_OFFICE',
+      MARKETSUPERVISOR:  'MARKET_SUPERVISOR',
+      BPLO:              'BPLO_OFFICE',
+      BPLOOFFICE:        'BPLO_OFFICE',
+      ENDORSINGOFFICE:   'ENDORSING_OFFICE',
       ENDORSING_OFFICER: 'ENDORSING_OFFICE',
       ENDORISING_OFFICE: 'ENDORSING_OFFICE',
-      TENANT: 'STAKEHOLDER',
-      APPLICANT: 'STAKEHOLDER'
+      TENANT:            'STAKEHOLDER',
+      APPLICANT:         'STAKEHOLDER'
     }
+
     const role = roleAliases[rawRole] || rawRole
 
+    console.log('[AUTH] Role normalization:', {
+      backendRaw:   data.role,
+      strippedRaw:  rawRole,
+      normalizedTo: role
+    })
+
+    // ─── 4. SAVE SESSION ──────────────────────────────────────────────────────
+    authStore.setSession({
+      token:  data.token,
+      role:   data.role,         // store the raw value; the auth store normalizes on read
+      userId: data.userId || data.id,
+      user:   data
+    })
+
+    console.log('[AUTH] Session stored:', {
+      isAuthenticated:  authStore.isAuthenticated,
+      storedRole:       authStore.role,
+      normalizedRole:   authStore.normalizedRole,
+      resolvedUserId:   authStore.resolvedUserId,
+      tokenPresent:     Boolean(authStore.token)
+    })
+
+    // ─── 5. ROLE-BASED ROUTING ────────────────────────────────────────────────
+
+    // ADMIN
+    if (role === 'ADMIN') {
+      console.log('[AUTH] ✅ ADMIN detected — navigating to /admin/dashboard')
+      router.push('/admin/dashboard')
+      return
+    }
+
     // TREASURER
-if (role === 'TREASURER') {
-  router.push('/treasurer')
-  return
-}
+    if (role === 'TREASURER') {
+      console.log('[AUTH] ✅ TREASURER — navigating to /treasurer')
+      router.push('/treasurer')
+      return
+    }
 
-// BPLO OFFICE
-if (role === 'BPLO_OFFICE') {
-  router.push('/bplo')
-  return
-}
+    // BPLO OFFICE
+    if (role === 'BPLO_OFFICE') {
+      console.log('[AUTH] ✅ BPLO_OFFICE — navigating to /bplo')
+      router.push('/bplo')
+      return
+    }
 
-// ENDORSING OFFICE
-if (role === 'ENDORSING_OFFICE') {
-  router.push('/endorsing')
-  return
-}
+    // ENDORSING OFFICE
+    if (role === 'ENDORSING_OFFICE') {
+      console.log('[AUTH] ✅ ENDORSING_OFFICE — navigating to /endorsing')
+      router.push('/endorsing')
+      return
+    }
 
-// MARKET SUPERVISOR
-if (role === 'MARKET_SUPERVISOR') {
-  router.push('/supervisor')
-  return
-}
+    // MARKET SUPERVISOR
+    if (role === 'MARKET_SUPERVISOR') {
+      console.log('[AUTH] ✅ MARKET_SUPERVISOR — navigating to /supervisor')
+      router.push('/supervisor')
+      return
+    }
 
-   // =====================
-// STAKEHOLDER
-// =====================
-if (role === 'STAKEHOLDER') {
-  try {
-    const application = await getApplicationByUserId(data.userId || data.id)
-    router.push(getStakeholderRouteForApplication(application))
-    return
+    // STAKEHOLDER
+    if (role === 'STAKEHOLDER') {
+      console.log('[AUTH] ✅ STAKEHOLDER — fetching application status')
+      try {
+        const application = await getApplicationByUserId(data.userId || data.id)
+        const targetRoute = getStakeholderRouteForApplication(application)
+        console.log('[AUTH] Stakeholder application route:', targetRoute)
+        router.push(targetRoute)
+        return
+      } catch (error) {
+        console.error('[AUTH] ❌ Failed to load stakeholder application:', error)
+        errorMessage.value =
+          'Signed in, but the application status could not be loaded. Please try again.'
+        return
+      }
+    }
+
+    // UNKNOWN ROLE — should never reach here in production
+    console.error('[AUTH] ❌ Unknown role after normalization:', { rawRole, role })
+    errorMessage.value = 'Login failed: unrecognized role "' + role + '". Contact your administrator.'
 
   } catch (error) {
-    console.error(
-      'APPLICATION STATUS ERROR:',
-      error
-    )
+    // ─── 6. ERROR DIAGNOSIS ───────────────────────────────────────────────────
+    const status   = error.response?.status
+    const body     = error.response?.data
+    const message  = error.message
+
+    if (status === 401) {
+      console.error('[AUTH] ❌ 401 Unauthorized — wrong username or password, or user is disabled.')
+    } else if (status === 403) {
+      console.error('[AUTH] ❌ 403 Forbidden — account may be locked or backend CORS/security config issue.')
+    } else if (status === 500) {
+      console.error('[AUTH] ❌ 500 Server Error — check Render logs. Likely: DB connection failure, AdminSeeder crash, or JWT secret missing.', body)
+    } else if (!status) {
+      console.error('[AUTH] ❌ Network error — backend unreachable. Check Render service status and VITE_API_URL.')
+    } else {
+      console.error('[AUTH] ❌ Login error', { status, body, message })
+    }
 
     errorMessage.value =
-      'Signed in, but the application status could not be loaded. Please try again.'
-    return
-  }
-}
-
-    // =====================
-    // UNKNOWN ROLE
-    // =====================
-    errorMessage.value =
-      'Unknown role: ' + role
-  } catch (error) {
-    console.error('LOGIN ERROR:', error)
-
-    errorMessage.value =
-      error.message ||
+      (typeof body === 'string' ? body : body?.message) ||
+      message ||
       'Wrong username or password'
   } finally {
     isLoading.value = false
