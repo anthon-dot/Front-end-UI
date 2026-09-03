@@ -178,13 +178,13 @@
                 class="group relative bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden cursor-pointer hover:shadow-md hover:border-indigo-200 transition-all"
                 @click="openImagePreview(doc)"
               >
-                <div class="aspect-square bg-slate-100 flex items-center justify-center overflow-hidden">
+                <div class="aspect-square bg-slate-100 flex items-center justify-center overflow-hidden relative">
                   <img
                     v-if="isImageFile(doc.fileName)"
-                    :src="getFileUrl(doc.fileName)"
+                    :src="loadedImageUrls[doc.fileName] || getFileUrl(doc.fileName)"
                     :alt="doc.documentType"
                     class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    @error="handleImageError($event)"
+                    @error="handleImageError($event, doc)"
                   />
                   <div v-else class="flex flex-col items-center gap-2 text-slate-400">
                     <i class="pi pi-file text-3xl"></i>
@@ -217,14 +217,14 @@
           <div class="w-full bg-slate-100 rounded-xl overflow-hidden flex items-center justify-center min-h-[300px] max-h-[70vh]">
             <img
               v-if="isImageFile(previewDoc.fileName)"
-              :src="getFileUrl(previewDoc.fileName)"
+              :src="loadedImageUrls[previewDoc.fileName] || getFileUrl(previewDoc.fileName)"
               :alt="previewDoc.documentType"
               class="max-w-full max-h-[70vh] object-contain"
-              @error="handleImageError($event)"
+              @error="handleImageError($event, previewDoc)"
             />
             <iframe
               v-else-if="isPdfFile(previewDoc.fileName)"
-              :src="getFileUrl(previewDoc.fileName)"
+              :src="loadedImageUrls[previewDoc.fileName] || getFileUrl(previewDoc.fileName)"
               class="w-full h-[70vh] border-0"
             ></iframe>
             <div v-else class="flex flex-col items-center gap-3 p-8 text-slate-400">
@@ -305,6 +305,7 @@
 import { ref, onMounted, computed, onUnmounted } from 'vue'
 import api from '../services/api'
 import { API_ORIGIN } from '../config/apiConfig'
+import { AUTH_TOKEN_KEY } from '../stores/auth'
 import { FilterMatchMode } from '@primevue/core/api'
 import TreasurerMenu from '../components/TreasurerMenu.vue'
 import DataTable from 'primevue/datatable'
@@ -344,6 +345,8 @@ const approvingId = ref(null)
 // IMAGE PREVIEW
 const showImagePreview = ref(false)
 const previewDoc = ref(null)
+const loadedImageUrls = ref({})
+const loadingImages = ref({})
 
 // =========================
 // COMPUTED
@@ -470,6 +473,18 @@ function openModal(item) {
     }
   }
 
+  // Ensure documents have valid fileName and proactively fetch image blobs with authentication
+  if (item.documents && item.documents.length) {
+    for (const doc of item.documents) {
+      if (!doc.fileName && doc.filePath) {
+        doc.fileName = doc.filePath.split(/[/\\]/).pop()
+      }
+      if (doc.fileName && (isImageFile(doc.fileName) || isPdfFile(doc.fileName))) {
+        fetchImageBlob(doc.fileName)
+      }
+    }
+  }
+
   selectedApplicant.value = item
   showModal.value = true
 }
@@ -484,38 +499,78 @@ function closeModal() {
 // =========================
 function getFileUrl(fileName) {
   if (!fileName) return ''
-  if (fileName.startsWith('http')) return fileName
-  return `${API_ORIGIN}/uploads/${fileName}`
+  if (fileName.startsWith('data:') || fileName.startsWith('blob:')) return fileName
+  if (fileName.startsWith('http://') || fileName.startsWith('https://')) return fileName
+  const cleaned = fileName.replace(/^\/?(uploads\/)?/, '')
+  return `${API_ORIGIN}/uploads/${cleaned}`
+}
+
+async function fetchImageBlob(fileName) {
+  if (!fileName || loadedImageUrls.value[fileName]) return
+  const url = getFileUrl(fileName)
+  if (url.startsWith('data:') || url.startsWith('blob:')) {
+    loadedImageUrls.value[fileName] = url
+    return
+  }
+
+  loadingImages.value[fileName] = true
+  try {
+    const token = localStorage.getItem(AUTH_TOKEN_KEY) || localStorage.getItem('token')
+    const headers = token ? { Authorization: `Bearer ${token}` } : {}
+    const res = await fetch(url, { headers })
+    if (res.ok) {
+      const blob = await res.blob()
+      loadedImageUrls.value[fileName] = URL.createObjectURL(blob)
+    } else {
+      console.warn(`[ImageLoad] Server returned ${res.status} for ${url}`)
+    }
+  } catch (err) {
+    console.warn(`[ImageLoad] Error fetching ${url}:`, err)
+  } finally {
+    loadingImages.value[fileName] = false
+  }
 }
 
 function isImageFile(fileName) {
   if (!fileName) return false
-  const ext = fileName.split('.').pop().toLowerCase()
+  if (fileName.startsWith('data:image/')) return true
+  const ext = fileName.split(/[#?]/)[0].split('.').pop().toLowerCase()
   return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(ext)
 }
 
 function isPdfFile(fileName) {
   if (!fileName) return false
-  return fileName.split('.').pop().toLowerCase() === 'pdf'
+  if (fileName.startsWith('data:application/pdf')) return true
+  const ext = fileName.split(/[#?]/)[0].split('.').pop().toLowerCase()
+  return ext === 'pdf'
 }
 
 function getFileExtension(fileName) {
   if (!fileName) return ''
-  return '.' + fileName.split('.').pop().toUpperCase()
+  if (fileName.startsWith('data:image/')) return '.IMG'
+  if (fileName.startsWith('data:application/pdf')) return '.PDF'
+  return '.' + fileName.split(/[#?]/)[0].split('.').pop().toUpperCase()
 }
 
 function openImagePreview(doc) {
   previewDoc.value = doc
+  if (doc?.fileName && !loadedImageUrls.value[doc.fileName]) {
+    fetchImageBlob(doc.fileName)
+  }
   showImagePreview.value = true
 }
 
-function handleImageError(event) {
+function handleImageError(event, doc) {
   event.target.style.display = 'none'
   const parent = event.target.parentElement
-  if (parent) {
+  if (parent && !parent.querySelector('.img-fallback-box')) {
     const fallback = document.createElement('div')
-    fallback.className = 'flex flex-col items-center gap-2 text-slate-400 p-4'
-    fallback.innerHTML = '<i class="pi pi-image text-3xl"></i><span class="text-xs">Image unavailable</span>'
+    fallback.className = 'img-fallback-box flex flex-col items-center justify-center gap-1.5 text-slate-400 p-3 text-center w-full h-full'
+    fallback.innerHTML = `
+      <i class="pi pi-exclamation-triangle text-2xl text-amber-400"></i>
+      <span class="text-xs font-semibold text-slate-600">File Not Found</span>
+      <span class="text-[10px] text-slate-400 leading-tight">Server file is missing (404) or was wiped during server restart</span>
+    `
     parent.appendChild(fallback)
   }
 }
