@@ -154,14 +154,6 @@
           <InputText v-model="userDialog.form.username" :disabled="userDialog.mode === 'view'" />
         </label>
         <label>
-          Email
-          <InputText v-model="userDialog.form.email" :disabled="userDialog.mode === 'view'" />
-        </label>
-        <label>
-          Contact Number
-          <InputText v-model="userDialog.form.contact" :disabled="userDialog.mode === 'view'" />
-        </label>
-        <label>
           Role
           <Select
             v-model="userDialog.form.role"
@@ -423,7 +415,7 @@ const masterDialog = reactive({
 
 const q = computed(() => search.value.trim().toLowerCase())
 const filteredUsers = computed(() => {
-  return filterRows(state.users, ['name', 'username', 'email', 'role', 'status'])
+  return filterRows(state.users, ['name', 'username', 'role', 'status'])
     .filter((user) => roleFilter.value === 'All' || user.role === roleFilter.value)
     .filter((user) => statusFilter.value === 'All' || user.status === statusFilter.value)
     .filter((user) => withinDateRange(user.createdAt || user.createdDate))
@@ -498,7 +490,7 @@ function filterRows(rows, fields) {
 }
 
 function emptyUser() {
-  return { id: null, name: '', username: '', email: '', contact: '', role: 'ADMIN', password: '', confirmPassword: '', status: 'ACTIVE', createdAt: '', lastLogin: '', actionCount: 0 }
+  return { id: null, name: '', username: '', role: 'ADMIN', password: '', confirmPassword: '', status: 'ACTIVE', createdAt: '', lastLogin: '', actionCount: 0 }
 }
 
 function emptyStall() {
@@ -582,8 +574,6 @@ function mapUser(user) {
     ...user,
     name,
     username: user.username || user.userName || '',
-    email: user.email || '',
-    contact: user.contact || user.contactNo || user.phone || '',
     role: user.role || user.authority || user.userRole || 'UNASSIGNED',
     status: user.status || (user.enabled === false ? 'INACTIVE' : 'ACTIVE'),
     lastLogin: user.lastLogin || user.lastLoginAt || user.updatedAt || '',
@@ -1119,7 +1109,6 @@ const UsersView = defineComponent({
       default: () => [
         h(Column, { field: 'name', header: 'Full Name', sortable: true }),
         h(Column, { field: 'username', header: 'Username', sortable: true }),
-        h(Column, { field: 'email', header: 'Email', sortable: true }),
         h(Column, { field: 'role', header: 'Role', sortable: true }),
         h(Column, { field: 'status', header: 'Status' }, { body: ({ data }) => h(StatusTag, { value: data.status }) }),
         h(Column, { field: 'lastLogin', header: 'Last Login' }, { body: ({ data }) => formatDateTime(data.lastLogin) || 'Never' }),
