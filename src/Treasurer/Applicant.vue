@@ -15,7 +15,7 @@
             </span>
             Stakeholders
           </h2>
-        <p class="text-sm text-slate-500 mt-1">Applicants awaiting advance payment or business permit payment.</p>
+        <p class="text-sm text-slate-500 mt-1">Applicants awaiting approval.</p>
         </div>
         <div class="flex items-center gap-3">
           <span class="p-input-icon-left w-full md:w-80 shadow-sm rounded-lg overflow-hidden border border-slate-200">
@@ -92,13 +92,13 @@
               <div class="flex items-center gap-2">
                 <Button icon="pi pi-eye" text rounded severity="secondary" @click="openModal(data)" v-tooltip="'View Details'" />
                 <Button
-                  v-if="canRecordPayment(data)"
+                  v-if="canApprove(data)"
                   icon="pi pi-check"
                   rounded
                   severity="success"
                   :loading="approvingId === data.id"
-                  @click="openPaymentModal(data)"
-                  v-tooltip="paymentTooltip(data)"
+                  @click="approveApplicant(data)"
+                  v-tooltip="'Approve Stakeholder'"
                   class="!p-2"
                 />
                 <Button
@@ -272,57 +272,7 @@
         </template>
       </Dialog>
 
-      <!-- PAYMENT MODAL -->
-      <Dialog v-model:visible="showPaymentModal" modal :header="paymentModalTitle" :style="{ width: '400px' }" class="modern-dialog">
-        <div v-if="selectedPaymentStakeholder.id" class="pt-2">
-          
-          <div class="mb-5 flex justify-between items-center text-sm">
-            <span class="text-slate-500 font-medium">Receipt No:</span>
-            <span class="font-mono font-bold text-slate-800 bg-slate-100 px-2 py-1 rounded">{{ receiptPreview }}</span>
-          </div>
-
-          <div class="bg-indigo-50/50 rounded-xl p-4 border border-indigo-100 mb-6">
-            <h4 class="font-bold text-indigo-900 mb-1">{{ selectedPaymentStakeholder.lastName }}, {{ selectedPaymentStakeholder.firstName }}</h4>
-            <p class="text-indigo-600/80 text-sm font-medium">{{ selectedPaymentStakeholder.businessName }}</p>
-          </div>
-
-          <div class="space-y-4">
-            <div class="flex flex-col gap-2">
-              <label class="text-sm font-bold text-slate-700">{{ totalAmountLabel }}</label>
-              <InputNumber v-model="totalAdvanceAmount" inputId="total" mode="currency" currency="PHP" locale="en-PH" class="w-full" />
-            </div>
-
-            <div v-if="!isBusinessPermitMode" class="bg-slate-50 rounded-xl p-4 border border-slate-100 space-y-3">
-              <div class="flex justify-between text-sm">
-                <span class="text-slate-500">Current Balance</span>
-                <strong class="text-slate-800">₱{{ Number(selectedPaymentStakeholder.advanceBalance || 0).toLocaleString() }}</strong>
-              </div>
-              <div class="flex justify-between text-sm border-t border-slate-200 pt-3">
-                <span class="text-slate-500 font-medium">Remaining Needed</span>
-                <strong :class="remainingRequiredBalance > 0 ? 'text-rose-600' : 'text-emerald-600'">
-                  ₱{{ remainingRequiredBalance.toLocaleString() }}
-                </strong>
-              </div>
-              <div v-if="excessPayment > 0" class="flex justify-between text-sm border-t border-emerald-100 pt-3">
-                <span class="text-emerald-600 font-medium">Excess Payment</span>
-                <strong class="text-emerald-600">₱{{ excessPayment.toLocaleString() }}</strong>
-              </div>
-            </div>
-
-            <div class="flex flex-col gap-2">
-              <label class="text-sm font-bold text-slate-700">Payment Amount</label>
-              <InputNumber v-model="paymentAmount" inputId="payment" mode="currency" currency="PHP" locale="en-PH" class="w-full font-bold" />
-            </div>
-          </div>
-        </div>
-
-        <template #footer>
-          <div class="flex justify-end gap-2 pt-4">
-            <Button label="Cancel" icon="pi pi-times" text @click="closePaymentModal" class="text-slate-600" />
-            <Button :label="confirmPaymentLabel" icon="pi pi-check" @click="recordPayment" :loading="isRecordingPayment" severity="success" class="shadow-sm" />
-          </div>
-        </template>
-      </Dialog>
+      
 
     </main>
   </div>
@@ -341,7 +291,6 @@ import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import Tag from 'primevue/tag'
 import InputText from 'primevue/inputtext'
-import InputNumber from 'primevue/inputnumber'
 import { useToast } from "primevue/usetoast"
 
 const toast = useToast()
@@ -359,14 +308,7 @@ const filters = ref({
 const showModal = ref(false)
 const selectedApplicant = ref({})
 
-const totalAdvanceAmount = ref(null)
-const paymentAmount = ref(null)
 
-// PAYMENT MODAL
-const showPaymentModal = ref(false)
-const selectedPaymentStakeholder = ref({})
-const receiptPreview = ref('')
-const isRecordingPayment = ref(false)
 const approvingId = ref(null)
 
 // IMAGE PREVIEW
@@ -376,38 +318,7 @@ const loadedImageUrls = ref({})
 const loadingImages = ref({})
 const imageFailed = ref({})
 
-// =========================
-// COMPUTED
-// =========================
-const remainingRequiredBalance = computed(() => {
-  const currentBalance = Number(selectedPaymentStakeholder.value.advanceBalance || 0)
-  const requiredAmount = Number(totalAdvanceAmount.value || 0)
-  return Math.max(requiredAmount - currentBalance, 0)
-})
 
-const excessPayment = computed(() => {
-  const currentBalance = Number(selectedPaymentStakeholder.value.advanceBalance || 0)
-  const payment = Number(paymentAmount.value || 0)
-  const requiredAmount = Number(totalAdvanceAmount.value || 0)
-  const totalAfterPayment = currentBalance + payment
-  return totalAfterPayment > requiredAmount ? totalAfterPayment - requiredAmount : 0
-})
-
-const isBusinessPermitMode = computed(() => {
-  return selectedPaymentStakeholder.value.applicationStatus === 'PENDING_BUSINESS_PERMIT_PAYMENT'
-})
-
-const paymentModalTitle = computed(() => {
-  return isBusinessPermitMode.value ? 'Record Business Permit Payment' : 'Record Advance Payment'
-})
-
-const totalAmountLabel = computed(() => {
-  return isBusinessPermitMode.value ? 'Business Permit Amount' : 'Total Advance Amount Required'
-})
-
-const confirmPaymentLabel = computed(() => {
-  return isBusinessPermitMode.value ? 'Confirm Business Permit Payment' : 'Confirm Advance Payment'
-})
 
 // =========================
 // LIFECYCLE
@@ -451,18 +362,8 @@ function isAdvancePaid(item) {
     )
 }
 
-function isAwaitingBusinessPermitPayment(item) {
-  return item.applicationStatus === 'PENDING_BUSINESS_PERMIT_PAYMENT'
-}
-
-function canRecordPayment(item) {
-  return !isAdvancePaid(item) || isAwaitingBusinessPermitPayment(item)
-}
-
-function paymentTooltip(item) {
-  return isAwaitingBusinessPermitPayment(item)
-    ? 'Record Business Permit Payment'
-    : 'Approve and Record Advance Payment'
+function canApprove(item) {
+  return !item.treasurerApproved || item.applicationStatus === 'PENDING_TREASURER_APPROVAL' || item.onboardingStatus === 'FOR_APPROVAL'
 }
 
 // =========================
@@ -616,72 +517,19 @@ function handleImageError(event, doc) {
   }
 }
 
-// =========================
-// PAYMENT MODAL
-// =========================
-function openPaymentModal(item) {
-  selectedPaymentStakeholder.value = item
-  paymentAmount.value = null
-  totalAdvanceAmount.value = isAwaitingBusinessPermitPayment(item)
-    ? null
-    : item.totalAdvanceAmount ? Number(item.totalAdvanceAmount) : null
-  receiptPreview.value = (isAwaitingBusinessPermitPayment(item) ? 'BPL-' : 'ADV-') + Date.now()
-  showPaymentModal.value = true
-}
-
-function closePaymentModal() {
-  showPaymentModal.value = false
-  selectedPaymentStakeholder.value = {}
-  paymentAmount.value = null
-  totalAdvanceAmount.value = null
-}
-
-// =========================
-// RECORD PAYMENT
-// =========================
-async function recordPayment() {
-  isRecordingPayment.value = true
-
-  try {
-    if (!paymentAmount.value || Number(paymentAmount.value) <= 0) {
-      alert('Please enter valid payment amount')
-      return
-    }
-
-    if (!isBusinessPermitMode.value && (!totalAdvanceAmount.value || Number(totalAdvanceAmount.value) <= 0)) {
-      alert('Please enter total advance amount')
-      return
-    }
-
-    const paymentData = {
-      amount: Number(paymentAmount.value),
-      referenceNo: receiptPreview.value
-    }
-
-    if (isBusinessPermitMode.value) {
-      await api.post(`/stakeholders/${selectedPaymentStakeholder.value.id}/applicant-fee`, paymentData)
-      alert('Business permit payment recorded successfully')
-    } else {
-      paymentData.totalAdvanceAmount = Number(totalAdvanceAmount.value)
-      await api.post(`/stakeholders/${selectedPaymentStakeholder.value.id}/treasurer-approve`, paymentData)
-      alert('Treasurer approval and advance payment recorded successfully')
-    }
-
-    closePaymentModal()
-    await fetchStakeholders()
-  } catch (error) {
-    console.error(error)
-    alert(error.message || 'Failed to record payment')
-  } finally {
-    isRecordingPayment.value = false
-  }
-}
-
 async function approveApplicant(item) {
+  if (!confirm(`Are you sure you want to approve ${item.firstName || ''} ${item.lastName || ''}?`)) {
+    return
+  }
+
   approvingId.value = item.id
 
   try {
-    await api.put(`/stakeholders/${item.id}/approve`)
+    if (item.applicationStatus === 'PENDING_TREASURER_APPROVAL' || !item.treasurerApproved) {
+      await api.post(`/stakeholders/${item.id}/treasurer-approve`, {})
+    } else {
+      await api.put(`/stakeholders/${item.id}/approve`)
+    }
     await fetchStakeholders()
     alert('Applicant approved successfully.')
   } catch (error) {

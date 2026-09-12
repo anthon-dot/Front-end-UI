@@ -98,128 +98,316 @@
         </DataTable>
       </div>
 
-      <!-- RECORD PAYMENT MODAL -->
-      <Dialog v-model:visible="showModal" modal header="Record Payment" :style="{ width: '50vw' }" :breakpoints="{ '960px': '75vw', '641px': '95vw' }" class="modern-dialog">
-        <p class="text-slate-500 mb-6 text-sm">Search and select a stakeholder, then enter payment details.</p>
+      <!-- RECORD PAYMENT MODAL: 3 SEPARATED COLUMNS -->
+      <Dialog v-model:visible="showModal" modal header="Record Payment" 
+              :style="{ width: '88vw', maxWidth: '1350px' }" 
+              :breakpoints="{ '1200px': '92vw', '960px': '96vw', '640px': '98vw' }" 
+              class="modern-dialog">
+        <p class="text-slate-500 mb-6 text-sm">Select a stakeholder from the appropriate payment category column below to record their payment.</p>
         
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- 3 SEPARATED COLUMNS -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
           
-          <!-- LEFT SIDE: Stakeholder Selection -->
-          <div class="space-y-4 relative">
-            <div>
-              <label class="block text-sm font-bold text-slate-700 mb-1">Search Stakeholder</label>
+          <!-- COLUMN 1: ADVANCE PAYMENT -->
+          <div class="rounded-2xl border transition-all p-4 bg-white shadow-sm flex flex-col h-[430px]"
+               :class="selectedPaymentType === 'ADVANCE_PAYMENT' ? 'border-indigo-500 ring-2 ring-indigo-100' : 'border-slate-200 hover:border-indigo-200'">
+            <!-- Column Header -->
+            <div class="flex items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-100">
+              <div class="flex items-center gap-2.5">
+                <span class="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                  <i class="pi pi-shield text-lg"></i>
+                </span>
+                <div>
+                  <h3 class="font-bold text-slate-800 text-sm">Advance Payment</h3>
+                  <p class="text-[11px] text-slate-400">Initial advance deposit</p>
+                </div>
+              </div>
+              <Tag :value="advancePaymentStakeholders.length + ' Pending'" 
+                   :severity="advancePaymentStakeholders.length ? 'info' : 'secondary'" 
+                   rounded class="!text-xs font-bold" />
+            </div>
+
+            <!-- Search input -->
+            <div class="mb-3">
               <span class="p-input-icon-left w-full">
-                <i class="pi pi-search text-slate-400"></i>
-                <InputText v-model="searchStakeholder" placeholder="Enter name or business..." class="w-full pl-10 bg-slate-50" />
+                <i class="pi pi-search text-slate-400 text-xs"></i>
+                <InputText v-model="searchAdvance" placeholder="Search advance applicants..." class="w-full pl-8 py-2 text-xs bg-slate-50 border-slate-200 rounded-lg" />
               </span>
             </div>
 
-            <!-- Search Results Dropdown -->
-            <div v-if="searchStakeholder.trim().length && !selectedStakeholder" class="absolute z-10 w-full bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto mt-1">
-              <div v-for="s in filteredStakeholders" :key="s.id" 
-                   class="flex items-center gap-3 p-3 hover:bg-indigo-50 cursor-pointer border-b border-slate-50 last:border-0"
-                   @click="selectStakeholder(s)">
-                <div class="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm flex-shrink-0">
-                  {{ initials(s.firstName, s.lastName) }}
+            <!-- Stakeholder list -->
+            <div class="flex-1 overflow-y-auto space-y-2 pr-1 custom-scroll">
+              <div v-for="s in advancePaymentStakeholders" :key="s.id"
+                   @click="selectStakeholderForType(s, 'ADVANCE_PAYMENT')"
+                   class="p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between"
+                   :class="selectedStakeholder?.id === s.id && selectedPaymentType === 'ADVANCE_PAYMENT'
+                           ? 'bg-indigo-50 border-indigo-400 shadow-sm'
+                           : 'bg-slate-50/50 border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/30'">
+                <div class="flex items-center gap-2.5 min-w-0">
+                  <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 font-bold text-xs flex items-center justify-center flex-shrink-0">
+                    {{ initials(s.firstName, s.lastName) }}
+                  </div>
+                  <div class="min-w-0">
+                    <div class="font-bold text-xs text-slate-800 truncate">{{ s.firstName }} {{ s.lastName }}</div>
+                    <div class="text-[11px] text-slate-500 truncate">{{ s.businessName || 'Applicant' }}</div>
+                  </div>
                 </div>
-                <div>
-                  <div class="font-bold text-slate-800 text-sm">{{ s.firstName }} {{ s.lastName }}</div>
-                  <div class="text-xs text-slate-500 truncate">{{ s.businessName }}</div>
+                <div class="text-right flex-shrink-0 ml-2">
+                  <div class="text-[10px] uppercase font-bold text-slate-400">Bal / Req</div>
+                  <div class="text-xs font-bold text-indigo-600">
+                    ₱{{ Number(s.advanceBalance || 0).toLocaleString() }} / ₱{{ Number(s.totalAdvanceAmount || 0).toLocaleString() }}
+                  </div>
                 </div>
               </div>
-              <div v-if="filteredStakeholders.length === 0" class="p-4 text-center text-slate-500 text-sm">
-                No matching stakeholders found.
-              </div>
-            </div>
 
-            <!-- Selected Stakeholder Card -->
-            <div v-if="selectedStakeholder" class="bg-indigo-50/50 rounded-xl p-4 border border-indigo-100">
-              <div class="flex items-center gap-3 mb-4 pb-4 border-b border-indigo-100/50">
-                <div class="w-12 h-12 rounded-full bg-indigo-200 text-indigo-700 flex items-center justify-center font-black shadow-sm">
-                  {{ initials(selectedStakeholder.firstName, selectedStakeholder.lastName) }}
-                </div>
-                <div>
-                  <h3 class="font-bold text-slate-800">{{ selectedStakeholder.firstName }} {{ selectedStakeholder.lastName }}</h3>
-                  <p class="text-sm text-slate-600">{{ selectedStakeholder.businessName }}</p>
-                </div>
-                <Button icon="pi pi-times" text rounded severity="secondary" size="small" @click="resetStakeholder" class="ml-auto !p-1 w-8 h-8 text-slate-400" v-tooltip="'Clear Selection'" />
-              </div>
-              
-              <div class="grid grid-cols-2 gap-4">
-                <div>
-                  <span class="block text-xs font-semibold text-indigo-400 uppercase">Stall</span>
-                  <strong class="text-sm text-indigo-900">{{ selectedStakeholder?.occupant?.stall?.stallNo || 'No Stall' }}</strong>
-                </div>
-                <div>
-                  <span class="block text-xs font-semibold text-indigo-400 uppercase">Advance Bal</span>
-                  <strong class="text-sm text-indigo-900">₱{{ Number(selectedStakeholder?.advanceBalance || 0).toLocaleString() }}</strong>
-                </div>
+              <div v-if="advancePaymentStakeholders.length === 0" class="text-center py-12 text-slate-400">
+                <i class="pi pi-check-circle text-2xl text-emerald-400 mb-1 block"></i>
+                <p class="text-xs font-medium">No applicants awaiting advance payment.</p>
+                <p class="text-[10px] text-slate-400 mt-0.5">Finished stakeholders are excluded.</p>
               </div>
             </div>
           </div>
 
-          <!-- RIGHT SIDE: Payment Details -->
-          <div class="space-y-4 border-t md:border-t-0 md:border-l border-slate-100 pt-6 md:pt-0 md:pl-6">
+          <!-- COLUMN 2: APPLICATION FORM -->
+          <div class="rounded-2xl border transition-all p-4 bg-white shadow-sm flex flex-col h-[430px]"
+               :class="selectedPaymentType === 'APPLICATION_FORM' ? 'border-amber-500 ring-2 ring-amber-100' : 'border-slate-200 hover:border-amber-200'">
+            <!-- Column Header -->
+            <div class="flex items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-100">
+              <div class="flex items-center gap-2.5">
+                <span class="p-2 bg-amber-50 text-amber-600 rounded-xl">
+                  <i class="pi pi-file-edit text-lg"></i>
+                </span>
+                <div>
+                  <h3 class="font-bold text-slate-800 text-sm">Application Form</h3>
+                  <p class="text-[11px] text-slate-400">Application & permit fee</p>
+                </div>
+              </div>
+              <Tag :value="appFormStakeholders.length + ' Pending'" 
+                   :severity="appFormStakeholders.length ? 'warn' : 'secondary'" 
+                   rounded class="!text-xs font-bold" />
+            </div>
+
+            <!-- Search input -->
+            <div class="mb-3">
+              <span class="p-input-icon-left w-full">
+                <i class="pi pi-search text-slate-400 text-xs"></i>
+                <InputText v-model="searchAppForm" placeholder="Search application applicants..." class="w-full pl-8 py-2 text-xs bg-slate-50 border-slate-200 rounded-lg" />
+              </span>
+            </div>
+
+            <!-- Stakeholder list -->
+            <div class="flex-1 overflow-y-auto space-y-2 pr-1 custom-scroll">
+              <div v-for="s in appFormStakeholders" :key="s.id"
+                   @click="selectStakeholderForType(s, 'APPLICATION_FORM')"
+                   class="p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between"
+                   :class="selectedStakeholder?.id === s.id && selectedPaymentType === 'APPLICATION_FORM'
+                           ? 'bg-amber-50 border-amber-400 shadow-sm'
+                           : 'bg-slate-50/50 border-slate-100 hover:border-amber-200 hover:bg-amber-50/30'">
+                <div class="flex items-center gap-2.5 min-w-0">
+                  <div class="w-8 h-8 rounded-full bg-amber-100 text-amber-700 font-bold text-xs flex items-center justify-center flex-shrink-0">
+                    {{ initials(s.firstName, s.lastName) }}
+                  </div>
+                  <div class="min-w-0">
+                    <div class="font-bold text-xs text-slate-800 truncate">{{ s.firstName }} {{ s.lastName }}</div>
+                    <div class="text-[11px] text-slate-500 truncate">{{ s.businessName || s.businessType || 'Applicant' }}</div>
+                  </div>
+                </div>
+                <div class="text-right flex-shrink-0 ml-2">
+                  <Tag value="FEE UNPAID" severity="danger" class="!text-[10px] !py-0.5 !px-2 font-bold" rounded />
+                </div>
+              </div>
+
+              <div v-if="appFormStakeholders.length === 0" class="text-center py-12 text-slate-400">
+                <i class="pi pi-check-circle text-2xl text-emerald-400 mb-1 block"></i>
+                <p class="text-xs font-medium">No applicants awaiting application fee.</p>
+                <p class="text-[10px] text-slate-400 mt-0.5">Paid applicants are excluded.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- COLUMN 3: RENT PAYMENT -->
+          <div class="rounded-2xl border transition-all p-4 bg-white shadow-sm flex flex-col h-[430px]"
+               :class="selectedPaymentType === 'RENT_PAYMENT' ? 'border-emerald-500 ring-2 ring-emerald-100' : 'border-slate-200 hover:border-emerald-200'">
+            <!-- Column Header -->
+            <div class="flex items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-100">
+              <div class="flex items-center gap-2.5">
+                <span class="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
+                  <i class="pi pi-home text-lg"></i>
+                </span>
+                <div>
+                  <h3 class="font-bold text-slate-800 text-sm">Rent Payment</h3>
+                  <p class="text-[11px] text-slate-400">Monthly stall rentals</p>
+                </div>
+              </div>
+              <Tag :value="rentPaymentStakeholders.length + ' Unpaid'" 
+                   :severity="rentPaymentStakeholders.length ? 'danger' : 'secondary'" 
+                   rounded class="!text-xs font-bold" />
+            </div>
+
+            <!-- Search input -->
+            <div class="mb-3">
+              <span class="p-input-icon-left w-full">
+                <i class="pi pi-search text-slate-400 text-xs"></i>
+                <InputText v-model="searchRent" placeholder="Search rent tenants..." class="w-full pl-8 py-2 text-xs bg-slate-50 border-slate-200 rounded-lg" />
+              </span>
+            </div>
+
+            <!-- Stakeholder list -->
+            <div class="flex-1 overflow-y-auto space-y-2 pr-1 custom-scroll">
+              <div v-for="s in rentPaymentStakeholders" :key="s.id"
+                   @click="selectStakeholderForType(s, 'RENT_PAYMENT')"
+                   class="p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between"
+                   :class="selectedStakeholder?.id === s.id && selectedPaymentType === 'RENT_PAYMENT'
+                           ? 'bg-emerald-50 border-emerald-400 shadow-sm'
+                           : 'bg-slate-50/50 border-slate-100 hover:border-emerald-200 hover:bg-emerald-50/30'">
+                <div class="flex items-center gap-2.5 min-w-0">
+                  <div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 font-bold text-xs flex items-center justify-center flex-shrink-0">
+                    {{ initials(s.firstName, s.lastName) }}
+                  </div>
+                  <div class="min-w-0">
+                    <div class="font-bold text-xs text-slate-800 truncate">{{ s.firstName }} {{ s.lastName }}</div>
+                    <div class="text-[11px] text-slate-500 truncate">Stall: {{ s.occupant?.stall?.stallNo || 'Occupied' }}</div>
+                  </div>
+                </div>
+                <div class="text-right flex-shrink-0 ml-2">
+                  <div class="text-[10px] uppercase font-bold text-slate-400">Total Due</div>
+                  <div class="text-xs font-black text-rose-600">₱{{ getTotalUnpaidAmount(s).toLocaleString() }}</div>
+                </div>
+              </div>
+
+              <div v-if="rentPaymentStakeholders.length === 0" class="text-center py-12 text-slate-400">
+                <i class="pi pi-check-circle text-2xl text-emerald-400 mb-1 block"></i>
+                <p class="text-xs font-medium">No tenants with unpaid rent.</p>
+                <p class="text-[10px] text-slate-400 mt-0.5">Tenants with no unpaid bills are excluded.</p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- PAYMENT DETAILS ENTRY FOR SELECTED STAKEHOLDER -->
+        <div v-if="selectedStakeholder && selectedPaymentType" 
+             class="rounded-2xl border p-5 transition-all"
+             :class="{
+               'bg-indigo-50/40 border-indigo-200': selectedPaymentType === 'ADVANCE_PAYMENT',
+               'bg-amber-50/40 border-amber-200': selectedPaymentType === 'APPLICATION_FORM',
+               'bg-emerald-50/40 border-emerald-200': selectedPaymentType === 'RENT_PAYMENT'
+             }">
+          
+          <!-- Selected Header Bar -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-slate-200">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shadow-sm"
+                   :class="{
+                     'bg-indigo-600 text-white': selectedPaymentType === 'ADVANCE_PAYMENT',
+                     'bg-amber-600 text-white': selectedPaymentType === 'APPLICATION_FORM',
+                     'bg-emerald-600 text-white': selectedPaymentType === 'RENT_PAYMENT'
+                   }">
+                {{ initials(selectedStakeholder.firstName, selectedStakeholder.lastName) }}
+              </div>
+              <div>
+                <div class="flex items-center gap-2">
+                  <h4 class="font-extrabold text-slate-900 text-sm sm:text-base">
+                    {{ selectedStakeholder.firstName }} {{ selectedStakeholder.lastName }}
+                  </h4>
+                  <Tag :value="formatType(selectedPaymentType)" 
+                       :severity="selectedPaymentType === 'ADVANCE_PAYMENT' ? 'info' : (selectedPaymentType === 'APPLICATION_FORM' ? 'warn' : 'success')" 
+                       rounded class="!text-[11px] font-bold" />
+                </div>
+                <p class="text-xs text-slate-500">
+                  {{ selectedStakeholder.businessName }} 
+                  <span v-if="selectedStakeholder.occupant?.stall?.stallNo"> • Stall {{ selectedStakeholder.occupant.stall.stallNo }}</span>
+                </p>
+              </div>
+            </div>
+
+            <Button icon="pi pi-times" text rounded severity="secondary" size="small" @click="resetSelection" v-tooltip="'Deselect'" class="!p-1 text-slate-400 self-end sm:self-auto" />
+          </div>
+
+          <!-- INPUT FORM FIELDS PER PAYMENT TYPE -->
+          <div class="space-y-4">
             
-            <div class="flex flex-col gap-1">
-              <label class="text-sm font-bold text-slate-700">Payment Type</label>
-              <Select v-model="form.paymentType" :options="paymentTypeOptions" optionLabel="label" optionValue="value" placeholder="Select payment type" class="w-full bg-slate-50" />
+            <!-- ADVANCE PAYMENT SPECIFIC FIELDS -->
+            <div v-if="selectedPaymentType === 'ADVANCE_PAYMENT'" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div class="flex flex-col gap-1.5">
+                <label class="text-xs font-bold text-slate-700">Total Required Advance</label>
+                <InputNumber v-model="form.totalAdvanceAmount" inputId="totalAdvance" mode="currency" currency="PHP" locale="en-PH" class="w-full" />
+              </div>
+
+              <div class="flex flex-col gap-1.5">
+                <label class="text-xs font-bold text-slate-700">Payment Amount</label>
+                <InputNumber v-model="form.amount" inputId="amount" mode="currency" currency="PHP" locale="en-PH" class="w-full font-bold" />
+              </div>
+
+              <div class="flex flex-col gap-1.5">
+                <label class="text-xs font-bold text-slate-700">Reference No (Optional)</label>
+                <InputText v-model="form.referenceNo" placeholder="Receipt / Ref #" class="w-full bg-white" />
+              </div>
             </div>
 
-            <!-- Rent Payment: Billings List -->
-            <div v-if="form.paymentType === 'RENT_PAYMENT'" class="mt-4">
-              <label class="block text-sm font-bold text-slate-700 mb-2">Select Billing Reference</label>
-              <div v-if="stakeholderBillings.length" class="space-y-2 max-h-48 overflow-y-auto pr-1">
-                <div v-for="b in stakeholderBillings" :key="b.id"
-                     class="flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors"
-                     :class="selectedBillingId === b.id ? 'bg-blue-50 border-blue-200' : 'bg-white border-slate-200 hover:border-blue-300'"
-                     @click="selectedBillingId = b.id">
-                  <div>
-                    <div class="font-bold text-sm text-slate-800">{{ b.billingNo }}</div>
-                    <div class="text-xs text-slate-500">Due: {{ formatDate(b.dueDate) }}</div>
-                  </div>
-                  <div class="text-right">
-                    <div class="font-bold text-rose-600">₱{{ Number(b.balance || 0).toLocaleString() }}</div>
-                    <div class="text-[10px] uppercase font-bold text-slate-400">{{ b.status }}</div>
+            <!-- APPLICATION FORM SPECIFIC FIELDS -->
+            <div v-else-if="selectedPaymentType === 'APPLICATION_FORM'" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div class="flex flex-col gap-1.5">
+                <label class="text-xs font-bold text-slate-700">Application Fee Amount</label>
+                <InputNumber v-model="form.amount" inputId="appAmount" mode="currency" currency="PHP" locale="en-PH" class="w-full font-bold" />
+              </div>
+
+              <div class="flex flex-col gap-1.5">
+                <label class="text-xs font-bold text-slate-700">Reference No (Optional)</label>
+                <InputText v-model="form.referenceNo" placeholder="Receipt / Ref #" class="w-full bg-white" />
+              </div>
+            </div>
+
+            <!-- RENT PAYMENT SPECIFIC FIELDS -->
+            <div v-else-if="selectedPaymentType === 'RENT_PAYMENT'" class="space-y-4">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-2">Select Billing Reference to Pay</label>
+                <div v-if="selectedStakeholderBillings.length" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 max-h-40 overflow-y-auto pr-1 custom-scroll">
+                  <div v-for="b in selectedStakeholderBillings" :key="b.id"
+                       class="p-2.5 rounded-xl border cursor-pointer transition-all"
+                       :class="selectedBillingId === b.id ? 'bg-white border-emerald-500 ring-2 ring-emerald-200 shadow-sm' : 'bg-white/80 border-slate-200 hover:border-emerald-300'"
+                       @click="selectBilling(b)">
+                    <div class="flex items-center justify-between">
+                      <span class="font-bold text-xs text-slate-800">{{ b.billingNo }}</span>
+                      <span class="text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded">₱{{ Number(b.balance || 0).toLocaleString() }}</span>
+                    </div>
+                    <div class="flex items-center justify-between mt-1 text-[11px] text-slate-500">
+                      <span>Due: {{ formatDate(b.dueDate) }}</span>
+                      <span class="uppercase font-semibold text-[10px] text-slate-400">{{ formatType(b.billingFrequency) || 'Monthly' }}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div v-else class="bg-slate-50 p-4 rounded-lg text-center text-slate-500 text-sm border border-slate-200">
-                No unpaid billing found.
-              </div>
-
-              <!-- Billing Frequency -->
-              <div v-if="selectedBillingId" class="mt-3 flex flex-col gap-1">
-                <label class="text-sm font-bold text-slate-700">Billing Frequency</label>
-                <div class="bg-slate-100 px-3 py-2 rounded-lg text-slate-600 text-sm font-medium">
-                  {{ formatType(stakeholderBillings.find(b => b.id === selectedBillingId)?.billingFrequency) || 'N/A' }}
+                <div v-else class="bg-white p-3 rounded-xl text-center text-slate-500 text-xs border border-slate-200">
+                  No unpaid billings found for this stakeholder.
                 </div>
               </div>
-            </div>
 
-            <!-- Advance Payment -->
-            <div v-if="form.paymentType === 'ADVANCE_PAYMENT'" class="flex flex-col gap-1">
-              <label class="text-sm font-bold text-slate-700">Total Required Advance</label>
-              <InputNumber v-model="form.totalAdvanceAmount" inputId="totalAdvance" mode="currency" currency="PHP" locale="en-PH" class="w-full" />
-            </div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-xs font-bold text-slate-700">Payment Amount</label>
+                  <InputNumber v-model="form.amount" inputId="rentAmount" mode="currency" currency="PHP" locale="en-PH" class="w-full font-bold" />
+                </div>
 
-            <div class="flex flex-col gap-1">
-              <label class="text-sm font-bold text-slate-700">Payment Amount</label>
-              <InputNumber v-model="form.amount" inputId="amount" mode="currency" currency="PHP" locale="en-PH" class="w-full font-bold" />
-            </div>
-
-            <div class="flex flex-col gap-1">
-              <label class="text-sm font-bold text-slate-700">Reference No (Optional)</label>
-              <InputText v-model="form.referenceNo" class="w-full bg-slate-50" />
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-xs font-bold text-slate-700">Reference No (Optional)</label>
+                  <InputText v-model="form.referenceNo" placeholder="Receipt / Ref #" class="w-full bg-white" />
+                </div>
+              </div>
             </div>
 
           </div>
         </div>
 
+        <!-- EMPTY STATE WHEN NO STAKEHOLDER SELECTED YET -->
+        <div v-else class="rounded-xl border border-dashed border-slate-200 p-6 text-center text-slate-400 bg-slate-50/50">
+          <i class="pi pi-hand-pointer text-xl mb-1 text-slate-300 block"></i>
+          <p class="text-xs font-medium">Click on any stakeholder in the columns above to enter and record payment details.</p>
+        </div>
+
         <template #footer>
           <div class="flex justify-end gap-2 pt-4 border-t border-slate-100 mt-6">
             <Button label="Cancel" icon="pi pi-times" text @click="closeModal" class="text-slate-600" />
-            <Button label="Record Payment" icon="pi pi-check" @click="recordPayment" :disabled="!canRecord" severity="success" class="shadow-sm" />
+            <Button :label="confirmBtnLabel" icon="pi pi-check" @click="recordPayment" :disabled="!canRecord" :loading="isSubmitting" severity="success" class="shadow-sm" />
           </div>
         </template>
       </Dialog>
@@ -229,14 +417,13 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import api from '../services/api'
 import TreasurerMenu from '../components/TreasurerMenu.vue'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import InputText from 'primevue/inputtext'
 import InputNumber from 'primevue/inputnumber'
-import Select from 'primevue/select'
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import Tag from 'primevue/tag'
@@ -245,16 +432,23 @@ import Tag from 'primevue/tag'
 // STATE
 // =========================
 const loading = ref(true)
+const isSubmitting = ref(false)
 const payments = ref([])
 const stakeholders = ref([])
 const billings = ref([])
 
 const tableSearch = ref('')
-const searchStakeholder = ref('')
 
+// Modal state
 const showModal = ref(false)
 const selectedStakeholder = ref(null)
+const selectedPaymentType = ref('')
 const selectedBillingId = ref(null)
+
+// Search fields for the 3 separated columns
+const searchAdvance = ref('')
+const searchAppForm = ref('')
+const searchRent = ref('')
 
 const form = ref({
   paymentType: '',
@@ -262,12 +456,6 @@ const form = ref({
   amount: null,
   referenceNo: ''
 })
-
-const paymentTypeOptions = [
-  { label: 'Advance Payment', value: 'ADVANCE_PAYMENT' },
-  { label: 'Application Form', value: 'APPLICATION_FORM' },
-  { label: 'Rent Payment', value: 'RENT_PAYMENT' }
-]
 
 // =========================
 // LIFECYCLE
@@ -321,8 +509,92 @@ async function loadBillings() {
 }
 
 // =========================
-// COMPUTED FILTERS
+// HELPERS
 // =========================
+function isAdvanceFinished(s) {
+  if (Boolean(s.advancePaymentPaid || s.advancePaymentCompleted || s.advancePayment)) return true
+  const total = Number(s.totalAdvanceAmount || 0)
+  const bal = Number(s.advanceBalance || 0)
+  if (total > 0 && bal >= total) return true
+  return false
+}
+
+function getUnpaidBillingsForStakeholder(stakeholderId) {
+  if (!stakeholderId) return []
+  return billings.value.filter(b => {
+    const bid = b.stakeholderId || b.stakeholder?.id
+    return b.status !== 'PAID' && Number(bid) === Number(stakeholderId) && Number(b.balance || 0) > 0
+  }).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+}
+
+function hasUnpaidBillings(s) {
+  return getUnpaidBillingsForStakeholder(s.id).length > 0
+}
+
+function getTotalUnpaidAmount(s) {
+  const list = getUnpaidBillingsForStakeholder(s.id)
+  return list.reduce((sum, b) => sum + Number(b.balance || 0), 0)
+}
+
+// =========================
+// 3 SEPARATED COLUMN LISTS
+// =========================
+
+// 1. Advance Payment List: ONLY stakeholders whose advance payment is NOT finished
+const advancePaymentStakeholders = computed(() => {
+  const search = searchAdvance.value.toLowerCase().trim()
+  return stakeholders.value.filter(s => {
+    if (isAdvanceFinished(s)) return false
+    if (s.isArchived) return false
+    if (s.applicationStatus === 'REJECTED' || s.onboardingStatus === 'REJECTED') return false
+
+    if (!search) return true
+    const name = `${s.firstName || ''} ${s.lastName || ''}`.toLowerCase()
+    const bName = (s.businessName || '').toLowerCase()
+    const stall = (s.occupant?.stall?.stallNo || s.selectedStall?.stallNo || '').toLowerCase()
+    return name.includes(search) || bName.includes(search) || stall.includes(search)
+  })
+})
+
+// 2. Application Form List: ONLY stakeholders whose application fee is NOT finished/paid
+const appFormStakeholders = computed(() => {
+  const search = searchAppForm.value.toLowerCase().trim()
+  return stakeholders.value.filter(s => {
+    if (s.applicantFeePaid || s.treasurerPaid) return false
+    if (s.isArchived) return false
+    if (s.applicationStatus === 'REJECTED' || s.onboardingStatus === 'REJECTED') return false
+
+    if (!search) return true
+    const name = `${s.firstName || ''} ${s.lastName || ''}`.toLowerCase()
+    const bName = (s.businessName || '').toLowerCase()
+    const stall = (s.occupant?.stall?.stallNo || s.selectedStall?.stallNo || '').toLowerCase()
+    return name.includes(search) || bName.includes(search) || stall.includes(search)
+  })
+})
+
+// 3. Rent Payment List: ONLY tenants who have occupied stalls AND have unpaid billings
+const rentPaymentStakeholders = computed(() => {
+  const search = searchRent.value.toLowerCase().trim()
+  return stakeholders.value.filter(s => {
+    if (!s.occupant || !s.occupant.stall) return false
+    if (!hasUnpaidBillings(s)) return false
+    if (s.isArchived) return false
+
+    if (!search) return true
+    const name = `${s.firstName || ''} ${s.lastName || ''}`.toLowerCase()
+    const bName = (s.businessName || '').toLowerCase()
+    const stall = (s.occupant?.stall?.stallNo || '').toLowerCase()
+    return name.includes(search) || bName.includes(search) || stall.includes(search)
+  })
+})
+
+// Billings for currently selected stakeholder
+const selectedStakeholderBillings = computed(() => {
+  if (!selectedStakeholder.value) return []
+  return getUnpaidBillingsForStakeholder(selectedStakeholder.value.id)
+})
+
+// Main Table filter
 const filteredPayments = computed(() => {
   const search = tableSearch.value.toLowerCase()
   return payments.value.filter(p => {
@@ -333,61 +605,47 @@ const filteredPayments = computed(() => {
   })
 })
 
-const filteredStakeholders = computed(() => {
-  return stakeholders.value.filter(s => {
-    // Requirements for rent payment
-    if (form.value.paymentType === 'RENT_PAYMENT') {
-      if (!s.occupant || !s.occupant.stall) return false
-    }
-    
-    const name = `${s.firstName || ''} ${s.lastName || ''}`.toLowerCase()
-    const search = searchStakeholder.value.toLowerCase()
-    return name.includes(search) || (s.businessName || '').toLowerCase().includes(search)
-  })
-})
-
-const stakeholderBillings = computed(() => {
-  if (!selectedStakeholder.value) return []
-  return billings.value.filter(b => {
-    const bid = b.stakeholderId || b.stakeholder?.id
-    return b.status !== 'PAID' && Number(bid) === Number(selectedStakeholder.value.id)
-  }).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
-})
-
 // =========================
-// WATCHERS
+// SELECTION METHODS
 // =========================
-watch(stakeholderBillings, (newBillings) => {
-  if (form.value.paymentType === 'RENT_PAYMENT') {
-    selectedBillingId.value = newBillings.length ? newBillings[0].id : null
-  }
-}, { immediate: true })
-
-watch(() => form.value.paymentType, (type) => {
-  if (type === 'RENT_PAYMENT') {
-    if (stakeholderBillings.value.length) {
-      selectedBillingId.value = stakeholderBillings.value[0].id
-    }
-  } else {
-    selectedBillingId.value = null
-  }
-})
-
-// =========================
-// METHODS
-// =========================
-function selectStakeholder(s) {
+function selectStakeholderForType(s, type) {
   selectedStakeholder.value = s
-  searchStakeholder.value = `${s.firstName} ${s.lastName}`
-  if (stakeholderBillings.value.length) {
-    selectedBillingId.value = stakeholderBillings.value[0].id
+  selectedPaymentType.value = type
+  form.value.paymentType = type
+  form.value.referenceNo = ''
+
+  if (type === 'ADVANCE_PAYMENT') {
+    form.value.totalAdvanceAmount = s.totalAdvanceAmount ? Number(s.totalAdvanceAmount) : null
+    const remaining = Math.max(Number(s.totalAdvanceAmount || 0) - Number(s.advanceBalance || 0), 0)
+    form.value.amount = remaining > 0 ? remaining : null
+    selectedBillingId.value = null
+  } else if (type === 'RENT_PAYMENT') {
+    form.value.totalAdvanceAmount = null
+    const unpaids = getUnpaidBillingsForStakeholder(s.id)
+    if (unpaids.length) {
+      selectedBillingId.value = unpaids[0].id
+      form.value.amount = Number(unpaids[0].balance || 0)
+    } else {
+      selectedBillingId.value = null
+      form.value.amount = null
+    }
+  } else if (type === 'APPLICATION_FORM') {
+    form.value.totalAdvanceAmount = null
+    selectedBillingId.value = null
+    form.value.amount = s.applicantFeeAmount ? Number(s.applicantFeeAmount) : null
   }
 }
 
-function resetStakeholder() {
+function selectBilling(b) {
+  selectedBillingId.value = b.id
+  form.value.amount = Number(b.balance || 0)
+}
+
+function resetSelection() {
   selectedStakeholder.value = null
-  searchStakeholder.value = ''
+  selectedPaymentType.value = ''
   selectedBillingId.value = null
+  form.value = { paymentType: '', totalAdvanceAmount: null, amount: null, referenceNo: '' }
 }
 
 function initials(first, last) {
@@ -405,52 +663,63 @@ function formatDate(date) {
 }
 
 function openModal() {
-  resetForm()
+  resetSelection()
+  searchAdvance.value = ''
+  searchAppForm.value = ''
+  searchRent.value = ''
   showModal.value = true
 }
 
 function closeModal() {
   showModal.value = false
-}
-
-function resetForm() {
-  form.value = { paymentType: '', totalAdvanceAmount: null, amount: null, referenceNo: '' }
-  resetStakeholder()
+  resetSelection()
 }
 
 const canRecord = computed(() => {
-  if (!selectedStakeholder.value) return false
-  if (!form.value.paymentType) return false
+  if (!selectedStakeholder.value || !selectedPaymentType.value) return false
   if (Number(form.value.amount) <= 0) return false
-  if (form.value.paymentType === 'RENT_PAYMENT') return !!selectedBillingId.value
-  if (form.value.paymentType === 'ADVANCE_PAYMENT') return Number(form.value.totalAdvanceAmount) > 0
+  if (selectedPaymentType.value === 'RENT_PAYMENT') return !!selectedBillingId.value
+  if (selectedPaymentType.value === 'ADVANCE_PAYMENT') return Number(form.value.totalAdvanceAmount) > 0
   return true
 })
 
+const confirmBtnLabel = computed(() => {
+  if (!selectedPaymentType.value) return 'Record Payment'
+  if (selectedPaymentType.value === 'ADVANCE_PAYMENT') return 'Record Advance Payment'
+  if (selectedPaymentType.value === 'APPLICATION_FORM') return 'Record Application Fee'
+  if (selectedPaymentType.value === 'RENT_PAYMENT') return 'Record Rent Payment'
+  return 'Record Payment'
+})
+
+// =========================
+// RECORD PAYMENT
+// =========================
 async function recordPayment() {
   try {
     if (!selectedStakeholder.value) return alert('Select stakeholder first.')
 
-    if (form.value.paymentType === 'RENT_PAYMENT') {
+    if (selectedPaymentType.value === 'RENT_PAYMENT') {
       if (!selectedStakeholder.value?.occupant) return alert('Stakeholder has no occupant record.')
       if (!selectedStakeholder.value?.occupant?.stall) return alert('Stakeholder has no occupied stall.')
       if (!selectedBillingId.value) return alert('No billing selected.')
     }
 
+    isSubmitting.value = true
+
     const payload = {
       stakeholder: { id: selectedStakeholder.value.id },
       amount: Number(form.value.amount),
       referenceNo: form.value.referenceNo,
-      paymentType: form.value.paymentType
+      paymentType: selectedPaymentType.value
     }
 
-    if (form.value.paymentType === 'RENT_PAYMENT') {
-      const selectedBilling = stakeholderBillings.value.find(b => b.id === selectedBillingId.value)
+    if (selectedPaymentType.value === 'RENT_PAYMENT') {
+      const selectedBilling = selectedStakeholderBillings.value.find(b => b.id === selectedBillingId.value)
       payload.rentCycle = selectedBilling?.billingFrequency || 'MONTHLY'
       payload.billing = { id: selectedBillingId.value }
     }
 
-    if (form.value.paymentType === 'ADVANCE_PAYMENT') {
+    if (selectedPaymentType.value === 'ADVANCE_PAYMENT') {
       payload.totalAdvanceAmount = Number(form.value.totalAdvanceAmount)
     }
 
@@ -462,29 +731,15 @@ async function recordPayment() {
       amount: response.data?.amount
     })
     
-    const isAdvanceOrFee = form.value.paymentType === 'ADVANCE_PAYMENT' || form.value.paymentType === 'APPLICANT_FEE'
-    if (isAdvanceOrFee) {
-      await Promise.all([loadPayments(), loadBillings(), loadStakeholders()])
-    } else {
-      await Promise.all([loadPayments(), loadBillings()])
-    }
-
-    const refreshedStakeholder = stakeholders.value.find(
-      stakeholder => String(stakeholder.id) === String(selectedStakeholder.value.id)
-    )
-    console.log('[Payment] refreshed stakeholder after payment', {
-      stakeholderId: refreshedStakeholder?.id,
-      applicantFeePaid: refreshedStakeholder?.applicantFeePaid,
-      verified: refreshedStakeholder?.verified,
-      verifiedStakeholder: refreshedStakeholder?.verifiedStakeholder,
-      verifiedTenant: refreshedStakeholder?.verifiedTenant
-    })
+    await Promise.all([loadPayments(), loadBillings(), loadStakeholders()])
     
     closeModal()
     alert('Payment recorded successfully.')
   } catch (error) {
     console.error(error)
     alert(error.response?.data?.message || 'Failed to record payment.')
+  } finally {
+    isSubmitting.value = false
   }
 }
 </script>
@@ -498,6 +753,17 @@ async function recordPayment() {
   padding-left: calc(var(--sidebar-width, 260px) + 24px);
   padding-right: 24px;
   transition: padding-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.custom-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scroll::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 4px;
+}
+.custom-scroll::-webkit-scrollbar-track {
+  background-color: transparent;
 }
 
 :deep(.p-datatable-thead > tr > th) {

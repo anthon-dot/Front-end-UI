@@ -144,7 +144,35 @@ function applyStepStatuses(data) {
 
   steps.value[0].status = 'approved'
 
-  if (data.treasurerApproved || data.advancePaymentPaid || data.advancePaymentCompleted || data.advancePayment) steps.value[1].status = 'approved'
+  const hasAdvancePaid = Boolean(
+    data.treasurerApproved ||
+    data.advancePaymentPaid ||
+    data.advancePaymentCompleted ||
+    data.advancePayment ||
+    (Number(data.advanceBalance || 0) > 0 && Number(data.totalAdvanceAmount || 0) > 0 && Number(data.advanceBalance || 0) >= Number(data.totalAdvanceAmount || 0)) ||
+    [
+      'PENDING_MARKET_SUPERVISOR_APPROVAL',
+      'PENDING_BPLO_APPROVAL',
+      'PENDING_ENDORSING_OFFICE_APPROVAL',
+      'PENDING_BUSINESS_PERMIT_PAYMENT',
+      'COMPLETED',
+      'FULLY_APPROVED',
+      'APPROVED'
+    ].includes(data.applicationStatus) ||
+    Boolean(data.marketSupervisorApproved || data.bploApproved || data.finalEndorsed)
+  )
+
+  if (hasAdvancePaid) {
+    steps.value[1].status = 'approved'
+    const amt = Number(data.advanceBalance || data.advancePaymentAmount || 0)
+    steps.value[1].description = amt > 0 
+      ? `Advance payment of ₱${amt.toLocaleString()} recorded.${data.advancePaymentDate ? ' Paid on ' + new Date(data.advancePaymentDate).toLocaleDateString() + '.' : ''}`
+      : 'Advance payment recorded by Treasurer.'
+  } else if (Number(data.advanceBalance || 0) > 0) {
+    steps.value[1].status = 'needs-action'
+    steps.value[1].description = `Partial payment of ₱${Number(data.advanceBalance).toLocaleString()} received (Total required: ₱${Number(data.totalAdvanceAmount || 0).toLocaleString()}).`
+  }
+
   if (data.marketSupervisorApproved || data.marketApprovalStatus === 'APPROVED') steps.value[2].status = 'approved'
   if (data.occupant?.stall) steps.value[3].status = 'approved'
   if (data.occupant?.contractId || contractCreated(data)) steps.value[4].status = 'approved'
