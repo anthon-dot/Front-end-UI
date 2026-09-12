@@ -45,7 +45,7 @@ async function loadStalls() {
       price: Number(stall.monthlyRent || 0),
       status: String(stall.status || 'AVAILABLE').toUpperCase() === 'AVAILABLE' ? 'Available' : 'Occupied',
       description: stall.info || 'Existing public market stall',
-      image: stall.imageUrl ? `${API_ORIGIN}${stall.imageUrl}` : '/market-stall.png',
+      image: stall.imageUrl ? `${API_ORIGIN}${stall.imageUrl}` : '/market-stall.webp',
     }))
   } catch (error) {
     errorMessage.value = error.message || 'Failed to load stalls.'

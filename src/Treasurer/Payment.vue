@@ -27,7 +27,8 @@
       <!-- TABLE -->
       <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden p-2">
         <DataTable 
-          :value="filteredPayments" 
+          :value="filteredPayments"
+          :loading="loading" 
           paginator 
           :rows="10" 
           :rowsPerPageOptions="[10, 20, 50]"
@@ -243,6 +244,7 @@ import Tag from 'primevue/tag'
 // =========================
 // STATE
 // =========================
+const loading = ref(true)
 const payments = ref([])
 const stakeholders = ref([])
 const billings = ref([])
@@ -271,11 +273,16 @@ const paymentTypeOptions = [
 // LIFECYCLE
 // =========================
 onMounted(async () => {
-  await Promise.all([
-    loadPayments(),
-    loadStakeholders(),
-    loadBillings()
-  ])
+  loading.value = true
+  try {
+    await Promise.all([
+      loadPayments(),
+      loadStakeholders(),
+      loadBillings()
+    ])
+  } finally {
+    loading.value = false
+  }
   try {
     const app = document.getElementById('app')
     if (app) app.classList.add('full-bleed')
@@ -356,9 +363,8 @@ watch(stakeholderBillings, (newBillings) => {
   }
 }, { immediate: true })
 
-watch(() => form.value.paymentType, async (type) => {
+watch(() => form.value.paymentType, (type) => {
   if (type === 'RENT_PAYMENT') {
-    await loadBillings()
     if (stakeholderBillings.value.length) {
       selectedBillingId.value = stakeholderBillings.value[0].id
     }
@@ -456,7 +462,12 @@ async function recordPayment() {
       amount: response.data?.amount
     })
     
-    await Promise.all([loadPayments(), loadBillings(), loadStakeholders()])
+    const isAdvanceOrFee = form.value.paymentType === 'ADVANCE_PAYMENT' || form.value.paymentType === 'APPLICANT_FEE'
+    if (isAdvanceOrFee) {
+      await Promise.all([loadPayments(), loadBillings(), loadStakeholders()])
+    } else {
+      await Promise.all([loadPayments(), loadBillings()])
+    }
 
     const refreshedStakeholder = stakeholders.value.find(
       stakeholder => String(stakeholder.id) === String(selectedStakeholder.value.id)

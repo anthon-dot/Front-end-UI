@@ -128,8 +128,10 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../services/api'
+import { useStakeholderStore } from '../stores/stakeholder'
 
 const router = useRouter()
+const stakeholderStore = useStakeholderStore()
 
 // =========================
 // FORM
@@ -206,6 +208,7 @@ async function submitApplication() {
     }
 
     alert('Application submitted successfully')
+    stakeholderStore.clearCache()
     router.push('/application-progress')
 
   } catch (error) {

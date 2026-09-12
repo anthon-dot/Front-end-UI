@@ -1,4 +1,7 @@
 import { createRouter, createWebHistory } from "vue-router"
+import { ref } from "vue"
+
+export const isNavigating = ref(false)
 import {
   isDashboardReady
 } from "../services/applicationService"
@@ -349,6 +352,7 @@ const router = createRouter({
 const STALE_CHUNK_RELOAD_KEY = 'front-end-ui:stale-chunk-reloaded'
 
 router.onError((error) => {
+  isNavigating.value = false
   const message = String(error?.message || error || '')
 
   const isStaleChunkError =
@@ -368,10 +372,12 @@ router.onError((error) => {
 })
 
 router.afterEach(() => {
+  isNavigating.value = false
   sessionStorage.removeItem(STALE_CHUNK_RELOAD_KEY)
 })
 
 router.beforeEach(async (to) => {
+  isNavigating.value = true
   const authStore = useAuthStore()
   const stakeholderStore = useStakeholderStore()
   const publicRoutes = ['Landing', 'Login', 'CreateAccount', 'Unauthorized']

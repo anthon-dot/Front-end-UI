@@ -68,8 +68,10 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../services/api'
+import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
+const authStore = useAuthStore()
 
 const username        = ref('')
 const password        = ref('')
@@ -100,8 +102,24 @@ async function createAccount() {
       password: password.value
     })
 
-    // Go straight to login — no role popup needed
-    router.push('/login')
+    // Auto-login with the same credentials
+    const loginResponse = await api.post('/auth/login', {
+      username: username.value,
+      password: password.value
+    })
+
+    const data = loginResponse.data
+
+    // Save session so the router guard recognises the user
+    authStore.setSession({
+      token:  data.token,
+      role:   data.role,
+      userId: data.userId || data.id,
+      user:   data
+    })
+
+    // Go straight to the business application form
+    router.push('/business-application')
 
   } catch (error) {
     errorMessage.value =

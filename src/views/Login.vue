@@ -82,7 +82,6 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { getApplicationByUserId, getStakeholderRouteForApplication } from '../services/applicationService'
 import api from '../services/api'
 import { useAuthStore } from '../stores/auth'
 
@@ -219,19 +218,9 @@ async function onSubmit() {
 
     // STAKEHOLDER
     if (role === 'STAKEHOLDER') {
-      console.log('[AUTH] ✅ STAKEHOLDER — fetching application status')
-      try {
-        const application = await getApplicationByUserId(data.userId || data.id)
-        const targetRoute = getStakeholderRouteForApplication(application)
-        console.log('[AUTH] Stakeholder application route:', targetRoute)
-        router.push(targetRoute)
-        return
-      } catch (error) {
-        console.error('[AUTH] ❌ Failed to load stakeholder application:', error)
-        errorMessage.value =
-          'Signed in, but the application status could not be loaded. Please try again.'
-        return
-      }
+      console.log('[AUTH] ✅ STAKEHOLDER — navigating to /application-progress (router guard handles redirect)')
+      router.push('/application-progress')
+      return
     }
 
     // UNKNOWN ROLE — should never reach here in production

@@ -240,7 +240,7 @@ const progress = ref(0)
 let animationFrame = 0
 
 const leftCard = {
-  backgroundImage: "url('/market-stall.png')"
+  backgroundImage: "url('/market-stall.webp')"
 }
 
 const workflow = [
