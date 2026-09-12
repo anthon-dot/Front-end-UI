@@ -1,4 +1,5 @@
 <template>
+  <Toast position="top-right" />
   <div v-if="isNavigating" class="global-route-loader">
     <div class="loader-progress"></div>
   </div>
@@ -7,6 +8,7 @@
 
 <script setup>
 import { isNavigating } from './router'
+import Toast from 'primevue/toast'
 </script>
 
 <style>

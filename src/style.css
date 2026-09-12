@@ -499,3 +499,126 @@ select:focus,
     transition-duration: 0.01ms !important;
   }
 }
+
+
+/* =========================================================
+   CUSTOM TOAST STYLES (MATCHED TO MODERN NOTIFICATION UI)
+   ========================================================= */
+.p-toast {
+  width: 25rem !important;
+  max-width: 90vw !important;
+  z-index: 99999 !important;
+}
+
+.p-toast .p-toast-message {
+  margin-bottom: 12px !important;
+  border-radius: 14px !important;
+  box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.08), 0 4px 10px -2px rgba(0, 0, 0, 0.04) !important;
+  border: 1px solid transparent !important;
+  border-left-width: 6px !important;
+  overflow: hidden !important;
+  transition: all 0.25s ease-in-out !important;
+}
+
+.p-toast .p-toast-message-content {
+  padding: 14px 16px !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 12px !important;
+}
+
+.p-toast .p-toast-message-icon {
+  font-size: 1.25rem !important;
+  margin-top: 2px !important;
+  flex-shrink: 0 !important;
+}
+
+.p-toast .p-toast-message-text {
+  flex: 1 1 auto !important;
+  margin: 0 !important;
+}
+
+.p-toast .p-toast-summary {
+  font-size: 0.875rem !important;
+  font-weight: 700 !important;
+  display: block !important;
+  line-height: 1.25 !important;
+}
+
+.p-toast .p-toast-detail {
+  font-size: 0.8125rem !important;
+  margin-top: 3px !important;
+  line-height: 1.4 !important;
+}
+
+.p-toast .p-toast-close-button {
+  width: 26px !important;
+  height: 26px !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  border: none !important;
+  color: #94a3b8 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.p-toast .p-toast-close-button:hover {
+  background: rgba(0, 0, 0, 0.06) !important;
+  color: #475569 !important;
+}
+
+/* SUCCESS: Green accent */
+.p-toast .p-toast-message-success {
+  background-color: #f0fdf4 !important;
+  border-color: #bbf7d0 !important;
+  border-left-color: #22c55e !important;
+}
+.p-toast .p-toast-message-success .p-toast-message-icon {
+  color: #16a34a !important;
+}
+.p-toast .p-toast-message-success .p-toast-summary {
+  color: #15803d !important;
+}
+.p-toast .p-toast-message-success .p-toast-detail {
+  color: #166534 !important;
+}
+
+/* WARN / INFO: Amber accent */
+.p-toast .p-toast-message-warn,
+.p-toast .p-toast-message-info {
+  background-color: #fffbeb !important;
+  border-color: #fde68a !important;
+  border-left-color: #f59e0b !important;
+}
+.p-toast .p-toast-message-warn .p-toast-message-icon,
+.p-toast .p-toast-message-info .p-toast-message-icon {
+  color: #d97706 !important;
+}
+.p-toast .p-toast-message-warn .p-toast-summary,
+.p-toast .p-toast-message-info .p-toast-summary {
+  color: #b45309 !important;
+}
+.p-toast .p-toast-message-warn .p-toast-detail,
+.p-toast .p-toast-message-info .p-toast-detail {
+  color: #92400e !important;
+}
+
+/* ERROR: Red accent */
+.p-toast .p-toast-message-error {
+  background-color: #fef2f2 !important;
+  border-color: #fecaca !important;
+  border-left-color: #ef4444 !important;
+}
+.p-toast .p-toast-message-error .p-toast-message-icon {
+  color: #dc2626 !important;
+}
+.p-toast .p-toast-message-error .p-toast-summary {
+  color: #b91c1c !important;
+}
+.p-toast .p-toast-message-error .p-toast-detail {
+  color: #991b1b !important;
+}

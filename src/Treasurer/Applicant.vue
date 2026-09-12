@@ -531,10 +531,20 @@ async function approveApplicant(item) {
       await api.put(`/stakeholders/${item.id}/approve`)
     }
     await fetchStakeholders()
-    alert('Applicant approved successfully.')
+    toast.add({
+      severity: 'success',
+      summary: 'Stakeholder Approved',
+      detail: `${item.firstName} ${item.lastName} has been approved. They can now proceed to advance payment.`,
+      life: 4500
+    })
   } catch (error) {
     console.error(error)
-    alert(error.message || 'Approval failed')
+    toast.add({
+      severity: 'error',
+      summary: 'Approval Failed',
+      detail: error.response?.data?.message || error.message || 'Approval failed.',
+      life: 4500
+    })
   } finally {
     approvingId.value = null
   }
@@ -552,10 +562,20 @@ async function rejectApplicant(item) {
       params: { remarks: reason }
     })
     await fetchStakeholders()
-    alert('Applicant rejected.')
+    toast.add({
+      severity: 'warn',
+      summary: 'Applicant Rejected',
+      detail: `${item.firstName} ${item.lastName} application has been rejected.`,
+      life: 4500
+    })
   } catch (error) {
     console.error(error)
-    alert(error.message || 'Rejection failed')
+    toast.add({
+      severity: 'error',
+      summary: 'Rejection Failed',
+      detail: error.response?.data?.message || error.message || 'Rejection failed.',
+      life: 4500
+    })
   } finally {
     approvingId.value = null
   }

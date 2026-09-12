@@ -162,8 +162,8 @@
 
               <div v-if="advancePaymentStakeholders.length === 0" class="text-center py-12 text-slate-400">
                 <i class="pi pi-check-circle text-2xl text-emerald-400 mb-1 block"></i>
-                <p class="text-xs font-medium">No applicants awaiting advance payment.</p>
-                <p class="text-[10px] text-slate-400 mt-0.5">Finished stakeholders are excluded.</p>
+                <p class="text-xs font-medium">No approved applicants awaiting advance payment.</p>
+                <p class="text-[10px] text-slate-400 mt-0.5">Applicants must be approved by Treasurer first.</p>
               </div>
             </div>
           </div>
@@ -418,6 +418,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useToast } from 'primevue/usetoast'
 import api from '../services/api'
 import TreasurerMenu from '../components/TreasurerMenu.vue'
 import DataTable from 'primevue/datatable'
@@ -431,6 +432,7 @@ import Tag from 'primevue/tag'
 // =========================
 // STATE
 // =========================
+const toast = useToast()
 const loading = ref(true)
 const isSubmitting = ref(false)
 const payments = ref([])
@@ -540,10 +542,13 @@ function getTotalUnpaidAmount(s) {
 // 3 SEPARATED COLUMN LISTS
 // =========================
 
-// 1. Advance Payment List: ONLY stakeholders whose advance payment is NOT finished
+// 1. Advance Payment List: ONLY approved stakeholders whose advance payment is NOT finished
 const advancePaymentStakeholders = computed(() => {
   const search = searchAdvance.value.toLowerCase().trim()
   return stakeholders.value.filter(s => {
+    // MUST be approved by Treasurer first
+    if (!s.treasurerApproved) return false
+    // Must NOT be finished with advance payment
     if (isAdvanceFinished(s)) return false
     if (s.isArchived) return false
     if (s.applicationStatus === 'REJECTED' || s.onboardingStatus === 'REJECTED') return false
@@ -696,12 +701,64 @@ const confirmBtnLabel = computed(() => {
 // =========================
 async function recordPayment() {
   try {
-    if (!selectedStakeholder.value) return alert('Select stakeholder first.')
+    if (!selectedStakeholder.value) {
+      toast.add({
+        severity: 'warn',
+        summary: 'Stakeholder Required',
+        detail: 'Please select a stakeholder first.',
+        life: 3500
+      })
+      return
+    }
+
+    if (selectedPaymentType.value === 'ADVANCE_PAYMENT' && !selectedStakeholder.value.treasurerApproved) {
+      toast.add({
+        severity: 'error',
+        summary: 'Approval Required',
+        detail: 'This stakeholder must be approved by the Treasurer before advance payment can be recorded.',
+        life: 4500
+      })
+      return
+    }
 
     if (selectedPaymentType.value === 'RENT_PAYMENT') {
-      if (!selectedStakeholder.value?.occupant) return alert('Stakeholder has no occupant record.')
-      if (!selectedStakeholder.value?.occupant?.stall) return alert('Stakeholder has no occupied stall.')
-      if (!selectedBillingId.value) return alert('No billing selected.')
+      if (!selectedStakeholder.value?.occupant) {
+        toast.add({
+          severity: 'error',
+          summary: 'Missing Occupant',
+          detail: 'Stakeholder has no occupant record.',
+          life: 4000
+        })
+        return
+      }
+      if (!selectedStakeholder.value?.occupant?.stall) {
+        toast.add({
+          severity: 'error',
+          summary: 'No Occupied Stall',
+          detail: 'Stakeholder has no occupied stall.',
+          life: 4000
+        })
+        return
+      }
+      if (!selectedBillingId.value) {
+        toast.add({
+          severity: 'warn',
+          summary: 'Billing Required',
+          detail: 'Please select a billing reference to pay.',
+          life: 4000
+        })
+        return
+      }
+    }
+
+    if (!form.value.amount || Number(form.value.amount) <= 0) {
+      toast.add({
+        severity: 'error',
+        summary: 'Invalid Amount',
+        detail: 'Please enter a valid payment amount greater than zero.',
+        life: 3500
+      })
+      return
     }
 
     isSubmitting.value = true
@@ -734,10 +791,20 @@ async function recordPayment() {
     await Promise.all([loadPayments(), loadBillings(), loadStakeholders()])
     
     closeModal()
-    alert('Payment recorded successfully.')
+    toast.add({
+      severity: 'success',
+      summary: 'Payment Recorded',
+      detail: `Successfully recorded ${formatType(selectedPaymentType.value).toLowerCase()} of ₱${Number(form.value.amount).toLocaleString()} for ${selectedStakeholder.value.firstName} ${selectedStakeholder.value.lastName}.`,
+      life: 4500
+    })
   } catch (error) {
     console.error(error)
-    alert(error.response?.data?.message || 'Failed to record payment.')
+    toast.add({
+      severity: 'error',
+      summary: 'Payment Error',
+      detail: error.response?.data?.message || error.message || 'Failed to record payment.',
+      life: 5000
+    })
   } finally {
     isSubmitting.value = false
   }
