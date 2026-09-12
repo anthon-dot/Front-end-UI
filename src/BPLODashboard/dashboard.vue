@@ -70,10 +70,12 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useConfirm } from 'primevue/useconfirm'
 import BPLOMenu from './BPLOMenu.vue'
 import api from '../services/api'
 import { API_ORIGIN } from '../config/apiConfig'
 
+const confirm = useConfirm()
 const applications = ref([])
 async function loadApplications(){
   try {
@@ -130,15 +132,23 @@ async function approveBPLO(a){
 }
 
 async function rejectBPLO(a){
-  if (!confirm('Reject this BPLO approval?')) return
-  try {
-    const response = await api.put(`/stakeholders/${a.id}/bplo-reject`)
-    updateApplication(response.data)
-    alert('BPLO approval rejected')
-  } catch (error) {
-    console.error(error)
-    alert(error.message || 'BPLO rejection failed')
-  }
+  confirm.require({
+    header: 'Reject Application',
+    message: `Are you sure you want to reject BPLO approval for ${fullName(a)}? This action cannot be undone.`,
+    acceptLabel: 'Reject',
+    rejectLabel: 'Cancel',
+    severity: 'danger',
+    accept: async () => {
+      try {
+        const response = await api.put(`/stakeholders/${a.id}/bplo-reject`)
+        updateApplication(response.data)
+        alert('BPLO approval rejected')
+      } catch (error) {
+        console.error(error)
+        alert(error.message || 'BPLO rejection failed')
+      }
+    }
+  })
 }
 
 function updateApplication(updated){

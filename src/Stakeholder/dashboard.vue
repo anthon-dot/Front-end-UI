@@ -188,6 +188,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useConfirm } from 'primevue/useconfirm'
 import { useRoute, useRouter } from 'vue-router'
 import sampleApplicants from '../data/applicants.js'
 import sampleContracts from '../data/contracts.js'
@@ -199,6 +200,7 @@ import {
 	markNotificationAsRead
 } from '../services/notificationService'
 
+const confirm = useConfirm()
 const route = useRoute()
 const router = useRouter()
 const stakeholderId =
@@ -420,24 +422,32 @@ const uploadedFiles = computed(()=>{
 
 function removeUploadedFile(key){
 	if (!stakeholder.value) return
-	if (!confirm('Remove uploaded file for "' + key + '"?')) return
-	const idx = applications.value.findIndex(a => String(a.id) === String(stakeholder.value.id))
-	if (idx === -1) return
-	const a = applications.value[idx]
-	if (key === 'avatar'){
-		delete a.avatar
-		delete a.avatarFileName
-	} else {
-		delete a[key]
-		delete a[key + 'File']
-		delete a[key + 'FileName']
-		// legacy keys
-		if (key === 'letterOfIntent') delete a.letterOfIntentFile
-		if (key === 'validID') delete a.validIDFile
-		if (key === 'postUpload1') delete a.postUpload1File
-		if (key === 'postUpload2') delete a.postUpload2File
-	}
-	saveApplications()
+	confirm.require({
+		header: 'Remove File',
+		message: `Are you sure you want to remove the uploaded file for "${key}"? This action cannot be undone.`,
+		acceptLabel: 'Remove',
+		rejectLabel: 'Cancel',
+		severity: 'danger',
+		accept: () => {
+			const idx = applications.value.findIndex(a => String(a.id) === String(stakeholder.value.id))
+			if (idx === -1) return
+			const a = applications.value[idx]
+			if (key === 'avatar'){
+				delete a.avatar
+				delete a.avatarFileName
+			} else {
+				delete a[key]
+				delete a[key + 'File']
+				delete a[key + 'FileName']
+				// legacy keys
+				if (key === 'letterOfIntent') delete a.letterOfIntentFile
+				if (key === 'validID') delete a.validIDFile
+				if (key === 'postUpload1') delete a.postUpload1File
+				if (key === 'postUpload2') delete a.postUpload2File
+			}
+			saveApplications()
+		}
+	})
 }
 
 const contractUrl = '/contract.pdf'
@@ -460,19 +470,27 @@ function savePayments(){ try{ localStorage.setItem('payments', JSON.stringify(pa
 
 function markTreasurerPaid(){
 	if (!stakeholder.value) return
-	if (!confirm('Mark payment to treasurer as completed for this stakeholder?')) return
-	const id = 'P' + Date.now()
-	const item = { id, stakeholderId: stakeholder.value.id, stakeholder: stakeholder.value.name, date: new Date().toLocaleDateString(), type: 'To Treasurer', amount: 0 }
-	payments.value.unshift(item)
-	savePayments()
-	const idx = applications.value.findIndex(a => String(a.id) === String(stakeholder.value.id))
-	if (idx !== -1){
-		applications.value[idx].treasurerPaid = true
-		applications.value[idx].status = 'VERIFIED'
-		saveApplications()
-	}
-	addNotification('Payment to treasurer recorded. Stakeholder verified.')
-	alert('Payment recorded and stakeholder verified')
+	confirm.require({
+		header: 'Confirm Payment',
+		message: 'Are you sure you want to mark payment to treasurer as completed for this stakeholder?',
+		acceptLabel: 'Confirm',
+		rejectLabel: 'Cancel',
+		severity: 'success',
+		accept: () => {
+			const id = 'P' + Date.now()
+			const item = { id, stakeholderId: stakeholder.value.id, stakeholder: stakeholder.value.name, date: new Date().toLocaleDateString(), type: 'To Treasurer', amount: 0 }
+			payments.value.unshift(item)
+			savePayments()
+			const idx = applications.value.findIndex(a => String(a.id) === String(stakeholder.value.id))
+			if (idx !== -1){
+				applications.value[idx].treasurerPaid = true
+				applications.value[idx].status = 'VERIFIED'
+				saveApplications()
+			}
+			addNotification('Payment to treasurer recorded. Stakeholder verified.')
+			alert('Payment recorded and stakeholder verified')
+		}
+	})
 }
 
 function reconcileTreasurerFromPayments(){
@@ -565,7 +583,26 @@ function openEdit(){ if (!stakeholder.value) return; form.value = { name: stakeh
 function closeEdit(){ showEdit.value = false }
 function saveProfile(){ if (!stakeholder.value) return; const idx = applications.value.findIndex(a=>String(a.id)===String(stakeholder.value.id)); if (idx!==-1){ applications.value[idx].name = form.value.name; applications.value[idx].business = form.value.business; applications.value[idx].contact = form.value.contact; saveApplications(); showEdit.value = false; alert('Profile saved') } }
 
-function archiveAccount(){ if (!stakeholder.value) return; if (!confirm('Archive this account?')) return; const idx = applications.value.findIndex(a=>String(a.id)===String(stakeholder.value.id)); if (idx!==-1){ applications.value[idx].status = 'ARCHIVED'; applications.value[idx].archivedOn = new Date().toISOString().slice(0,10); saveApplications(); alert('Archived'); router.push({ name: 'Landing' }).catch(()=>{}) } }
+function archiveAccount(){
+	if (!stakeholder.value) return;
+	confirm.require({
+		header: 'Archive Account',
+		message: 'Are you sure you want to archive this account? This action cannot be undone.',
+		acceptLabel: 'Archive',
+		rejectLabel: 'Cancel',
+		severity: 'danger',
+		accept: () => {
+			const idx = applications.value.findIndex(a=>String(a.id)===String(stakeholder.value.id));
+			if (idx!==-1){
+				applications.value[idx].status = 'ARCHIVED';
+				applications.value[idx].archivedOn = new Date().toISOString().slice(0,10);
+				saveApplications();
+				alert('Archived');
+				router.push({ name: 'Landing' }).catch(()=>{});
+			}
+		}
+	});
+}
 
 function viewPayments(){ /* could navigate to payments view or open modal; for now scroll */ window.scrollTo({ top: document.body.scrollHeight, behavior:'smooth' }) }
 

@@ -324,12 +324,14 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useConfirm } from 'primevue/useconfirm'
 import api from '../services/api'
 import { API_ORIGIN } from '../config/apiConfig'
 
 import MarketSupervisorMenu
 from '../components/MarketSupervisorMenu.vue'
 
+const confirm = useConfirm()
 const applications = ref([])
 const showModal = ref(false)
 const selected = ref({})
@@ -472,35 +474,36 @@ async function approveMarketSupervisor(app) {
 }
 
 async function rejectMarketSupervisor(app) {
+  confirm.require({
+    header: 'Reject Application',
+    message: 'Are you sure you want to reject this market approval? This action cannot be undone.',
+    acceptLabel: 'Reject',
+    rejectLabel: 'Cancel',
+    severity: 'danger',
+    accept: async () => {
+      try {
+        const response = await api.put(
+          `/stakeholders/${app.id}/market-reject`
+        )
 
-  if (!confirm('Reject this market approval?')) return
+        const updated = response.data
 
-  try {
+        const index =
+          applications.value.findIndex(
+            a => a.id === app.id
+          )
 
-    const response = await api.put(
-      `/stakeholders/${app.id}/market-reject`
-    )
+        if (index !== -1) {
+          applications.value[index] = updated
+        }
 
-    const updated = response.data
-
-    const index =
-      applications.value.findIndex(
-        a => a.id === app.id
-      )
-
-    if (index !== -1) {
-
-      applications.value[index] = updated
+        alert('Market approval rejected')
+      } catch (error) {
+        console.error(error)
+        alert(error.message || 'Rejection failed')
+      }
     }
-
-    alert('Market approval rejected')
-
-  } catch (error) {
-
-    console.error(error)
-
-    alert(error.message || 'Rejection failed')
-  }
+  })
 }
 
 function statusClass(status) {

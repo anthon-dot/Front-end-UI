@@ -292,8 +292,10 @@ import Dialog from 'primevue/dialog'
 import Tag from 'primevue/tag'
 import InputText from 'primevue/inputtext'
 import { useToast } from "primevue/usetoast"
+import { useConfirm } from 'primevue/useconfirm'
 
 const toast = useToast()
+const confirm = useConfirm()
 
 // =========================
 // DATA
@@ -518,36 +520,42 @@ function handleImageError(event, doc) {
 }
 
 async function approveApplicant(item) {
-  if (!confirm(`Are you sure you want to approve ${item.firstName || ''} ${item.lastName || ''}?`)) {
-    return
-  }
+  const applicantName = `${item.firstName || ''} ${item.lastName || ''}`.trim() || 'this applicant'
+  confirm.require({
+    header: 'Approve Stakeholder',
+    message: `Are you sure you want to approve ${applicantName}? They will be authorized to proceed to advance payment.`,
+    acceptLabel: 'Approve',
+    rejectLabel: 'Cancel',
+    severity: 'success',
+    accept: async () => {
+      approvingId.value = item.id
 
-  approvingId.value = item.id
-
-  try {
-    if (item.applicationStatus === 'PENDING_TREASURER_APPROVAL' || !item.treasurerApproved) {
-      await api.post(`/stakeholders/${item.id}/treasurer-approve`, {})
-    } else {
-      await api.put(`/stakeholders/${item.id}/approve`)
+      try {
+        if (item.applicationStatus === 'PENDING_TREASURER_APPROVAL' || !item.treasurerApproved) {
+          await api.post(`/stakeholders/${item.id}/treasurer-approve`, {})
+        } else {
+          await api.put(`/stakeholders/${item.id}/approve`)
+        }
+        await fetchStakeholders()
+        toast.add({
+          severity: 'success',
+          summary: 'Stakeholder Approved',
+          detail: `${item.firstName} ${item.lastName} has been approved. They can now proceed to advance payment.`,
+          life: 4500
+        })
+      } catch (error) {
+        console.error(error)
+        toast.add({
+          severity: 'error',
+          summary: 'Approval Failed',
+          detail: error.response?.data?.message || error.message || 'Approval failed.',
+          life: 4500
+        })
+      } finally {
+        approvingId.value = null
+      }
     }
-    await fetchStakeholders()
-    toast.add({
-      severity: 'success',
-      summary: 'Stakeholder Approved',
-      detail: `${item.firstName} ${item.lastName} has been approved. They can now proceed to advance payment.`,
-      life: 4500
-    })
-  } catch (error) {
-    console.error(error)
-    toast.add({
-      severity: 'error',
-      summary: 'Approval Failed',
-      detail: error.response?.data?.message || error.message || 'Approval failed.',
-      life: 4500
-    })
-  } finally {
-    approvingId.value = null
-  }
+  })
 }
 
 async function rejectApplicant(item) {

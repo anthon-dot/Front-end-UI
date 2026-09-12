@@ -137,12 +137,14 @@
 
 <script setup>
 import { ref, computed, nextTick, watch } from 'vue'
+import { useConfirm } from 'primevue/useconfirm'
 import MarketSupervisorMenu from '../components/MarketSupervisorMenu.vue'
 import sampleApplicants from '../data/applicants.js'
 
 const STORAGE_KEY = 'ms_applications'
 	const STALLS_KEY = 'ms_stalls'
 
+const confirm = useConfirm()
 const q = ref('')
 const showModal = ref(false)
 const selected = ref({})
@@ -235,13 +237,21 @@ function restore(app) {
 
 function removePermanent(app) {
 	if (!app) return
-	if (!confirm('Permanently delete this record? This cannot be undone.')) return
-	const idx = applications.value.findIndex(a => a.id === app.id)
-	if (idx === -1) return
-	const name = applications.value[idx].name || app.id
-	applications.value.splice(idx, 1)
-	saveApplications()
-	alert('Deleted: ' + name)
+	confirm.require({
+		header: 'Delete Record',
+		message: 'Are you sure you want to permanently delete this record? This action cannot be undone.',
+		acceptLabel: 'Delete',
+		rejectLabel: 'Cancel',
+		severity: 'danger',
+		accept: () => {
+			const idx = applications.value.findIndex(a => a.id === app.id)
+			if (idx === -1) return
+			const name = applications.value[idx].name || app.id
+			applications.value.splice(idx, 1)
+			saveApplications()
+			alert('Deleted: ' + name)
+		}
+	})
 }
 
 function restoreStall(st) {
@@ -256,13 +266,21 @@ function restoreStall(st) {
 
 function removeStallPermanent(st) {
 	if (!st) return
-	if (!confirm('Permanently delete this stall? This cannot be undone.')) return
-	const idx = stalls.value.findIndex(x => x.id === st.id)
-	if (idx === -1) return
-	const num = stalls.value[idx].number || st.id
-	stalls.value.splice(idx, 1)
-	saveStalls(stalls.value)
-	alert('Deleted stall: ' + num)
+	confirm.require({
+		header: 'Delete Stall',
+		message: 'Are you sure you want to permanently delete this stall? This action cannot be undone.',
+		acceptLabel: 'Delete',
+		rejectLabel: 'Cancel',
+		severity: 'danger',
+		accept: () => {
+			const idx = stalls.value.findIndex(x => x.id === st.id)
+			if (idx === -1) return
+			const num = stalls.value[idx].number || st.id
+			stalls.value.splice(idx, 1)
+			saveStalls(stalls.value)
+			alert('Deleted stall: ' + num)
+		}
+	})
 }
 </script>
 

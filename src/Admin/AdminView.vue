@@ -1,7 +1,6 @@
 <template>
   <div class="admin-layout min-h-screen bg-slate-50">
     <Toast />
-    <ConfirmDialog />
     <AdminMenu />
 
     <main class="admin-page">
@@ -305,7 +304,6 @@ import Card from 'primevue/card'
 import Chart from 'chart.js/auto'
 import Checkbox from 'primevue/checkbox'
 import Column from 'primevue/column'
-import ConfirmDialog from 'primevue/confirmdialog'
 import DataTable from 'primevue/datatable'
 import Dialog from 'primevue/dialog'
 import DatePicker from 'primevue/datepicker'
@@ -818,27 +816,33 @@ function withinDateRange(value) {
 
 function confirmActivate(user) {
   confirm.require({
-    message: `Activate ${user.name}?`,
+    message: `Are you sure you want to activate user "${user.name}"?`,
     header: 'Activate User',
-    icon: 'pi pi-check-circle',
+    acceptLabel: 'Activate',
+    rejectLabel: 'Cancel',
+    severity: 'success',
     accept: async () => runUserAction(() => activateUser(user.id), 'User activated.')
   })
 }
 
 function confirmDisable(user) {
   confirm.require({
-    message: `Disable ${user.name}?`,
+    message: `Are you sure you want to disable user "${user.name}"? This action cannot be undone.`,
     header: 'Disable User',
-    icon: 'pi pi-ban',
+    acceptLabel: 'Disable',
+    rejectLabel: 'Cancel',
+    severity: 'danger',
     accept: async () => runUserAction(() => disableUser(user.id), 'User disabled.')
   })
 }
 
 function confirmResetPassword(user) {
   confirm.require({
-    message: `Reset password for ${user.name}?`,
+    message: `Are you sure you want to reset the password for "${user.name}"?`,
     header: 'Reset Password',
-    icon: 'pi pi-key',
+    acceptLabel: 'Reset',
+    rejectLabel: 'Cancel',
+    severity: 'warn',
     accept: async () => runUserAction(() => resetUserPassword(user.id), 'Password reset requested.')
   })
 }
@@ -885,9 +889,11 @@ async function saveStall() {
 function confirmToggleStall(stall) {
   const nextStatus = stall.status === 'INACTIVE' ? 'VACANT' : 'INACTIVE'
   confirm.require({
-    message: `Set stall ${stall.stallNo} to ${nextStatus}?`,
+    message: `Set stall ${stall.stallNo} status to ${nextStatus}?`,
     header: 'Update Stall Status',
-    icon: 'pi pi-info-circle',
+    acceptLabel: 'Update',
+    rejectLabel: 'Cancel',
+    severity: nextStatus === 'INACTIVE' ? 'danger' : 'success',
     accept: async () => {
       try {
         await api.put(`/stalls/${stall.id}`, { ...stall, status: nextStatus })
