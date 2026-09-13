@@ -98,19 +98,94 @@
         </DataTable>
       </div>
 
-      <!-- RECORD PAYMENT MODAL: 3 SEPARATED COLUMNS -->
+      <!-- RECORD PAYMENT MODAL WITH 3 COLUMN BUTTONS -->
       <Dialog v-model:visible="showModal" modal header="Record Payment" 
-              :style="{ width: '88vw', maxWidth: '1350px' }" 
-              :breakpoints="{ '1200px': '92vw', '960px': '96vw', '640px': '98vw' }" 
+              :style="{ width: '75vw', maxWidth: '1000px' }" 
+              :breakpoints="{ '1200px': '85vw', '960px': '92vw', '640px': '98vw' }" 
               class="modern-dialog">
-        <p class="text-slate-500 mb-6 text-sm">Select a stakeholder from the appropriate payment category column below to record their payment.</p>
+        <p class="text-slate-500 mb-4 text-sm">Choose a payment category button below. Only the selected column will be visible to manage and record payments.</p>
         
-        <!-- 3 SEPARATED COLUMNS -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
+        <!-- 3 COLUMN BUTTONS -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+          
+          <!-- BUTTON 1: ADVANCE PAYMENT -->
+          <button 
+            type="button" 
+            @click="setCategory('ADVANCE_PAYMENT')"
+            class="flex items-center justify-between p-3.5 rounded-2xl border font-bold text-sm transition-all duration-200 cursor-pointer text-left"
+            :class="activeCategory === 'ADVANCE_PAYMENT' 
+              ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-100 ring-2 ring-indigo-200' 
+              : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-300 hover:bg-slate-50'">
+            <div class="flex items-center gap-3">
+              <span class="w-9 h-9 rounded-xl flex items-center justify-center transition-colors"
+                    :class="activeCategory === 'ADVANCE_PAYMENT' ? 'bg-indigo-700/70 text-white' : 'bg-indigo-50 text-indigo-600'">
+                <i class="pi pi-shield text-base"></i>
+              </span>
+              <div>
+                <div class="leading-tight text-sm font-bold">Advance Payment</div>
+                <div class="text-[11px] font-normal mt-0.5" :class="activeCategory === 'ADVANCE_PAYMENT' ? 'text-indigo-200' : 'text-slate-400'">Initial advance deposit</div>
+              </div>
+            </div>
+            <Tag :value="advancePaymentStakeholders.length + ' Pending'" 
+                 :severity="activeCategory === 'ADVANCE_PAYMENT' ? 'contrast' : (advancePaymentStakeholders.length ? 'info' : 'secondary')" 
+                 rounded class="!text-[11px] !font-bold" />
+          </button>
+
+          <!-- BUTTON 2: APPLICATION FORM -->
+          <button 
+            type="button" 
+            @click="setCategory('APPLICATION_FORM')"
+            class="flex items-center justify-between p-3.5 rounded-2xl border font-bold text-sm transition-all duration-200 cursor-pointer text-left"
+            :class="activeCategory === 'APPLICATION_FORM' 
+              ? 'bg-amber-600 text-white border-amber-600 shadow-md shadow-amber-100 ring-2 ring-amber-200' 
+              : 'bg-white text-slate-700 border-slate-200 hover:border-amber-300 hover:bg-slate-50'">
+            <div class="flex items-center gap-3">
+              <span class="w-9 h-9 rounded-xl flex items-center justify-center transition-colors"
+                    :class="activeCategory === 'APPLICATION_FORM' ? 'bg-amber-700/70 text-white' : 'bg-amber-50 text-amber-600'">
+                <i class="pi pi-file-edit text-base"></i>
+              </span>
+              <div>
+                <div class="leading-tight text-sm font-bold">Application Form</div>
+                <div class="text-[11px] font-normal mt-0.5" :class="activeCategory === 'APPLICATION_FORM' ? 'text-amber-200' : 'text-slate-400'">Application fee</div>
+              </div>
+            </div>
+            <Tag :value="appFormStakeholders.length + ' Pending'" 
+                 :severity="activeCategory === 'APPLICATION_FORM' ? 'contrast' : (appFormStakeholders.length ? 'warn' : 'secondary')" 
+                 rounded class="!text-[11px] !font-bold" />
+          </button>
+
+          <!-- BUTTON 3: RENT PAYMENT -->
+          <button 
+            type="button" 
+            @click="setCategory('RENT_PAYMENT')"
+            class="flex items-center justify-between p-3.5 rounded-2xl border font-bold text-sm transition-all duration-200 cursor-pointer text-left"
+            :class="activeCategory === 'RENT_PAYMENT' 
+              ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-100 ring-2 ring-emerald-200' 
+              : 'bg-white text-slate-700 border-slate-200 hover:border-emerald-300 hover:bg-slate-50'">
+            <div class="flex items-center gap-3">
+              <span class="w-9 h-9 rounded-xl flex items-center justify-center transition-colors"
+                    :class="activeCategory === 'RENT_PAYMENT' ? 'bg-emerald-700/70 text-white' : 'bg-emerald-50 text-emerald-600'">
+                <i class="pi pi-home text-base"></i>
+              </span>
+              <div>
+                <div class="leading-tight text-sm font-bold">Rent Payment</div>
+                <div class="text-[11px] font-normal mt-0.5" :class="activeCategory === 'RENT_PAYMENT' ? 'text-emerald-200' : 'text-slate-400'">Monthly stall rentals</div>
+              </div>
+            </div>
+            <Tag :value="rentPaymentStakeholders.length + ' Unpaid'" 
+                 :severity="activeCategory === 'RENT_PAYMENT' ? 'contrast' : (rentPaymentStakeholders.length ? 'danger' : 'secondary')" 
+                 rounded class="!text-[11px] !font-bold" />
+          </button>
+
+        </div>
+
+        <!-- VISIBLE COLUMN CONTENT (Only the selected column is visible) -->
+        <div class="mb-6">
           
           <!-- COLUMN 1: ADVANCE PAYMENT -->
-          <div class="rounded-2xl border transition-all p-4 bg-white shadow-sm flex flex-col h-[430px]"
-               :class="selectedPaymentType === 'ADVANCE_PAYMENT' ? 'border-indigo-500 ring-2 ring-indigo-100' : 'border-slate-200 hover:border-indigo-200'">
+          <div v-if="activeCategory === 'ADVANCE_PAYMENT'" 
+               class="rounded-2xl border transition-all p-4 bg-white shadow-sm flex flex-col h-[380px]"
+               :class="selectedPaymentType === 'ADVANCE_PAYMENT' ? 'border-indigo-500 ring-2 ring-indigo-100' : 'border-slate-200'">
             <!-- Column Header -->
             <div class="flex items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-100">
               <div class="flex items-center gap-2.5">
@@ -118,8 +193,8 @@
                   <i class="pi pi-shield text-lg"></i>
                 </span>
                 <div>
-                  <h3 class="font-bold text-slate-800 text-sm">Advance Payment</h3>
-                  <p class="text-[11px] text-slate-400">Initial advance deposit</p>
+                  <h3 class="font-bold text-slate-800 text-sm">Advance Payment Stakeholders</h3>
+                  <p class="text-[11px] text-slate-400">Approved applicants awaiting initial advance deposit</p>
                 </div>
               </div>
               <Tag :value="advancePaymentStakeholders.length + ' Pending'" 
@@ -131,7 +206,7 @@
             <div class="mb-3">
               <span class="p-input-icon-left w-full">
                 <i class="pi pi-search text-slate-400 text-xs"></i>
-                <InputText v-model="searchAdvance" placeholder="Search advance applicants..." class="w-full pl-8 py-2 text-xs bg-slate-50 border-slate-200 rounded-lg" />
+                <InputText v-model="searchAdvance" placeholder="Search advance applicants by name, business, stall..." class="w-full pl-8 py-2 text-xs bg-slate-50 border-slate-200 rounded-lg" />
               </span>
             </div>
 
@@ -141,22 +216,28 @@
                    @click="selectStakeholderForType(s, 'ADVANCE_PAYMENT')"
                    class="p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between"
                    :class="selectedStakeholder?.id === s.id && selectedPaymentType === 'ADVANCE_PAYMENT'
-                           ? 'bg-indigo-50 border-indigo-400 shadow-sm'
+                           ? 'bg-indigo-50 border-indigo-400 shadow-sm ring-1 ring-indigo-300'
                            : 'bg-slate-50/50 border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/30'">
-                <div class="flex items-center gap-2.5 min-w-0">
-                  <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 font-bold text-xs flex items-center justify-center flex-shrink-0">
+                <div class="flex items-center gap-3 min-w-0">
+                  <div class="w-9 h-9 rounded-full bg-indigo-100 text-indigo-600 font-bold text-xs flex items-center justify-center flex-shrink-0">
                     {{ initials(s.firstName, s.lastName) }}
                   </div>
                   <div class="min-w-0">
-                    <div class="font-bold text-xs text-slate-800 truncate">{{ s.firstName }} {{ s.lastName }}</div>
-                    <div class="text-[11px] text-slate-500 truncate">{{ s.businessName || 'Applicant' }}</div>
+                    <div class="font-bold text-sm text-slate-800 truncate">{{ s.firstName }} {{ s.lastName }}</div>
+                    <div class="text-xs text-slate-500 truncate">
+                      {{ s.businessName || 'Applicant' }}
+                      <span v-if="s.occupant?.stall?.stallNo || s.selectedStall?.stallNo"> • Stall {{ s.occupant?.stall?.stallNo || s.selectedStall?.stallNo }}</span>
+                    </div>
                   </div>
                 </div>
-                <div class="text-right flex-shrink-0 ml-2">
-                  <div class="text-[10px] uppercase font-bold text-slate-400">Bal / Req</div>
-                  <div class="text-xs font-bold text-indigo-600">
-                    ₱{{ Number(s.advanceBalance || 0).toLocaleString() }} / ₱{{ Number(s.totalAdvanceAmount || 0).toLocaleString() }}
+                <div class="text-right flex-shrink-0 ml-3 flex items-center gap-3">
+                  <div>
+                    <div class="text-[10px] uppercase font-bold text-slate-400">Balance / Required</div>
+                    <div class="text-xs font-bold text-indigo-600">
+                      ₱{{ Number(s.advanceBalance || 0).toLocaleString() }} / ₱{{ Number(s.totalAdvanceAmount || 0).toLocaleString() }}
+                    </div>
                   </div>
+                  <i v-if="selectedStakeholder?.id === s.id && selectedPaymentType === 'ADVANCE_PAYMENT'" class="pi pi-check-circle text-indigo-600 text-lg"></i>
                 </div>
               </div>
 
@@ -169,8 +250,9 @@
           </div>
 
           <!-- COLUMN 2: APPLICATION FORM -->
-          <div class="rounded-2xl border transition-all p-4 bg-white shadow-sm flex flex-col h-[430px]"
-               :class="selectedPaymentType === 'APPLICATION_FORM' ? 'border-amber-500 ring-2 ring-amber-100' : 'border-slate-200 hover:border-amber-200'">
+          <div v-else-if="activeCategory === 'APPLICATION_FORM'"
+               class="rounded-2xl border transition-all p-4 bg-white shadow-sm flex flex-col h-[380px]"
+               :class="selectedPaymentType === 'APPLICATION_FORM' ? 'border-amber-500 ring-2 ring-amber-100' : 'border-slate-200'">
             <!-- Column Header -->
             <div class="flex items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-100">
               <div class="flex items-center gap-2.5">
@@ -178,8 +260,8 @@
                   <i class="pi pi-file-edit text-lg"></i>
                 </span>
                 <div>
-                  <h3 class="font-bold text-slate-800 text-sm">Application Form</h3>
-                  <p class="text-[11px] text-slate-400">Application & permit fee</p>
+                  <h3 class="font-bold text-slate-800 text-sm">Application Form Stakeholders</h3>
+                  <p class="text-[11px] text-slate-400">Applicants awaiting application and permit fee</p>
                 </div>
               </div>
               <Tag :value="appFormStakeholders.length + ' Pending'" 
@@ -191,7 +273,7 @@
             <div class="mb-3">
               <span class="p-input-icon-left w-full">
                 <i class="pi pi-search text-slate-400 text-xs"></i>
-                <InputText v-model="searchAppForm" placeholder="Search application applicants..." class="w-full pl-8 py-2 text-xs bg-slate-50 border-slate-200 rounded-lg" />
+                <InputText v-model="searchAppForm" placeholder="Search application applicants by name, business..." class="w-full pl-8 py-2 text-xs bg-slate-50 border-slate-200 rounded-lg" />
               </span>
             </div>
 
@@ -201,19 +283,20 @@
                    @click="selectStakeholderForType(s, 'APPLICATION_FORM')"
                    class="p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between"
                    :class="selectedStakeholder?.id === s.id && selectedPaymentType === 'APPLICATION_FORM'
-                           ? 'bg-amber-50 border-amber-400 shadow-sm'
+                           ? 'bg-amber-50 border-amber-400 shadow-sm ring-1 ring-amber-300'
                            : 'bg-slate-50/50 border-slate-100 hover:border-amber-200 hover:bg-amber-50/30'">
-                <div class="flex items-center gap-2.5 min-w-0">
-                  <div class="w-8 h-8 rounded-full bg-amber-100 text-amber-700 font-bold text-xs flex items-center justify-center flex-shrink-0">
+                <div class="flex items-center gap-3 min-w-0">
+                  <div class="w-9 h-9 rounded-full bg-amber-100 text-amber-700 font-bold text-xs flex items-center justify-center flex-shrink-0">
                     {{ initials(s.firstName, s.lastName) }}
                   </div>
                   <div class="min-w-0">
-                    <div class="font-bold text-xs text-slate-800 truncate">{{ s.firstName }} {{ s.lastName }}</div>
-                    <div class="text-[11px] text-slate-500 truncate">{{ s.businessName || s.businessType || 'Applicant' }}</div>
+                    <div class="font-bold text-sm text-slate-800 truncate">{{ s.firstName }} {{ s.lastName }}</div>
+                    <div class="text-xs text-slate-500 truncate">{{ s.businessName || s.businessType || 'Applicant' }}</div>
                   </div>
                 </div>
-                <div class="text-right flex-shrink-0 ml-2">
-                  <Tag value="FEE UNPAID" severity="danger" class="!text-[10px] !py-0.5 !px-2 font-bold" rounded />
+                <div class="text-right flex-shrink-0 ml-3 flex items-center gap-3">
+                  <Tag value="FEE UNPAID" severity="danger" class="!text-[11px] !py-0.5 !px-2.5 font-bold" rounded />
+                  <i v-if="selectedStakeholder?.id === s.id && selectedPaymentType === 'APPLICATION_FORM'" class="pi pi-check-circle text-amber-600 text-lg"></i>
                 </div>
               </div>
 
@@ -226,8 +309,9 @@
           </div>
 
           <!-- COLUMN 3: RENT PAYMENT -->
-          <div class="rounded-2xl border transition-all p-4 bg-white shadow-sm flex flex-col h-[430px]"
-               :class="selectedPaymentType === 'RENT_PAYMENT' ? 'border-emerald-500 ring-2 ring-emerald-100' : 'border-slate-200 hover:border-emerald-200'">
+          <div v-else-if="activeCategory === 'RENT_PAYMENT'"
+               class="rounded-2xl border transition-all p-4 bg-white shadow-sm flex flex-col h-[380px]"
+               :class="selectedPaymentType === 'RENT_PAYMENT' ? 'border-emerald-500 ring-2 ring-emerald-100' : 'border-slate-200'">
             <!-- Column Header -->
             <div class="flex items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-100">
               <div class="flex items-center gap-2.5">
@@ -235,8 +319,8 @@
                   <i class="pi pi-home text-lg"></i>
                 </span>
                 <div>
-                  <h3 class="font-bold text-slate-800 text-sm">Rent Payment</h3>
-                  <p class="text-[11px] text-slate-400">Monthly stall rentals</p>
+                  <h3 class="font-bold text-slate-800 text-sm">Rent Payment Tenants</h3>
+                  <p class="text-[11px] text-slate-400">Tenants with occupied stalls and pending monthly billings</p>
                 </div>
               </div>
               <Tag :value="rentPaymentStakeholders.length + ' Unpaid'" 
@@ -248,7 +332,7 @@
             <div class="mb-3">
               <span class="p-input-icon-left w-full">
                 <i class="pi pi-search text-slate-400 text-xs"></i>
-                <InputText v-model="searchRent" placeholder="Search rent tenants..." class="w-full pl-8 py-2 text-xs bg-slate-50 border-slate-200 rounded-lg" />
+                <InputText v-model="searchRent" placeholder="Search rent tenants by name, stall, business..." class="w-full pl-8 py-2 text-xs bg-slate-50 border-slate-200 rounded-lg" />
               </span>
             </div>
 
@@ -258,20 +342,26 @@
                    @click="selectStakeholderForType(s, 'RENT_PAYMENT')"
                    class="p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between"
                    :class="selectedStakeholder?.id === s.id && selectedPaymentType === 'RENT_PAYMENT'
-                           ? 'bg-emerald-50 border-emerald-400 shadow-sm'
+                           ? 'bg-emerald-50 border-emerald-400 shadow-sm ring-1 ring-emerald-300'
                            : 'bg-slate-50/50 border-slate-100 hover:border-emerald-200 hover:bg-emerald-50/30'">
-                <div class="flex items-center gap-2.5 min-w-0">
-                  <div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 font-bold text-xs flex items-center justify-center flex-shrink-0">
+                <div class="flex items-center gap-3 min-w-0">
+                  <div class="w-9 h-9 rounded-full bg-emerald-100 text-emerald-700 font-bold text-xs flex items-center justify-center flex-shrink-0">
                     {{ initials(s.firstName, s.lastName) }}
                   </div>
                   <div class="min-w-0">
-                    <div class="font-bold text-xs text-slate-800 truncate">{{ s.firstName }} {{ s.lastName }}</div>
-                    <div class="text-[11px] text-slate-500 truncate">Stall: {{ s.occupant?.stall?.stallNo || 'Occupied' }}</div>
+                    <div class="font-bold text-sm text-slate-800 truncate">{{ s.firstName }} {{ s.lastName }}</div>
+                    <div class="text-xs text-slate-500 truncate">
+                      Stall: {{ s.occupant?.stall?.stallNo || 'Occupied' }}
+                      <span v-if="s.businessName"> • {{ s.businessName }}</span>
+                    </div>
                   </div>
                 </div>
-                <div class="text-right flex-shrink-0 ml-2">
-                  <div class="text-[10px] uppercase font-bold text-slate-400">Total Due</div>
-                  <div class="text-xs font-black text-rose-600">₱{{ getTotalUnpaidAmount(s).toLocaleString() }}</div>
+                <div class="text-right flex-shrink-0 ml-3 flex items-center gap-3">
+                  <div>
+                    <div class="text-[10px] uppercase font-bold text-slate-400">Total Due</div>
+                    <div class="text-xs font-black text-rose-600">₱{{ getTotalUnpaidAmount(s).toLocaleString() }}</div>
+                  </div>
+                  <i v-if="selectedStakeholder?.id === s.id && selectedPaymentType === 'RENT_PAYMENT'" class="pi pi-check-circle text-emerald-600 text-lg"></i>
                 </div>
               </div>
 
@@ -401,7 +491,7 @@
         <!-- EMPTY STATE WHEN NO STAKEHOLDER SELECTED YET -->
         <div v-else class="rounded-xl border border-dashed border-slate-200 p-6 text-center text-slate-400 bg-slate-50/50">
           <i class="pi pi-hand-pointer text-xl mb-1 text-slate-300 block"></i>
-          <p class="text-xs font-medium">Click on any stakeholder in the columns above to enter and record payment details.</p>
+          <p class="text-xs font-medium">Click on any stakeholder in the list above to enter and record payment details.</p>
         </div>
 
         <template #footer>
@@ -443,6 +533,7 @@ const tableSearch = ref('')
 
 // Modal state
 const showModal = ref(false)
+const activeCategory = ref('ADVANCE_PAYMENT')
 const selectedStakeholder = ref(null)
 const selectedPaymentType = ref('')
 const selectedBillingId = ref(null)
@@ -616,6 +707,7 @@ const filteredPayments = computed(() => {
 function selectStakeholderForType(s, type) {
   selectedStakeholder.value = s
   selectedPaymentType.value = type
+  activeCategory.value = type
   form.value.paymentType = type
   form.value.referenceNo = ''
 
@@ -646,6 +738,13 @@ function selectBilling(b) {
   form.value.amount = Number(b.balance || 0)
 }
 
+function setCategory(category) {
+  activeCategory.value = category
+  if (selectedPaymentType.value !== category) {
+    resetSelection()
+  }
+}
+
 function resetSelection() {
   selectedStakeholder.value = null
   selectedPaymentType.value = ''
@@ -667,8 +766,9 @@ function formatDate(date) {
   return new Date(date).toLocaleDateString()
 }
 
-function openModal() {
+function openModal(defaultCategory = 'ADVANCE_PAYMENT') {
   resetSelection()
+  activeCategory.value = defaultCategory
   searchAdvance.value = ''
   searchAppForm.value = ''
   searchRent.value = ''
