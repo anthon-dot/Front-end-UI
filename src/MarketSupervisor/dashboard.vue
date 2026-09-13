@@ -131,17 +131,19 @@
 
               <td>
 
-                <div style="display:flex;gap:8px;">
+                <div style="display:flex;gap:8px;align-items:center;">
+
+                  <Button
+                    icon="pi pi-eye"
+                    text
+                    rounded
+                    severity="secondary"
+                    @click="open(app)"
+                    v-tooltip="'View Details'"
+                  />
 
                   <!-- IF advancePayment = true -->
                   <template v-if="app.advancePayment === true">
-
-                    <button
-                      class="btn-outline"
-                      @click="open(app)"
-                    >
-                      View
-                    </button>
 
                     <button
                       class="btn-approve"
@@ -156,18 +158,6 @@
                       @click="rejectMarketSupervisor(app)"
                     >
                       Reject
-                    </button>
-
-                  </template>
-
-                  <!-- IF advancePayment = false -->
-                  <template v-else>
-
-                    <button
-                      class="btn-outline"
-                      @click="open(app)"
-                    >
-                      View
                     </button>
 
                   </template>
@@ -202,121 +192,192 @@
     </div>
 
     <!-- VIEW MODAL -->
-    <div
-      v-if="showModal"
-      class="modal-backdrop"
+    <Dialog
+      v-model:visible="showModal"
+      modal
+      header="Stakeholder Details"
+      :style="{ width: '50vw' }"
+      :breakpoints="{ '960px': '75vw', '641px': '95vw' }"
+      class="modern-dialog"
     >
+      <div v-if="selected.id" class="p-4 bg-slate-50 rounded-xl border border-slate-100">
+        <div class="flex items-center gap-4 mb-6 pb-6 border-b border-slate-200">
+          <div class="w-16 h-16 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center font-black text-2xl shadow-sm">
+            {{ selected.firstName?.charAt(0) }}{{ selected.lastName?.charAt(0) }}
+          </div>
+          <div>
+            <h3 class="text-xl font-bold text-slate-800">{{ selected.lastName }}, {{ selected.firstName }} {{ selected.middleName || '' }}</h3>
+            <p class="text-slate-500">{{ selected.businessName }}</p>
+          </div>
+        </div>
 
-      <div class="modal">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-8">
+          <div>
+            <span class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Contact</span>
+            <p class="text-slate-800 font-medium">{{ selected.contact }}</p>
+          </div>
+          <div>
+            <span class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Email</span>
+            <p class="text-slate-800 font-medium">{{ selected.email }}</p>
+          </div>
+          <div>
+            <span class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Business Type</span>
+            <p class="text-slate-800 font-medium">{{ selected.businessType }}</p>
+          </div>
+          <div class="sm:col-span-2">
+            <span class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Address</span>
+            <p class="text-slate-800 font-medium">{{ selected.address }}</p>
+          </div>
+        </div>
 
-        <h3 class="text-xl font-semibold mb-4">
-          Application Details
-        </h3>
-
-        <div class="info-box">
-
-          <p>
-            <strong>Name:</strong>
-            {{ selected.firstName }}
-            {{ selected.lastName }}
-          </p>
-
-          <p>
-            <strong>Business:</strong>
-            {{ selected.businessName }}
-          </p>
-
-          <p>
-            <strong>Business Type:</strong>
-            {{ selected.businessType }}
-          </p>
-
-          <p>
-            <strong>Contact:</strong>
-            {{ selected.contact }}
-          </p>
-
-          <p>
-            <strong>Email:</strong>
-            {{ selected.email }}
-          </p>
-
-          <p>
-            <strong>Address:</strong>
-            {{ selected.address }}
-          </p>
-
-          <p>
-            <strong>Market Approval:</strong>
+        <div class="mt-6 pt-6 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+            <span class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Selected Stall</span>
+            <p class="text-base font-bold text-indigo-600 truncate">
+              <span v-if="selected.selectedStall">
+                {{ selected.selectedStall.stallNo }} - {{ selected.selectedStall.stallType }}
+              </span>
+              <span v-else class="text-slate-400 font-normal text-sm">
+                No selected stall
+              </span>
+            </p>
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+            <span class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Market Approval</span>
             <span :class="['status-badge', statusClass(selected.marketApprovalStatus)]">
               {{ selected.marketApprovalStatus || 'PENDING' }}
             </span>
-          </p>
-
-          <p>
-            <strong>Selected Stall:</strong>
-            <span v-if="selected.selectedStall">
-              {{ selected.selectedStall.stallNo }} - {{ selected.selectedStall.stallType }}
-            </span>
-            <span v-else>
-              No selected stall
-            </span>
-          </p>
-
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex items-center justify-between">
+            <div>
+              <span class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Advance Payment</span>
+              <p class="text-sm font-semibold text-slate-700">
+                {{ selected.advanceBalance ? '₱' + Number(selected.advanceBalance || 0).toLocaleString() : (selected.advancePayment ? 'Paid' : 'Unpaid') }}
+              </p>
+            </div>
+            <div>
+              <Tag v-if="selected.advancePayment || selected.advancePaymentPaid || selected.advancePaymentCompleted" 
+                 value="PAID" severity="success" rounded class="!bg-emerald-100 !text-emerald-700 !font-bold" />
+              <Tag v-else 
+                 value="UNPAID" severity="danger" rounded class="!bg-rose-100 !text-rose-700 !font-bold" />
+            </div>
+          </div>
         </div>
 
-        <!-- DOCUMENTS -->
-        <div class="mb-4">
-
-          <h4 class="font-medium mb-2">
-            Documents
-          </h4>
-
-          <div
-            v-if="
-              selected.documents &&
-              selected.documents.length
-            "
-          >
-
+        <!-- SUBMITTED DOCUMENTS / IMAGES -->
+        <div class="mt-6 pt-6 border-t border-slate-200">
+          <h4 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">Submitted Documents</h4>
+          <div v-if="selected.documents && selected.documents.length" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <div
               v-for="doc in selected.documents"
               :key="doc.id"
-              class="mb-2"
+              class="group relative bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden cursor-pointer hover:shadow-md hover:border-indigo-200 transition-all"
+              @click="openImagePreview(doc)"
             >
+              <div class="aspect-square bg-slate-100 flex items-center justify-center overflow-hidden relative">
+                <!-- Loading spinner -->
+                <div v-if="loadingImages[doc.fileName]" class="flex flex-col items-center justify-center gap-1.5 text-indigo-500">
+                  <i class="pi pi-spin pi-spinner text-2xl"></i>
+                  <span class="text-[10px] text-slate-400">Loading...</span>
+                </div>
 
-              <a
-                :href="getFileUrl(doc.fileName)"
-                target="_blank"
-                class="text-blue-600 underline"
-              >
-                {{ doc.documentType }}
-              </a>
+                <!-- Image loaded via blob -->
+                <img
+                  v-else-if="isImageFile(doc.fileName) && loadedImageUrls[doc.fileName]"
+                  :src="loadedImageUrls[doc.fileName]"
+                  :alt="doc.documentType"
+                  class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                />
 
+                <!-- Image failed (missing or error) -->
+                <div
+                  v-else-if="isImageFile(doc.fileName) && imageFailed[doc.fileName]"
+                  class="flex flex-col items-center justify-center gap-1 text-slate-400 p-2 text-center w-full h-full"
+                >
+                  <i class="pi pi-exclamation-triangle text-2xl text-amber-400"></i>
+                  <span class="text-xs font-semibold text-slate-600">File Not Found</span>
+                  <span class="text-[9px] text-slate-400 leading-tight">Storage reset or 404</span>
+                </div>
+
+                <!-- Direct URL image (for base64/external) -->
+                <img
+                  v-else-if="isImageFile(doc.fileName)"
+                  :src="getFileUrl(doc.fileName)"
+                  :alt="doc.documentType"
+                  class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  @error="handleImageError($event, doc)"
+                />
+
+                <!-- PDF / other document type -->
+                <div v-else class="flex flex-col items-center gap-2 text-slate-400">
+                  <i class="pi pi-file text-3xl"></i>
+                  <span class="text-xs">{{ getFileExtension(doc.fileName) }}</span>
+                </div>
+              </div>
+              <div class="p-2.5">
+                <p class="text-xs font-semibold text-slate-700 truncate">{{ doc.documentType }}</p>
+                <p class="text-[10px] text-slate-400 truncate mt-0.5">{{ doc.fileName }}</p>
+              </div>
+              <div class="absolute inset-0 bg-indigo-600/0 group-hover:bg-indigo-600/10 transition-colors flex items-center justify-center">
+                <i class="pi pi-eye text-white text-xl opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg"></i>
+              </div>
             </div>
-
           </div>
-
-          <div v-else>
-            No documents uploaded
+          <div v-else class="bg-white rounded-xl border border-slate-100 p-6 text-center">
+            <i class="pi pi-image text-3xl text-slate-300 mb-2"></i>
+            <p class="text-sm text-slate-400">No documents uploaded by this applicant.</p>
           </div>
-
         </div>
-
-        <div class="flex justify-end gap-2">
-
-          <button
-            class="btn-outline"
-            @click="close"
-          >
-            Close
-          </button>
-
-        </div>
-
       </div>
+      <template #footer>
+        <Button label="Close" icon="pi pi-times" text @click="close" class="text-slate-600" />
+      </template>
+    </Dialog>
 
-    </div>
+    <!-- IMAGE PREVIEW DIALOG -->
+    <Dialog
+      v-model:visible="showImagePreview"
+      modal
+      :header="previewDoc?.documentType || 'Document Preview'"
+      :style="{ width: '80vw', maxWidth: '900px' }"
+      :breakpoints="{ '960px': '90vw', '641px': '98vw' }"
+      class="modern-dialog"
+    >
+      <div v-if="previewDoc" class="flex flex-col items-center">
+        <div class="w-full bg-slate-100 rounded-xl overflow-hidden flex items-center justify-center min-h-[300px] max-h-[70vh]">
+          <img
+            v-if="isImageFile(previewDoc.fileName)"
+            :src="loadedImageUrls[previewDoc.fileName] || getFileUrl(previewDoc.fileName)"
+            :alt="previewDoc.documentType"
+            class="max-w-full max-h-[70vh] object-contain"
+            @error="handleImageError($event, previewDoc)"
+          />
+          <iframe
+            v-else-if="isPdfFile(previewDoc.fileName)"
+            :src="loadedImageUrls[previewDoc.fileName] || getFileUrl(previewDoc.fileName)"
+            class="w-full h-[70vh] border-0"
+          ></iframe>
+          <div v-else class="flex flex-col items-center gap-3 p-8 text-slate-400">
+            <i class="pi pi-file text-5xl"></i>
+            <p class="text-sm">This file type cannot be previewed inline.</p>
+          </div>
+        </div>
+        <div class="mt-4 flex items-center gap-3">
+          <a
+            :href="getFileUrl(previewDoc.fileName)"
+            target="_blank"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-colors shadow-sm"
+          >
+            <i class="pi pi-external-link"></i>
+            Open in New Tab
+          </a>
+          <span class="text-xs text-slate-400">{{ previewDoc.fileName }}</span>
+        </div>
+      </div>
+      <template #footer>
+        <Button label="Close" icon="pi pi-times" text @click="showImagePreview = false" class="text-slate-600" />
+      </template>
+    </Dialog>
 
   </div>
 
@@ -327,6 +388,10 @@ import { ref, computed, onMounted } from 'vue'
 import { useConfirm } from 'primevue/useconfirm'
 import api from '../services/api'
 import { API_ORIGIN } from '../config/apiConfig'
+import { AUTH_TOKEN_KEY } from '../stores/auth'
+import Button from 'primevue/button'
+import Dialog from 'primevue/dialog'
+import Tag from 'primevue/tag'
 
 import MarketSupervisorMenu
 from '../components/MarketSupervisorMenu.vue'
@@ -335,22 +400,24 @@ const confirm = useConfirm()
 const applications = ref([])
 const showModal = ref(false)
 const selected = ref({})
+
+// IMAGE PREVIEW
+const showImagePreview = ref(false)
+const previewDoc = ref(null)
+const loadedImageUrls = ref({})
+const loadingImages = ref({})
+const imageFailed = ref({})
+
 // =========================
 // LOAD STAKEHOLDERS
 // =========================
 
 async function loadApplications() {
-
   try {
-
     const response = await api.get('/stakeholders')
-
     applications.value = response.data
-
   } catch (error) {
-
     console.error(error)
-
   }
 }
 
@@ -391,38 +458,65 @@ const pendingCount = computed(() => {
 })
 
 const approvedCount = computed(() => {
-
   return applications.value.filter(app => {
-
     return (app.marketApprovalStatus || 'PENDING') === 'APPROVED'
-
   }).length
-
 })
 
 // =========================
-// OPEN MODAL
+// OPEN / CLOSE MODAL
 // =========================
 
 function open(app) {
+  // If app already has a documents array, use it.
+  // Otherwise, build one from flat fileName fields the backend may return.
+  if (!app.documents || !app.documents.length) {
+    const docs = []
+    const fieldMap = [
+      { key: 'letterOfIntent', label: 'Letter of Intent' },
+      { key: 'validID', label: 'Valid ID' },
+      { key: 'postUpload1', label: 'Post-Contract Upload 1' },
+      { key: 'postUpload2', label: 'Post-Contract Upload 2' },
+      { key: 'applicationForm', label: 'Application Form' },
+      { key: 'avatar', label: 'Profile Photo' },
+    ]
+    for (const { key, label } of fieldMap) {
+      const fileName = app[key + 'FileName'] || app[key + 'File'] || app[key + 'Url']
+      if (fileName && typeof fileName === 'string' && fileName.trim() !== '') {
+        docs.push({ id: key, documentType: label, fileName })
+      }
+    }
+    if (app.idFileName && typeof app.idFileName === 'string') {
+      docs.push({ id: 'id', documentType: 'Valid ID', fileName: app.idFileName })
+    }
+    if (app.letterFileName && typeof app.letterFileName === 'string') {
+      docs.push({ id: 'letter', documentType: 'Letter of Intent', fileName: app.letterFileName })
+    }
+    if (docs.length) {
+      app.documents = docs
+    }
+  }
+
+  // Ensure documents have valid fileName and proactively fetch image blobs with authentication
+  if (app.documents && app.documents.length) {
+    for (const doc of app.documents) {
+      if (!doc.fileName && doc.filePath) {
+        doc.fileName = doc.filePath.split(/[/\\]/).pop()
+      }
+      if (doc.fileName && (isImageFile(doc.fileName) || isPdfFile(doc.fileName))) {
+        fetchImageBlob(doc.fileName)
+      }
+    }
+  }
 
   selected.value = app
-
   showModal.value = true
 }
 
-// =========================
-// CLOSE MODAL
-// =========================
-
 function close() {
-
   showModal.value = false
+  selected.value = {}
 }
-
-// =========================
-// APPROVE MARKET SUPERVISOR
-// =========================
 
 async function approveMarketSupervisor(app) {
 
@@ -511,12 +605,98 @@ function statusClass(status) {
 }
 
 // =========================
-// FILE URL
+// IMAGE / DOCUMENT HELPERS
 // =========================
 
 function getFileUrl(fileName) {
+  if (!fileName) return ''
+  if (fileName.startsWith('data:') || fileName.startsWith('blob:')) return fileName
+  if (fileName.startsWith('http://') || fileName.startsWith('https://')) return fileName
+  const cleaned = fileName.replace(/^\/?(uploads\/)?/, '')
+  return `${API_ORIGIN}/uploads/${cleaned}`
+}
 
-  return `${API_ORIGIN}/uploads/${fileName}`
+async function fetchImageBlob(fileName) {
+  if (!fileName || loadedImageUrls.value[fileName]) return
+  const url = getFileUrl(fileName)
+  if (url.startsWith('data:') || url.startsWith('blob:')) {
+    loadedImageUrls.value[fileName] = url
+    return
+  }
+
+  loadingImages.value[fileName] = true
+  imageFailed.value[fileName] = false
+
+  try {
+    const token = localStorage.getItem(AUTH_TOKEN_KEY) || localStorage.getItem('token')
+    const headers = token ? { Authorization: `Bearer ${token}` } : {}
+
+    let res = await fetch(url, { headers })
+    if (!res.ok && !url.includes('/api/uploads/')) {
+      const altUrl = url.replace('/uploads/', '/api/uploads/')
+      try {
+        const altRes = await fetch(altUrl, { headers })
+        if (altRes.ok) res = altRes
+      } catch (ignored) {}
+    }
+
+    if (res.ok) {
+      const blob = await res.blob()
+      loadedImageUrls.value[fileName] = URL.createObjectURL(blob)
+    } else {
+      console.warn(`[ImageLoad] Server returned ${res.status} for ${url}`)
+      imageFailed.value[fileName] = true
+    }
+  } catch (err) {
+    console.warn(`[ImageLoad] Error fetching ${url}:`, err)
+    imageFailed.value[fileName] = true
+  } finally {
+    loadingImages.value[fileName] = false
+  }
+}
+
+function isImageFile(fileName) {
+  if (!fileName) return false
+  if (fileName.startsWith('data:image/')) return true
+  const ext = fileName.split(/[#?]/)[0].split('.').pop().toLowerCase()
+  return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(ext)
+}
+
+function isPdfFile(fileName) {
+  if (!fileName) return false
+  if (fileName.startsWith('data:application/pdf')) return true
+  const ext = fileName.split(/[#?]/)[0].split('.').pop().toLowerCase()
+  return ext === 'pdf'
+}
+
+function getFileExtension(fileName) {
+  if (!fileName) return ''
+  if (fileName.startsWith('data:image/')) return '.IMG'
+  if (fileName.startsWith('data:application/pdf')) return '.PDF'
+  return '.' + fileName.split(/[#?]/)[0].split('.').pop().toUpperCase()
+}
+
+function openImagePreview(doc) {
+  previewDoc.value = doc
+  if (doc?.fileName && !loadedImageUrls.value[doc.fileName]) {
+    fetchImageBlob(doc.fileName)
+  }
+  showImagePreview.value = true
+}
+
+function handleImageError(event, doc) {
+  event.target.style.display = 'none'
+  const parent = event.target.parentElement
+  if (parent && !parent.querySelector('.img-fallback-box')) {
+    const fallback = document.createElement('div')
+    fallback.className = 'img-fallback-box flex flex-col items-center justify-center gap-1.5 text-slate-400 p-3 text-center w-full h-full'
+    fallback.innerHTML = `
+      <i class="pi pi-exclamation-triangle text-2xl text-amber-400"></i>
+      <span class="text-xs font-semibold text-slate-600">File Not Found</span>
+      <span class="text-[10px] text-slate-400 leading-tight">Server file is missing (404) or was wiped during server restart</span>
+    `
+    parent.appendChild(fallback)
+  }
 }
 
 // =========================
@@ -524,9 +704,7 @@ function getFileUrl(fileName) {
 // =========================
 
 onMounted(() => {
-
   loadApplications()
-
 })
 </script>
 
@@ -613,31 +791,6 @@ onMounted(() => {
 .status-badge.rejected {
   background:#fee2e2;
   color:#991b1b;
-}
-
-.modal-backdrop {
-  position:fixed;
-  inset:0;
-  background:rgba(0,0,0,.4);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  z-index:3000;
-}
-
-.modal {
-  background:white;
-  border-radius:16px;
-  padding:24px;
-  width:100%;
-  max-width:560px;
-}
-
-.info-box {
-  background:#f9fafb;
-  padding:16px;
-  border-radius:12px;
-  margin-bottom:16px;
 }
 
 .dashboard {
