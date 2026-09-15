@@ -187,11 +187,22 @@ import MarketSupervisorMenu from '../components/MarketSupervisorMenu.vue'
 import SearchField from '../components/SearchField.vue'
 import { API_ORIGIN } from '../config/apiConfig'
 import api from '../services/api'
+import {
+  fetchStalls,
+  createStall,
+  updateStall,
+  uploadStallImage,
+  allocateOccupant
+} from '../services/stallService'
 
 const GOOGLE_MAPS_API_KEY =
   import.meta.env.VITE_GOOGLE_MAPS_API_KEY ||
   window.GOOGLE_MAPS_API_KEY ||
-  'AIzaSyAzA90gDwhL18nqRNIEBklwXp_GFzCmjs4'
+  ''
+
+if (!GOOGLE_MAPS_API_KEY) {
+  console.warn('[StallManagement] VITE_GOOGLE_MAPS_API_KEY is not defined. Map tiles may fail to load.')
+}
 const DEFAULT_CENTER = { lat: 8.399991, lng: 124.291353 }
 const MIN_MAP_ZOOM = 15
 const MAX_MAP_ZOOM = 20
@@ -310,8 +321,7 @@ async function initializeMap() {
 }
 
 async function loadStalls() {
-  const response = await api.get('/stalls')
-  const data = response.data
+  const data = await fetchStalls()
 
   stalls.value = data.map((stall) => ({
     id: stall.id,
@@ -500,88 +510,37 @@ async function saveStall() {
     // UPLOAD IMAGE
     // =========================
     if (selectedImage.value) {
-
       const fd = new FormData()
-
-      fd.append(
-        'file',
-        selectedImage.value
-      )
-
-      const uploadResponse =
-        await api.post('/stalls/upload', fd)
-
-      imageUrl =
-        uploadResponse.data
+      fd.append('file', selectedImage.value)
+      imageUrl = await uploadStallImage(fd)
     }
 
     // =========================
     // SAVE STALL
     // =========================
     const payload = {
-
-      stallNo:
-        form.value.number,
-
-      stallType:
-        form.value.type,
-
-      monthlyRent:
-        form.value.rent,
-
-      status:
-        form.value.status,
-
-      info:
-        form.value.info,
-
-      latitude:
-        form.value.lat,
-
-      longitude:
-        form.value.lng,
-
+      stallNo: form.value.number,
+      stallType: form.value.type,
+      monthlyRent: form.value.rent,
+      status: form.value.status,
+      info: form.value.info,
+      latitude: form.value.lat,
+      longitude: form.value.lng,
       imageUrl
     }
 
-    const url =
-      editing.value
-        ? `/stalls/${editing.value}`
-        : '/stalls'
-
-    const response =
-      editing.value
-        ? await api.put(url, payload)
-        : await api.post(url, payload)
-
-    // IMPORTANT:
-    // get saved stall id
-    const savedStall =
-      response.data
+    const savedStall = editing.value
+      ? await updateStall(editing.value, payload)
+      : await createStall(payload)
 
     // =========================
     // ASSIGN OCCUPANT
     // =========================
     if (
-
       selectedStakeholder.value &&
-
-      (
-        form.value.status
-          === 'OCCUPIED'
-
-        ||
-
-        form.value.status
-          === 'RESERVED'
-      )
-
+      (form.value.status === 'OCCUPIED' || form.value.status === 'RESERVED')
     ) {
-
-      await api.post(`/occupants/allocate/${savedStall.id}`, {
-        stakeholderId:
-          selectedStakeholder.value.id
-      })
+      await allocateOccupant(savedStall.id, selectedStakeholder.value.id)
     }
 
     await loadStalls()

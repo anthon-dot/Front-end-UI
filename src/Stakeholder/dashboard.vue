@@ -192,7 +192,7 @@ import { useConfirm } from 'primevue/useconfirm'
 import { useRoute, useRouter } from 'vue-router'
 import sampleApplicants from '../data/applicants.js'
 import sampleContracts from '../data/contracts.js'
-import StakeholderMenu from '../components/stakeholdermenu.vue'
+import StakeholderMenu from '../components/StakeholderMenu.vue'
 import Notification from '../components/Notification.vue'
 import {
 	getStakeholderNotifications,

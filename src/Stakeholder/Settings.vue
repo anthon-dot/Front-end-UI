@@ -55,7 +55,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import StakeholderMenu from '../components/stakeholdermenu.vue'
+import StakeholderMenu from '../components/StakeholderMenu.vue'
 
 const route = useRoute()
 const stakeholderId = route.query.id || route.params.id || 'default'

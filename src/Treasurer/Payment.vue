@@ -510,6 +510,8 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useToast } from 'primevue/usetoast'
 import api from '../services/api'
+import { fetchPayments, createPayment } from '../services/paymentService'
+import { fetchBillings } from '../services/billingService'
 import TreasurerMenu from '../components/TreasurerMenu.vue'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
@@ -582,8 +584,7 @@ onUnmounted(() => {
 // =========================
 async function loadPayments() {
   try {
-    const response = await api.get('/payments')
-    payments.value = response.data
+    payments.value = await fetchPayments()
   } catch (error) { console.error(error) }
 }
 
@@ -596,8 +597,7 @@ async function loadStakeholders() {
 
 async function loadBillings() {
   try {
-    const response = await api.get('/billings')
-    billings.value = response.data
+    billings.value = await fetchBillings()
   } catch (error) { console.error(error) }
 }
 
@@ -880,12 +880,12 @@ async function recordPayment() {
       payload.totalAdvanceAmount = Number(form.value.totalAdvanceAmount)
     }
 
-    const response = await api.post('/payments', payload)
+    const savedData = await createPayment(payload)
     console.log('[Payment] payment saved', {
-      paymentId: response.data?.id,
+      paymentId: savedData?.id,
       stakeholderId: selectedStakeholder.value.id,
-      paymentType: response.data?.paymentType,
-      amount: response.data?.amount
+      paymentType: savedData?.paymentType,
+      amount: savedData?.amount
     })
     
     await Promise.all([loadPayments(), loadBillings(), loadStakeholders()])

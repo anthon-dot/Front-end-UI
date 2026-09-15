@@ -38,7 +38,7 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
-import StakeholderMenu from '../components/stakeholdermenu.vue'
+import StakeholderMenu from '../components/StakeholderMenu.vue'
 
 const payments = ref([])
 const q = ref('')

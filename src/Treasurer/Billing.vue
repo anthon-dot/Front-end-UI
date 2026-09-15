@@ -120,7 +120,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import api from '../services/api'
+import { fetchBillings as getBillingsApi, sendBillingNotification } from '../services/billingService'
 import TreasurerMenu from '../components/TreasurerMenu.vue'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
@@ -139,9 +139,9 @@ async function fetchBillings() {
   loading.value = true
 
   try {
-    const res = await api.get('/billings')
+    const data = await getBillingsApi()
 
-    rows.value = res.data.map(b => ({
+    rows.value = data.map(b => ({
       id: b.billingNo || 'N/A',
       stakeholder: b.occupantName || 'Unknown',
       period: b.billingPeriod || 'N/A',
@@ -201,7 +201,7 @@ function initials(name) {
 
 async function sendNotification(row) {
   try {
-    await api.post(`/billings/notify/${row.id}`)
+    await sendBillingNotification(row.id)
     alert(`Notification sent to ${row.stakeholder}`)
   } catch (err) {
     console.error('Failed to send notification', err)

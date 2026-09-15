@@ -83,7 +83,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../services/api'
-import { useAuthStore } from '../stores/auth'
+import { useAuthStore, normalizeWorkflowRole } from '../stores/auth'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -141,25 +141,10 @@ async function onSubmit() {
     }
 
     // ─── 3. ROLE NORMALIZATION ────────────────────────────────────────────────
-    // Strip Spring Security "ROLE_" prefix, then apply aliases.
-    const rawRole = String(data.role || '').replace('ROLE_', '').toUpperCase()
-
-    const roleAliases = {
-      MARKETSUPERVISOR:  'MARKET_SUPERVISOR',
-      BPLO:              'BPLO_OFFICE',
-      BPLOOFFICE:        'BPLO_OFFICE',
-      ENDORSINGOFFICE:   'ENDORSING_OFFICE',
-      ENDORSING_OFFICER: 'ENDORSING_OFFICE',
-      ENDORISING_OFFICE: 'ENDORSING_OFFICE',
-      TENANT:            'STAKEHOLDER',
-      APPLICANT:         'STAKEHOLDER'
-    }
-
-    const role = roleAliases[rawRole] || rawRole
+    const role = normalizeWorkflowRole(data.role)
 
     console.log('[AUTH] Role normalization:', {
       backendRaw:   data.role,
-      strippedRaw:  rawRole,
       normalizedTo: role
     })
 

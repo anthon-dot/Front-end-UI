@@ -1,111 +1,12 @@
 <template>
-  <div class="treasurer-layout">
-
-    <!-- ========================= -->
-    <!-- SIDEBAR -->
-    <!-- ========================= -->
-
-    <aside
-      class="sidebar"
-      :class="{ collapsed }"
-    >
-      <div class="sidebar-container">
-
-        <!-- Header -->
-        <div class="sidebar-header">
-
-          <button
-            class="toggle-btn"
-            @click="toggleSidebar"
-          >
-            <i :class="collapsed ? 'pi pi-bars' : 'pi pi-angle-left'" />
-          </button>
-
-          <Transition name="fade-slide">
-            <div
-              v-if="!collapsed"
-              class="brand"
-            >
-              <div class="brand-logo">
-                TR
-              </div>
-
-              <div class="brand-text">
-                <h1>Treasurer</h1>
-                <p>Management Panel</p>
-              </div>
-            </div>
-          </Transition>
-
-        </div>
-
-        <!-- Navigation -->
-        <nav class="nav-menu">
-
-          <button
-            v-for="item in items"
-            :key="item.id"
-            class="nav-item"
-            :class="{
-              active: isActive(item),
-              collapsed
-            }"
-            @click="navigate(item)"
-          >
-            <i
-              :class="item.icon"
-              class="nav-icon"
-            />
-
-            <Transition name="fade-slide">
-              <span
-                v-if="!collapsed"
-                class="nav-label"
-              >
-                {{ item.label }}
-              </span>
-            </Transition>
-
-            <div
-              v-if="isActive(item)"
-              class="active-indicator"
-            />
-
-          </button>
-
-        </nav>
-
-        <!-- Footer -->
-        <div class="sidebar-footer">
-
-          <button
-            class="logout-btn"
-            :class="{ collapsed }"
-            @click="logout"
-          >
-            <i class="pi pi-sign-out" />
-
-            <Transition name="fade-slide">
-              <span v-if="!collapsed">
-                Logout
-              </span>
-            </Transition>
-
-          </button>
-
-        </div>
-
-      </div>
-    </aside>
+  <div class="layout min-h-screen bg-slate-50">
+    <TreasurerMenu />
 
     <!-- ========================= -->
     <!-- MAIN CONTENT -->
     <!-- ========================= -->
 
-    <main
-      class="main-content"
-      :class="{ collapsed }"
-    >
+    <main class="page-container">
 
       <!-- ========================= -->
       <!-- PAGE HEADER -->
@@ -133,11 +34,10 @@
 
       </div>
       <!-- ========================= -->
-<!-- FILTER SECTION -->
-<!-- PLACE THIS ABOVE SUMMARY GRID
-<!-- ========================= -->
+      <!-- FILTER SECTION -->
+      <!-- ========================= -->
 
-<div class="filter-section">
+      <div class="filter-section">
 
   <div class="filter-group">
 
@@ -408,20 +308,17 @@
 
 <script>
 import api from "../services/api";
-import { useAuthStore } from "../stores/auth";
+import TreasurerMenu from "../components/TreasurerMenu.vue";
 
 export default {
   name: "TreasurerReports",
 
+  components: {
+    TreasurerMenu
+  },
+
   data() {
     return {
-
-      // =========================
-      // SIDEBAR
-      // =========================
-
-      collapsed: false,
-
       // =========================
       // REPORT DATA
       // =========================
@@ -462,94 +359,11 @@ export default {
         2024,
         2025,
         2026
-      ],
-
-      // =========================
-      // NAVIGATION
-      // =========================
-
-      items: [
-        {
-          id: "dashboard",
-          label: "Dashboard",
-          icon: "pi pi-home",
-          routeName: "Treasurer"
-        },
-        {
-          id: "stakeholder",
-          label: "Applicants",
-          icon: "pi pi-users",
-          routeName: "Applicant"
-        },
-        {
-          id: "billing",
-          label: "Billing",
-          icon: "pi pi-receipt",
-          routeName: "Billing"
-        },
-        {
-          id: "payment",
-          label: "Payments",
-          icon: "pi pi-wallet",
-          routeName: "Payment"
-        },
-        {
-          id: "report",
-          label: "Reports",
-          icon: "pi pi-chart-bar",
-          routeName: "Report"
-        },
-        {
-          id: "audit",
-          label: "Audit Logs",
-          icon: "pi pi-list",
-          routeName: "AuditLogs"
-        }
       ]
-
     };
   },
 
   methods: {
-
-    // =========================
-    // SIDEBAR
-    // =========================
-
-    toggleSidebar() {
-
-      this.collapsed = !this.collapsed;
-
-      localStorage.setItem(
-        "sidebar-collapsed",
-        this.collapsed
-      );
-
-    },
-
-    isActive(item) {
-
-      return this.$route.name === item.routeName;
-
-    },
-
-    navigate(item) {
-
-      this.$router.push({
-        name: item.routeName
-      });
-
-    },
-
-    logout() {
-
-      useAuthStore().clearSession();
-
-      this.$router.push({
-        name: "Landing"
-      });
-
-    },
 
     // =========================
     // FILTERS
@@ -728,180 +542,23 @@ export default {
 }
 
 /* =========================
-   SIDEBAR
+   PAGE CONTAINER
 ========================= */
 
-.sidebar {
-  position: fixed;
-  inset: 0 auto 0 0;
-  width: 280px;
-  transition: all 0.3s ease;
-  z-index: 1000;
+.page-container {
+  padding-top: calc(var(--header-height, 64px) + 24px);
+  padding-bottom: 40px;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding-left: calc(var(--sidebar-width, 260px) + 24px);
+  padding-right: 24px;
+  transition: padding-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.sidebar.collapsed {
-  width: 90px;
-}
-
-.sidebar-container {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  background: rgba(255,255,255,0.9);
-  backdrop-filter: blur(18px);
-  border-right: 1px solid var(--border);
-  box-shadow:
-    0 10px 40px rgba(15,23,42,0.06);
-}
-
-.sidebar-header {
-  display: flex;
-  align-items: center;
-  padding: 1.2rem;
-  min-height: 82px;
-  border-bottom: 1px solid var(--border);
-}
-
-.toggle-btn {
-  width: 44px;
-  height: 44px;
-  border: none;
-  border-radius: 14px;
-  background: #f8fafc;
-  color: var(--muted);
-  cursor: pointer;
-  transition: 0.25s ease;
-  font-size: 1.1rem;
-}
-
-.toggle-btn:hover {
-  background: var(--primary-light);
-  color: var(--primary);
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-left: 14px;
-}
-
-.brand-logo {
-  width: 46px;
-  height: 46px;
-  border-radius: 16px;
-  display: grid;
-  place-items: center;
-  font-weight: 800;
-  color: white;
-  background: linear-gradient(
-    135deg,
-    #6366f1,
-    #4338ca
-  );
-}
-
-.brand-text h1 {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 800;
-}
-
-.brand-text p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.8rem;
-}
-
-/* =========================
-   NAVIGATION
-========================= */
-
-.nav-menu {
-  flex: 1;
-  padding: 1rem 0.8rem;
-}
-
-.nav-item {
-  width: 100%;
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 14px 16px;
-  margin-bottom: 8px;
-  border: none;
-  border-radius: 18px;
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  transition: all 0.25s ease;
-}
-
-.nav-item.collapsed {
-  justify-content: center;
-}
-
-.nav-item:hover {
-  background: #f8fafc;
-  color: var(--primary);
-}
-
-.nav-item.active {
-  background: var(--primary-light);
-  color: var(--primary);
-  font-weight: 700;
-}
-
-.nav-icon {
-  font-size: 1.2rem;
-}
-
-.active-indicator {
-  position: absolute;
-  right: 10px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--primary);
-}
-
-.sidebar-footer {
-  padding: 1rem;
-  border-top: 1px solid var(--border);
-}
-
-.logout-btn {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 14px 16px;
-  border: none;
-  border-radius: 18px;
-  background: #fff1f2;
-  color: #e11d48;
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.logout-btn.collapsed {
-  justify-content: center;
-}
-
-/* =========================
-   MAIN CONTENT
-========================= */
-
-.main-content {
-  flex: 1;
-  margin-left: 280px;
-  padding: 2rem;
-  transition: all 0.3s ease;
-}
-
-.main-content.collapsed {
-  margin-left: 90px;
+@media (max-width: 900px) {
+  .page-container {
+    padding-left: 24px;
+  }
 }
 
 .page-header {
