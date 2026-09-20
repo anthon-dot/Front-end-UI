@@ -127,7 +127,7 @@
           @edit="openMasterDialog"
           @toggle="toggleMasterRecord"
         />
-        <StallMapView v-else-if="route.name === 'AdminStallMap'" :rows="state.stalls" @edit="openStallDialog" />
+        <AdminStallMap v-else-if="route.name === 'AdminStallMap'" :rows="state.stalls" @edit="openStallDialog" />
         <AuditLogsView v-else-if="route.name === 'AdminAuditLogs'" :rows="filteredAuditLogs" />
         <LoginHistoryView v-else-if="route.name === 'AdminLoginHistory'" :rows="filteredLoginHistory" />
         <NotificationsView v-else-if="route.name === 'AdminNotifications'" :rows="filteredNotifications" />
@@ -232,6 +232,14 @@
           Status
           <Select v-model="stallDialog.form.status" :options="stallStatuses" class="w-full" />
         </label>
+        <label>
+          Latitude
+          <InputText v-model="stallDialog.form.latitude" placeholder="e.g. 8.399991" />
+        </label>
+        <label>
+          Longitude
+          <InputText v-model="stallDialog.form.longitude" placeholder="e.g. 124.291353" />
+        </label>
       </div>
 
       <template #footer>
@@ -283,6 +291,7 @@ import { useConfirm } from 'primevue/useconfirm'
 import { useRoute } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import AdminMenu from '../components/AdminMenu.vue'
+import AdminStallMap from './AdminStallMap.vue'
 import api from '../services/api'
 import {
   activateUser,
@@ -492,7 +501,7 @@ function emptyUser() {
 }
 
 function emptyStall() {
-  return { id: null, stallNo: '', section: '', stallType: '', dimensions: '', monthlyRent: 0, status: 'VACANT' }
+  return { id: null, stallNo: '', section: '', stallType: '', dimensions: '', monthlyRent: 0, status: 'VACANT', latitude: null, longitude: null }
 }
 
 async function loadAdminData() {
@@ -582,14 +591,24 @@ function mapUser(user) {
 }
 
 function mapStall(stall) {
+  const occupant = stall.occupant?.stakeholder?.name ||
+    [stall.occupant?.stakeholder?.firstName, stall.occupant?.stakeholder?.lastName].filter(Boolean).join(' ') ||
+    stall.occupantName || stall.currentOccupant || ''
+  const lat = stall.latitude ?? stall.lat ?? null
+  const lng = stall.longitude ?? stall.lng ?? null
   return {
     ...stall,
-    stallNo: stall.stallNo || stall.number || stall.stallNumber || '',
+    stallNo: stall.stallNo || stall.stall_no || stall.number || stall.stallNumber || '',
     section: stall.section || stall.location || 'Public Market',
-    stallType: stall.stallType || stall.type || '',
+    stallType: stall.stallType || stall.stall_type || stall.type || '',
     dimensions: stall.dimensions || stall.size || stall.info || '',
-    monthlyRent: Number(stall.monthlyRent ?? stall.rentalRate ?? stall.rent ?? 0),
-    status: stall.status || 'VACANT'
+    monthlyRent: Number(stall.monthlyRent ?? stall.monthly_rent ?? stall.rentalRate ?? stall.rent ?? 0),
+    status: (stall.status || 'VACANT').toUpperCase(),
+    latitude: lat !== null && lat !== undefined && lat !== '' ? Number(lat) : null,
+    longitude: lng !== null && lng !== undefined && lng !== '' ? Number(lng) : null,
+    lat: lat !== null && lat !== undefined && lat !== '' ? Number(lat) : null,
+    lng: lng !== null && lng !== undefined && lng !== '' ? Number(lng) : null,
+    currentOccupant: occupant || 'No occupant'
   }
 }
 
@@ -872,7 +891,9 @@ async function saveStall() {
       stallType: stallDialog.form.stallType,
       dimensions: stallDialog.form.dimensions,
       monthlyRent: stallDialog.form.monthlyRent,
-      status: stallDialog.form.status
+      status: stallDialog.form.status,
+      latitude: stallDialog.form.latitude !== undefined && stallDialog.form.latitude !== null && stallDialog.form.latitude !== '' ? Number(stallDialog.form.latitude) : null,
+      longitude: stallDialog.form.longitude !== undefined && stallDialog.form.longitude !== null && stallDialog.form.longitude !== '' ? Number(stallDialog.form.longitude) : null
     }
 
     if (stallDialog.form.id) await api.put(`/stalls/${stallDialog.form.id}`, payload)
@@ -1323,42 +1344,7 @@ const ReportsView = defineComponent({
   }
 })
 
-const StallMapView = defineComponent({
-  props: { rows: Array },
-  emits: ['edit'],
-  setup(props, { emit }) {
-    const selected = ref(null)
 
-    return () => h('div', { class: 'stall-map-layout' }, [
-      h('div', { class: 'stall-map-grid' }, props.rows.length ? props.rows.map((stall) =>
-        h('button', {
-          class: `stall-tile status-${String(stall.status).toLowerCase()}`,
-          onClick: () => selected.value = stall
-        }, [
-          h('strong', stall.stallNo || 'Stall'),
-          h('span', stall.section),
-          h(StatusTag, { value: stall.status })
-        ])
-      ) : h('div', { class: 'empty-state' }, 'No stalls available for the map.')),
-      selected.value
-        ? h(Card, { class: 'stall-detail-card' }, {
-          title: () => `Stall ${selected.value.stallNo}`,
-          content: () => h('div', { class: 'detail-list' }, [
-            ['Section', selected.value.section],
-            ['Stall Type', selected.value.stallType],
-            ['Dimensions', selected.value.dimensions],
-            ['Rental Rate', money(selected.value.monthlyRent)],
-            ['Status', selected.value.status],
-            ['Current Occupant', selected.value.currentOccupant || selected.value.occupantName || 'No occupant'],
-            ['Contract Number', selected.value.contractNo || 'No contract']
-          ].map(([label, value]) => h('div', [h('span', label), h('strong', value)])).concat([
-            h(Button, { label: 'Edit Stall', icon: 'pi pi-pencil', onClick: () => emit('edit', selected.value) })
-          ]))
-        })
-        : null
-    ])
-  }
-})
 
 const SettingsView = defineComponent({
   props: { modelValue: Object, saving: Boolean },
