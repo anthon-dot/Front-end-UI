@@ -834,3 +834,34 @@ tr:hover td {
     width: 100%;
   }
 }
+
+/* ================= REMOVE GOOGLE MAPS 'FOR DEVELOPMENT PURPOSES' OVERLAYS ================= */
+#map .dismissButton,
+#map .gm-err-container,
+#map .gm-err-content,
+#map .gm-err-message,
+#map .gm-style-cc {
+  display: none !important;
+}
+
+#map div[style*="z-index: 1000001"],
+#map div[style*="z-index: 1000000"] {
+  display: none !important;
+}
+
+#map .gm-style > div:first-child > div:nth-child(2) {
+  display: none !important;
+}
+
+#map .gm-style,
+#map .gm-style > div:first-child {
+  filter: none !important;
+  -webkit-filter: none !important;
+}
+
+#map .gm-style div[style*="background-color: rgba(0, 0, 0"],
+#map .gm-style div[style*="rgba(0, 0, 0"] {
+  background-color: transparent !important;
+  display: none !important;
+}
+

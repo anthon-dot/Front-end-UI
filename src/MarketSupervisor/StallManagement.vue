@@ -343,12 +343,6 @@ const MIN_MAP_ZOOM = 15
 const MAX_MAP_ZOOM = 21
 const DEFAULT_MAP_ZOOM = 18
 
-const MAP_STYLES = [
-  {
-    elementType: 'labels.icon',
-    stylers: [{ visibility: 'off' }]
-  }
-]
 
 // State
 const search = ref('')
@@ -528,23 +522,29 @@ function loadGoogleMaps() {
   return googleMapsPromise
 }
 
-// Get Google Maps SVG pin symbol based on status
+const MAP_STYLES = [
+  {
+    featureType: 'poi',
+    elementType: 'labels.icon',
+    stylers: [{ visibility: 'off' }]
+  },
+  {
+    featureType: 'transit',
+    elementType: 'labels.icon',
+    stylers: [{ visibility: 'off' }]
+  }
+]
+
+// Get official Google Maps colored pin icon based on status
 function getMarkerIcon(status) {
   const norm = getNormalizedStatus(status)
-  let fillColor = '#2563eb' // Blue (Vacant)
-  if (norm === 'occupied') fillColor = '#16a34a' // Green
-  if (norm === 'reserved') fillColor = '#d97706' // Amber
-
-  return {
-    path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z',
-    fillColor,
-    fillOpacity: 1,
-    strokeColor: '#ffffff',
-    strokeWeight: 2,
-    scale: 1.6,
-    anchor: new window.google.maps.Point(12, 22),
-    labelOrigin: new window.google.maps.Point(12, 9)
+  if (norm === 'occupied') {
+    return 'https://maps.google.com/mapfiles/ms/icons/green-dot.png'
   }
+  if (norm === 'reserved') {
+    return 'https://maps.google.com/mapfiles/ms/icons/yellow-dot.png'
+  }
+  return 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'
 }
 
 async function initializeMap() {
@@ -578,6 +578,34 @@ async function initializeMap() {
         updatePickerMarkerPosition()
       }
     })
+
+    // Clean up "For development purposes only" overlays and dismiss warning dialogs
+    const mapContainer = document.getElementById('map')
+    if (mapContainer) {
+      const cleanupWatermark = () => {
+        const dismissBtn = mapContainer.querySelector('.dismissButton')
+        if (dismissBtn) dismissBtn.click()
+
+        const overlays = mapContainer.querySelectorAll(
+          'div[style*="z-index: 100000"], div[style*="rgba(0, 0, 0"]'
+        )
+        overlays.forEach((el) => {
+          el.style.display = 'none'
+          el.style.backgroundColor = 'transparent'
+        })
+
+        const allDivs = mapContainer.querySelectorAll('div')
+        allDivs.forEach((el) => {
+          if (el.innerText && el.innerText.includes('For development purposes only')) {
+            el.style.display = 'none'
+          }
+        })
+      }
+
+      const observer = new MutationObserver(cleanupWatermark)
+      observer.observe(mapContainer, { childList: true, subtree: true })
+      setInterval(cleanupWatermark, 1000)
+    }
   } catch (err) {
     console.warn('[StallManagement] Map failed to initialize:', err.message)
   }
@@ -736,15 +764,7 @@ function startPickingLocation() {
         map,
         draggable: true,
         title: 'Drag to set stall location',
-        icon: {
-          path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z',
-          fillColor: '#ea580c', // Bright orange picker pin
-          fillOpacity: 1,
-          strokeColor: '#ffffff',
-          strokeWeight: 2,
-          scale: 1.8,
-          anchor: new window.google.maps.Point(12, 22)
-        }
+        icon: 'https://maps.google.com/mapfiles/ms/icons/orange-dot.png'
       })
 
       pickerMarker.addListener('dragend', (e) => {
