@@ -512,6 +512,70 @@ tr:hover td {
   color: #334155;
 }
 
+/* Stall Summary Card in Modal */
+.stall-summary-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.summary-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.summary-stall-no {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.summary-status {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+
+.summary-details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+}
+
+.summary-item.full {
+  grid-column: 1 / -1;
+}
+
+.summary-lbl {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.btn-clear-selection {
+  background: none;
+  border: none;
+  color: #166534;
+  margin-left: auto;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 13px;
+}
+
 /* Occupant Section in Modal */
 .occupant-section {
   background: #f8fafc;

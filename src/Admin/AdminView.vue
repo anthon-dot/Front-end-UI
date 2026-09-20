@@ -25,7 +25,7 @@
             @click="openCreateUser"
           />
           <Button
-            v-if="route.name === 'AdminStalls'"
+            v-if="route.name === 'AdminStalls' || route.name === 'AdminStallMap'"
             label="Add Stall"
             icon="pi pi-plus"
             @click="openStallDialog()"
@@ -110,6 +110,7 @@
           :rows="filteredStalls"
           @edit="openStallDialog"
           @toggle="confirmToggleStall"
+          @delete="confirmDeleteStall"
         />
         <MasterDataView
           v-else-if="route.name === 'AdminStallTypes'"
@@ -127,7 +128,14 @@
           @edit="openMasterDialog"
           @toggle="toggleMasterRecord"
         />
-        <AdminStallMap v-else-if="route.name === 'AdminStallMap'" :rows="state.stalls" @edit="openStallDialog" />
+        <AdminStallMap
+          v-else-if="route.name === 'AdminStallMap'"
+          :rows="state.stalls"
+          @edit="openStallDialog"
+          @add="openStallDialog()"
+          @delete="confirmDeleteStall"
+          @update-location="saveStallLocation"
+        />
         <AuditLogsView v-else-if="route.name === 'AdminAuditLogs'" :rows="filteredAuditLogs" />
         <LoginHistoryView v-else-if="route.name === 'AdminLoginHistory'" :rows="filteredLoginHistory" />
         <NotificationsView v-else-if="route.name === 'AdminNotifications'" :rows="filteredNotifications" />
@@ -243,6 +251,14 @@
       </div>
 
       <template #footer>
+        <Button
+          v-if="stallDialog.form.id"
+          label="Delete Stall"
+          icon="pi pi-trash"
+          severity="danger"
+          text
+          @click="confirmDeleteStall(stallDialog.form)"
+        />
         <Button label="Cancel" icon="pi pi-times" text @click="stallDialog.visible = false" />
         <Button label="Save Stall" icon="pi pi-check" :loading="saving" @click="saveStall" />
       </template>
@@ -908,6 +924,37 @@ async function saveStall() {
   }
 }
 
+function confirmDeleteStall(stall) {
+  if (!stall || !stall.id) return
+  confirm.require({
+    message: `Are you sure you want to permanently delete Stall "${stall.stallNo || 'Selected'}"? This action cannot be undone.`,
+    header: 'Delete Stall',
+    acceptLabel: 'Delete Stall',
+    rejectLabel: 'Cancel',
+    severity: 'danger',
+    accept: async () => {
+      try {
+        await api.delete(`/stalls/${stall.id}`)
+        toast.add({ severity: 'success', summary: 'Deleted', detail: `Stall ${stall.stallNo || ''} deleted successfully.`, life: 2500 })
+        stallDialog.visible = false
+        await loadAdminData()
+      } catch (error) {
+        toast.add({ severity: 'error', summary: 'Delete failed', detail: error.message, life: 3500 })
+      }
+    }
+  })
+}
+
+async function saveStallLocation({ stallId, latitude, longitude }) {
+  try {
+    await api.put(`/stalls/${stallId}`, { latitude, longitude })
+    toast.add({ severity: 'success', summary: 'Location Saved', detail: 'Stall coordinates updated successfully.', life: 2500 })
+    await loadAdminData()
+  } catch (error) {
+    toast.add({ severity: 'error', summary: 'Failed to update location', detail: error.message, life: 3500 })
+  }
+}
+
 function confirmToggleStall(stall) {
   const nextStatus = stall.status === 'INACTIVE' ? 'VACANT' : 'INACTIVE'
   confirm.require({
@@ -1201,7 +1248,7 @@ const RolesView = defineComponent({
 
 const StallsView = defineComponent({
   props: { rows: { type: Array, default: () => [] } },
-  emits: ['edit', 'toggle'],
+  emits: ['edit', 'toggle', 'delete'],
   setup(props, { emit }) {
     return () => h(DataTable, { value: props.rows, paginator: true, rows: 10, responsiveLayout: 'scroll', class: 'surface-table' }, {
       empty: () => h('div', { class: 'empty-state' }, 'No stalls found.'),
@@ -1214,7 +1261,8 @@ const StallsView = defineComponent({
         h(Column, { field: 'status', header: 'Status' }, { body: ({ data }) => h(StatusTag, { value: data.status }) }),
         h(Column, { header: 'Actions' }, { body: ({ data }) => h('div', { class: 'table-actions' }, [
           h(Button, { icon: 'pi pi-pencil', text: true, rounded: true, onClick: () => emit('edit', data), ariaLabel: 'Edit' }),
-          h(Button, { icon: data.status === 'INACTIVE' ? 'pi pi-check' : 'pi pi-ban', text: true, rounded: true, severity: data.status === 'INACTIVE' ? 'success' : 'danger', onClick: () => emit('toggle', data), ariaLabel: 'Activate or deactivate' })
+          h(Button, { icon: data.status === 'INACTIVE' ? 'pi pi-check' : 'pi pi-ban', text: true, rounded: true, severity: data.status === 'INACTIVE' ? 'success' : 'danger', onClick: () => emit('toggle', data), ariaLabel: 'Activate or deactivate' }),
+          h(Button, { icon: 'pi pi-trash', text: true, rounded: true, severity: 'danger', onClick: () => emit('delete', data), ariaLabel: 'Delete Stall' })
         ]) })
       ]
     })

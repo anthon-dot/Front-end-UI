@@ -111,6 +111,17 @@
       </div>
 
       <div class="controls-right">
+        <!-- Admin Add Stall Button -->
+        <button
+          type="button"
+          class="ctrl-btn btn-add-stall"
+          title="Create New Stall"
+          @click="$emit('add')"
+        >
+          <i class="pi pi-plus"></i>
+          Add Stall
+        </button>
+
         <button
           v-if="viewMode === 'map'"
           type="button"
@@ -154,7 +165,7 @@
           <div id="admin-map" class="admin-map-element"></div>
 
           <!-- Market Badge Overlay -->
-          <div class="market-badge-overlay">
+          <div v-if="!isPickingLocation" class="market-badge-overlay">
             <div class="market-badge-dot"></div>
             <div class="market-badge-text">
               <strong>Manticao Public Market</strong>
@@ -162,8 +173,27 @@
             </div>
           </div>
 
+          <!-- Location Picker Banner Overlay -->
+          <div v-if="isPickingLocation" class="picker-mode-banner">
+            <div class="picker-mode-info">
+              <span class="picker-pulse-dot"></span>
+              <div>
+                <strong>Assigning Location: {{ selectedStall?.stallNo || 'Stall' }}</strong>
+                <p>Click on the map or drag the orange pin. Lat: {{ pickerCoords?.lat ?? '—' }}, Lng: {{ pickerCoords?.lng ?? '—' }}</p>
+              </div>
+            </div>
+            <div class="picker-mode-actions">
+              <button type="button" class="btn-picker-cancel" @click="cancelPickingLocation">
+                Cancel
+              </button>
+              <button type="button" class="btn-picker-save" :disabled="!pickerCoords" @click="saveLocation">
+                ✓ Save Location
+              </button>
+            </div>
+          </div>
+
           <!-- Map Legend -->
-          <div class="map-legend-overlay">
+          <div v-if="!isPickingLocation" class="map-legend-overlay">
             <div class="legend-item">
               <img src="/icons/stall-pin-green.svg" alt="Occupied" class="legend-icon" />
               <span>Occupied</span>
@@ -276,22 +306,46 @@
           </div>
 
           <div class="sidebar-actions">
+            <!-- Locate Button -->
             <button
               v-if="hasCoordinates(selectedStall)"
               type="button"
-              class="btn-locate"
+              class="btn-action-side btn-locate"
               @click="focusStall(selectedStall)"
             >
               <i class="pi pi-crosshairs"></i>
               Locate on Map
             </button>
+
+            <!-- Assign / Move Location Button -->
             <button
               type="button"
-              class="btn-edit-stall"
+              class="btn-action-side btn-assign-loc"
+              :class="{ 'btn-picking-active': isPickingLocation }"
+              @click="togglePickingLocation(selectedStall)"
+            >
+              <i class="pi pi-map-marker"></i>
+              {{ isPickingLocation ? 'Cancel Reposition' : '📍 Set Location on Map' }}
+            </button>
+
+            <!-- Edit Stall Button -->
+            <button
+              type="button"
+              class="btn-action-side btn-edit-stall"
               @click="$emit('edit', selectedStall)"
             >
               <i class="pi pi-pencil"></i>
               Edit Stall
+            </button>
+
+            <!-- Delete Stall Button -->
+            <button
+              type="button"
+              class="btn-action-side btn-delete-stall"
+              @click="$emit('delete', selectedStall)"
+            >
+              <i class="pi pi-trash"></i>
+              Delete Stall
             </button>
           </div>
         </div>
@@ -320,7 +374,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['edit'])
+const emit = defineEmits(['edit', 'add', 'delete', 'update-location'])
 
 const DEFAULT_CENTER = { lat: 8.399991, lng: 124.291353 }
 const DEFAULT_MAP_ZOOM = 19
@@ -331,6 +385,11 @@ const viewMode = ref('map')
 const statusFilter = ref('ALL')
 const searchQuery = ref('')
 const selectedStall = ref(null)
+
+// Location Picker State
+const isPickingLocation = ref(false)
+const pickerCoords = ref(null)
+let pickerMarkerLayer = null
 
 // Leaflet variables
 let mapInstance = null
@@ -433,6 +492,12 @@ const markerIcons = {
     iconSize: [44, 44],
     iconAnchor: [22, 42],
     popupAnchor: [0, -38]
+  }),
+  picker: L.icon({
+    iconUrl: '/icons/stall-pin-orange.svg',
+    iconSize: [48, 48],
+    iconAnchor: [24, 46],
+    popupAnchor: [0, -42]
   })
 }
 
@@ -479,6 +544,16 @@ function initMap() {
     'Google Satellite': googleSatellite
   }, null, { position: 'topright' }).addTo(mapInstance)
 
+  // Map Click handler (for location assignment)
+  mapInstance.on('click', (e) => {
+    if (isPickingLocation.value && pickerMarkerLayer) {
+      const lat = Number(e.latlng.lat.toFixed(6))
+      const lng = Number(e.latlng.lng.toFixed(6))
+      pickerCoords.value = { lat, lng }
+      pickerMarkerLayer.setLatLng([lat, lng])
+    }
+  })
+
   // Global popup handlers
   window.__adminSelectStall = (id) => {
     const stall = props.rows.find((s) => s.id === id)
@@ -492,6 +567,20 @@ function initMap() {
     if (stall) {
       selectedStall.value = stall
       emit('edit', stall)
+    }
+  }
+
+  window.__adminRelocateStall = (id) => {
+    const stall = props.rows.find((s) => s.id === id)
+    if (stall) {
+      startPickingLocation(stall)
+    }
+  }
+
+  window.__adminDeleteStall = (id) => {
+    const stall = props.rows.find((s) => s.id === id)
+    if (stall) {
+      emit('delete', stall)
     }
   }
 
@@ -551,11 +640,17 @@ function buildPopupContent(stall) {
         <span>${stall.currentOccupant ? `<strong>${occupant}</strong>` : '<em style="color:#94a3b8">None</em>'}</span>
       </div>
       <div class="gm-popup-actions">
-        <button onclick="window.__adminSelectStall(${stall.id})" class="gm-btn-view">
-          View Details
+        <button onclick="window.__adminSelectStall(${stall.id})" class="gm-btn-view" title="View details">
+          Details
         </button>
-        <button onclick="window.__adminEditStall(${stall.id})" class="gm-btn-manage">
+        <button onclick="window.__adminRelocateStall(${stall.id})" class="gm-btn-loc" title="Move pin location on map">
+          📍 Relocate
+        </button>
+        <button onclick="window.__adminEditStall(${stall.id})" class="gm-btn-manage" title="Edit stall record">
           ✏️ Edit
+        </button>
+        <button onclick="window.__adminDeleteStall(${stall.id})" class="gm-btn-del" title="Delete stall">
+          🗑️
         </button>
       </div>
     </div>
@@ -582,6 +677,71 @@ function focusStall(stall) {
   if (marker) {
     marker.openPopup()
   }
+}
+
+// Location Assignment functions
+function togglePickingLocation(stall) {
+  if (isPickingLocation.value) {
+    cancelPickingLocation()
+  } else {
+    startPickingLocation(stall)
+  }
+}
+
+function startPickingLocation(stall) {
+  if (!stall) return
+  selectedStall.value = stall
+  isPickingLocation.value = true
+
+  const lat = Number(stall.lat ?? stall.latitude) || DEFAULT_CENTER.lat
+  const lng = Number(stall.lng ?? stall.longitude) || DEFAULT_CENTER.lng
+  pickerCoords.value = { lat: Number(lat.toFixed(6)), lng: Number(lng.toFixed(6)) }
+
+  if (!pickerMarkerLayer) {
+    pickerMarkerLayer = L.marker([lat, lng], {
+      draggable: true,
+      icon: markerIcons.picker,
+      title: `Set location for Stall ${stall.stallNo}`
+    }).addTo(mapInstance)
+
+    pickerMarkerLayer.on('dragend', (e) => {
+      const pos = e.target.getLatLng()
+      pickerCoords.value = { lat: Number(pos.lat.toFixed(6)), lng: Number(pos.lng.toFixed(6)) }
+    })
+  } else {
+    pickerMarkerLayer.setLatLng([lat, lng])
+    pickerMarkerLayer.addTo(mapInstance)
+  }
+
+  mapInstance.setView([lat, lng], 20, { animate: true })
+}
+
+function cancelPickingLocation() {
+  isPickingLocation.value = false
+  pickerCoords.value = null
+  if (pickerMarkerLayer && mapInstance) {
+    mapInstance.removeLayer(pickerMarkerLayer)
+    pickerMarkerLayer = null
+  }
+}
+
+function saveLocation() {
+  if (!selectedStall.value || !pickerCoords.value) return
+
+  emit('update-location', {
+    stallId: selectedStall.value.id,
+    latitude: pickerCoords.value.lat,
+    longitude: pickerCoords.value.lng
+  })
+
+  // Update local coordinates
+  selectedStall.value.latitude = pickerCoords.value.lat
+  selectedStall.value.longitude = pickerCoords.value.lng
+  selectedStall.value.lat = pickerCoords.value.lat
+  selectedStall.value.lng = pickerCoords.value.lng
+
+  cancelPickingLocation()
+  renderMarkers()
 }
 
 function recenterMap() {
@@ -625,7 +785,6 @@ watch(
 onMounted(() => {
   nextTick(() => {
     initMap()
-    // Select first stall by default if available
     if (props.rows.length && !selectedStall.value) {
       selectedStall.value = props.rows[0]
     }
@@ -641,8 +800,13 @@ onBeforeUnmount(() => {
     mapInstance = null
   }
   markerLayers = []
+  if (pickerMarkerLayer) {
+    pickerMarkerLayer = null
+  }
   delete window.__adminSelectStall
   delete window.__adminEditStall
+  delete window.__adminRelocateStall
+  delete window.__adminDeleteStall
 })
 </script>
 
@@ -858,6 +1022,16 @@ onBeforeUnmount(() => {
   color: #0f172a;
 }
 
+.btn-add-stall {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  border-color: #1d4ed8 !important;
+}
+
+.btn-add-stall:hover {
+  background: #1d4ed8 !important;
+}
+
 .view-mode-toggle {
   display: flex;
   background: #f1f5f9;
@@ -966,6 +1140,86 @@ onBeforeUnmount(() => {
 .market-badge-text small {
   font-size: 0.72rem;
   color: #64748b;
+}
+
+/* Location Picker Mode Banner */
+.picker-mode-banner {
+  position: absolute;
+  top: 14px;
+  left: 54px;
+  right: 14px;
+  z-index: 1000;
+  background: #1e293b;
+  color: #ffffff;
+  padding: 10px 16px;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  animation: fadeIn 0.2s ease;
+}
+
+.picker-mode-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.picker-pulse-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #f97316;
+  box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.3);
+  animation: pulse 1.5s infinite;
+}
+
+.picker-mode-info strong {
+  font-size: 0.88rem;
+  display: block;
+}
+
+.picker-mode-info p {
+  font-size: 0.75rem;
+  color: #cbd5e1;
+  margin: 0;
+}
+
+.picker-mode-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-picker-cancel {
+  background: #334155;
+  color: #ffffff;
+  border: 1px solid #475569;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-picker-cancel:hover {
+  background: #475569;
+}
+
+.btn-picker-save {
+  background: #10b981;
+  color: #ffffff;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-picker-save:hover {
+  background: #059669;
 }
 
 .map-legend-overlay {
@@ -1183,18 +1437,17 @@ onBeforeUnmount(() => {
 .sidebar-actions {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 0.55rem;
 }
 
-.btn-locate,
-.btn-edit-stall {
+.btn-action-side {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
   width: 100%;
   padding: 0.65rem 1rem;
-  font-size: 0.85rem;
+  font-size: 0.84rem;
   font-weight: 600;
   border-radius: 10px;
   cursor: pointer;
@@ -1211,6 +1464,20 @@ onBeforeUnmount(() => {
   background: #dbeafe;
 }
 
+.btn-assign-loc {
+  background: #fff7ed;
+  color: #ea580c;
+  border: 1px solid #fed7aa;
+}
+
+.btn-assign-loc:hover,
+.btn-picking-active {
+  background: #ffedd5;
+  border-color: #f97316;
+  color: #c2410c;
+  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.2);
+}
+
 .btn-edit-stall {
   background: #2563eb;
   color: #ffffff;
@@ -1219,6 +1486,16 @@ onBeforeUnmount(() => {
 
 .btn-edit-stall:hover {
   background: #1d4ed8;
+}
+
+.btn-delete-stall {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.btn-delete-stall:hover {
+  background: #fee2e2;
 }
 
 .empty-selection-card {
@@ -1267,7 +1544,7 @@ onBeforeUnmount(() => {
 <!-- Global Popup Card Styles (Not Scoped, for Leaflet DOM injection) -->
 <style>
 .gm-popup-card {
-  width: 230px;
+  width: 245px;
   padding: 4px;
   font-family: Inter, system-ui, -apple-system, sans-serif;
   color: #0f172a;
@@ -1342,17 +1619,17 @@ onBeforeUnmount(() => {
 .gm-popup-actions {
   margin-top: 10px;
   display: flex;
-  gap: 6px;
+  gap: 4px;
 }
 
 .gm-btn-view {
-  flex: 1;
+  flex: 1.2;
   background: #f1f5f9;
   color: #1e293b;
   border: 1px solid #cbd5e1;
-  padding: 7px;
-  border-radius: 8px;
-  font-size: 12px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -1362,14 +1639,31 @@ onBeforeUnmount(() => {
   background: #e2e8f0;
 }
 
+.gm-btn-loc {
+  flex: 1.3;
+  background: #fff7ed;
+  color: #ea580c;
+  border: 1px solid #fed7aa;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.gm-btn-loc:hover {
+  background: #ffedd5;
+}
+
 .gm-btn-manage {
   flex: 1;
   background: #2563eb;
   color: #ffffff;
   border: none;
-  padding: 7px;
-  border-radius: 8px;
-  font-size: 12px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -1377,5 +1671,20 @@ onBeforeUnmount(() => {
 
 .gm-btn-manage:hover {
   background: #1d4ed8;
+}
+
+.gm-btn-del {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.gm-btn-del:hover {
+  background: #fee2e2;
 }
 </style>

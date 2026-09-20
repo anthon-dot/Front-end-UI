@@ -6,7 +6,7 @@
     <header class="sm-header">
       <div class="title-wrap">
         <h1>Stall Management</h1>
-        <div class="meta">Manage stalls, map locations, and occupancy</div>
+        <div class="meta">View stalls, track occupancy, and assign stalls to stakeholders</div>
       </div>
 
       <div class="controls">
@@ -18,11 +18,6 @@
           <option value="OCCUPIED">Occupied ({{ occupiedCount }})</option>
           <option value="RESERVED">Reserved ({{ reservedCount }})</option>
         </select>
-
-        <button type="button" class="btn-primary add-stall-btn" @click="openAdd">
-          <i class="pi pi-plus"></i>
-          <span>Add Stall</span>
-        </button>
       </div>
     </header>
 
@@ -85,24 +80,13 @@
 
       <!-- Map Element -->
       <div id="map" class="map-viewport"></div>
-
-      <!-- Helper Notice when picking coordinates -->
-      <div v-if="isPickingLocation" class="location-picker-banner">
-        <div class="picker-text">
-          <i class="pi pi-info-circle"></i>
-          <span>Click anywhere on the map or drag the orange pin to set the stall coordinates.</span>
-        </div>
-        <button type="button" class="btn-picker-done" @click="stopPickingLocation">
-          Done Picking
-        </button>
-      </div>
     </section>
 
     <!-- TABLE -->
     <section class="table-wrap">
       <div class="table-header-bar">
         <h2>Stall Registry ({{ filteredStalls.length }})</h2>
-        <span class="table-hint">Click 📍 to locate on the map, or Edit to manage occupancy</span>
+        <span class="table-hint">Click 📍 to locate on the map, or Assign to manage stall occupancy</span>
       </div>
 
       <table class="stalls">
@@ -154,10 +138,10 @@
                 <button
                   type="button"
                   class="btn-action btn-edit"
-                  title="Edit Stall"
+                  title="Assign Stall / Manage Occupant"
                   @click="editStall(stall)"
                 >
-                  ✏️ Edit
+                  👤 Assign
                 </button>
               </div>
             </td>
@@ -175,36 +159,41 @@
       </table>
     </section>
 
-    <!-- SIDE PANEL MODAL -->
-    <div v-if="showModal && !isPickingLocation" class="gm-backdrop" @click.self="closeModal">
+    <!-- SIDE PANEL ASSIGNMENT MODAL -->
+    <div v-if="showModal" class="gm-backdrop" @click.self="closeModal">
       <div class="gm-modal">
         <div class="gm-header">
-          <h2>{{ editing ? 'Edit Stall ' + (form.number ? '#' + form.number : '') : 'Add New Stall' }}</h2>
+          <h2>Assign Stall {{ form.number ? '#' + form.number : '' }}</h2>
           <button type="button" class="gm-close" @click="closeModal">✕</button>
         </div>
 
         <div class="gm-body">
           <form @submit.prevent="saveStall">
-            <label>
-              Stall Number
-              <input v-model="form.number" placeholder="e.g. A-12 or Stall 05" required />
-            </label>
+            <!-- Stall Info Summary Card (Read-only master data) -->
+            <div class="stall-summary-card">
+              <div class="summary-top">
+                <span class="summary-stall-no">Stall {{ form.number }}</span>
+                <span :class="['summary-status', getNormalizedStatus(form.status)]">
+                  {{ form.status }}
+                </span>
+              </div>
+              <div class="summary-details">
+                <div class="summary-item">
+                  <span class="summary-lbl">Section / Type:</span>
+                  <strong>{{ form.type || 'Standard' }}</strong>
+                </div>
+                <div class="summary-item">
+                  <span class="summary-lbl">Monthly Rent:</span>
+                  <strong class="text-emerald-600">{{ formatCurrency(form.rent) }}</strong>
+                </div>
+                <div v-if="form.info" class="summary-item full">
+                  <span class="summary-lbl">Description:</span>
+                  <span>{{ form.info }}</span>
+                </div>
+              </div>
+            </div>
 
-            <label>
-              Stall Type / Section
-              <input v-model="form.type" placeholder="e.g. Meat Section, Dry Goods, Fruit Stand" required />
-            </label>
-
-            <label>
-              Information / Description
-              <textarea v-model="form.info" rows="2" placeholder="Details about location, size, or utilities"></textarea>
-            </label>
-
-            <label>
-              Monthly Rent (PHP)
-              <input v-model.number="form.rent" type="number" min="0" step="any" placeholder="e.g. 3500" required />
-            </label>
-
+            <!-- OCCUPANCY CONFIGURATION -->
             <label>
               Occupancy Status
               <select v-model="form.status" @change="onStatusChange">
@@ -215,13 +204,13 @@
             </label>
 
             <!-- OCCUPANT MANAGEMENT -->
-            <div v-if="form.status === 'OCCUPIED' || form.status === 'RESERVED'" class="occupant-section">
+            <div class="occupant-section">
               <!-- Current Occupant Display -->
               <div v-if="currentOccupantName" class="current-occupant-card">
                 <div class="current-occupant-header">
                   <strong>Current Occupant:</strong>
                   <button type="button" class="btn-unassign" @click="unassignCurrentOccupant">
-                    ✕ Remove
+                    ✕ Remove Occupant
                   </button>
                 </div>
                 <div class="current-occupant-name">
@@ -236,7 +225,7 @@
                 <input
                   v-model="stakeholderSearch"
                   type="text"
-                  placeholder="Search stakeholder by name..."
+                  placeholder="Search stakeholder by name or business..."
                 />
               </label>
 
@@ -264,42 +253,8 @@
               <div v-if="selectedStakeholder" class="selected-occupant">
                 <i class="pi pi-check"></i>
                 <span>Selected: {{ selectedStakeholder.firstName }} {{ selectedStakeholder.lastName }}</span>
+                <button type="button" class="btn-clear-selection" @click="selectedStakeholder = null">✕</button>
               </div>
-            </div>
-
-            <!-- MAP COORDINATES WITH VISUAL PICKER -->
-            <div class="coordinates-box">
-              <div class="coordinates-title">
-                <span>Map Coordinates</span>
-                <button
-                  type="button"
-                  class="btn-pick-map"
-                  @click="startPickingLocation"
-                >
-                  📍 Pick on Map
-                </button>
-              </div>
-
-              <div class="coordinates-grid">
-                <label>
-                  Lat
-                  <input v-model.number="form.lat" type="number" step="any" required />
-                </label>
-                <label>
-                  Lng
-                  <input v-model.number="form.lng" type="number" step="any" required />
-                </label>
-              </div>
-            </div>
-
-            <!-- STALL IMAGE -->
-            <label>
-              Stall Photo
-              <input type="file" accept="image/*" @change="handleImageUpload" />
-            </label>
-
-            <div v-if="imagePreview" class="preview-container">
-              <img :src="imagePreview" alt="Stall preview" class="gm-preview" />
             </div>
 
             <div class="gm-actions">
@@ -307,7 +262,7 @@
                 Cancel
               </button>
               <button type="submit" class="btn-primary" :disabled="isSaving">
-                {{ isSaving ? 'Saving...' : 'Save Stall' }}
+                {{ isSaving ? 'Saving...' : 'Update Assignment' }}
               </button>
             </div>
           </form>
@@ -328,9 +283,7 @@ import { API_ORIGIN } from '../config/apiConfig'
 import api from '../services/api'
 import {
   fetchStalls,
-  createStall,
   updateStall,
-  uploadStallImage,
   allocateOccupant,
   unassignOccupant
 } from '../services/stallService'
@@ -348,7 +301,6 @@ const editing = ref(null)
 const selectedImage = ref(null)
 const imagePreview = ref('')
 const isSaving = ref(false)
-const isPickingLocation = ref(false)
 
 const stakeholders = ref([])
 const stakeholderSearch = ref('')
@@ -556,13 +508,7 @@ function initializeMap() {
     'Google Satellite': googleSatellite
   }, null, { position: 'topright' }).addTo(map)
 
-  map.on('click', (e) => {
-    if (isPickingLocation.value) {
-      form.value.lat = Number(e.latlng.lat.toFixed(6))
-      form.value.lng = Number(e.latlng.lng.toFixed(6))
-      updatePickerMarkerPosition()
-    }
-  })
+
 
   // Global hooks for popup buttons
   window.__editStallById = (stallId) => {
@@ -646,7 +592,7 @@ function getStallInfoContent(stall, index, validStalls) {
         onclick="window.__editStallById(${stall.id})"
         class="gm-btn-manage"
       >
-        ✏️ Manage Stall
+        👤 Assign Occupant
       </button>
 
       <div class="gm-nav-arrows">
@@ -691,51 +637,7 @@ function focusStallOnMap(stall) {
   }
 }
 
-// Location Picker on Map
-function startPickingLocation() {
-  isPickingLocation.value = true
-  if (map) map.closePopup()
 
-  const lat = Number(form.value.lat) || DEFAULT_CENTER.lat
-  const lng = Number(form.value.lng) || DEFAULT_CENTER.lng
-
-  if (!pickerMarker) {
-    pickerMarker = L.marker([lat, lng], {
-      draggable: true,
-      icon: markerIcons.picker,
-      title: 'Drag to set stall location'
-    }).addTo(map)
-
-    pickerMarker.on('dragend', (e) => {
-      const pos = e.target.getLatLng()
-      form.value.lat = Number(pos.lat.toFixed(6))
-      form.value.lng = Number(pos.lng.toFixed(6))
-    })
-  } else {
-    pickerMarker.setLatLng([lat, lng])
-    pickerMarker.addTo(map)
-  }
-
-  map.setView([lat, lng], 19)
-
-  const mapElem = document.getElementById('map')
-  if (mapElem) {
-    mapElem.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  }
-}
-
-function updatePickerMarkerPosition() {
-  if (pickerMarker && form.value.lat && form.value.lng) {
-    pickerMarker.setLatLng([Number(form.value.lat), Number(form.value.lng)])
-  }
-}
-
-function stopPickingLocation() {
-  isPickingLocation.value = false
-  if (pickerMarker && map) {
-    map.removeLayer(pickerMarker)
-  }
-}
 
 // Data Fetching
 async function loadStalls() {
@@ -787,13 +689,7 @@ function resetForm() {
   currentOccupantName.value = ''
 }
 
-function openAdd() {
-  editing.value = null
-  selectedImage.value = null
-  imagePreview.value = ''
-  resetForm()
-  showModal.value = true
-}
+
 
 function editStall(stall) {
   editing.value = stall.id
@@ -821,64 +717,33 @@ function editStall(stall) {
 
 function closeModal() {
   showModal.value = false
-  isPickingLocation.value = false
-  selectedImage.value = null
-  imagePreview.value = ''
   stakeholderSearch.value = ''
   selectedStakeholder.value = null
   currentOccupantName.value = ''
-  if (pickerMarker && map) map.removeLayer(pickerMarker)
-}
-
-function handleImageUpload(event) {
-  const file = event.target.files[0]
-  if (file) {
-    selectedImage.value = file
-    imagePreview.value = URL.createObjectURL(file)
-  }
 }
 
 async function saveStall() {
+  if (!editing.value) return
   isSaving.value = true
   try {
-    let imageUrl = form.value.imageUrl || ''
-
-    if (selectedImage.value) {
-      const fd = new FormData()
-      fd.append('file', selectedImage.value)
-      imageUrl = await uploadStallImage(fd)
-    }
-
-    const payload = {
-      stallNo: form.value.number,
-      stallType: form.value.type,
-      monthlyRent: form.value.rent,
-      status: form.value.status,
-      info: form.value.info,
-      latitude: form.value.lat,
-      longitude: form.value.lng,
-      imageUrl
-    }
-
-    const savedStall = editing.value
-      ? await updateStall(editing.value, payload)
-      : await createStall(payload)
+    const targetStallId = editing.value
 
     // Handle Occupant allocation or unassign
-    const targetStallId = savedStall.id || editing.value
-
     if (selectedStakeholder.value && (form.value.status === 'OCCUPIED' || form.value.status === 'RESERVED')) {
       await allocateOccupant(targetStallId, selectedStakeholder.value.id)
-    } else if (form.value.status === 'VACANT' && editing.value) {
+    } else if (form.value.status === 'VACANT' || !currentOccupantName.value) {
       await unassignOccupant(targetStallId)
     }
 
+    // Update stall status
+    await updateStall(targetStallId, { status: form.value.status })
+
     await loadStalls()
     closeModal()
-    alert('Stall saved successfully!')
+    alert('Stall assignment updated successfully!')
   } catch (error) {
     console.error(error)
-    alert(error.message || 'Failed to save stall')
+    alert(error.message || 'Failed to update stall assignment')
   } finally {
     isSaving.value = false
   }
