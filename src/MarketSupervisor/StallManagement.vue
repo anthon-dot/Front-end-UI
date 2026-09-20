@@ -319,6 +319,8 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 
 import MarketSupervisorMenu from '../components/MarketSupervisorMenu.vue'
 import SearchField from '../components/SearchField.vue'
@@ -333,16 +335,9 @@ import {
   unassignOccupant
 } from '../services/stallService'
 
-const GOOGLE_MAPS_API_KEY =
-  import.meta.env.VITE_GOOGLE_MAPS_API_KEY ||
-  window.GOOGLE_MAPS_API_KEY ||
-  ''
-
 const DEFAULT_CENTER = { lat: 8.399991, lng: 124.291353 }
-const MIN_MAP_ZOOM = 15
-const MAX_MAP_ZOOM = 21
+const MIN_MAP_ZOOM = 14
 const DEFAULT_MAP_ZOOM = 18
-
 
 // State
 const search = ref('')
@@ -372,13 +367,10 @@ const form = ref({
   imageUrl: ''
 })
 
-// Map instance & markers
-let googleMapsPromise = null
+// Leaflet instance & markers
 let map = null
-let infoWindow = null
 let markers = []
 let pickerMarker = null
-let mapClickListener = null
 
 // Helper to normalize image URLs
 function resolveImageUrl(url) {
@@ -494,234 +486,116 @@ function onStatusChange() {
   }
 }
 
-// Google Maps Loader
-function loadGoogleMaps() {
-  if (window.google?.maps) return Promise.resolve(window.google.maps)
-
-  if (!googleMapsPromise) {
-    googleMapsPromise = new Promise((resolve, reject) => {
-      const existingScript = document.querySelector('script[data-google-maps-loader="true"]')
-
-      if (existingScript) {
-        existingScript.addEventListener('load', () => resolve(window.google.maps))
-        existingScript.addEventListener('error', reject)
-        return
-      }
-
-      const script = document.createElement('script')
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}`
-      script.async = true
-      script.defer = true
-      script.dataset.googleMapsLoader = 'true'
-      script.onload = () => resolve(window.google.maps)
-      script.onerror = reject
-      document.head.appendChild(script)
-    })
-  }
-
-  return googleMapsPromise
+// Custom Stall Shop Pin Icons for Leaflet
+const markerIcons = {
+  occupied: L.icon({
+    iconUrl: '/icons/stall-pin-green.svg',
+    iconSize: [44, 44],
+    iconAnchor: [22, 42],
+    popupAnchor: [0, -38]
+  }),
+  reserved: L.icon({
+    iconUrl: '/icons/stall-pin-yellow.svg',
+    iconSize: [44, 44],
+    iconAnchor: [22, 42],
+    popupAnchor: [0, -38]
+  }),
+  vacant: L.icon({
+    iconUrl: '/icons/stall-pin-blue.svg',
+    iconSize: [44, 44],
+    iconAnchor: [22, 42],
+    popupAnchor: [0, -38]
+  }),
+  picker: L.icon({
+    iconUrl: '/icons/stall-pin-orange.svg',
+    iconSize: [48, 48],
+    iconAnchor: [24, 46],
+    popupAnchor: [0, -42]
+  })
 }
 
-const MAP_STYLES = [
-  {
-    featureType: 'poi',
-    stylers: [{ visibility: 'off' }]
-  },
-  {
-    featureType: 'poi.business',
-    stylers: [{ visibility: 'off' }]
-  },
-  {
-    featureType: 'poi.place_of_worship',
-    stylers: [{ visibility: 'off' }]
-  },
-  {
-    featureType: 'poi.medical',
-    stylers: [{ visibility: 'off' }]
-  },
-  {
-    featureType: 'poi.school',
-    stylers: [{ visibility: 'off' }]
-  },
-  {
-    featureType: 'poi.attraction',
-    stylers: [{ visibility: 'off' }]
-  },
-  {
-    featureType: 'poi.government',
-    stylers: [{ visibility: 'off' }]
-  },
-  {
-    featureType: 'poi.sports_complex',
-    stylers: [{ visibility: 'off' }]
-  },
-  {
-    featureType: 'transit',
-    stylers: [{ visibility: 'off' }]
-  },
-  {
-    featureType: 'transit.station',
-    stylers: [{ visibility: 'off' }]
-  },
-  {
-    featureType: 'road',
-    elementType: 'labels.icon',
-    stylers: [{ visibility: 'off' }]
-  }
-]
-
-// Get custom stall pin icon based on status
 function getMarkerIcon(status) {
   const norm = getNormalizedStatus(status)
-  let iconUrl = '/icons/stall-pin-blue.svg'
-  if (norm === 'occupied') {
-    iconUrl = '/icons/stall-pin-green.svg'
-  } else if (norm === 'reserved') {
-    iconUrl = '/icons/stall-pin-yellow.svg'
-  }
-
-  return {
-    url: iconUrl,
-    scaledSize: new window.google.maps.Size(42, 42),
-    anchor: new window.google.maps.Point(21, 40)
-  }
+  return markerIcons[norm] || markerIcons.vacant
 }
 
-async function initializeMap() {
-  try {
-    const googleMaps = await loadGoogleMaps()
+function initializeMap() {
+  const mapContainer = document.getElementById('map')
+  if (!mapContainer || map) return
 
-    map = new googleMaps.Map(document.getElementById('map'), {
-      center: DEFAULT_CENTER,
-      zoom: DEFAULT_MAP_ZOOM,
-      minZoom: MIN_MAP_ZOOM,
-      maxZoom: MAX_MAP_ZOOM,
-      clickableIcons: false,
-      disableDefaultUI: false,
-      disableDoubleClickZoom: false,
-      draggable: true,
-      fullscreenControl: true,
-      gestureHandling: 'cooperative',
-      mapTypeControl: false,
-      scrollwheel: true,
-      styles: MAP_STYLES,
-      streetViewControl: false,
-      zoomControl: true
-    })
-
-    // Explicitly reinforce map styles
-    map.setOptions({ styles: MAP_STYLES })
-
-    infoWindow = new googleMaps.InfoWindow()
-
-    mapClickListener = map.addListener('click', (e) => {
-      if (isPickingLocation.value) {
-        form.value.lat = Number(e.latLng.lat().toFixed(6))
-        form.value.lng = Number(e.latLng.lng().toFixed(6))
-        updatePickerMarkerPosition()
-      }
-    })
-
-    // Clean up "For development purposes only" overlays and dismiss warning dialogs
-    const mapContainer = document.getElementById('map')
-    if (mapContainer) {
-      const cleanupWatermark = () => {
-        // 1. Dismiss button
-        const dismissBtns = mapContainer.querySelectorAll('.dismissButton, button[aria-label="Close"]')
-        dismissBtns.forEach((btn) => btn.click())
-
-        // 2. Hide error container
-        const errContainers = mapContainer.querySelectorAll('.gm-err-container, .gm-err-content, .gm-style-cc')
-        errContainers.forEach((el) => {
-          el.style.setProperty('display', 'none', 'important')
-        })
-
-        // 3. Remove all dark overlay elements and watermark text
-        const allDivs = mapContainer.getElementsByTagName('div')
-        for (let i = 0; i < allDivs.length; i++) {
-          const d = allDivs[i]
-          if (
-            (d.innerText && d.innerText.includes('For development purposes only')) ||
-            (d.textContent && d.textContent.includes('For development purposes only'))
-          ) {
-            d.style.setProperty('display', 'none', 'important')
-            d.style.setProperty('opacity', '0', 'important')
-            if (d.parentElement && d.parentElement !== mapContainer) {
-              d.parentElement.style.setProperty('display', 'none', 'important')
-            }
-          }
-
-          if (d.style.backgroundColor && (d.style.backgroundColor.includes('rgba(0, 0, 0') || d.style.backgroundColor.includes('rgba(0,0,0'))) {
-            d.style.setProperty('display', 'none', 'important')
-            d.style.setProperty('background-color', 'transparent', 'important')
-          }
-
-          if (d.style.zIndex && Number(d.style.zIndex) >= 1000000) {
-            d.style.setProperty('display', 'none', 'important')
-          }
-        }
-
-        // 4. Clear filter grayscale / tint
-        const gmStyle = mapContainer.querySelector('.gm-style')
-        if (gmStyle) {
-          gmStyle.style.setProperty('filter', 'none', 'important')
-          if (gmStyle.firstElementChild) {
-            gmStyle.firstElementChild.style.setProperty('filter', 'none', 'important')
-          }
-        }
-      }
-
-      cleanupWatermark()
-      const observer = new MutationObserver(cleanupWatermark)
-      observer.observe(mapContainer, { childList: true, subtree: true, attributes: true })
-      setInterval(cleanupWatermark, 500)
-    }
-  } catch (err) {
-    console.warn('[StallManagement] Map failed to initialize:', err.message)
-  }
-}
-
-// Marker Loading
-function loadMarkers() {
-  if (!map || !window.google?.maps) return
-
-  markers.forEach((m) => m.setMap(null))
-  markers = []
-
-  const validStalls = stalls.value.filter((s) => s.lat != null && s.lng != null)
-
-  validStalls.forEach((stall, index) => {
-    const marker = new window.google.maps.Marker({
-      position: { lat: Number(stall.lat), lng: Number(stall.lng) },
-      map,
-      title: `Stall ${stall.number}`,
-      icon: getMarkerIcon(stall.status),
-      stallId: stall.id
-    })
-
-    marker.addListener('click', () => {
-      openStallInfoWindow(marker, stall, index, validStalls)
-    })
-
-    markers.push(marker)
+  map = L.map('map', {
+    center: [DEFAULT_CENTER.lat, DEFAULT_CENTER.lng],
+    zoom: DEFAULT_MAP_ZOOM,
+    minZoom: MIN_MAP_ZOOM,
+    maxZoom: 20,
+    zoomControl: true
   })
 
-  // Global hooks for InfoWindow buttons
+  // Google Maps Clean Road Layer (No Watermark, No POIs)
+  const googleStreets = L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+    maxZoom: 20,
+    subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+    attribution: '&copy; Google Maps'
+  }).addTo(map)
+
+  // Google Maps Hybrid Satellite Layer
+  const googleHybrid = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+    maxZoom: 20,
+    subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+    attribution: '&copy; Google Maps Satellite'
+  })
+
+  L.control.layers({
+    'Google Streets': googleStreets,
+    'Google Satellite': googleHybrid
+  }, null, { position: 'topright' }).addTo(map)
+
+  map.on('click', (e) => {
+    if (isPickingLocation.value) {
+      form.value.lat = Number(e.latlng.lat.toFixed(6))
+      form.value.lng = Number(e.latlng.lng.toFixed(6))
+      updatePickerMarkerPosition()
+    }
+  })
+
+  // Global hooks for popup buttons
   window.__editStallById = (stallId) => {
     const target = stalls.value.find((s) => s.id === stallId)
     if (target) editStall(target)
   }
 
   window.__navStallIndex = (index) => {
+    const validStalls = stalls.value.filter((s) => s.lat != null && s.lng != null)
     if (!validStalls.length) return
     const wrappedIndex = (index + validStalls.length) % validStalls.length
     const nextStall = validStalls[wrappedIndex]
     const nextMarker = markers[wrappedIndex]
     if (nextStall && nextMarker) {
-      map.panTo({ lat: Number(nextStall.lat), lng: Number(nextStall.lng) })
-      openStallInfoWindow(nextMarker, nextStall, wrappedIndex, validStalls)
+      map.setView([Number(nextStall.lat), Number(nextStall.lng)], 19)
+      nextMarker.openPopup()
     }
   }
+}
+
+// Marker Loading
+function loadMarkers() {
+  if (!map) return
+
+  markers.forEach((m) => map.removeLayer(m))
+  markers = []
+
+  const validStalls = stalls.value.filter((s) => s.lat != null && s.lng != null)
+
+  validStalls.forEach((stall, index) => {
+    const marker = L.marker([Number(stall.lat), Number(stall.lng)], {
+      icon: getMarkerIcon(stall.status),
+      title: `Stall ${stall.number}`
+    }).addTo(map)
+
+    marker.bindPopup(getStallInfoContent(stall, index, validStalls))
+    marker.stallId = stall.id
+    markers.push(marker)
+  })
 }
 
 function getStallInfoContent(stall, index, validStalls) {
@@ -790,12 +664,6 @@ function getStallInfoContent(stall, index, validStalls) {
   `
 }
 
-function openStallInfoWindow(marker, stall, index, validStalls) {
-  if (!infoWindow || !map) return
-  infoWindow.setContent(getStallInfoContent(stall, index, validStalls))
-  infoWindow.open(map, marker)
-}
-
 function focusStallOnMap(stall) {
   if (!map || stall.lat == null || stall.lng == null) {
     alert(`No coordinates recorded for Stall ${stall.number}`)
@@ -804,18 +672,13 @@ function focusStallOnMap(stall) {
 
   const lat = Number(stall.lat)
   const lng = Number(stall.lng)
-  map.panTo({ lat, lng })
-  map.setZoom(19)
+  map.setView([lat, lng], 19)
 
   const marker = markers.find((m) => m.stallId === stall.id)
-  const validStalls = stalls.value.filter((s) => s.lat != null && s.lng != null)
-  const index = validStalls.findIndex((s) => s.id === stall.id)
-
-  if (marker && index >= 0) {
-    openStallInfoWindow(marker, stall, index, validStalls)
+  if (marker) {
+    marker.openPopup()
   }
 
-  // Smooth scroll to map
   const mapElem = document.getElementById('map')
   if (mapElem) {
     mapElem.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -825,33 +688,29 @@ function focusStallOnMap(stall) {
 // Location Picker on Map
 function startPickingLocation() {
   isPickingLocation.value = true
-  if (infoWindow) infoWindow.close()
+  if (map) map.closePopup()
 
-  if (map && window.google?.maps) {
-    if (!pickerMarker) {
-      pickerMarker = new window.google.maps.Marker({
-        position: { lat: Number(form.value.lat), lng: Number(form.value.lng) },
-        map,
-        draggable: true,
-        title: 'Drag to set stall location',
-        icon: {
-          url: '/icons/stall-pin-orange.svg',
-          scaledSize: new window.google.maps.Size(46, 46),
-          anchor: new window.google.maps.Point(23, 44)
-        }
-      })
+  const lat = Number(form.value.lat) || DEFAULT_CENTER.lat
+  const lng = Number(form.value.lng) || DEFAULT_CENTER.lng
 
-      pickerMarker.addListener('dragend', (e) => {
-        form.value.lat = Number(e.latLng.lat().toFixed(6))
-        form.value.lng = Number(e.latLng.lng().toFixed(6))
-      })
-    } else {
-      pickerMarker.setPosition({ lat: Number(form.value.lat), lng: Number(form.value.lng) })
-      pickerMarker.setMap(map)
-    }
+  if (!pickerMarker) {
+    pickerMarker = L.marker([lat, lng], {
+      draggable: true,
+      icon: markerIcons.picker,
+      title: 'Drag to set stall location'
+    }).addTo(map)
 
-    map.panTo({ lat: Number(form.value.lat), lng: Number(form.value.lng) })
+    pickerMarker.on('dragend', (e) => {
+      const pos = e.target.getLatLng()
+      form.value.lat = Number(pos.lat.toFixed(6))
+      form.value.lng = Number(pos.lng.toFixed(6))
+    })
+  } else {
+    pickerMarker.setLatLng([lat, lng])
+    pickerMarker.addTo(map)
   }
+
+  map.setView([lat, lng], 19)
 
   const mapElem = document.getElementById('map')
   if (mapElem) {
@@ -860,15 +719,15 @@ function startPickingLocation() {
 }
 
 function updatePickerMarkerPosition() {
-  if (pickerMarker && window.google?.maps) {
-    pickerMarker.setPosition({ lat: Number(form.value.lat), lng: Number(form.value.lng) })
+  if (pickerMarker && form.value.lat && form.value.lng) {
+    pickerMarker.setLatLng([Number(form.value.lat), Number(form.value.lng)])
   }
 }
 
 function stopPickingLocation() {
   isPickingLocation.value = false
-  if (pickerMarker) {
-    pickerMarker.setMap(null)
+  if (pickerMarker && map) {
+    map.removeLayer(pickerMarker)
   }
 }
 
@@ -923,7 +782,6 @@ function resetForm() {
 }
 
 function openAdd() {
-  infoWindow?.close()
   editing.value = null
   selectedImage.value = null
   imagePreview.value = ''
@@ -932,7 +790,6 @@ function openAdd() {
 }
 
 function editStall(stall) {
-  infoWindow?.close()
   editing.value = stall.id
   selectedImage.value = null
 
@@ -964,7 +821,7 @@ function closeModal() {
   stakeholderSearch.value = ''
   selectedStakeholder.value = null
   currentOccupantName.value = ''
-  if (pickerMarker) pickerMarker.setMap(null)
+  if (pickerMarker && map) map.removeLayer(pickerMarker)
 }
 
 function handleImageUpload(event) {
@@ -1029,64 +886,23 @@ function formatCurrency(n) {
 }
 
 onMounted(async () => {
-  // 1. Fetch data first so supervisors always see stall records
-  await Promise.allSettled([loadStalls(), loadStakeholders()])
+  // 1. Initialize map
+  initializeMap()
 
-  // 2. Initialize map gracefully
-  await initializeMap()
-  loadMarkers()
+  // 2. Fetch data
+  await Promise.allSettled([loadStalls(), loadStakeholders()])
 })
 
 onBeforeUnmount(() => {
-  mapClickListener?.remove()
-  markers.forEach((m) => m.setMap(null))
+  if (map) {
+    map.remove()
+    map = null
+  }
   markers = []
-  if (pickerMarker) pickerMarker.setMap(null)
-  infoWindow?.close()
+  pickerMarker = null
   delete window.__editStallById
   delete window.__navStallIndex
 })
 </script>
 
 <style scoped src="../styles/MarketSupervisor/StallManagement.css"></style>
-
-<style>
-/* Unscoped styles to penetrate Google Maps dynamic DOM */
-#map .dismissButton,
-#map .gm-err-container,
-#map .gm-err-content,
-#map .gm-err-message,
-#map .gm-style-cc,
-#map a[href*="google.com/maps"],
-#map a[href*="maps.google.com"],
-#map .gmnoprint[style*="z-index: 1000001"] {
-  display: none !important;
-}
-
-#map div[style*="z-index: 1000001"],
-#map div[style*="z-index: 1000000"],
-#map div[style*="z-index: 1000002"] {
-  display: none !important;
-}
-
-#map .gm-style > div:first-child > div:nth-child(2) {
-  display: none !important;
-}
-
-#map .gm-style,
-#map .gm-style > div:first-child {
-  filter: none !important;
-  -webkit-filter: none !important;
-}
-
-#map .gm-style div[style*="background-color: rgba(0, 0, 0"],
-#map .gm-style div[style*="rgba(0, 0, 0"] {
-  background-color: transparent !important;
-  display: none !important;
-}
-
-#map .gm-style div[style*="opacity: 0.5"] {
-  display: none !important;
-}
-</style>
-
