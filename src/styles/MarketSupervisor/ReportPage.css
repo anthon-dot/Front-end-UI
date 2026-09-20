@@ -317,16 +317,11 @@
   margin-top: 20px;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1023px) {
   .content {
-    margin-left: 90px;
+    margin-left: 0 !important;
     padding: 16px;
-  }
-}
-
-@media (max-width: 720px) {
-  .content {
-    margin-left: 0;
+    padding-top: calc(var(--header-height, 60px) + 16px);
   }
 
   .page-header,

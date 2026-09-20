@@ -1,5 +1,4 @@
 :root {
-  --sidebar-width: 280px;
   --primary: #4f46e5;
   --primary-light: #eef2ff;
   --text: #0f172a;
@@ -27,14 +26,16 @@
   padding-bottom: 40px;
   max-width: 1400px;
   margin: 0 auto;
-  padding-left: calc(var(--sidebar-width, 260px) + 24px);
+  padding-left: calc(var(--sidebar-width, 280px) + 24px);
   padding-right: 24px;
   transition: padding-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1023px) {
   .page-container {
-    padding-left: 24px;
+    padding-top: calc(var(--header-height, 60px) + 16px);
+    padding-left: 16px;
+    padding-right: 16px;
   }
 }
 

@@ -1,7 +1,31 @@
 <template>
+  <!-- Mobile Topbar -->
+  <header class="mobile-topbar" aria-label="Mobile Navigation Bar">
+    <button
+      type="button"
+      class="mobile-menu-btn"
+      @click="toggleMobile"
+      :aria-label="mobileOpen ? 'Close Menu' : 'Open Menu'"
+    >
+      <i :class="mobileOpen ? 'pi pi-times' : 'pi pi-bars'" />
+    </button>
+    <div class="mobile-brand">
+      <div class="brand-logo-sm">TR</div>
+      <span class="mobile-brand-title">Treasurer</span>
+    </div>
+  </header>
+
+  <!-- Mobile Backdrop Overlay -->
+  <div
+    v-if="mobileOpen"
+    class="sidebar-backdrop"
+    @click="closeMobile"
+    aria-hidden="true"
+  />
+
   <aside
     class="sidebar"
-    :class="{ collapsed }"
+    :class="{ collapsed: !isMobile && collapsed, 'mobile-open': mobileOpen }"
     aria-label="Treasurer Sidebar"
   >
     <div class="sidebar-container">
@@ -10,14 +34,14 @@
       <div class="sidebar-header">
         <button
           class="toggle-btn"
-          @click="toggleSidebar"
-          :aria-label="collapsed ? 'Expand Sidebar' : 'Collapse Sidebar'"
+          @click="isMobile ? closeMobile() : toggleSidebar()"
+          :aria-label="isMobile ? 'Close Sidebar' : (collapsed ? 'Expand Sidebar' : 'Collapse Sidebar')"
         >
-          <i :class="collapsed ? 'pi pi-bars' : 'pi pi-angle-left'" />
+          <i :class="isMobile ? 'pi pi-times' : (collapsed ? 'pi pi-bars' : 'pi pi-angle-left')" />
         </button>
 
         <Transition name="fade-slide">
-          <div v-if="!collapsed" class="brand">
+          <div v-if="isMobile || !collapsed" class="brand">
             <div class="brand-logo">TR</div>
             <div class="brand-text">
               <h1>Treasurer</h1>
@@ -33,13 +57,13 @@
           v-for="item in items"
           :key="item.id"
           class="nav-item"
-          :class="{ active: isActive(item), collapsed }"
+          :class="{ active: isActive(item), collapsed: !isMobile && collapsed }"
           @click="navigate(item)"
         >
           <i :class="item.icon" class="nav-icon" />
 
           <Transition name="fade-slide">
-            <span v-if="!collapsed" class="nav-label">
+            <span v-if="isMobile || !collapsed" class="nav-label">
               {{ item.label }}
             </span>
           </Transition>
@@ -55,13 +79,13 @@
       <div class="sidebar-footer">
         <button
           class="logout-btn"
-          :class="{ collapsed }"
+          :class="{ collapsed: !isMobile && collapsed }"
           @click="logout"
         >
           <i class="pi pi-sign-out" />
 
           <Transition name="fade-slide">
-            <span v-if="!collapsed">Logout</span>
+            <span v-if="isMobile || !collapsed">Logout</span>
           </Transition>
         </button>
       </div>
@@ -71,7 +95,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
@@ -80,6 +104,8 @@ const route = useRoute()
 const authStore = useAuthStore()
 
 const collapsed = ref(false)
+const mobileOpen = ref(false)
+const isMobile = ref(false)
 
 const items = [
   {
@@ -137,6 +163,9 @@ const isActive = (item) => {
 }
 
 const navigate = (item) => {
+  if (isMobile.value) {
+    closeMobile()
+  }
   router.push({ name: item.routeName })
 }
 
@@ -144,18 +173,44 @@ const toggleSidebar = () => {
   collapsed.value = !collapsed.value
 }
 
+const toggleMobile = () => {
+  mobileOpen.value = !mobileOpen.value
+}
+
+const closeMobile = () => {
+  mobileOpen.value = false
+}
+
 const logout = () => {
   authStore.clearSession()
   router.push({ name: 'Landing' })
 }
 
+const checkScreenSize = () => {
+  isMobile.value = window.innerWidth < 1024
+  updateSidebarWidth()
+}
+
+const updateSidebarWidth = () => {
+  if (isMobile.value) {
+    document.documentElement.style.setProperty('--sidebar-width', '0px')
+  } else {
+    document.documentElement.style.setProperty(
+      '--sidebar-width',
+      collapsed.value ? '90px' : '280px'
+    )
+  }
+}
+
 watch(collapsed, (value) => {
   localStorage.setItem('sidebar-collapsed', value)
+  updateSidebarWidth()
+})
 
-  document.documentElement.style.setProperty(
-    '--sidebar-width',
-    value ? '90px' : '280px'
-  )
+watch(route, () => {
+  if (isMobile.value) {
+    closeMobile()
+  }
 })
 
 onMounted(() => {
@@ -165,10 +220,12 @@ onMounted(() => {
     collapsed.value = saved === 'true'
   }
 
-  document.documentElement.style.setProperty(
-    '--sidebar-width',
-    collapsed.value ? '90px' : '280px'
-  )
+  checkScreenSize()
+  window.addEventListener('resize', checkScreenSize)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', checkScreenSize)
 })
 </script>
 

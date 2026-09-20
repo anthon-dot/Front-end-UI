@@ -1,27 +1,48 @@
 <template>
+  <!-- Mobile Topbar -->
+  <header class="mobile-topbar" aria-label="Market Supervisor Mobile Navigation Bar">
+    <button
+      type="button"
+      class="mobile-menu-btn"
+      @click="toggleMobile"
+      :aria-label="mobileOpen ? 'Close Menu' : 'Open Menu'"
+    >
+      <i :class="mobileOpen ? 'pi pi-times' : 'pi pi-bars'" />
+    </button>
+    <div class="mobile-brand">
+      <div class="brand-logo-sm">MS</div>
+      <span class="mobile-brand-title">Market Supervisor</span>
+    </div>
+  </header>
+
+  <!-- Mobile Backdrop Overlay -->
+  <div
+    v-if="mobileOpen"
+    class="sidebar-backdrop"
+    @click="closeMobile"
+    aria-hidden="true"
+  />
+
   <aside
     class="sidebar"
-    :class="{ collapsed }"
+    :class="{ collapsed: !isMobile && collapsed, 'mobile-open': mobileOpen }"
     aria-label="Market Supervisor Sidebar"
   >
     <div class="sidebar-container">
 
       <!-- HEADER -->
       <div class="sidebar-header">
-
         <button
           class="toggle-btn"
-          @click="toggleSidebar"
-          :aria-label="collapsed ? 'Expand Sidebar' : 'Collapse Sidebar'"
+          @click="isMobile ? closeMobile() : toggleSidebar()"
+          :aria-label="isMobile ? 'Close Sidebar' : (collapsed ? 'Expand Sidebar' : 'Collapse Sidebar')"
         >
-          <i
-            :class="collapsed ? 'pi pi-bars' : 'pi pi-angle-left'"
-          />
+          <i :class="isMobile ? 'pi pi-times' : (collapsed ? 'pi pi-bars' : 'pi pi-angle-left')" />
         </button>
 
         <Transition name="fade-slide">
           <div
-            v-if="!collapsed"
+            v-if="isMobile || !collapsed"
             class="brand"
           >
             <div class="brand-logo">
@@ -34,30 +55,27 @@
             </div>
           </div>
         </Transition>
-
       </div>
 
       <!-- NAVIGATION -->
       <nav class="nav-menu">
-
         <button
           v-for="item in items"
           :key="item.id"
           class="nav-item"
           :class="{
             active: isActive(item),
-            collapsed
+            collapsed: !isMobile && collapsed
           }"
           @click="navigate(item)"
         >
-
           <span class="nav-icon">
             {{ item.icon }}
           </span>
 
           <Transition name="fade-slide">
             <span
-              v-if="!collapsed"
+              v-if="isMobile || !collapsed"
               class="nav-label"
             >
               {{ item.label }}
@@ -68,32 +86,26 @@
             v-if="isActive(item)"
             class="active-indicator"
           />
-
         </button>
-
       </nav>
 
       <!-- FOOTER -->
       <div class="sidebar-footer">
-
         <button
           class="logout-btn"
-          :class="{ collapsed }"
+          :class="{ collapsed: !isMobile && collapsed }"
           @click="logout"
         >
-
           <span class="nav-icon">
             🚪
           </span>
 
           <Transition name="fade-slide">
-            <span v-if="!collapsed">
+            <span v-if="isMobile || !collapsed">
               Logout
             </span>
           </Transition>
-
         </button>
-
       </div>
 
     </div>
@@ -106,6 +118,7 @@ import {
   computed,
   watch,
   onMounted,
+  onUnmounted,
   defineProps
 } from 'vue'
 
@@ -127,6 +140,8 @@ const route = useRoute()
 const authStore = useAuthStore()
 
 const collapsed = ref(false)
+const mobileOpen = ref(false)
+const isMobile = ref(false)
 
 const baseItems = [
   {
@@ -135,32 +150,28 @@ const baseItems = [
     icon: '📊',
     routeName: 'MarketSupervisor'
   },
-
   {
     id: 'contracts',
     label: 'Contracts',
     icon: '📑',
     routeName: 'MSContracts'
   },
-
   {
     id: 'stalls',
     label: 'Stall Management',
     icon: '🏪',
     routeName: 'MSStalls'
   },
-
   {
     id: 'archive',
     label: 'Archive Record',
     icon: '🗂️',
     routeName: 'MSArchive'
   },
-
   {
     id: 'reports',
     label: 'Reports',
-    icon: 'R',
+    icon: '📈',
     routeName: 'MSReports'
   }
 ]
@@ -183,11 +194,22 @@ const toggleSidebar = () => {
   collapsed.value = !collapsed.value
 }
 
+const toggleMobile = () => {
+  mobileOpen.value = !mobileOpen.value
+}
+
+const closeMobile = () => {
+  mobileOpen.value = false
+}
+
 const isActive = (item) => {
   return route.name === item.routeName
 }
 
 const navigate = (item) => {
+  if (isMobile.value) {
+    closeMobile()
+  }
   router.push({
     name: item.routeName
   })
@@ -195,29 +217,42 @@ const navigate = (item) => {
 
 const logout = () => {
   authStore.clearSession()
-
   router.push({
     name: 'Landing'
   })
+}
 
+const checkScreenSize = () => {
+  isMobile.value = window.innerWidth < 1024
+  updateSidebarWidth()
+}
+
+const updateSidebarWidth = () => {
+  if (isMobile.value) {
+    document.documentElement.style.setProperty('--sidebar-width', '0px')
+  } else {
+    document.documentElement.style.setProperty(
+      '--sidebar-width',
+      collapsed.value ? '90px' : '280px'
+    )
+  }
 }
 
 watch(collapsed, (value) => {
-
   localStorage.setItem(
     'supervisor-sidebar',
     value
   )
+  updateSidebarWidth()
+})
 
-  document.documentElement.style.setProperty(
-    '--sidebar-width',
-    value ? '90px' : '280px'
-  )
-
+watch(route, () => {
+  if (isMobile.value) {
+    closeMobile()
+  }
 })
 
 onMounted(() => {
-
   const saved =
     localStorage.getItem(
       'supervisor-sidebar'
@@ -225,20 +260,17 @@ onMounted(() => {
 
   if (props.forceOpen) {
     collapsed.value = false
-  }
-
-  else if (saved !== null) {
+  } else if (saved !== null) {
     collapsed.value =
       saved === 'true'
   }
 
-  document.documentElement.style.setProperty(
-    '--sidebar-width',
-    collapsed.value
-      ? '90px'
-      : '280px'
-  )
+  checkScreenSize()
+  window.addEventListener('resize', checkScreenSize)
+})
 
+onUnmounted(() => {
+  window.removeEventListener('resize', checkScreenSize)
 })
 </script>
 

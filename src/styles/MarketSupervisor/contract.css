@@ -19,11 +19,12 @@
 }
 
 /* RESPONSIVE */
-@media (max-width: 900px) {
+@media (max-width: 1023px) {
 
 	.content {
-		margin-left: 74px;
+		margin-left: 0 !important;
 		padding: 16px;
+		padding-top: calc(var(--header-height, 60px) + 16px);
 	}
 
 }

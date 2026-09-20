@@ -15,17 +15,17 @@
           </h1>
           <p class="text-sm text-slate-500 mt-1">Manage and record stakeholder payments</p>
         </div>
-        <div class="flex items-center gap-3">
-          <span class="p-input-icon-left w-full md:w-80 shadow-sm rounded-lg overflow-hidden border border-slate-200">
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+          <span class="p-input-icon-left w-full sm:w-80 shadow-sm rounded-lg overflow-hidden border border-slate-200">
             <i class="pi pi-search text-slate-400 pl-3"></i>
             <InputText v-model="tableSearch" placeholder="Search stakeholder or payment id..." class="w-full border-none pl-10 bg-white" />
           </span>
-          <Button label="Record Payment" icon="pi pi-plus" @click="openModal" class="shadow-sm" />
+          <Button label="Record Payment" icon="pi pi-plus" @click="openModal" class="shadow-sm whitespace-nowrap w-full sm:w-auto" />
         </div>
       </div>
 
       <!-- TABLE -->
-      <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden p-2">
+      <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto p-2">
         <DataTable 
           :value="filteredPayments"
           :loading="loading" 

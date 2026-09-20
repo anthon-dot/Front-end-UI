@@ -15,7 +15,7 @@
           </h2>
           <p class="text-sm text-slate-500 mt-1">Overview of revenue, collections, and application statuses.</p>
         </div>
-        <div class="flex items-center gap-3">
+        <div class="flex flex-wrap items-center gap-3">
           <Button label="Export Report" icon="pi pi-download" severity="secondary" outlined class="shadow-sm" />
           <Button label="New Payment" icon="pi pi-plus" class="shadow-sm" />
         </div>

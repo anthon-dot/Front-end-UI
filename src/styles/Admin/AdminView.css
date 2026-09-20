@@ -292,9 +292,11 @@
   justify-content: flex-end;
 }
 
-@media (max-width: 1000px) {
+@media (max-width: 1023px) {
   .admin-page {
-    padding-left: 24px;
+    padding-top: calc(var(--header-height, 60px) + 16px);
+    padding-left: 16px;
+    padding-right: 16px;
   }
 
   .page-header,
