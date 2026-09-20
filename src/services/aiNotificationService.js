@@ -1,21 +1,55 @@
+import { supabase } from '../config/supabase'
 import api from './api'
 
-export function getAINotifications() {
-  return api.get('/notifications')
+export async function getAINotifications() {
+  const { data, error } = await supabase
+    .from('notifications')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(50)
+  if (error) throw error
+  return { data: data || [] }
 }
 
-export function getUnreadAINotifications() {
-  return api.get('/ai/notifications/unread')
+export async function getUnreadAINotifications() {
+  const { data, error } = await supabase
+    .from('notifications')
+    .select('*')
+    .eq('is_read', false)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return { data: data || [] }
 }
 
-export function generateAINotifications() {
-  return api.post('/ai/notifications/generate')
+export async function generateAINotifications() {
+  const { data, error } = await supabase.functions.invoke('ai-insights/summary')
+  if (error) throw error
+  return { data }
 }
 
-export function markAINotificationAsRead(id) {
-  return api.put(`/ai/notifications/${id}/read`)
+export async function markAINotificationAsRead(id) {
+  const { data, error } = await supabase
+    .from('notifications')
+    .update({ is_read: true })
+    .eq('id', id)
+    .select()
+  if (error) throw error
+  return { data }
 }
 
-export function deleteAINotification(id) {
-  return api.delete(`/ai/notifications/${id}`)
+export async function deleteAINotification(id) {
+  const { data, error } = await supabase
+    .from('notifications')
+    .delete()
+    .eq('id', id)
+  if (error) throw error
+  return { data }
+}
+
+export default {
+  getAINotifications,
+  getUnreadAINotifications,
+  generateAINotifications,
+  markAINotificationAsRead,
+  deleteAINotification
 }

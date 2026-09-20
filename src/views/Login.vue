@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="login-wrap">
 
     <div class="login-box">
@@ -83,6 +83,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../services/api'
+import { supabase } from '../config/supabase'
 import { useAuthStore, normalizeWorkflowRole } from '../stores/auth'
 
 const router = useRouter()
@@ -113,47 +114,67 @@ async function onSubmit() {
   isLoading.value = true
 
   try {
-    // ─── 1. HTTP REQUEST ──────────────────────────────────────────────────────
-    console.log('[AUTH] Sending login request for username:', username.value)
+    const inputIdentifier = username.value.trim()
+    const rawPassword = password.value
 
-    const loginResponse = await api.post('/auth/login', {
-      username: username.value,
-      password: password.value
-    })
-
-    const data = loginResponse.data
-
-    // ─── 2. RESPONSE SHAPE ───────────────────────────────────────────────────
-    // Diagnose missing fields so you can tell backend vs. frontend problems.
-    console.log('[AUTH] Login response received:', {
-      hasToken:  Boolean(data.token),
-      hasRole:   Boolean(data.role),
-      rawRole:   data.role,
-      userId:    data.userId ?? data.id ?? '(missing)',
-      username:  data.username ?? '(missing)'
-    })
-
-    if (!data.token) {
-      console.error('[AUTH] ❌ Backend did not return a token. Check /auth/login JWT generation.')
-    }
-    if (!data.role) {
-      console.error('[AUTH] ❌ Backend did not return a role. Check that the users table has a role column and AdminSeeder set it to ADMIN.')
+    let emailToAuth = inputIdentifier
+    if (!inputIdentifier.includes('@')) {
+      emailToAuth = inputIdentifier.toLowerCase().replace(/[^a-z0-9_.-]/g, '') + '@manticao.market'
     }
 
-    // ─── 3. ROLE NORMALIZATION ────────────────────────────────────────────────
-    const role = normalizeWorkflowRole(data.role)
-
-    console.log('[AUTH] Role normalization:', {
-      backendRaw:   data.role,
-      normalizedTo: role
+    console.log('[AUTH] Supabase signIn for:', emailToAuth)
+    let authResult = await supabase.auth.signInWithPassword({
+      email: emailToAuth,
+      password: rawPassword
     })
 
-    // ─── 4. SAVE SESSION ──────────────────────────────────────────────────────
+    if (authResult.error && !inputIdentifier.includes('@')) {
+      const retryResult = await supabase.auth.signInWithPassword({
+        email: inputIdentifier.toLowerCase() + '@manticao.gov.ph',
+        password: rawPassword
+      })
+      if (!retryResult.error && retryResult.data?.session) {
+        authResult = retryResult
+      }
+    }
+
+    if (authResult.error) {
+      throw new Error(authResult.error.message || 'Invalid username or password')
+    }
+
+    const session = authResult.data.session
+    const authUser = authResult.data.user
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', authUser.id)
+      .maybeSingle()
+
+    const rawRole = profile?.role || authUser.user_metadata?.role || (inputIdentifier.toLowerCase() === 'admin' ? 'ADMIN' : 'STAKEHOLDER')
+    const role = normalizeWorkflowRole(rawRole)
+
+    let stakeholderId = ''
+    if (role === 'STAKEHOLDER') {
+      const { data: stakeholder } = await supabase
+        .from('stakeholders')
+        .select('id')
+        .eq('user_id', authUser.id)
+        .maybeSingle()
+      if (stakeholder) stakeholderId = String(stakeholder.id)
+    }
+
     authStore.setSession({
-      token:  data.token,
-      role:   data.role,         // store the raw value; the auth store normalizes on read
-      userId: data.userId || data.id,
-      user:   data
+      token: session.access_token,
+      role: rawRole,
+      userId: authUser.id,
+      stakeholderId,
+      user: {
+        id: authUser.id,
+        username: profile?.username || inputIdentifier,
+        role: rawRole,
+        email: authUser.email
+      }
     })
 
     console.log('[AUTH] Session stored:', {
@@ -388,3 +409,4 @@ async function onSubmit() {
 }
 
 </style>
+

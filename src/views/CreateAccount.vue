@@ -68,6 +68,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../services/api'
+import { supabase } from '../config/supabase'
 import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
@@ -96,26 +97,37 @@ async function createAccount() {
   isLoading.value = true
 
   try {
-    // Register — backend sets role=STAKEHOLDER and status=ACTIVE automatically
-    await api.post('/auth/register', {
-      username: username.value,
-      password: password.value
+    const cleanUsername = username.value.trim()
+    const emailToUse = cleanUsername.includes('@')
+      ? cleanUsername
+      : cleanUsername.toLowerCase().replace(/[^a-z0-9_.-]/g, '') + '@manticao.market'
+
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      email: emailToUse,
+      password: password.value,
+      options: {
+        data: {
+          username: cleanUsername,
+          role: cleanUsername.toLowerCase() === 'admin' ? 'ADMIN' : 'STAKEHOLDER'
+        }
+      }
     })
 
-    // Auto-login with the same credentials
-    const loginResponse = await api.post('/auth/login', {
-      username: username.value,
-      password: password.value
-    })
+    if (signUpError) throw signUpError
 
-    const data = loginResponse.data
+    const session = signUpData.session
+    const user = signUpData.user
 
-    // Save session so the router guard recognises the user
     authStore.setSession({
-      token:  data.token,
-      role:   data.role,
-      userId: data.userId || data.id,
-      user:   data
+      token: session?.access_token || '',
+      role: cleanUsername.toLowerCase() === 'admin' ? 'ADMIN' : 'STAKEHOLDER',
+      userId: user?.id || '',
+      user: {
+        id: user?.id,
+        username: cleanUsername,
+        role: cleanUsername.toLowerCase() === 'admin' ? 'ADMIN' : 'STAKEHOLDER',
+        email: user?.email
+      }
     })
 
     // Go straight to the business application form

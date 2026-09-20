@@ -1,22 +1,34 @@
-import api from './api'
+import { supabase } from '../config/supabase'
 
-/**
- * Fetch all payments
- * @returns {Promise<Array>}
- */
 export async function fetchPayments() {
-  const response = await api.get('/payments')
-  return response.data
+  const { data, error } = await supabase
+    .from('payments')
+    .select('*, stakeholder:stakeholders(*), billing:billings(*)')
+    .order('id', { ascending: false })
+
+  if (error) throw error
+  return data
 }
 
-/**
- * Record a new payment
- * @param {Object} payload
- * @returns {Promise<any>}
- */
 export async function createPayment(payload) {
-  const response = await api.post('/payments', payload)
-  return response.data
+  const receiptNo = payload.receiptNo || `RCP-${Date.now().toString().slice(-8)}`
+
+  const { data, error } = await supabase
+    .from('payments')
+    .insert({
+      stakeholder_id: payload.stakeholderId,
+      billing_id: payload.billingId || null,
+      amount: payload.amount,
+      payment_type: payload.paymentType || 'RENT_PAYMENT',
+      reference_no: payload.referenceNo || '',
+      receipt_no: receiptNo,
+      payment_date: payload.paymentDate || new Date().toISOString()
+    })
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
 }
 
 export default {

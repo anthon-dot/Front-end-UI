@@ -1,5 +1,6 @@
-import { computed, ref } from 'vue'
+﻿import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
+import { supabase } from '../config/supabase'
 
 export const AUTH_TOKEN_KEY = 'authToken'
 
@@ -46,11 +47,11 @@ export const useAuthStore = defineStore('auth', () => {
 
   const tokenPayload = computed(() => token.value ? decodeToken(token.value) : null)
   const normalizedRole = computed(() => {
-    return normalizeWorkflowRole(role.value || tokenPayload.value?.role)
+    return normalizeWorkflowRole(role.value || tokenPayload.value?.role || tokenPayload.value?.user_metadata?.role)
   })
   const roles = computed(() => normalizedRole.value ? [normalizedRole.value] : [])
   const resolvedUserId = computed(() => {
-    return userId.value || tokenPayload.value?.userId || tokenPayload.value?.id || ''
+    return userId.value || tokenPayload.value?.sub || tokenPayload.value?.userId || tokenPayload.value?.id || ''
   })
   const isAuthenticated = computed(() => Boolean(token.value))
   const isTokenExpired = computed(() => {
@@ -91,14 +92,38 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  function hydrateFromStorage() {
+  async function hydrateFromStorage() {
     token.value = localStorage.getItem(AUTH_TOKEN_KEY) || ''
     role.value = localStorage.getItem('role') || ''
     userId.value = localStorage.getItem('userId') || ''
     stakeholderId.value = localStorage.getItem('stakeholderId') || ''
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.access_token) {
+        token.value = session.access_token
+        userId.value = session.user.id
+        localStorage.setItem(AUTH_TOKEN_KEY, session.access_token)
+        localStorage.setItem('userId', session.user.id)
+
+        if (!role.value) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', session.user.id)
+            .single()
+          if (profile?.role) {
+            role.value = profile.role
+            localStorage.setItem('role', profile.role)
+          }
+        }
+      }
+    } catch (e) {
+      // Ignore network errors on hydration
+    }
   }
 
-  function clearSession() {
+  async function clearSession() {
     token.value = ''
     role.value = ''
     userId.value = ''
@@ -109,6 +134,12 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('role')
     localStorage.removeItem('userId')
     localStorage.removeItem('stakeholderId')
+
+    try {
+      await supabase.auth.signOut()
+    } catch (e) {
+      // Ignore signOut errors
+    }
   }
 
   return {

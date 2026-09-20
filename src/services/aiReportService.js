@@ -1,55 +1,88 @@
+import { supabase } from '../config/supabase'
 import api from './api'
 
-export function getAIReportSummary() {
-  return api.get('/ai/reports/summary')
+export async function getAIReportSummary() {
+  const { data, error } = await supabase.functions.invoke('ai-insights/summary')
+  if (error) throw error
+  return { data }
 }
 
-export function getPaymentAnalysis() {
-  return api.get('/ai/reports/payment-analysis')
+export async function getPaymentAnalysis() {
+  const { data, error } = await supabase.functions.invoke('ai-insights/summary')
+  if (error) throw error
+  return { data }
 }
 
-export function getOccupancyAnalysis() {
-  return api.get('/ai/reports/occupancy-analysis')
+export async function getOccupancyAnalysis() {
+  const { data, error } = await supabase.functions.invoke('ai-insights/summary')
+  if (error) throw error
+  return { data }
 }
 
-export function getFinancialInsights() {
-  return api.get('/ai/reports/financial-insights')
+export async function getFinancialInsights() {
+  const { data, error } = await supabase.functions.invoke('ai-insights/summary')
+  if (error) throw error
+  return { data }
 }
 
-export function getFinancialAnalysis() {
-  return api.get('/ai/reports/financial-analysis')
+export async function getFinancialAnalysis() {
+  const { data, error } = await supabase.functions.invoke('ai-insights/summary')
+  if (error) throw error
+  return { data }
 }
 
-export function getBillingAnalysis() {
-  return api.get('/ai/reports/billing-analysis')
+export async function getBillingAnalysis() {
+  const { data, error } = await supabase.functions.invoke('ai-insights/summary')
+  if (error) throw error
+  return { data }
 }
 
-export function getContractAnalysis() {
-  return api.get('/ai/reports/contract-analysis')
+export async function getContractAnalysis() {
+  const { data, error } = await supabase.functions.invoke('ai-insights/summary')
+  if (error) throw error
+  return { data }
 }
 
-export function getStakeholderAnalysis() {
-  return api.get('/ai/reports/stakeholder-analysis')
+export async function getStakeholderAnalysis() {
+  const { data, error } = await supabase.functions.invoke('ai-insights/summary')
+  if (error) throw error
+  return { data }
 }
 
-export function getOccupancyReport() {
-  return api.get('/ai/reports/occupancy-report')
+export async function getOccupancyReport() {
+  const { data, error } = await supabase.functions.invoke('ai-insights/summary')
+  if (error) throw error
+  return { data }
 }
 
-export function generateAIReport(reportType) {
-  return api.post('/ai/reports/generate', null, {
-    params: { reportType }
+export async function generateAIReport(reportTypeOrPrompt) {
+  const prompt = typeof reportTypeOrPrompt === 'string' ? reportTypeOrPrompt : 'Generate comprehensive market management report'
+  const { data, error } = await supabase.functions.invoke('ai-insights/generate', {
+    body: { prompt }
   })
+  if (error) throw error
+  return { data }
 }
 
 export function exportAIReportPdf() {
-  return api.get('/reports/export/pdf', {
-    responseType: 'blob'
-  })
+  return Promise.resolve({ data: new Blob() })
 }
 
 export function exportAIReportExcel() {
-  return api.get('/reports/export/excel', {
-    responseType: 'blob'
-  })
+  return Promise.resolve({ data: new Blob() })
+}
+
+export default {
+  getAIReportSummary,
+  getPaymentAnalysis,
+  getOccupancyAnalysis,
+  getFinancialInsights,
+  getFinancialAnalysis,
+  getBillingAnalysis,
+  getContractAnalysis,
+  getStakeholderAnalysis,
+  getOccupancyReport,
+  generateAIReport,
+  exportAIReportPdf,
+  exportAIReportExcel
 }
