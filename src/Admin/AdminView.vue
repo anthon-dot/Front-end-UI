@@ -500,20 +500,7 @@ async function loadAdminData() {
   loadError.value = ''
 
   try {
-    const [
-      users,
-      stalls,
-      stakeholders,
-      applications,
-      payments,
-      billings,
-      auditLogs,
-      loginHistory,
-      notifications,
-      stallTypes,
-      rentalRates,
-      settings
-    ] = await Promise.all([
+    const results = await Promise.allSettled([
       getAdminUsers(),
       getList('/stalls'),
       getList('/stakeholders'),
@@ -526,7 +513,21 @@ async function loadAdminData() {
       getStallTypes(),
       getRentalRates(),
       getSystemSettings()
-    ])
+    ]);
+
+    const getVal = (idx, fallback = []) => results[idx].status === 'fulfilled' ? results[idx].value : fallback;
+    const users = getVal(0, []);
+    const stalls = getVal(1, []);
+    const stakeholders = getVal(2, []);
+    const applications = getVal(3, []);
+    const payments = getVal(4, []);
+    const billings = getVal(5, []);
+    const auditLogs = getVal(6, []);
+    const loginHistory = getVal(7, []);
+    const notifications = getVal(8, []);
+    const stallTypes = getVal(9, []);
+    const rentalRates = getVal(10, []);
+    const settings = getVal(11, {});
 
     state.users = toArray(users).map(mapUser)
     state.stalls = toArray(stalls).map(mapStall)
@@ -575,7 +576,7 @@ function mapUser(user) {
     role: user.role || user.authority || user.userRole || 'UNASSIGNED',
     status: user.status || (user.enabled === false ? 'INACTIVE' : 'ACTIVE'),
     lastLogin: user.lastLogin || user.lastLoginAt || user.updatedAt || '',
-    createdAt: user.createdAt || user.createdDate || user.dateCreated || '',
+    createdAt: user.createdAt || user.createdDate || user.dateCreated || user.created_at || '',
     actionCount: Number(user.actionCount || user.actionsCount || user.auditCount || 0)
   }
 }
@@ -794,7 +795,7 @@ function clearFilters() {
 
 function withinDateRange(value) {
   if (!dateFrom.value && !dateTo.value) return true
-  if (!value) return false
+  if (!value) return true
 
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return false
