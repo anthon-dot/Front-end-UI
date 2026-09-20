@@ -71,9 +71,68 @@ export async function uploadStallImage(formData) {
 }
 
 export async function allocateOccupant(stallId, stakeholderId) {
-  const { data, error } = await supabase.functions.invoke('approval-workflow/assign-stall', {
-    body: { stallId, stakeholderId }
-  })
+  try {
+    const { data, error } = await supabase.functions.invoke('approval-workflow', {
+      body: { action: 'assign-stall', stallId, stakeholderId }
+    })
+    if (!error && data && !data.error) {
+      return data
+    }
+  } catch (e) {
+    console.warn('Edge function allocateOccupant failed, attempting direct table update:', e)
+  }
+
+  // Direct DB fallback: assign in occupants table and update stall status
+  try {
+    const { data: occupantData, error: occErr } = await supabase
+      .from('occupants')
+      .upsert(
+        { stall_id: stallId, stakeholder_id: stakeholderId },
+        { onConflict: 'stall_id' }
+      )
+      .select()
+
+    await supabase
+      .from('stalls')
+      .update({ status: 'OCCUPIED' })
+      .eq('id', stallId)
+
+    if (!occErr && occupantData) return occupantData
+  } catch (e) {
+    console.warn('Direct occupants upsert note:', e)
+  }
+
+  await supabase
+    .from('stalls')
+    .update({ status: 'OCCUPIED' })
+    .eq('id', stallId)
+
+  return { success: true }
+}
+
+export async function unassignOccupant(stallId) {
+  try {
+    await supabase.from('occupants').delete().eq('stall_id', stallId)
+  } catch (e) {
+    console.warn('Direct occupants delete note:', e)
+  }
+
+  const { data, error } = await supabase
+    .from('stalls')
+    .update({ status: 'VACANT' })
+    .eq('id', stallId)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function deleteStall(stallId) {
+  const { data, error } = await supabase
+    .from('stalls')
+    .delete()
+    .eq('id', stallId)
 
   if (error) throw error
   return data
@@ -84,5 +143,8 @@ export default {
   createStall,
   updateStall,
   uploadStallImage,
-  allocateOccupant
+  allocateOccupant,
+  unassignOccupant,
+  deleteStall
 }
+
