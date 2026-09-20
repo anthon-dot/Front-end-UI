@@ -84,6 +84,10 @@
               </th>
 
               <th>
+                Receipt #
+              </th>
+
+              <th>
                 Status
               </th>
 
@@ -121,6 +125,14 @@
 
               <td class="cell-wrap">
                 {{ app.businessName }}
+              </td>
+
+              <td class="cell-wrap">
+                <span v-if="getApplicantReceipt(app)" class="inline-flex items-center gap-1.5 font-mono text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-lg">
+                  <i class="pi pi-receipt text-indigo-500 text-xs"></i>
+                  {{ getApplicantReceipt(app) }}
+                </span>
+                <span v-else class="text-xs text-slate-400 italic">No receipt</span>
               </td>
 
               <td>
@@ -171,7 +183,7 @@
             <tr v-if="pendingApplicants.length === 0">
 
               <td
-                colspan="4"
+                colspan="5"
                 class="
                   p-6
                   text-center
@@ -230,7 +242,7 @@
           </div>
         </div>
 
-        <div class="mt-6 pt-6 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="mt-6 pt-6 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
             <span class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Selected Stall</span>
             <p class="text-base font-bold text-indigo-600 truncate">
@@ -240,6 +252,16 @@
               <span v-else class="text-slate-400 font-normal text-sm">
                 No selected stall
               </span>
+            </p>
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+            <span class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Receipt Number</span>
+            <p v-if="getApplicantReceipt(selected)" class="text-sm font-bold font-mono text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-md inline-flex items-center gap-1.5 mt-0.5">
+              <i class="pi pi-receipt text-indigo-500"></i>
+              {{ getApplicantReceipt(selected) }}
+            </p>
+            <p v-else class="text-slate-400 font-normal text-xs italic mt-1">
+              No receipt issued
             </p>
           </div>
           <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
@@ -626,6 +648,20 @@ async function rejectMarketSupervisor(app) {
       }
     }
   })
+}
+
+function getApplicantReceipt(app) {
+  if (!app) return ''
+  if (app.receiptNo || app.receipt_no) return app.receiptNo || app.receipt_no
+  if (app.advanceReceiptNo || app.advance_receipt_no) return app.advanceReceiptNo || app.advance_receipt_no
+  if (Array.isArray(app.payments) && app.payments.length > 0) {
+    const adv = app.payments.find(p => p.paymentType === 'ADVANCE_PAYMENT' || p.payment_type === 'ADVANCE_PAYMENT')
+    if (adv?.receiptNo || adv?.receipt_no) return adv.receiptNo || adv.receipt_no
+    const latest = app.payments[0]
+    if (latest?.receiptNo || latest?.receipt_no) return latest.receiptNo || latest.receipt_no
+  }
+  if (app.referenceNo || app.reference_no) return app.referenceNo || app.reference_no
+  return ''
 }
 
 function statusClass(status) {

@@ -130,7 +130,7 @@ const api = {
     if (cleanUrl === 'stakeholders/for-approval' || cleanUrl === 'stakeholders') {
       const { data, error } = await supabase
         .from('stakeholders')
-        .select('*, selectedStall:stalls(*), documents:stakeholder_documents(*), occupant:occupants(*, stall:stalls(*))')
+        .select('*, selectedStall:stalls(*), documents:stakeholder_documents(*), occupant:occupants(*, stall:stalls(*)), payments:payments(*)')
         .order('id', { ascending: false });
       if (error) throw error;
       return { data: normalizeRecord(data || []) };
@@ -140,7 +140,7 @@ const api = {
       const userId = cleanUrl.replace('stakeholders/user/', '');
       const { data, error } = await supabase
         .from('stakeholders')
-        .select('*, occupant:occupants(*, stall:stalls(*)), documents:stakeholder_documents(*)')
+        .select('*, occupant:occupants(*, stall:stalls(*)), documents:stakeholder_documents(*), payments:payments(*)')
         .eq('user_id', userId)
         .maybeSingle();
       if (error) throw error;
@@ -161,7 +161,7 @@ const api = {
       const id = cleanUrl.replace('stakeholders/', '');
       const { data, error } = await supabase
         .from('stakeholders')
-        .select('*, selectedStall:stalls(*), documents:stakeholder_documents(*), occupant:occupants(*, stall:stalls(*))')
+        .select('*, selectedStall:stalls(*), documents:stakeholder_documents(*), occupant:occupants(*, stall:stalls(*)), payments:payments(*)')
         .eq('id', id)
         .maybeSingle();
       if (error) throw error;
