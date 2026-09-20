@@ -532,22 +532,28 @@ function initializeMap() {
   })
 
   // Google Maps Clean Road Layer (No Watermark, No POIs)
-  const googleStreets = L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
-    maxZoom: 20,
-    subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-    attribution: '&copy; Google Maps'
-  }).addTo(map)
+  const googleStreets = L.tileLayer(
+    'https://{s}.google.com/vt/lyrs=m&apistyle=s.t:33|p.v:off,s.t:37|p.v:off,s.e:l.i|p.v:off&x={x}&y={y}&z={z}',
+    {
+      maxZoom: 20,
+      subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+      attribution: '&copy; Google Maps'
+    }
+  ).addTo(map)
 
-  // Google Maps Hybrid Satellite Layer
-  const googleHybrid = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
-    maxZoom: 20,
-    subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-    attribution: '&copy; Google Maps Satellite'
-  })
+  // Google Maps Hybrid Satellite Layer (No POIs)
+  const googleSatellite = L.tileLayer(
+    'https://{s}.google.com/vt/lyrs=y&apistyle=s.t:33|p.v:off,s.t:37|p.v:off,s.e:l.i|p.v:off&x={x}&y={y}&z={z}',
+    {
+      maxZoom: 20,
+      subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+      attribution: '&copy; Google Maps Satellite'
+    }
+  )
 
   L.control.layers({
     'Google Streets': googleStreets,
-    'Google Satellite': googleHybrid
+    'Google Satellite': googleSatellite
   }, null, { position: 'topright' }).addTo(map)
 
   map.on('click', (e) => {
