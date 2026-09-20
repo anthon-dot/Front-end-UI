@@ -128,6 +128,8 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../services/api'
+import { supabase } from '../config/supabase'
+import { useAuthStore } from '../stores/auth'
 import { useStakeholderStore } from '../stores/stakeholder'
 
 const router = useRouter()
@@ -177,15 +179,26 @@ function onFileChange(e, type) {
 // SUBMIT APPLICATION
 // =========================
 
+const authStore = useAuthStore()
+
 async function submitApplication() {
   errorMessage.value = ''
   isSubmitting.value = true
 
   try {
+    let currentUserId = authStore.resolvedUserId || localStorage.getItem('userId')
+    if (!currentUserId || currentUserId === 'null' || currentUserId === 'undefined') {
+      const { data: { session } } = await supabase.auth.getSession()
+      currentUserId = session?.user?.id
+    }
+
+    if (!currentUserId) {
+      throw new Error('Please sign in or create an account before submitting.')
+    }
 
     const formData = new FormData()
 
-    formData.append('userId',       userId)
+    formData.append('userId',       currentUserId)
     formData.append('businessName', businessName.value)
     formData.append('businessType', businessType.value)
     formData.append('firstName',    firstName.value)

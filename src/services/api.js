@@ -211,7 +211,18 @@ const api = {
     // 1. Applications upload/create
     if (cleanUrl === 'applications') {
       if (data instanceof FormData) {
-        const userId = data.get('userId');
+        let rawUserId = data.get('userId');
+        let resolvedUserId = (rawUserId && rawUserId !== 'null' && rawUserId !== 'undefined') ? rawUserId : null;
+
+        if (!resolvedUserId) {
+          const { data: { user: authUser } } = await supabase.auth.getUser();
+          resolvedUserId = authUser?.id || null;
+        }
+
+        if (!resolvedUserId) {
+          throw new Error('Authentication required. Please log in before submitting an application.');
+        }
+
         const idFile = data.get('idFile');
         const letterFile = data.get('letterFile');
 
@@ -219,9 +230,11 @@ const api = {
         if (idFile && idFile.name) {
           const idPath = `applications/${Date.now()}_id_${idFile.name.replace(/[^a-zA-Z0-9._-]/g, '')}`;
           const { error: idErr } = await supabase.storage.from('uploads').upload(idPath, idFile);
-          if (!idErr) {
+          if (idErr) {
+            console.warn('[STORAGE] ID upload warning:', idErr.message);
+          } else {
             const { data: pub } = supabase.storage.from('uploads').getPublicUrl(idPath);
-            idUrl = pub?.publicUrl;
+            idUrl = pub?.publicUrl || null;
           }
         }
 
@@ -229,52 +242,103 @@ const api = {
         if (letterFile && letterFile.name) {
           const letterPath = `applications/${Date.now()}_letter_${letterFile.name.replace(/[^a-zA-Z0-9._-]/g, '')}`;
           const { error: letErr } = await supabase.storage.from('uploads').upload(letterPath, letterFile);
-          if (!letErr) {
+          if (letErr) {
+            console.warn('[STORAGE] Letter upload warning:', letErr.message);
+          } else {
             const { data: pub } = supabase.storage.from('uploads').getPublicUrl(letterPath);
-            letterUrl = pub?.publicUrl;
+            letterUrl = pub?.publicUrl || null;
           }
         }
 
-        const { data: newApp, error: appErr } = await supabase.from('business_applications').insert({
-          user_id: userId,
-          business_name: data.get('businessName') || '',
-          business_type: data.get('businessType') || '',
-          first_name: data.get('firstName') || '',
-          middle_name: data.get('middleName') || '',
-          last_name: data.get('lastName') || '',
-          contact: data.get('contact') || '',
-          email: data.get('email') || '',
-          address: data.get('address') || '',
-          id_document_url: idUrl,
-          letter_document_url: letterUrl,
-          application_status: 'PENDING'
-        }).select().single();
+        // Upsert into business_applications (handles both first submission & re-submissions)
+        const { data: appData, error: appErr } = await supabase.from('business_applications')
+          .upsert({
+            user_id: resolvedUserId,
+            business_name: data.get('businessName') || '',
+            business_type: data.get('businessType') || '',
+            first_name: data.get('firstName') || '',
+            middle_name: data.get('middleName') || '',
+            last_name: data.get('lastName') || '',
+            contact: data.get('contact') || '',
+            email: data.get('email') || '',
+            address: data.get('address') || '',
+            id_document_url: idUrl,
+            letter_document_url: letterUrl,
+            application_status: 'PENDING',
+            onboarding_status: 'NEW'
+          }, { onConflict: 'user_id' })
+          .select()
+          .single();
 
-        if (appErr) throw appErr;
-
-        // Also create/update stakeholder record
-        const { data: newStakeholder } = await supabase.from('stakeholders').insert({
-          user_id: userId,
-          business_name: data.get('businessName') || '',
-          business_type: data.get('businessType') || '',
-          first_name: data.get('firstName') || '',
-          middle_name: data.get('middleName') || '',
-          last_name: data.get('lastName') || '',
-          contact: data.get('contact') || '',
-          email: data.get('email') || '',
-          address: data.get('address') || '',
-          application_status: 'FOR_APPROVAL',
-          onboarding_status: 'FOR_APPROVAL'
-        }).select().maybeSingle();
-
-        if (newStakeholder?.id && idUrl) {
-          await supabase.from('stakeholder_documents').insert([
-            { stakeholder_id: newStakeholder.id, document_type: 'VALID_ID', file_path: idUrl, file_name: idFile?.name || 'valid_id' },
-            ...(letterUrl ? [{ stakeholder_id: newStakeholder.id, document_type: 'APPLICATION_LETTER', file_path: letterUrl, file_name: letterFile?.name || 'letter' }] : [])
-          ]);
+        if (appErr) {
+          console.error('[API] Error saving business application:', appErr);
+          throw appErr;
         }
 
-        return { data: newApp };
+        // Check if stakeholder record already exists
+        const { data: existingStakeholder } = await supabase
+          .from('stakeholders')
+          .select('id')
+          .eq('user_id', resolvedUserId)
+          .maybeSingle();
+
+        let stakeholderId = existingStakeholder?.id;
+
+        if (stakeholderId) {
+          await supabase.from('stakeholders').update({
+            business_name: data.get('businessName') || '',
+            business_type: data.get('businessType') || '',
+            first_name: data.get('firstName') || '',
+            middle_name: data.get('middleName') || '',
+            last_name: data.get('lastName') || '',
+            contact: data.get('contact') || '',
+            email: data.get('email') || '',
+            address: data.get('address') || '',
+            application_status: 'FOR_APPROVAL',
+            onboarding_status: 'FOR_APPROVAL'
+          }).eq('id', stakeholderId);
+        } else {
+          const { data: newStakeholder } = await supabase.from('stakeholders').insert({
+            user_id: resolvedUserId,
+            business_name: data.get('businessName') || '',
+            business_type: data.get('businessType') || '',
+            first_name: data.get('firstName') || '',
+            middle_name: data.get('middleName') || '',
+            last_name: data.get('lastName') || '',
+            contact: data.get('contact') || '',
+            email: data.get('email') || '',
+            address: data.get('address') || '',
+            application_status: 'FOR_APPROVAL',
+            onboarding_status: 'FOR_APPROVAL'
+          }).select('id').maybeSingle();
+          stakeholderId = newStakeholder?.id;
+        }
+
+        if (stakeholderId) {
+          localStorage.setItem('stakeholderId', String(stakeholderId));
+          const docs = [];
+          if (idUrl) {
+            docs.push({
+              stakeholder_id: stakeholderId,
+              document_type: 'VALID_ID',
+              file_path: idUrl,
+              file_name: idFile?.name || 'valid_id'
+            });
+          }
+          if (letterUrl) {
+            docs.push({
+              stakeholder_id: stakeholderId,
+              document_type: 'APPLICATION_LETTER',
+              file_path: letterUrl,
+              file_name: letterFile?.name || 'letter_of_intent'
+            });
+          }
+          if (docs.length > 0) {
+            await supabase.from('stakeholder_documents').insert(docs);
+          }
+        }
+
+        return { data: appData };
       }
     }
 
