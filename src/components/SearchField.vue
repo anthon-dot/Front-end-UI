@@ -73,28 +73,4 @@ export default {
 }
 </script>
 
-<style scoped>
-.search-field{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  padding:8px 10px;
-  border-radius:999px;
-  background:var(--sf-bg, #fff);
-  border:1px solid rgba(0,0,0,0.06);
-  box-shadow:0 1px 2px rgba(16,24,40,0.02);
-  transition:box-shadow .18s ease, border-color .18s ease, transform .08s ease;
-}
-.search-field.focused{
-  box-shadow:0 6px 18px rgba(16,24,40,0.08);
-  border-color: rgba(0,0,0,0.12);
-  transform:translateY(-1px);
-}
-.icon-wrap{color:#6b7280;font-size:1.05rem;display:inline-flex;align-items:center}
-.search-input{flex:1;border:0;outline:0;background:transparent;padding:6px 0;font-size:0.95rem;color:var(--text,#111827)}
-.search-input::placeholder{color:#9ca3af}
-.clear-btn{background:transparent;border:0;cursor:pointer;color:#9ca3af;font-size:0.9rem;display:inline-flex;align-items:center;gap:6px}
-.clear-btn:hover{color:#6b7280}
-.loader{width:16px;height:16px;border-radius:50%;border:2px solid #e5e7eb;border-top-color:#6b7280;display:inline-block;animation:spin 0.9s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-</style>
+<style scoped src="./SearchField.css"></style>

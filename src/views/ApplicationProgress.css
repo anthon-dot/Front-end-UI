@@ -1,0 +1,194 @@
+.progress-wrapper {
+  min-height: 100vh;
+  padding: 80px 24px 40px;
+  background: #f6f8fb;
+  box-sizing: border-box;
+}
+
+.page-header,
+.panel {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+
+.page-header h1 {
+  margin: 0;
+  font-size: clamp(1.5rem, 4vw, 1.875rem);
+  color: #111827;
+  font-weight: 700;
+}
+
+.page-header p {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 0.95rem;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.panel {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+}
+
+.state-box {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 18px;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #334155;
+}
+
+.state-box.error {
+  border-color: #fecdd3;
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.circle {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 2px solid #cbd5e1;
+  background: #ffffff;
+  color: #475569;
+  font-weight: 800;
+}
+
+.circle.approved {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: #ffffff;
+}
+
+.circle.rejected {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #ffffff;
+}
+
+.circle.needs-action {
+  background: #f59e0b;
+  border-color: #f59e0b;
+  color: #ffffff;
+}
+
+.step-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.step-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.step-card h2 {
+  margin: 0;
+  font-size: 16px;
+  color: #1f2937;
+}
+
+.step-card p {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.requirements-callout {
+  margin-top: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid #fcd34d;
+  border-radius: 8px;
+  background: #fffbeb;
+}
+
+.fee-callout {
+  margin-top: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid #f59e0b;
+  border-radius: 8px;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.fee-callout p {
+  margin: 4px 0 0;
+}
+
+.requirements-callout p {
+  margin: 4px 0 0;
+  color: #92400e;
+}
+
+@media (max-width: 760px) {
+  .progress-wrapper {
+    padding: 32px 14px 40px;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  .header-actions {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .step-card,
+  .requirements-callout,
+  .fee-callout {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .panel {
+    padding: 16px 12px;
+  }
+
+  /* Make timeline markers more compact on small screens */
+  :deep(.p-timeline-event-opposite) {
+    display: none;
+  }
+}

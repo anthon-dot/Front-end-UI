@@ -1,0 +1,60 @@
+.unauthorized-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  background: #f8fafc;
+  box-sizing: border-box;
+}
+
+.panel {
+  width: min(100%, 440px);
+  padding: 36px 28px;
+  border-radius: 20px;
+  background: white;
+  text-align: center;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.1);
+  box-sizing: border-box;
+}
+
+.panel i {
+  color: #dc2626;
+  font-size: 38px;
+}
+
+.panel h1 {
+  margin: 16px 0 8px;
+  color: #0f172a;
+  font-size: clamp(1.4rem, 4vw, 1.75rem);
+  font-weight: 700;
+}
+
+.panel p {
+  margin: 0 0 24px;
+  color: #64748b;
+  font-size: 0.95rem;
+}
+
+.panel button {
+  border: none;
+  border-radius: 10px;
+  padding: 12px 24px;
+  color: white;
+  background: #0f766e;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.panel button:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+@media (max-width: 480px) {
+  .panel {
+    padding: 28px 18px;
+  }
+}

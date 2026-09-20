@@ -91,19 +91,4 @@ function saveCredentials(){
 onMounted(()=>{ loadProfile(); loadCredentials() })
 </script>
 
-<style scoped>
-.stakeholder-layout { display:flex; align-items:flex-start }
-.settings-page { padding:28px; flex:1; padding-top: calc(var(--header-height,64px) + 28px); background: #f3f4f6 }
-.muted { color:#6b7280 }
-.settings-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px }
-.card { background:#fff; padding:18px; border-radius:12px; margin-top:12px; box-shadow: 0 6px 18px rgba(16,24,40,0.06) }
-.form-row { display:flex; gap:12px; align-items:center; margin-bottom:12px }
-.form-row label { width:130px; color:#374151 }
-.input { flex:1; padding:10px 12px; border:1px solid #e5e7eb; border-radius:8px; outline:none }
-.input:focus { border-color:#0ea5a4; box-shadow:0 0 0 3px rgba(14,165,164,0.08) }
-.actions { display:flex; justify-content:flex-end; margin-top:8px }
-.btn-primary { background:#0ea5a4; color:#fff; padding:8px 14px; border-radius:10px; border:none; cursor:pointer }
-.btn-primary:hover { filter:brightness(0.95) }
-/* ensure single-column on narrow screens */
-@media (max-width:900px){ .stakeholder-layout{ flex-direction:column } .settings-page{ padding-left:16px } .settings-grid{ grid-template-columns:1fr } .form-row label{ width:110px } }
-</style>
+<style scoped src="./Settings.css"></style>

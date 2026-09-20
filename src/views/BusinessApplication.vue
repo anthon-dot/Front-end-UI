@@ -8,9 +8,16 @@
 
     <div class="container">
 
-      <h2>
-        Stakeholder Application
-      </h2>
+      <div class="form-header">
+        <div>
+          <h2>Stakeholder Application</h2>
+          <p class="form-subtitle">Complete the application details below for market stall review.</p>
+        </div>
+        <button type="button" class="logout-btn" @click="logout">
+          <i class="pi pi-sign-out"></i>
+          <span>Log Out</span>
+        </button>
+      </div>
 
       <form @submit.prevent="submitApplication">
         <p v-if="errorMessage" class="error">
@@ -232,83 +239,14 @@ async function submitApplication() {
   }
 }
 
+async function logout() {
+  await authStore.clearSession()
+  localStorage.removeItem('currentStakeholder')
+  localStorage.removeItem('stakeholderId')
+  router.push('/login')
+}
+
 </script>
 
-<style scoped>
+<style scoped src="./BusinessApplication.css"></style>
 
-.create-page {
-  padding: 40px;
-  background: #f5f7fb;
-  min-height: 100vh;
-}
-
-.container {
-  max-width: 1000px;
-  margin: auto;
-  background: white;
-  padding: 40px;
-  border-radius: 12px;
-}
-
-h3 {
-  margin: 24px 0 12px;
-  font-size: 1.05rem;
-  color: #334155;
-}
-
-.row {
-  display: flex;
-  gap: 20px;
-}
-
-.row.two  { display: flex; gap: 20px; }
-.row.three{ display: flex; gap: 20px; }
-
-.field {
-  flex: 1;
-  margin-bottom: 16px;
-}
-
-.field label {
-  display: block;
-  margin-bottom: 8px;
-  font-weight: bold;
-}
-
-.field input {
-  width: 100%;
-  padding: 12px;
-  border-radius: 8px;
-  border: 1px solid #d1d5db;
-  box-sizing: border-box;
-}
-
-.actions {
-  margin-top: 24px;
-}
-
-.btn {
-  padding: 12px 24px;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-.submit {
-  background: #2563eb;
-  color: white;
-}
-
-.submit:hover    { background: #1d4ed8; }
-.submit:disabled { cursor: not-allowed; opacity: 0.65; }
-
-.error {
-  padding: 12px 14px;
-  border-radius: 8px;
-  margin-bottom: 18px;
-  background: #fff1f2;
-  color: #be123c;
-  font-weight: 700;
-}
-
-</style>

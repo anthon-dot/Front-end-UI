@@ -39,6 +39,4 @@ const approved = computed(() => applications.value.filter((app) => app.bploStatu
 const rejected = computed(() => applications.value.filter((app) => app.bploStatus === 'REJECTED' || app.finalStatus === 'REJECTED').length)
 </script>
 
-<style scoped>
-.office-shell{min-height:100vh;background:#f8fafc}.office-main{padding:28px 28px 40px;margin-left:var(--office-sidebar-width,248px)}.page-header{margin-bottom:18px}.eyebrow{margin:0 0 6px;color:#059669;font-size:12px;text-transform:uppercase;font-weight:900;letter-spacing:0}.page-header h1{margin:0;color:#0f172a;font-size:30px}.page-header p{margin:8px 0 0;color:#64748b}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:18px}.metrics article{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:16px;box-shadow:0 12px 28px rgba(15,23,42,.05)}.metrics span{display:block;color:#64748b;font-weight:800}.metrics strong{display:block;margin-top:8px;color:#0f172a;font-size:28px}@media (max-width:900px){.office-main{margin-left:0;padding:18px}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}@media (max-width:520px){.metrics{grid-template-columns:1fr}}
-</style>
+<style scoped src="./BPLODashboard.css"></style>

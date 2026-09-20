@@ -47,27 +47,4 @@ const normalizedNotifications = computed(() => (props.notifications || []).map((
 const unreadCount = computed(()=> normalizedNotifications.value.filter(n => !n.read).length)
 </script>
 
-<style scoped>
-.notification { position:relative }
-.bell { background:transparent; border:0; color:var(--surface-text); cursor:pointer; position:relative; padding:8px; display:inline-flex; align-items:center }
-.icon { width:20px; height:20px }
-.badge { background:var(--danger); color:white; border-radius:999px; padding:3px 7px; font-size:0.75rem; position:absolute; top:-6px; right:-6px; box-shadow:0 6px 18px rgba(2,6,23,0.4) }
-.dropdown { position:absolute; right:0; top:44px; width:360px; background:var(--card); border-radius:12px; box-shadow:0 18px 60px rgba(2,6,23,0.8); padding:14px; z-index:9999; border:1px solid rgba(255,255,255,0.03) }
-.top { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px }
-.title { font-weight:700; color:var(--surface-text) }
-.mark-all { background:transparent; border:0; color:var(--muted); cursor:pointer; font-weight:600 }
-.empty { color:var(--muted); padding:18px; text-align:center; font-size:0.98rem }
-ul { list-style:none; margin:0; padding:0; max-height:320px; overflow:auto; display:flex; flex-direction:column; gap:8px }
-li { display:flex; align-items:flex-start; gap:12px; padding:12px; border-radius:12px; cursor:pointer; transition:background 0.16s ease, transform 0.16s ease }
-li:hover { transform:translateY(-2px); background: rgba(37,99,235,0.06) }
-li.unread { background: linear-gradient(90deg, rgba(37,99,235,0.10), rgba(20,184,166,0.08)) }
-.left { width:12px; display:flex; align-items:flex-start }
-.dot { width:12px; height:12px; border-radius:999px; background:rgba(255,255,255,0.14) }
-.dot.unread { background: linear-gradient(90deg,var(--accent),var(--accent-2)); box-shadow:0 6px 18px rgba(12,8,40,0.36) }
-.body { flex:1 }
-.message { color:var(--surface-text); font-weight:700; font-size:1rem }
-.meta { color:var(--muted); font-size:0.88rem; margin-top:6px }
-.action button { background:transparent; border:0; color:var(--accent-2); cursor:pointer; font-weight:700 }
-.fade-enter-active, .fade-leave-active { transition: opacity 0.12s }
-.fade-enter-from, .fade-leave-to { opacity:0 }
-</style>
+<style scoped src="./Notification.css"></style>

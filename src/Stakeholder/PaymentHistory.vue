@@ -61,28 +61,4 @@ function openReceipt(p){ const url = p.receiptUrl || p.receipt; if(!url) return;
 function copyReceipt(p){ const val = p.receipt || p.receiptUrl; if(!val) return; try{ navigator.clipboard.writeText(val); alert('Receipt copied to clipboard') }catch(e){ alert('Receipt: ' + val) } }
 </script>
 
-<style scoped>
-.stakeholder-layout { display:flex; align-items:flex-start }
-.payments-page { padding:24px; flex:1; padding-top: calc(var(--header-height,64px) + 24px); background:#f8fafc }
-.muted { color:#6b7280 }
-.page-header { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px }
-.header-actions { display:flex; gap:12px; align-items:center }
-.search { padding:8px 10px; border-radius:10px; border:1px solid #e6eef0; outline:none; min-width:200px }
-.search:focus{ box-shadow:0 0 0 3px rgba(14,165,164,0.06); border-color:#0ea5a4 }
-.summary { color:#374151 }
-.card { background:#fff; padding:14px; border-radius:12px; box-shadow:0 6px 18px rgba(16,24,40,0.04) }
-.payments-card { padding:0 }
-.empty-card { padding:28px; text-align:center; color:#6b7280 }
-.payments-list { list-style:none; margin:0; padding:0 }
-.payment-item { display:flex; justify-content:space-between; align-items:center; padding:14px 16px; border-bottom:1px solid #f1f5f9 }
-.payment-item:last-child{ border-bottom:none }
-.payment-item .left { display:flex; flex-direction:column }
-.payment-item .date { font-weight:600; color:#111827 }
-.payment-item .type { color:#6b7280; font-size:13px }
-.payment-item .right { font-weight:700; color:#0f766e }
-.receipt-row { display:flex; gap:8px; align-items:center; margin-top:6px }
-.receipt-value { color:#374151; font-size:13px; margin-left:6px }
-.btn-link { background:none; border:none; color:#0ea5a4; cursor:pointer; padding:6px; border-radius:6px }
-.btn-link:hover{ background:rgba(14,165,164,0.06) }
-@media (max-width:900px){ .stakeholder-layout{ flex-direction:column } .payments-page{ padding-left:16px } .page-header{ flex-direction:column; align-items:flex-start } .header-actions{ width:100%; justify-content:space-between } }
-</style>
+<style scoped src="./PaymentHistory.css"></style>

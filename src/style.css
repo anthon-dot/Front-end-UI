@@ -807,3 +807,78 @@ select:focus,
 .confirm-btn-accept.btn-accept-warn:hover {
   background: #d97706;
 }
+
+/* ==========================================================================
+   Responsive UI Utilities & Viewport Safeguards
+   ========================================================================== */
+
+/* Fluid containers */
+.container-responsive {
+  width: 100%;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  box-sizing: border-box;
+}
+
+/* Table horizontal scroll container */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Responsive grid layout */
+.grid-responsive {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.25rem;
+}
+
+/* Prevent image and media overflow */
+img, video, canvas, svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Mobile responsive media queries */
+@media (max-width: 768px) {
+  :root {
+    --header-height: 56px;
+    --sidebar-width: 100%;
+  }
+
+  .container-responsive {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  /* PrimeVue Datatable & Paginator mobile adjustments */
+  .p-datatable .p-datatable-thead > tr > th,
+  .p-datatable .p-datatable-tbody > tr > td {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+  }
+
+  .p-paginator {
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    padding: 0.5rem;
+  }
+
+  /* PrimeVue Dialog on mobile */
+  .p-dialog {
+    width: 95vw !important;
+    max-width: 95vw !important;
+    margin: 0.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .p-button {
+    font-size: 0.875rem;
+  }
+}
+

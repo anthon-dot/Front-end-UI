@@ -1,0 +1,104 @@
+.requirements-page {
+  min-height: 100vh;
+  padding: 80px 24px 40px;
+  background: #f6f8fb;
+  box-sizing: border-box;
+}
+
+.panel {
+  max-width: 900px;
+  margin: 0 auto;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
+  box-sizing: border-box;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+
+.header h1 {
+  margin: 0;
+  color: #111827;
+  font-size: clamp(1.4rem, 3.5vw, 1.75rem);
+  font-weight: 700;
+}
+
+.header p {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 0.95rem;
+}
+
+.state {
+  padding: 16px;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  color: #334155;
+}
+
+.state.error {
+  background: #fff1f2;
+  border-color: #fecdd3;
+  color: #be123c;
+}
+
+.requirements-list {
+  display: grid;
+  gap: 14px;
+}
+
+.requirement-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #ffffff;
+  transition: border-color 0.15s ease;
+}
+
+.requirement-row:hover {
+  border-color: #cbd5e1;
+}
+
+.requirement-row h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  color: #1f2937;
+  font-weight: 600;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+@media (max-width: 640px) {
+  .requirements-page {
+    padding: 32px 14px 40px;
+  }
+
+  .panel {
+    padding: 16px 12px;
+  }
+
+  .header,
+  .requirement-row,
+  .actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+}

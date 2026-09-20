@@ -59,47 +59,5 @@ function goHome() {
 }
 </script>
 
-<style scoped>
-.unauthorized-page {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  background: #f8fafc;
-}
+<style scoped src="./Unauthorized.css"></style>
 
-.panel {
-  width: min(100%, 440px);
-  padding: 32px;
-  border-radius: 18px;
-  background: white;
-  text-align: center;
-  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.12);
-}
-
-.panel i {
-  color: #dc2626;
-  font-size: 34px;
-}
-
-.panel h1 {
-  margin: 14px 0 8px;
-  color: #0f172a;
-  font-size: 28px;
-}
-
-.panel p {
-  margin: 0 0 20px;
-  color: #64748b;
-}
-
-.panel button {
-  border: none;
-  border-radius: 10px;
-  padding: 11px 16px;
-  color: white;
-  background: #0f766e;
-  font-weight: 800;
-  cursor: pointer;
-}
-</style>

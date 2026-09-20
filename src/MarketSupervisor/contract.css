@@ -1,0 +1,425 @@
+.contracts-page {
+	min-height: 100vh;
+	background:
+		linear-gradient(
+			135deg,
+			#f0fdfa,
+			#f8fafc
+		);
+}
+
+.content {
+	padding: 24px;
+	margin-left: var(--sidebar-width, 260px);
+	transition:
+		margin-left .25s ease,
+		padding .25s ease;
+	min-height: 100vh;
+	box-sizing: border-box;
+}
+
+/* RESPONSIVE */
+@media (max-width: 900px) {
+
+	.content {
+		margin-left: 74px;
+		padding: 16px;
+	}
+
+}
+/* HEADER */
+.page-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 16px;
+	background: rgba(255,255,255,.85);
+	padding: 24px;
+	border-radius: 22px;
+	margin-bottom: 18px;
+	box-shadow:
+		0 10px 24px rgba(0,0,0,.05);
+}
+
+.title {
+	font-size: 32px;
+	font-weight: 800;
+	color: #0f172a;
+}
+
+.subtitle {
+	color: #64748b;
+	font-size: 14px;
+	margin-top: 4px;
+}
+
+.controls {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	flex-wrap: wrap;
+}
+
+.controls-actions {
+	display: flex;
+	gap: 10px;
+}
+
+/* STATS */
+.stats-grid {
+	display: grid;
+	grid-template-columns:
+		repeat(auto-fit, minmax(200px,1fr));
+	gap: 16px;
+	margin-bottom: 20px;
+}
+
+.stat-card {
+	background: white;
+	padding: 20px;
+	border-radius: 20px;
+	box-shadow:
+		0 6px 16px rgba(0,0,0,.05);
+}
+
+.stat-label {
+	font-size: 14px;
+	color: #64748b;
+}
+
+.stat-value {
+	font-size: 30px;
+	font-weight: 800;
+	margin-top: 8px;
+	color: #0f172a;
+}
+
+/* CARD */
+.card {
+	background: rgba(255,255,255,.9);
+	border-radius: 24px;
+	padding: 20px;
+	box-shadow:
+		0 10px 24px rgba(0,0,0,.05);
+}
+
+.table-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 18px;
+}
+
+.record-count {
+	font-size: 13px;
+	color: #64748b;
+}
+
+/* TABLE */
+.table-wrapper {
+	overflow-x: auto;
+}
+
+.contract-table {
+	width: 100%;
+	border-collapse: separate;
+	border-spacing: 0 12px;
+}
+
+.contract-table th {
+	text-align: left;
+	font-size: 14px;
+	color: #64748b;
+	padding: 14px;
+}
+
+.contract-table td {
+	background: white;
+	padding: 18px 14px;
+}
+
+.contract-table tbody tr {
+	box-shadow:
+		0 4px 12px rgba(0,0,0,.04);
+	border-radius: 16px;
+	transition: .2s;
+}
+
+.contract-table tbody tr:hover {
+	transform: translateY(-2px);
+}
+
+.name {
+	font-weight: 700;
+	color: #0f172a;
+}
+
+.sub {
+	font-size: 13px;
+	color: #64748b;
+}
+
+.stall-badge {
+	background: #dcfce7;
+	color: #166534;
+	padding: 6px 12px;
+	border-radius: 999px;
+	font-size: 12px;
+	font-weight: 700;
+}
+
+.no-stall {
+	color: #ef4444;
+	font-size: 13px;
+	font-weight: 600;
+}
+
+/* BUTTONS */
+.btn-primary {
+	background:
+		linear-gradient(
+			135deg,
+			#14b8a6,
+			#0d9488
+		);
+	color: white;
+	border: none;
+	padding: 11px 16px;
+	border-radius: 12px;
+	font-weight: 700;
+	cursor: pointer;
+}
+
+.btn-outline,
+.btn-secondary {
+	background: white;
+	border: 1px solid #dbe4ee;
+	padding: 11px 16px;
+	border-radius: 12px;
+	cursor: pointer;
+}
+
+.btn-small {
+	padding: 8px 12px;
+	font-size: 13px;
+	border-radius: 10px;
+}
+
+.action-row {
+	display: flex;
+	gap: 8px;
+}
+
+/* MODAL */
+.modal-backdrop {
+	position: fixed;
+	inset: 0;
+	background: rgba(15,23,42,.45);
+	backdrop-filter: blur(4px);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 3000;
+	padding: 20px;
+}
+
+.modal {
+	background: white;
+	width: 100%;
+	max-width: 620px;
+	border-radius: 24px;
+	padding: 24px;
+	box-shadow:
+		0 20px 40px rgba(0,0,0,.12);
+}
+
+.modal.large {
+	max-width: 760px;
+}
+
+.modal-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: start;
+	margin-bottom: 20px;
+}
+
+.modal-title {
+	font-size: 24px;
+	font-weight: 800;
+}
+
+.modal-subtitle {
+	color: #64748b;
+	font-size: 14px;
+	margin-top: 4px;
+}
+
+.close-btn {
+	background: #f1f5f9;
+	border: none;
+	width: 38px;
+	height: 38px;
+	border-radius: 50%;
+	cursor: pointer;
+	font-size: 16px;
+}
+
+.form-grid {
+	display: grid;
+	grid-template-columns: repeat(2,1fr);
+	gap: 16px;
+}
+
+.form-group {
+	margin-bottom: 16px;
+}
+
+.form-group label {
+	display: block;
+	font-size: 14px;
+	font-weight: 600;
+	margin-bottom: 8px;
+	color: #334155;
+}
+
+.input-field,
+.textarea-field {
+	width: 100%;
+	border: 1px solid #dbe4ee;
+	border-radius: 14px;
+	padding: 12px;
+	outline: none;
+	font-size: 14px;
+}
+
+.input-field:focus,
+.textarea-field:focus {
+	border-color: #14b8a6;
+	box-shadow:
+		0 0 0 3px rgba(20,184,166,.15);
+}
+
+.modal-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 10px;
+	margin-top: 18px;
+}
+
+/* CONTRACT VIEW */
+.contracts-list {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.contract-item {
+	background: #f8fafc;
+	border-radius: 18px;
+	padding: 18px;
+}
+
+.contract-top {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 12px;
+}
+
+.contract-title {
+	font-weight: 800;
+	font-size: 16px;
+	color: #0f172a;
+}
+
+.contract-sub {
+	font-size: 13px;
+	color: #64748b;
+}
+
+.status-badge {
+	background: #dbeafe;
+	color: #1d4ed8;
+	padding: 6px 12px;
+	border-radius: 999px;
+	font-size: 12px;
+	font-weight: 700;
+}
+
+.terms-box {
+	background: white;
+	padding: 14px;
+	border-radius: 14px;
+	font-size: 14px;
+	color: #334155;
+	line-height: 1.5;
+}
+
+/* EMPTY */
+.empty-cell {
+	padding: 40px !important;
+	text-align: center;
+}
+
+.empty-box {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 30px;
+	color: #64748b;
+}
+
+.empty-icon {
+	font-size: 42px;
+	margin-bottom: 10px;
+}
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+
+	.page-header {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.controls {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.controls-actions {
+		width: 100%;
+	}
+
+	.form-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.contract-top {
+		flex-direction: column;
+		align-items: start;
+		gap: 10px;
+	}
+}
+.rent-display {
+
+	width: 100%;
+
+	padding: 12px;
+
+	border-radius: 14px;
+
+	background: #f8fafc;
+
+	border: 1px solid #dbe4ee;
+
+	font-size: 15px;
+
+	font-weight: 700;
+
+	color: #0f172a;
+
+}

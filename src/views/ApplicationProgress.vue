@@ -7,11 +7,22 @@
         <h1>Application Progress</h1>
         <p>Track your public market rental approval across each office.</p>
       </div>
-      <Tag
-        v-if="stakeholder"
-        :value="stakeholder.applicationStatus || 'PENDING'"
-        :severity="overallSeverity"
-      />
+      <div class="header-actions">
+        <Tag
+          v-if="stakeholder"
+          :value="stakeholder.applicationStatus || 'PENDING'"
+          :severity="overallSeverity"
+        />
+        <Button
+          label="Log Out"
+          icon="pi pi-sign-out"
+          severity="danger"
+          outlined
+          size="small"
+          class="logout-btn"
+          @click="logout"
+        />
+      </div>
     </div>
 
     <div v-if="isLoading" class="state-box">Loading application status...</div>
@@ -57,6 +68,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
+import { useAuthStore } from '../stores/auth'
 import {
   getStakeholderByUserId,
   getStakeholderRequirements,
@@ -69,7 +81,15 @@ import Toast from 'primevue/toast'
 
 const router = useRouter()
 const toast = useToast()
+const authStore = useAuthStore()
 const userId = localStorage.getItem('userId')
+
+async function logout() {
+  await authStore.clearSession()
+  localStorage.removeItem('currentStakeholder')
+  localStorage.removeItem('stakeholderId')
+  router.push('/login')
+}
 
 const isLoading = ref(false)
 const errorMessage = ref('')
@@ -219,156 +239,5 @@ function statusSeverity(status) {
 onMounted(loadProgress)
 </script>
 
-<style scoped>
-.progress-wrapper {
-  min-height: 100vh;
-  padding: 96px 24px 40px;
-  background: #f6f8fb;
-}
+<style scoped src="./ApplicationProgress.css"></style>
 
-.page-header,
-.panel {
-  max-width: 1100px;
-  margin: 0 auto;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: flex-start;
-  margin-bottom: 24px;
-}
-
-.page-header h1 {
-  margin: 0;
-  font-size: 30px;
-  color: #111827;
-}
-
-.page-header p {
-  margin: 6px 0 0;
-  color: #64748b;
-}
-
-.panel {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 24px;
-}
-
-.state-box {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 18px;
-  border: 1px solid #dbe3ef;
-  border-radius: 8px;
-  background: #ffffff;
-  color: #334155;
-}
-
-.state-box.error {
-  border-color: #fecdd3;
-  background: #fff1f2;
-  color: #be123c;
-}
-
-.circle {
-  width: 40px;
-  height: 40px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  border: 2px solid #cbd5e1;
-  background: #ffffff;
-  color: #475569;
-  font-weight: 800;
-}
-
-.circle.approved {
-  background: #16a34a;
-  border-color: #16a34a;
-  color: #ffffff;
-}
-
-.circle.rejected {
-  background: #dc2626;
-  border-color: #dc2626;
-  color: #ffffff;
-}
-
-.circle.needs-action {
-  background: #f59e0b;
-  border-color: #f59e0b;
-  color: #ffffff;
-}
-
-.step-card {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: flex-start;
-  padding: 16px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  background: #ffffff;
-}
-
-.step-card h2 {
-  margin: 0;
-  font-size: 16px;
-  color: #1f2937;
-}
-
-.step-card p {
-  margin: 6px 0 0;
-  color: #64748b;
-  font-size: 14px;
-}
-
-.requirements-callout {
-  margin-top: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 16px;
-  border: 1px solid #fcd34d;
-  border-radius: 8px;
-  background: #fffbeb;
-}
-
-.fee-callout {
-  margin-top: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 16px;
-  border: 1px solid #f59e0b;
-  border-radius: 8px;
-  background: #fffbeb;
-  color: #92400e;
-}
-
-.fee-callout p {
-  margin: 4px 0 0;
-}
-
-.requirements-callout p {
-  margin: 4px 0 0;
-  color: #92400e;
-}
-
-@media (max-width: 760px) {
-  .page-header,
-  .step-card,
-  .requirements-callout,
-  .fee-callout {
-    flex-direction: column;
-    align-items: stretch;
-  }
-}
-</style>

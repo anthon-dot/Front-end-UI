@@ -343,37 +343,4 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped>
-.dashboard {
-  padding-top: calc(var(--header-height, 64px) + 24px);
-  padding-bottom: 40px;
-}
-
-.page-container {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 0 24px;
-  padding-left: calc(var(--sidebar-width, 260px) + 24px);
-  transition: padding-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-:deep(.p-card) {
-  background: #ffffff;
-  color: #1e293b;
-}
-
-:deep(.p-card-body) {
-  padding: 1.5rem;
-}
-
-:deep(.p-select) {
-  background: #f8fafc;
-  border-color: #e2e8f0;
-}
-
-@media (max-width: 900px) {
-  .page-container {
-    padding-left: 24px;
-  }
-}
-</style>
+<style scoped src="./dashboard.css"></style>
