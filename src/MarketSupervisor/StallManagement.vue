@@ -525,11 +525,46 @@ function loadGoogleMaps() {
 const MAP_STYLES = [
   {
     featureType: 'poi',
-    elementType: 'labels.icon',
+    stylers: [{ visibility: 'off' }]
+  },
+  {
+    featureType: 'poi.business',
+    stylers: [{ visibility: 'off' }]
+  },
+  {
+    featureType: 'poi.place_of_worship',
+    stylers: [{ visibility: 'off' }]
+  },
+  {
+    featureType: 'poi.medical',
+    stylers: [{ visibility: 'off' }]
+  },
+  {
+    featureType: 'poi.school',
+    stylers: [{ visibility: 'off' }]
+  },
+  {
+    featureType: 'poi.attraction',
+    stylers: [{ visibility: 'off' }]
+  },
+  {
+    featureType: 'poi.government',
+    stylers: [{ visibility: 'off' }]
+  },
+  {
+    featureType: 'poi.sports_complex',
     stylers: [{ visibility: 'off' }]
   },
   {
     featureType: 'transit',
+    stylers: [{ visibility: 'off' }]
+  },
+  {
+    featureType: 'transit.station',
+    stylers: [{ visibility: 'off' }]
+  },
+  {
+    featureType: 'road',
     elementType: 'labels.icon',
     stylers: [{ visibility: 'off' }]
   }
@@ -574,6 +609,9 @@ async function initializeMap() {
       zoomControl: true
     })
 
+    // Explicitly reinforce map styles
+    map.setOptions({ styles: MAP_STYLES })
+
     infoWindow = new googleMaps.InfoWindow()
 
     mapClickListener = map.addListener('click', (e) => {
@@ -588,28 +626,55 @@ async function initializeMap() {
     const mapContainer = document.getElementById('map')
     if (mapContainer) {
       const cleanupWatermark = () => {
-        const dismissBtn = mapContainer.querySelector('.dismissButton')
-        if (dismissBtn) dismissBtn.click()
+        // 1. Dismiss button
+        const dismissBtns = mapContainer.querySelectorAll('.dismissButton, button[aria-label="Close"]')
+        dismissBtns.forEach((btn) => btn.click())
 
-        const overlays = mapContainer.querySelectorAll(
-          'div[style*="z-index: 100000"], div[style*="rgba(0, 0, 0"]'
-        )
-        overlays.forEach((el) => {
-          el.style.display = 'none'
-          el.style.backgroundColor = 'transparent'
+        // 2. Hide error container
+        const errContainers = mapContainer.querySelectorAll('.gm-err-container, .gm-err-content, .gm-style-cc')
+        errContainers.forEach((el) => {
+          el.style.setProperty('display', 'none', 'important')
         })
 
-        const allDivs = mapContainer.querySelectorAll('div')
-        allDivs.forEach((el) => {
-          if (el.innerText && el.innerText.includes('For development purposes only')) {
-            el.style.display = 'none'
+        // 3. Remove all dark overlay elements and watermark text
+        const allDivs = mapContainer.getElementsByTagName('div')
+        for (let i = 0; i < allDivs.length; i++) {
+          const d = allDivs[i]
+          if (
+            (d.innerText && d.innerText.includes('For development purposes only')) ||
+            (d.textContent && d.textContent.includes('For development purposes only'))
+          ) {
+            d.style.setProperty('display', 'none', 'important')
+            d.style.setProperty('opacity', '0', 'important')
+            if (d.parentElement && d.parentElement !== mapContainer) {
+              d.parentElement.style.setProperty('display', 'none', 'important')
+            }
           }
-        })
+
+          if (d.style.backgroundColor && (d.style.backgroundColor.includes('rgba(0, 0, 0') || d.style.backgroundColor.includes('rgba(0,0,0'))) {
+            d.style.setProperty('display', 'none', 'important')
+            d.style.setProperty('background-color', 'transparent', 'important')
+          }
+
+          if (d.style.zIndex && Number(d.style.zIndex) >= 1000000) {
+            d.style.setProperty('display', 'none', 'important')
+          }
+        }
+
+        // 4. Clear filter grayscale / tint
+        const gmStyle = mapContainer.querySelector('.gm-style')
+        if (gmStyle) {
+          gmStyle.style.setProperty('filter', 'none', 'important')
+          if (gmStyle.firstElementChild) {
+            gmStyle.firstElementChild.style.setProperty('filter', 'none', 'important')
+          }
+        }
       }
 
+      cleanupWatermark()
       const observer = new MutationObserver(cleanupWatermark)
-      observer.observe(mapContainer, { childList: true, subtree: true })
-      setInterval(cleanupWatermark, 1000)
+      observer.observe(mapContainer, { childList: true, subtree: true, attributes: true })
+      setInterval(cleanupWatermark, 500)
     }
   } catch (err) {
     console.warn('[StallManagement] Map failed to initialize:', err.message)
@@ -984,3 +1049,44 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped src="../styles/MarketSupervisor/StallManagement.css"></style>
+
+<style>
+/* Unscoped styles to penetrate Google Maps dynamic DOM */
+#map .dismissButton,
+#map .gm-err-container,
+#map .gm-err-content,
+#map .gm-err-message,
+#map .gm-style-cc,
+#map a[href*="google.com/maps"],
+#map a[href*="maps.google.com"],
+#map .gmnoprint[style*="z-index: 1000001"] {
+  display: none !important;
+}
+
+#map div[style*="z-index: 1000001"],
+#map div[style*="z-index: 1000000"],
+#map div[style*="z-index: 1000002"] {
+  display: none !important;
+}
+
+#map .gm-style > div:first-child > div:nth-child(2) {
+  display: none !important;
+}
+
+#map .gm-style,
+#map .gm-style > div:first-child {
+  filter: none !important;
+  -webkit-filter: none !important;
+}
+
+#map .gm-style div[style*="background-color: rgba(0, 0, 0"],
+#map .gm-style div[style*="rgba(0, 0, 0"] {
+  background-color: transparent !important;
+  display: none !important;
+}
+
+#map .gm-style div[style*="opacity: 0.5"] {
+  display: none !important;
+}
+</style>
+
