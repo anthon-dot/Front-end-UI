@@ -28,7 +28,7 @@
             v-if="route.name === 'AdminStalls' || route.name === 'AdminStallMap'"
             label="Add Stall"
             icon="pi pi-plus"
-            @click="openStallDialog()"
+            @click="handleAddStall"
           />
           <Button
             v-if="route.name === 'AdminStallTypes'"
@@ -129,10 +129,12 @@
           @toggle="toggleMasterRecord"
         />
         <AdminStallMap
+          ref="adminStallMapRef"
           v-else-if="route.name === 'AdminStallMap'"
           :rows="state.stalls"
           @edit="openStallDialog"
-          @add="openStallDialog()"
+          @add="handleAddStall"
+          @add-with-location="openCreateStallWithLocation"
           @delete="confirmDeleteStall"
           @update-location="saveStallLocation"
         />
@@ -355,6 +357,7 @@ const moduleFilter = ref('All')
 const dateFrom = ref(null)
 const dateTo = ref(null)
 const settingsForm = ref({})
+const adminStallMapRef = ref(null)
 
 const state = reactive({
   users: [],
@@ -895,6 +898,23 @@ async function runUserAction(action, detail) {
 
 function openStallDialog(stall = null) {
   stallDialog.form = stall ? { ...emptyStall(), ...stall } : emptyStall()
+  stallDialog.visible = true
+}
+
+function handleAddStall() {
+  if (route.name === 'AdminStallMap' && adminStallMapRef.value) {
+    adminStallMapRef.value.startAddStallFlow()
+  } else {
+    openStallDialog()
+  }
+}
+
+function openCreateStallWithLocation({ latitude, longitude }) {
+  stallDialog.form = {
+    ...emptyStall(),
+    latitude,
+    longitude
+  }
   stallDialog.visible = true
 }
 

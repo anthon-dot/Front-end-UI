@@ -111,12 +111,12 @@
       </div>
 
       <div class="controls-right">
-        <!-- Admin Add Stall Button -->
+        <!-- Admin Add Stall Button (triggers draggable pin placement on map) -->
         <button
           type="button"
           class="ctrl-btn btn-add-stall"
-          title="Create New Stall"
-          @click="$emit('add')"
+          title="Drag and place a new stall on the map"
+          @click="startAddStallFlow"
         >
           <i class="pi pi-plus"></i>
           Add Stall
@@ -165,7 +165,7 @@
           <div id="admin-map" class="admin-map-element"></div>
 
           <!-- Market Badge Overlay -->
-          <div v-if="!isPickingLocation" class="market-badge-overlay">
+          <div v-if="!isPickingLocation && !isAddingStall" class="market-badge-overlay">
             <div class="market-badge-dot"></div>
             <div class="market-badge-text">
               <strong>Manticao Public Market</strong>
@@ -173,7 +173,26 @@
             </div>
           </div>
 
-          <!-- Location Picker Banner Overlay -->
+          <!-- Adding New Stall Drag Banner Overlay -->
+          <div v-if="isAddingStall" class="picker-mode-banner adding-mode-banner">
+            <div class="picker-mode-info">
+              <span class="picker-pulse-dot adding-pulse"></span>
+              <div>
+                <strong>📍 Placing New Stall: Drag the orange pin to the stall position</strong>
+                <p>Coordinates: {{ newStallCoords?.lat ?? '—' }}, {{ newStallCoords?.lng ?? '—' }} (Drag pin or click map)</p>
+              </div>
+            </div>
+            <div class="picker-mode-actions">
+              <button type="button" class="btn-picker-cancel" @click="cancelAddStall">
+                Cancel
+              </button>
+              <button type="button" class="btn-picker-proceed" @click="proceedNewStall">
+                Enter Stall Details &rarr;
+              </button>
+            </div>
+          </div>
+
+          <!-- Location Picker Banner Overlay (for existing stall relocation) -->
           <div v-if="isPickingLocation" class="picker-mode-banner">
             <div class="picker-mode-info">
               <span class="picker-pulse-dot"></span>
@@ -193,7 +212,7 @@
           </div>
 
           <!-- Map Legend -->
-          <div v-if="!isPickingLocation" class="map-legend-overlay">
+          <div v-if="!isPickingLocation && !isAddingStall" class="map-legend-overlay">
             <div class="legend-item">
               <img src="/icons/stall-pin-green.svg" alt="Occupied" class="legend-icon" />
               <span>Occupied</span>
@@ -374,7 +393,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['edit', 'add', 'delete', 'update-location'])
+const emit = defineEmits(['edit', 'add', 'add-with-location', 'delete', 'update-location'])
 
 const DEFAULT_CENTER = { lat: 8.399991, lng: 124.291353 }
 const DEFAULT_MAP_ZOOM = 19
@@ -386,10 +405,15 @@ const statusFilter = ref('ALL')
 const searchQuery = ref('')
 const selectedStall = ref(null)
 
-// Location Picker State
+// Location Picker State (for existing stalls)
 const isPickingLocation = ref(false)
 const pickerCoords = ref(null)
 let pickerMarkerLayer = null
+
+// New Stall Placement State (draggable pin first)
+const isAddingStall = ref(false)
+const newStallCoords = ref(null)
+let newStallMarker = null
 
 // Leaflet variables
 let mapInstance = null
@@ -544,9 +568,15 @@ function initMap() {
     'Google Satellite': googleSatellite
   }, null, { position: 'topright' }).addTo(mapInstance)
 
-  // Map Click handler (for location assignment)
+  // Map Click handler (for new stall placement or relocating)
   mapInstance.on('click', (e) => {
-    if (isPickingLocation.value && pickerMarkerLayer) {
+    if (isAddingStall.value && newStallMarker) {
+      const lat = Number(e.latlng.lat.toFixed(6))
+      const lng = Number(e.latlng.lng.toFixed(6))
+      newStallCoords.value = { lat, lng }
+      newStallMarker.setLatLng([lat, lng])
+      newStallMarker.openPopup()
+    } else if (isPickingLocation.value && pickerMarkerLayer) {
       const lat = Number(e.latlng.lat.toFixed(6))
       const lng = Number(e.latlng.lng.toFixed(6))
       pickerCoords.value = { lat, lng }
@@ -582,6 +612,10 @@ function initMap() {
     if (stall) {
       emit('delete', stall)
     }
+  }
+
+  window.__adminProceedNewStall = () => {
+    proceedNewStall()
   }
 
   renderMarkers()
@@ -679,7 +713,85 @@ function focusStall(stall) {
   }
 }
 
-// Location Assignment functions
+// ================= NEW STALL DRAGGABLE PLACEMENT WORKFLOW =================
+function startAddStallFlow() {
+  cancelPickingLocation()
+  if (viewMode.value !== 'map') {
+    switchViewMode('map')
+  }
+
+  isAddingStall.value = true
+
+  nextTick(() => {
+    if (!mapInstance) return
+
+    const center = mapInstance.getCenter()
+    const lat = Number(center.lat.toFixed(6))
+    const lng = Number(center.lng.toFixed(6))
+    newStallCoords.value = { lat, lng }
+
+    if (newStallMarker) {
+      mapInstance.removeLayer(newStallMarker)
+    }
+
+    newStallMarker = L.marker([lat, lng], {
+      draggable: true,
+      icon: markerIcons.picker,
+      title: 'New Stall - Drag to set location'
+    }).addTo(mapInstance)
+
+    newStallMarker.bindPopup(`
+      <div class="new-stall-popup">
+        <strong style="color:#0f172a;font-size:13px;display:block;">📍 New Stall Position</strong>
+        <p style="margin:4px 0 8px;font-size:11px;color:#64748b;">Drag pin to desired spot, then proceed to enter details.</p>
+        <button onclick="window.__adminProceedNewStall()" class="btn-proceed-popup">
+          Enter Stall Details &rarr;
+        </button>
+      </div>
+    `)
+
+    newStallMarker.on('drag', (e) => {
+      const pos = e.target.getLatLng()
+      newStallCoords.value = {
+        lat: Number(pos.lat.toFixed(6)),
+        lng: Number(pos.lng.toFixed(6))
+      }
+    })
+
+    newStallMarker.on('dragend', (e) => {
+      const pos = e.target.getLatLng()
+      newStallCoords.value = {
+        lat: Number(pos.lat.toFixed(6)),
+        lng: Number(pos.lng.toFixed(6))
+      }
+      newStallMarker.openPopup()
+    })
+
+    mapInstance.setView([lat, lng], 19, { animate: true })
+    newStallMarker.openPopup()
+  })
+}
+
+function cancelAddStall() {
+  isAddingStall.value = false
+  newStallCoords.value = null
+  if (newStallMarker && mapInstance) {
+    mapInstance.removeLayer(newStallMarker)
+    newStallMarker = null
+  }
+}
+
+function proceedNewStall() {
+  if (!newStallCoords.value) return
+  const coords = { ...newStallCoords.value }
+  cancelAddStall()
+  emit('add-with-location', {
+    latitude: coords.lat,
+    longitude: coords.lng
+  })
+}
+
+// Location Relocation functions (for existing stalls)
 function togglePickingLocation(stall) {
   if (isPickingLocation.value) {
     cancelPickingLocation()
@@ -690,6 +802,7 @@ function togglePickingLocation(stall) {
 
 function startPickingLocation(stall) {
   if (!stall) return
+  cancelAddStall()
   selectedStall.value = stall
   isPickingLocation.value = true
 
@@ -762,6 +875,11 @@ function switchViewMode(mode) {
   }
 }
 
+// Expose methods for parent components
+defineExpose({
+  startAddStallFlow
+})
+
 // Watchers
 watch(
   () => [filteredStalls.value, statusFilter.value],
@@ -803,10 +921,14 @@ onBeforeUnmount(() => {
   if (pickerMarkerLayer) {
     pickerMarkerLayer = null
   }
+  if (newStallMarker) {
+    newStallMarker = null
+  }
   delete window.__adminSelectStall
   delete window.__adminEditStall
   delete window.__adminRelocateStall
   delete window.__adminDeleteStall
+  delete window.__adminProceedNewStall
 })
 </script>
 
@@ -1161,6 +1283,11 @@ onBeforeUnmount(() => {
   animation: fadeIn 0.2s ease;
 }
 
+.adding-mode-banner {
+  background: #0f172a;
+  border: 1.5px solid #3b82f6;
+}
+
 .picker-mode-info {
   display: flex;
   align-items: center;
@@ -1174,6 +1301,11 @@ onBeforeUnmount(() => {
   background: #f97316;
   box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.3);
   animation: pulse 1.5s infinite;
+}
+
+.adding-pulse {
+  background: #3b82f6 !important;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.4) !important;
 }
 
 .picker-mode-info strong {
@@ -1220,6 +1352,22 @@ onBeforeUnmount(() => {
 
 .btn-picker-save:hover {
   background: #059669;
+}
+
+.btn-picker-proceed {
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-picker-proceed:hover {
+  background: #1d4ed8;
 }
 
 .map-legend-overlay {
@@ -1686,5 +1834,29 @@ onBeforeUnmount(() => {
 
 .gm-btn-del:hover {
   background: #fee2e2;
+}
+
+/* New Stall Draggable Pin Popup */
+.new-stall-popup {
+  padding: 4px;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  text-align: center;
+}
+
+.btn-proceed-popup {
+  width: 100%;
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-proceed-popup:hover {
+  background: #1d4ed8;
 }
 </style>
