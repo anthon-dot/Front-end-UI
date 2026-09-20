@@ -73,4 +73,4 @@ export default {
 }
 </script>
 
-<style scoped src="./SearchField.css"></style>
+<style scoped src="../styles/components/SearchField.css"></style>

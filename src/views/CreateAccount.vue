@@ -171,5 +171,5 @@ async function createAccount() {
 }
 </script>
 
-<style scoped src="./CreateAccount.css"></style>
+<style scoped src="../styles/views/CreateAccount.css"></style>
 

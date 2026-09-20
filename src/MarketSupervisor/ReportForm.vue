@@ -98,4 +98,4 @@ function submit() {
 }
 </script>
 
-<style scoped src="./ReportForm.css"></style>
+<style scoped src="../styles/MarketSupervisor/ReportForm.css"></style>

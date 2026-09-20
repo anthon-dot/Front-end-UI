@@ -661,4 +661,4 @@ async function rejectApplicant(item) {
 }
 </script>
 
-<style scoped src="./Applicant.css"></style>
+<style scoped src="../styles/Treasurer/Applicant.css"></style>

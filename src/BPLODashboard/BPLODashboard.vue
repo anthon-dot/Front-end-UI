@@ -39,4 +39,4 @@ const approved = computed(() => applications.value.filter((app) => app.bploStatu
 const rejected = computed(() => applications.value.filter((app) => app.bploStatus === 'REJECTED' || app.finalStatus === 'REJECTED').length)
 </script>
 
-<style scoped src="./BPLODashboard.css"></style>
+<style scoped src="../styles/BPLODashboard/BPLODashboard.css"></style>

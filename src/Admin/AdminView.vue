@@ -1419,4 +1419,4 @@ const ProfileView = defineComponent({
 })
 </script>
 
-<style scoped src="./AdminView.css"></style>
+<style scoped src="../styles/Admin/AdminView.css"></style>

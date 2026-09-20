@@ -259,4 +259,4 @@ onMounted(async () => {
 })
 </script>
 
-<style scoped src="./AINotifications.css"></style>
+<style scoped src="../styles/Treasurer/AINotifications.css"></style>

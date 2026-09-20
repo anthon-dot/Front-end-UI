@@ -47,4 +47,4 @@ const normalizedNotifications = computed(() => (props.notifications || []).map((
 const unreadCount = computed(()=> normalizedNotifications.value.filter(n => !n.read).length)
 </script>
 
-<style scoped src="./Notification.css"></style>
+<style scoped src="../styles/components/Notification.css"></style>

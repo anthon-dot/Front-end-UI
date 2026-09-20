@@ -61,4 +61,4 @@ function openReceipt(p){ const url = p.receiptUrl || p.receipt; if(!url) return;
 function copyReceipt(p){ const val = p.receipt || p.receiptUrl; if(!val) return; try{ navigator.clipboard.writeText(val); alert('Receipt copied to clipboard') }catch(e){ alert('Receipt: ' + val) } }
 </script>
 
-<style scoped src="./PaymentHistory.css"></style>
+<style scoped src="../styles/Stakeholder/PaymentHistory.css"></style>

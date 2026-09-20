@@ -342,4 +342,4 @@ onMounted(async () => {
 })
 </script>
 
-<style scoped src="./ReportPage.css"></style>
+<style scoped src="../styles/MarketSupervisor/ReportPage.css"></style>

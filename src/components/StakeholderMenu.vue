@@ -201,4 +201,4 @@ onMounted(() => {
 })
 </script>
 
-<style scoped src="./StakeholderMenu.css"></style>
+<style scoped src="../styles/components/StakeholderMenu.css"></style>

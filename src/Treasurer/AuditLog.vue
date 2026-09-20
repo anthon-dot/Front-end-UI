@@ -192,4 +192,4 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped src="./AuditLog.css"></style>
+<style scoped src="../styles/Treasurer/AuditLog.css"></style>

@@ -146,5 +146,5 @@ async function uploadRequirement(event, item) {
 onMounted(loadRequirements)
 </script>
 
-<style scoped src="./Requirements.css"></style>
+<style scoped src="../styles/views/Requirements.css"></style>
 

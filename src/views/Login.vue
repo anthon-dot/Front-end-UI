@@ -275,6 +275,6 @@ async function onSubmit() {
   }
 }
 </script>
-<style scoped src="./Login.css"></style>
+<style scoped src="../styles/views/Login.css"></style>
 
 

@@ -326,4 +326,4 @@ watch(activeTab, () => {
 onMounted(loadAIReports)
 </script>
 
-<style scoped src="./AIReportsDashboard.css"></style>
+<style scoped src="../styles/Treasurer/AIReportsDashboard.css"></style>

@@ -152,4 +152,4 @@ onMounted(() => {
 })
 </script>
 
-<style scoped src="./AdminMenu.css"></style>
+<style scoped src="../styles/components/AdminMenu.css"></style>

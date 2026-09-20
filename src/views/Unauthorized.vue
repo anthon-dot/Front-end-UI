@@ -59,5 +59,5 @@ function goHome() {
 }
 </script>
 
-<style scoped src="./Unauthorized.css"></style>
+<style scoped src="../styles/views/Unauthorized.css"></style>
 

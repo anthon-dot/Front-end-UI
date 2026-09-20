@@ -99,5 +99,5 @@ function getAcceptButtonClass(message) {
 }
 </script>
 
-<style src="./App.css"></style>
+<style src="./styles/App.css"></style>
 

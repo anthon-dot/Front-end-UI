@@ -91,4 +91,4 @@ function saveCredentials(){
 onMounted(()=>{ loadProfile(); loadCredentials() })
 </script>
 
-<style scoped src="./Settings.css"></style>
+<style scoped src="../styles/Stakeholder/Settings.css"></style>

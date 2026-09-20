@@ -343,4 +343,4 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped src="./dashboard.css"></style>
+<style scoped src="../styles/Treasurer/dashboard.css"></style>

@@ -39,4 +39,4 @@ const endorsed = computed(() => applications.value.filter((app) => (app.endorsin
 const rejected = computed(() => applications.value.filter((app) => (app.endorsingStatus || app.endorsementStatus) === 'REJECTED').length)
 </script>
 
-<style scoped src="./EndorsingDashboard.css"></style>
+<style scoped src="../styles/EndorsingOfficeDashboard/EndorsingDashboard.css"></style>

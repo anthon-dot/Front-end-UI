@@ -834,4 +834,4 @@ onMounted(async () => {
 
 </script>
 
-<style scoped src="./contract.css"></style>
+<style scoped src="../styles/MarketSupervisor/contract.css"></style>

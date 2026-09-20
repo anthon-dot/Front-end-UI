@@ -827,4 +827,4 @@ onMounted(() => {
 })
 </script>
 
-<style scoped src="./dashboard.css"></style>
+<style scoped src="../styles/MarketSupervisor/dashboard.css"></style>

@@ -164,4 +164,4 @@ function showToast(text, type = 'success') {
 }
 </script>
 
-<style scoped src="./EndorsingApproval.css"></style>
+<style scoped src="../styles/EndorsingOfficeDashboard/EndorsingApproval.css"></style>

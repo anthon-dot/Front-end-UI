@@ -239,5 +239,5 @@ function statusSeverity(status) {
 onMounted(loadProgress)
 </script>
 
-<style scoped src="./ApplicationProgress.css"></style>
+<style scoped src="../styles/views/ApplicationProgress.css"></style>
 

@@ -158,4 +158,4 @@ function showToast(text, type = 'success') {
 }
 </script>
 
-<style scoped src="./BPLOApproval.css"></style>
+<style scoped src="../styles/BPLODashboard/BPLOApproval.css"></style>

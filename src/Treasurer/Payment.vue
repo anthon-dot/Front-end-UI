@@ -973,4 +973,4 @@ async function recordPayment() {
 }
 </script>
 
-<style scoped src="./Payment.css"></style>
+<style scoped src="../styles/Treasurer/Payment.css"></style>

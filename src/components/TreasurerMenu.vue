@@ -172,4 +172,4 @@ onMounted(() => {
 })
 </script>
 
-<style scoped src="./TreasurerMenu.css"></style>
+<style scoped src="../styles/components/TreasurerMenu.css"></style>

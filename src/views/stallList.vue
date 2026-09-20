@@ -120,4 +120,4 @@ onMounted(loadStalls)
   </div>
 </template>
 
-<style scoped src="./stallList.css"></style>
+<style scoped src="../styles/views/stallList.css"></style>

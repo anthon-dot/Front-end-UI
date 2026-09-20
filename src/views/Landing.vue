@@ -379,4 +379,4 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped src="./Landing.css"></style>
+<style scoped src="../styles/views/Landing.css"></style>

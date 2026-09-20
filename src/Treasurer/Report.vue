@@ -519,4 +519,4 @@ export default {
 
 };
 </script>
-<style scoped src="./Report.css"></style>
+<style scoped src="../styles/Treasurer/Report.css"></style>

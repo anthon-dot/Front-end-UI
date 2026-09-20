@@ -617,4 +617,4 @@ onBeforeUnmount(() => {
 })
 </script>
 
-<style scoped src="./StallManagement.css"></style>
+<style scoped src="../styles/MarketSupervisor/StallManagement.css"></style>

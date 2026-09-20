@@ -623,4 +623,4 @@ onMounted(()=>{
 })
 </script>
 
-<style scoped src="./dashboard.css"></style>
+<style scoped src="../styles/Stakeholder/dashboard.css"></style>

@@ -284,4 +284,4 @@ function removeStallPermanent(st) {
 }
 </script>
 
-<style scoped src="./archive.css"></style>
+<style scoped src="../styles/MarketSupervisor/archive.css"></style>

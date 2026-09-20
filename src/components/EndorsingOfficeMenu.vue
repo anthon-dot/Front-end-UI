@@ -41,4 +41,4 @@ function logout() {
 document.documentElement.style.setProperty('--office-sidebar-width', collapsed.value ? '72px' : '248px')
 </script>
 
-<style scoped src="./EndorsingOfficeMenu.css"></style>
+<style scoped src="../styles/components/EndorsingOfficeMenu.css"></style>

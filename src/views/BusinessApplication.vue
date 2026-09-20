@@ -248,5 +248,5 @@ async function logout() {
 
 </script>
 
-<style scoped src="./BusinessApplication.css"></style>
+<style scoped src="../styles/views/BusinessApplication.css"></style>
 

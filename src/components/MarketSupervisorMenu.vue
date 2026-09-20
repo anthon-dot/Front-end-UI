@@ -242,4 +242,4 @@ onMounted(() => {
 })
 </script>
 
-<style scoped src="./MarketSupervisorMenu.css"></style>
+<style scoped src="../styles/components/MarketSupervisorMenu.css"></style>
