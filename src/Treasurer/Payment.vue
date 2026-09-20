@@ -418,7 +418,7 @@
           <div class="space-y-4">
             
             <!-- ADVANCE PAYMENT SPECIFIC FIELDS -->
-            <div v-if="selectedPaymentType === 'ADVANCE_PAYMENT'" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div v-if="selectedPaymentType === 'ADVANCE_PAYMENT'" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div class="flex flex-col gap-1.5">
                 <label class="text-xs font-bold text-slate-700">Total Required Advance</label>
                 <InputNumber v-model="form.totalAdvanceAmount" inputId="totalAdvance" mode="currency" currency="PHP" locale="en-PH" class="w-full" />
@@ -430,21 +430,47 @@
               </div>
 
               <div class="flex flex-col gap-1.5">
+                <div class="flex items-center justify-between">
+                  <label class="text-xs font-bold text-slate-700">Receipt No. (Auto)</label>
+                  <button type="button" @click="regenerateReceiptNo" class="text-[10px] text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1">
+                    <i class="pi pi-refresh text-[9px]"></i> Auto
+                  </button>
+                </div>
+                <div class="relative">
+                  <InputText v-model="form.receiptNo" placeholder="Receipt #" class="w-full bg-slate-50/80 font-mono text-xs font-bold text-slate-700 pl-8 border-slate-200 focus:bg-white" />
+                  <i class="pi pi-receipt absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                </div>
+              </div>
+
+              <div class="flex flex-col gap-1.5">
                 <label class="text-xs font-bold text-slate-700">Reference No (Optional)</label>
-                <InputText v-model="form.referenceNo" placeholder="Receipt / Ref #" class="w-full bg-white" />
+                <InputText v-model="form.referenceNo" placeholder="Bank / Ref #" class="w-full bg-white" />
               </div>
             </div>
 
             <!-- APPLICATION FORM SPECIFIC FIELDS -->
-            <div v-else-if="selectedPaymentType === 'APPLICATION_FORM'" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div v-else-if="selectedPaymentType === 'APPLICATION_FORM'" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div class="flex flex-col gap-1.5">
                 <label class="text-xs font-bold text-slate-700">Application Fee Amount</label>
                 <InputNumber v-model="form.amount" inputId="appAmount" mode="currency" currency="PHP" locale="en-PH" class="w-full font-bold" />
               </div>
 
               <div class="flex flex-col gap-1.5">
+                <div class="flex items-center justify-between">
+                  <label class="text-xs font-bold text-slate-700">Receipt No. (Auto)</label>
+                  <button type="button" @click="regenerateReceiptNo" class="text-[10px] text-amber-600 hover:text-amber-800 font-semibold flex items-center gap-1">
+                    <i class="pi pi-refresh text-[9px]"></i> Auto
+                  </button>
+                </div>
+                <div class="relative">
+                  <InputText v-model="form.receiptNo" placeholder="Receipt #" class="w-full bg-slate-50/80 font-mono text-xs font-bold text-slate-700 pl-8 border-slate-200 focus:bg-white" />
+                  <i class="pi pi-receipt absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                </div>
+              </div>
+
+              <div class="flex flex-col gap-1.5">
                 <label class="text-xs font-bold text-slate-700">Reference No (Optional)</label>
-                <InputText v-model="form.referenceNo" placeholder="Receipt / Ref #" class="w-full bg-white" />
+                <InputText v-model="form.referenceNo" placeholder="Bank / Ref #" class="w-full bg-white" />
               </div>
             </div>
 
@@ -472,15 +498,28 @@
                 </div>
               </div>
 
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div class="flex flex-col gap-1.5">
                   <label class="text-xs font-bold text-slate-700">Payment Amount</label>
                   <InputNumber v-model="form.amount" inputId="rentAmount" mode="currency" currency="PHP" locale="en-PH" class="w-full font-bold" />
                 </div>
 
                 <div class="flex flex-col gap-1.5">
+                  <div class="flex items-center justify-between">
+                    <label class="text-xs font-bold text-slate-700">Receipt No. (Auto)</label>
+                    <button type="button" @click="regenerateReceiptNo" class="text-[10px] text-emerald-600 hover:text-emerald-800 font-semibold flex items-center gap-1">
+                      <i class="pi pi-refresh text-[9px]"></i> Auto
+                    </button>
+                  </div>
+                  <div class="relative">
+                    <InputText v-model="form.receiptNo" placeholder="Receipt #" class="w-full bg-slate-50/80 font-mono text-xs font-bold text-slate-700 pl-8 border-slate-200 focus:bg-white" />
+                    <i class="pi pi-receipt absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                  </div>
+                </div>
+
+                <div class="flex flex-col gap-1.5">
                   <label class="text-xs font-bold text-slate-700">Reference No (Optional)</label>
-                  <InputText v-model="form.referenceNo" placeholder="Receipt / Ref #" class="w-full bg-white" />
+                  <InputText v-model="form.referenceNo" placeholder="Bank / Ref #" class="w-full bg-white" />
                 </div>
               </div>
             </div>
@@ -549,7 +588,8 @@ const form = ref({
   paymentType: '',
   totalAdvanceAmount: null,
   amount: null,
-  referenceNo: ''
+  referenceNo: '',
+  receiptNo: ''
 })
 
 // =========================
@@ -704,12 +744,32 @@ const filteredPayments = computed(() => {
 // =========================
 // SELECTION METHODS
 // =========================
+function generateReceiptNo(type = selectedPaymentType.value) {
+  const prefixMap = {
+    ADVANCE_PAYMENT: 'ADV',
+    APPLICATION_FORM: 'APP',
+    RENT_PAYMENT: 'RNT'
+  }
+  const prefix = prefixMap[type] || 'OR'
+  const now = new Date()
+  const yyyy = now.getFullYear()
+  const mm = String(now.getMonth() + 1).padStart(2, '0')
+  const dd = String(now.getDate()).padStart(2, '0')
+  const random = Math.floor(1000 + Math.random() * 9000)
+  return `${prefix}-${yyyy}${mm}${dd}-${random}`
+}
+
+function regenerateReceiptNo() {
+  form.value.receiptNo = generateReceiptNo(selectedPaymentType.value)
+}
+
 function selectStakeholderForType(s, type) {
   selectedStakeholder.value = s
   selectedPaymentType.value = type
   activeCategory.value = type
   form.value.paymentType = type
   form.value.referenceNo = ''
+  form.value.receiptNo = generateReceiptNo(type)
 
   if (type === 'ADVANCE_PAYMENT') {
     form.value.totalAdvanceAmount = s.totalAdvanceAmount ? Number(s.totalAdvanceAmount) : null
@@ -749,7 +809,7 @@ function resetSelection() {
   selectedStakeholder.value = null
   selectedPaymentType.value = ''
   selectedBillingId.value = null
-  form.value = { paymentType: '', totalAdvanceAmount: null, amount: null, referenceNo: '' }
+  form.value = { paymentType: '', totalAdvanceAmount: null, amount: null, referenceNo: '', receiptNo: '' }
 }
 
 function initials(first, last) {
@@ -864,9 +924,11 @@ async function recordPayment() {
     isSubmitting.value = true
 
     const payload = {
+      stakeholderId: selectedStakeholder.value.id,
       stakeholder: { id: selectedStakeholder.value.id },
       amount: Number(form.value.amount),
       referenceNo: form.value.referenceNo,
+      receiptNo: form.value.receiptNo || generateReceiptNo(selectedPaymentType.value),
       paymentType: selectedPaymentType.value
     }
 
