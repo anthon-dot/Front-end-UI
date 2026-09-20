@@ -98,40 +98,69 @@ async function createAccount() {
 
   try {
     const cleanUsername = username.value.trim()
-    const emailToUse = cleanUsername.includes('@')
+    const isEmail = cleanUsername.includes('@')
+    const fallbackEmail = isEmail
       ? cleanUsername
       : cleanUsername.toLowerCase().replace(/[^a-z0-9_.-]/g, '') + '@manticao.market'
 
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-      email: emailToUse,
-      password: password.value,
-      options: {
-        data: {
+    // 1. Register account through Edge Function (email_confirm: true, bypasses email rate limit)
+    let registeredEmail = fallbackEmail
+    try {
+      const { data: regData, error: regError } = await supabase.functions.invoke('approval-workflow', {
+        body: {
+          action: 'register',
           username: cleanUsername,
+          password: password.value,
           role: cleanUsername.toLowerCase() === 'admin' ? 'ADMIN' : 'STAKEHOLDER'
         }
+      })
+
+      if (regError || regData?.error) {
+        const msg = regError?.message || regData?.error || ''
+        if (!msg.toLowerCase().includes('already')) {
+          throw new Error(msg || 'Registration failed. Please check your credentials.')
+        }
       }
+
+      if (regData?.email) {
+        registeredEmail = regData.email
+      }
+    } catch (edgeErr) {
+      console.warn('[AUTH] Edge function register error, falling back to direct sign-in:', edgeErr)
+    }
+
+    // 2. Immediately sign in to obtain authenticated session token
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      email: registeredEmail,
+      password: password.value
     })
 
-    if (signUpError) throw signUpError
+    if (signInError) {
+      throw new Error(signInError.message || 'Account created, but could not sign in. Please log in from the Sign In page.')
+    }
 
-    const session = signUpData.session
-    const user = signUpData.user
+    const session = signInData.session
+    const user = signInData.user
+    const roleToSet = cleanUsername.toLowerCase() === 'admin' ? 'ADMIN' : 'STAKEHOLDER'
 
     authStore.setSession({
       token: session?.access_token || '',
-      role: cleanUsername.toLowerCase() === 'admin' ? 'ADMIN' : 'STAKEHOLDER',
+      role: roleToSet,
       userId: user?.id || '',
       user: {
         id: user?.id,
         username: cleanUsername,
-        role: cleanUsername.toLowerCase() === 'admin' ? 'ADMIN' : 'STAKEHOLDER',
+        role: roleToSet,
         email: user?.email
       }
     })
 
-    // Go straight to the business application form
-    router.push('/business-application')
+    // Route according to user role
+    if (roleToSet === 'ADMIN') {
+      router.push('/admin/dashboard')
+    } else {
+      router.push('/business-application')
+    }
 
   } catch (error) {
     errorMessage.value =

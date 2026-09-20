@@ -119,7 +119,22 @@ async function onSubmit() {
 
     let emailToAuth = inputIdentifier
     if (!inputIdentifier.includes('@')) {
-      emailToAuth = inputIdentifier.toLowerCase().replace(/[^a-z0-9_.-]/g, '') + '@manticao.market'
+      // First try resolving the username via Edge Function
+      try {
+        const { data: resData } = await supabase.functions.invoke('approval-workflow', {
+          body: {
+            action: 'resolve-login',
+            identifier: inputIdentifier
+          }
+        })
+        if (resData?.email) {
+          emailToAuth = resData.email
+        } else {
+          emailToAuth = inputIdentifier.toLowerCase().replace(/[^a-z0-9_.-]/g, '') + '@manticao.market'
+        }
+      } catch (_) {
+        emailToAuth = inputIdentifier.toLowerCase().replace(/[^a-z0-9_.-]/g, '') + '@manticao.market'
+      }
     }
 
     console.log('[AUTH] Supabase signIn for:', emailToAuth)
