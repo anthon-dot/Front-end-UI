@@ -11,31 +11,64 @@ export async function getAdminUsers() {
 }
 
 export async function createUser(payload) {
-  const emailToUse = payload.email || `${payload.username.toLowerCase()}@manticao.market`
-  const { data, error } = await supabase.auth.signUp({
-    email: emailToUse,
-    password: payload.password || 'TemporaryPass123!',
-    options: {
-      data: {
-        username: payload.username,
-        role: payload.role || 'USER',
-        name: payload.name || ''
-      }
+  const cleanUsername = String(payload.username || '').trim()
+  if (!cleanUsername) {
+    throw new Error('Username is required')
+  }
+  if (!payload.password) {
+    throw new Error('Password is required (min 6 characters)')
+  }
+
+  // Invoke approval-workflow Edge Function:
+  // 1. Keeps admin's active session intact (no sign-out)
+  // 2. Confirms email automatically (no SMTP limits)
+  // 3. Creates profile directly with assigned role and status
+  const { data, error } = await supabase.functions.invoke('approval-workflow', {
+    body: {
+      action: 'register',
+      username: cleanUsername,
+      password: payload.password,
+      name: payload.name || cleanUsername,
+      role: payload.role || 'STAKEHOLDER',
+      status: payload.status || 'ACTIVE'
     }
   })
-  if (error) throw error
+
+  if (error || data?.error) {
+    throw new Error(error?.message || data?.error || 'Failed to create user')
+  }
+
   return { data: data.user }
 }
 
 export async function updateUser(id, payload) {
+  const updates = {
+    name: payload.name,
+    role: payload.role,
+    status: payload.status
+  }
+  if (payload.username) updates.username = payload.username
+
   const { data, error } = await supabase
     .from('profiles')
-    .update(payload)
+    .update(updates)
     .eq('id', id)
     .select()
     .single()
 
   if (error) throw error
+
+  // If a new password was specified, update it via Edge Function
+  if (payload.password && String(payload.password).trim().length >= 6) {
+    await supabase.functions.invoke('approval-workflow', {
+      body: {
+        action: 'update-password',
+        userId: id,
+        newPassword: String(payload.password).trim()
+      }
+    })
+  }
+
   return { data }
 }
 
@@ -63,8 +96,20 @@ export async function disableUser(id) {
   return { data }
 }
 
-export async function resetUserPassword(id) {
-  return { data: { success: true, message: 'Password reset link dispatched' } }
+export async function resetUserPassword(id, newPassword = 'Password@123') {
+  const { data, error } = await supabase.functions.invoke('approval-workflow', {
+    body: {
+      action: 'update-password',
+      userId: id,
+      newPassword
+    }
+  })
+
+  if (error || data?.error) {
+    throw new Error(error?.message || data?.error || 'Failed to reset password')
+  }
+
+  return { data: { success: true, message: `Password reset to ${newPassword}` } }
 }
 
 export async function getLoginHistory() {

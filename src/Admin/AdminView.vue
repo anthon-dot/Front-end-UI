@@ -380,7 +380,7 @@ const page = computed(() => {
 const hasSearch = computed(() => !['AdminDashboard', 'AdminRoles', 'AdminSettings', 'AdminProfile', 'AdminStallMap'].includes(route.name))
 const showFilterBar = computed(() => ['AdminUsers', 'AdminAuditLogs', 'AdminLoginHistory', 'AdminNotifications'].includes(route.name))
 const isReportRoute = computed(() => String(route.name).includes('Report'))
-const roleOptions = ['ADMIN', 'TREASURER', 'MARKET_SUPERVISOR', 'BPLO', 'ENDORSING_OFFICE']
+const roleOptions = ['ADMIN', 'TREASURER', 'MARKET_SUPERVISOR', 'BPLO_OFFICE', 'ENDORSING_OFFICE', 'STAKEHOLDER']
 const stallStatuses = ['VACANT', 'OCCUPIED', 'RESERVED', 'MAINTENANCE', 'INACTIVE']
 const roleFilterOptions = computed(() => ['All', ...new Set([...roleOptions, ...state.users.map((user) => user.role)].filter(Boolean))])
 const statusFilterOptions = computed(() => {
@@ -838,12 +838,12 @@ function confirmDisable(user) {
 
 function confirmResetPassword(user) {
   confirm.require({
-    message: `Are you sure you want to reset the password for "${user.name}"?`,
+    message: `Are you sure you want to reset the password for "${user.name}" to "Password@123"?`,
     header: 'Reset Password',
-    acceptLabel: 'Reset',
+    acceptLabel: 'Reset to Password@123',
     rejectLabel: 'Cancel',
     severity: 'warn',
-    accept: async () => runUserAction(() => resetUserPassword(user.id), 'Password reset requested.')
+    accept: async () => runUserAction(() => resetUserPassword(user.id, 'Password@123'), 'Password reset to Password@123.')
   })
 }
 
