@@ -270,48 +270,49 @@
           <div v-if="selected.documents && selected.documents.length" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <div
               v-for="doc in selected.documents"
-              :key="doc.id"
+              :key="doc.id || doc.filePath || doc.fileName"
               class="group relative bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden cursor-pointer hover:shadow-md hover:border-indigo-200 transition-all"
               @click="openImagePreview(doc)"
             >
               <div class="aspect-square bg-slate-100 flex items-center justify-center overflow-hidden relative">
                 <!-- Loading spinner -->
-                <div v-if="loadingImages[doc.fileName]" class="flex flex-col items-center justify-center gap-1.5 text-indigo-500">
+                <div v-if="loadingImages[getDocKey(doc)]" class="flex flex-col items-center justify-center gap-1.5 text-indigo-500">
                   <i class="pi pi-spin pi-spinner text-2xl"></i>
                   <span class="text-[10px] text-slate-400">Loading...</span>
                 </div>
 
                 <!-- Image loaded via blob -->
                 <img
-                  v-else-if="isImageFile(doc.fileName) && loadedImageUrls[doc.fileName]"
-                  :src="loadedImageUrls[doc.fileName]"
-                  :alt="doc.documentType"
-                  class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                />
-
-                <!-- Image failed (missing or error) -->
-                <div
-                  v-else-if="isImageFile(doc.fileName) && imageFailed[doc.fileName]"
-                  class="flex flex-col items-center justify-center gap-1 text-slate-400 p-2 text-center w-full h-full"
-                >
-                  <i class="pi pi-exclamation-triangle text-2xl text-amber-400"></i>
-                  <span class="text-xs font-semibold text-slate-600">File Not Found</span>
-                  <span class="text-[9px] text-slate-400 leading-tight">Storage reset or 404</span>
-                </div>
-
-                <!-- Direct URL image (for base64/external) -->
-                <img
-                  v-else-if="isImageFile(doc.fileName)"
-                  :src="getFileUrl(doc.fileName)"
+                  v-else-if="isImageFile(doc) && loadedImageUrls[getDocKey(doc)]"
+                  :src="loadedImageUrls[getDocKey(doc)]"
                   :alt="doc.documentType"
                   class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   @error="handleImageError($event, doc)"
                 />
 
+                <!-- Image fallback using direct URL -->
+                <img
+                  v-else-if="isImageFile(doc) && !imageFailed[getDocKey(doc)]"
+                  :src="getDocUrl(doc)"
+                  :alt="doc.documentType"
+                  class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  @error="handleImageError($event, doc)"
+                />
+
+                <!-- Image failed (missing or error) -->
+                <div
+                  v-else-if="isImageFile(doc) && imageFailed[getDocKey(doc)]"
+                  class="flex flex-col items-center justify-center gap-1 text-slate-400 p-2 text-center w-full h-full"
+                >
+                  <i class="pi pi-exclamation-triangle text-2xl text-amber-400"></i>
+                  <span class="text-xs font-semibold text-slate-600">File Not Found</span>
+                  <span class="text-[9px] text-slate-400 leading-tight">Image load error</span>
+                </div>
+
                 <!-- PDF / other document type -->
                 <div v-else class="flex flex-col items-center gap-2 text-slate-400">
                   <i class="pi pi-file text-3xl"></i>
-                  <span class="text-xs">{{ getFileExtension(doc.fileName) }}</span>
+                  <span class="text-xs">{{ getFileExtension(doc) }}</span>
                 </div>
               </div>
               <div class="p-2.5">
@@ -347,14 +348,14 @@
         <div class="w-full bg-slate-100 rounded-xl overflow-hidden flex items-center justify-center min-h-[300px] max-h-[70vh]">
           <img
             v-if="isImageFile(previewDoc.fileName)"
-            :src="loadedImageUrls[previewDoc.fileName] || getFileUrl(previewDoc.fileName)"
+            :src="loadedImageUrls[getDocKey(previewDoc)] || getDocUrl(previewDoc)"
             :alt="previewDoc.documentType"
             class="max-w-full max-h-[70vh] object-contain"
             @error="handleImageError($event, previewDoc)"
           />
           <iframe
             v-else-if="isPdfFile(previewDoc.fileName)"
-            :src="loadedImageUrls[previewDoc.fileName] || getFileUrl(previewDoc.fileName)"
+            :src="loadedImageUrls[getDocKey(previewDoc)] || getDocUrl(previewDoc)"
             class="w-full h-[70vh] border-0"
           ></iframe>
           <div v-else class="flex flex-col items-center gap-3 p-8 text-slate-400">
@@ -364,7 +365,7 @@
         </div>
         <div class="mt-4 flex items-center gap-3">
           <a
-            :href="getFileUrl(previewDoc.fileName)"
+            :href="getDocUrl(previewDoc)"
             target="_blank"
             class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-colors shadow-sm"
           >
@@ -466,46 +467,73 @@ const approvedCount = computed(() => {
 // =========================
 // OPEN / CLOSE MODAL
 // =========================
+function extractFileName(val) {
+  if (!val) return 'document'
+  const clean = String(val).split('?')[0]
+  const slashParts = clean.split('/')
+  const lastPart = slashParts[slashParts.length - 1]
+  const backslashParts = lastPart.split('\\\\')
+  return backslashParts[backslashParts.length - 1] || 'document'
+}
 
 function open(app) {
-  // If app already has a documents array, use it.
-  // Otherwise, build one from flat fileName fields the backend may return.
-  if (!app.documents || !app.documents.length) {
-    const docs = []
-    const fieldMap = [
-      { key: 'letterOfIntent', label: 'Letter of Intent' },
-      { key: 'validID', label: 'Valid ID' },
-      { key: 'postUpload1', label: 'Post-Contract Upload 1' },
-      { key: 'postUpload2', label: 'Post-Contract Upload 2' },
-      { key: 'applicationForm', label: 'Application Form' },
-      { key: 'avatar', label: 'Profile Photo' },
-    ]
-    for (const { key, label } of fieldMap) {
-      const fileName = app[key + 'FileName'] || app[key + 'File'] || app[key + 'Url']
-      if (fileName && typeof fileName === 'string' && fileName.trim() !== '') {
-        docs.push({ id: key, documentType: label, fileName })
+  let docs = Array.isArray(app.documents) ? [...app.documents] : []
+
+  const fieldMap = [
+    { key: 'letterOfIntent', label: 'Letter of Intent' },
+    { key: 'validID', label: 'Valid ID' },
+    { key: 'postUpload1', label: 'Post-Contract Upload 1' },
+    { key: 'postUpload2', label: 'Post-Contract Upload 2' },
+    { key: 'applicationForm', label: 'Application Form' },
+    { key: 'avatar', label: 'Profile Photo' },
+  ]
+  for (const { key, label } of fieldMap) {
+    const rawVal = app[key + 'FileName'] || app[key + 'File'] || app[key + 'Url'] || app[key + '_url']
+    if (rawVal && typeof rawVal === 'string' && rawVal.trim() !== '') {
+      if (!docs.some(d => (d.documentType || d.document_type) === label)) {
+        docs.push({ id: key, documentType: label, fileName: extractFileName(rawVal), filePath: app[key + 'Url'] || app[key + '_url'] || rawVal })
       }
-    }
-    if (app.idFileName && typeof app.idFileName === 'string') {
-      docs.push({ id: 'id', documentType: 'Valid ID', fileName: app.idFileName })
-    }
-    if (app.letterFileName && typeof app.letterFileName === 'string') {
-      docs.push({ id: 'letter', documentType: 'Letter of Intent', fileName: app.letterFileName })
-    }
-    if (docs.length) {
-      app.documents = docs
     }
   }
 
-  // Ensure documents have valid fileName and proactively fetch image blobs with authentication
-  if (app.documents && app.documents.length) {
-    for (const doc of app.documents) {
-      if (!doc.fileName && doc.filePath) {
-        doc.fileName = doc.filePath.split(/[/\\]/).pop()
-      }
-      if (doc.fileName && (isImageFile(doc.fileName) || isPdfFile(doc.fileName))) {
-        fetchImageBlob(doc.fileName)
-      }
+  const idUrl = app.idDocumentUrl || app.id_document_url || app.idUrl
+  if (idUrl && !docs.some(d => (d.documentType || d.document_type) === 'VALID_ID' || (d.documentType || d.document_type) === 'Valid ID')) {
+    docs.push({
+      id: 'valid_id',
+      documentType: 'Valid ID',
+      fileName: app.idFileName || app.id_file_name || extractFileName(idUrl),
+      filePath: idUrl
+    })
+  }
+
+  const letterUrl = app.letterDocumentUrl || app.letter_document_url || app.letterUrl
+  if (letterUrl && !docs.some(d => (d.documentType || d.document_type) === 'APPLICATION_LETTER' || (d.documentType || d.document_type) === 'Letter of Intent')) {
+    docs.push({
+      id: 'letter_of_intent',
+      documentType: 'Letter of Intent',
+      fileName: app.letterFileName || app.letter_file_name || extractFileName(letterUrl),
+      filePath: letterUrl
+    })
+  }
+
+  docs = docs.map((doc, idx) => {
+    const filePath = doc.filePath || doc.file_path || doc.url || ''
+    const fileName = doc.fileName || doc.file_name || (filePath ? extractFileName(filePath) : 'document_' + (idx + 1))
+    const documentType = doc.documentType || doc.document_type || 'Document'
+    return {
+      ...doc,
+      id: doc.id || fileName,
+      fileName,
+      filePath: filePath || fileName,
+      documentType
+    }
+  })
+
+  app.documents = docs
+
+  for (const doc of docs) {
+    if (isImageFile(doc) || isPdfFile(doc)) {
+      fetchImageBlob(doc)
     }
   }
 
@@ -607,32 +635,57 @@ function statusClass(status) {
 // =========================
 // IMAGE / DOCUMENT HELPERS
 // =========================
-
-function getFileUrl(fileName) {
-  if (!fileName) return ''
-  if (fileName.startsWith('data:') || fileName.startsWith('blob:')) return fileName
-  if (fileName.startsWith('http://') || fileName.startsWith('https://')) return fileName
-  const cleaned = fileName.replace(/^\/?(uploads\/)?/, '')
-  return `${API_ORIGIN}/uploads/${cleaned}`
+function getDocKey(doc) {
+  if (!doc) return ''
+  if (typeof doc === 'string') return doc
+  return String(doc.filePath || doc.file_path || doc.fileName || doc.file_name || doc.id || '')
 }
 
-async function fetchImageBlob(fileName) {
-  if (!fileName || loadedImageUrls.value[fileName]) return
-  const url = getFileUrl(fileName)
+function getDocUrl(doc) {
+  if (!doc) return ''
+  let target = (typeof doc === 'object') ? (doc.filePath || doc.file_path || doc.url || doc.fileName || doc.file_name || '') : String(doc || '')
+  if (!target) return ''
+
+  if (target.startsWith('http://') || target.startsWith('https://') || target.startsWith('data:') || target.startsWith('blob:')) {
+    return target
+  }
+
+  if (target.includes('applications/') || target.includes('stalls/') || target.includes('documents/') || target.startsWith('uploads/')) {
+    const clean = target.replace(/^\/?(uploads\/)?/, '')
+    return 'https://uzykxxphunglcwojoqtf.supabase.co/storage/v1/object/public/uploads/' + clean
+  }
+
+  const cleaned = target.replace(/^\/?(uploads\/)?/, '')
+  return API_ORIGIN + '/uploads/' + cleaned
+}
+
+function getFileUrl(fileName, doc = null) {
+  return getDocUrl(doc || fileName)
+}
+
+async function fetchImageBlob(docOrFileName) {
+  const key = getDocKey(docOrFileName)
+  if (!key || loadedImageUrls.value[key]) return
+
+  const url = getDocUrl(docOrFileName)
+  if (!url) return
+
   if (url.startsWith('data:') || url.startsWith('blob:')) {
-    loadedImageUrls.value[fileName] = url
+    loadedImageUrls.value[key] = url
     return
   }
 
-  loadingImages.value[fileName] = true
-  imageFailed.value[fileName] = false
+  loadingImages.value[key] = true
+  imageFailed.value[key] = false
 
   try {
-    const token = localStorage.getItem(AUTH_TOKEN_KEY) || localStorage.getItem('token')
-    const headers = token ? { Authorization: `Bearer ${token}` } : {}
+    const isSupabase = url.includes('supabase.co')
+    const headers = isSupabase ? {} : {
+      Authorization: 'Bearer ' + (localStorage.getItem(AUTH_TOKEN_KEY) || localStorage.getItem('token') || '')
+    }
 
     let res = await fetch(url, { headers })
-    if (!res.ok && !url.includes('/api/uploads/')) {
+    if (!res.ok && !url.includes('/api/uploads/') && !isSupabase) {
       const altUrl = url.replace('/uploads/', '/api/uploads/')
       try {
         const altRes = await fetch(altUrl, { headers })
@@ -642,59 +695,72 @@ async function fetchImageBlob(fileName) {
 
     if (res.ok) {
       const blob = await res.blob()
-      loadedImageUrls.value[fileName] = URL.createObjectURL(blob)
+      loadedImageUrls.value[key] = URL.createObjectURL(blob)
     } else {
-      console.warn(`[ImageLoad] Server returned ${res.status} for ${url}`)
-      imageFailed.value[fileName] = true
+      console.warn('[ImageLoad] Server returned ' + res.status + ' for ' + url)
+      if (url.startsWith('http')) {
+        loadedImageUrls.value[key] = url
+      } else {
+        imageFailed.value[key] = true
+      }
     }
   } catch (err) {
-    console.warn(`[ImageLoad] Error fetching ${url}:`, err)
-    imageFailed.value[fileName] = true
+    console.warn('[ImageLoad] Error fetching ' + url + ':', err)
+    if (url.startsWith('http')) {
+      loadedImageUrls.value[key] = url
+    } else {
+      imageFailed.value[key] = true
+    }
   } finally {
-    loadingImages.value[fileName] = false
+    loadingImages.value[key] = false
   }
 }
 
-function isImageFile(fileName) {
-  if (!fileName) return false
-  if (fileName.startsWith('data:image/')) return true
-  const ext = fileName.split(/[#?]/)[0].split('.').pop().toLowerCase()
+function isImageFile(doc) {
+  const target = (typeof doc === 'object') ? (doc?.filePath || doc?.file_path || doc?.fileName || doc?.file_name || '') : String(doc || '')
+  if (!target) return false
+  if (target.startsWith('data:image/')) return true
+  const clean = target.split('?')[0].split('#')[0]
+  const ext = clean.split('.').pop().toLowerCase()
   return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(ext)
 }
 
-function isPdfFile(fileName) {
-  if (!fileName) return false
-  if (fileName.startsWith('data:application/pdf')) return true
-  const ext = fileName.split(/[#?]/)[0].split('.').pop().toLowerCase()
+function isPdfFile(doc) {
+  const target = (typeof doc === 'object') ? (doc?.filePath || doc?.file_path || doc?.fileName || doc?.file_name || '') : String(doc || '')
+  if (!target) return false
+  if (target.startsWith('data:application/pdf')) return true
+  const clean = target.split('?')[0].split('#')[0]
+  const ext = clean.split('.').pop().toLowerCase()
   return ext === 'pdf'
 }
 
-function getFileExtension(fileName) {
-  if (!fileName) return ''
-  if (fileName.startsWith('data:image/')) return '.IMG'
-  if (fileName.startsWith('data:application/pdf')) return '.PDF'
-  return '.' + fileName.split(/[#?]/)[0].split('.').pop().toUpperCase()
+function getFileExtension(doc) {
+  const target = (typeof doc === 'object') ? (doc?.filePath || doc?.file_path || doc?.fileName || doc?.file_name || '') : String(doc || '')
+  if (!target) return ''
+  if (target.startsWith('data:image/')) return '.IMG'
+  if (target.startsWith('data:application/pdf')) return '.PDF'
+  const clean = target.split('?')[0].split('#')[0]
+  return '.' + clean.split('.').pop().toUpperCase()
 }
 
 function openImagePreview(doc) {
   previewDoc.value = doc
-  if (doc?.fileName && !loadedImageUrls.value[doc.fileName]) {
-    fetchImageBlob(doc.fileName)
+  const key = getDocKey(doc)
+  if (key && !loadedImageUrls.value[key]) {
+    fetchImageBlob(doc)
   }
   showImagePreview.value = true
 }
 
 function handleImageError(event, doc) {
+  const key = getDocKey(doc)
+  if (key) imageFailed.value[key] = true
   event.target.style.display = 'none'
   const parent = event.target.parentElement
   if (parent && !parent.querySelector('.img-fallback-box')) {
     const fallback = document.createElement('div')
     fallback.className = 'img-fallback-box flex flex-col items-center justify-center gap-1.5 text-slate-400 p-3 text-center w-full h-full'
-    fallback.innerHTML = `
-      <i class="pi pi-exclamation-triangle text-2xl text-amber-400"></i>
-      <span class="text-xs font-semibold text-slate-600">File Not Found</span>
-      <span class="text-[10px] text-slate-400 leading-tight">Server file is missing (404) or was wiped during server restart</span>
-    `
+    fallback.innerHTML = '<i class="pi pi-exclamation-triangle text-2xl text-amber-400"></i><span class="text-xs font-semibold text-slate-600">File Not Found</span><span class="text-[10px] text-slate-400 leading-tight">Image could not be loaded</span>'
     parent.appendChild(fallback)
   }
 }
