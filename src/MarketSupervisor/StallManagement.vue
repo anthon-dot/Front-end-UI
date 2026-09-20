@@ -535,16 +535,21 @@ const MAP_STYLES = [
   }
 ]
 
-// Get official Google Maps colored pin icon based on status
+// Get custom stall pin icon based on status
 function getMarkerIcon(status) {
   const norm = getNormalizedStatus(status)
+  let iconUrl = '/icons/stall-pin-blue.svg'
   if (norm === 'occupied') {
-    return 'https://maps.google.com/mapfiles/ms/icons/green-dot.png'
+    iconUrl = '/icons/stall-pin-green.svg'
+  } else if (norm === 'reserved') {
+    iconUrl = '/icons/stall-pin-yellow.svg'
   }
-  if (norm === 'reserved') {
-    return 'https://maps.google.com/mapfiles/ms/icons/yellow-dot.png'
+
+  return {
+    url: iconUrl,
+    scaledSize: new window.google.maps.Size(42, 42),
+    anchor: new window.google.maps.Point(21, 40)
   }
-  return 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'
 }
 
 async function initializeMap() {
@@ -764,7 +769,11 @@ function startPickingLocation() {
         map,
         draggable: true,
         title: 'Drag to set stall location',
-        icon: 'https://maps.google.com/mapfiles/ms/icons/orange-dot.png'
+        icon: {
+          url: '/icons/stall-pin-orange.svg',
+          scaledSize: new window.google.maps.Size(46, 46),
+          anchor: new window.google.maps.Point(23, 44)
+        }
       })
 
       pickerMarker.addListener('dragend', (e) => {
