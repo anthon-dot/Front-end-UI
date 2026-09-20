@@ -477,6 +477,22 @@ const api = {
       return { data: resData };
     }
 
+    if (cleanUrl.startsWith('stakeholders/') && (cleanUrl.includes('market-approve') || cleanUrl.includes('supervisor-approve'))) {
+      const stakeholderId = cleanUrl.split('/')[1];
+      const { data: updated, error } = await supabase
+        .from('stakeholders')
+        .update({
+          market_supervisor_approved: true,
+          market_approval_status: 'APPROVED',
+          application_status: 'PENDING_BPLO_APPROVAL'
+        })
+        .eq('id', stakeholderId)
+        .select()
+        .single();
+      if (error) throw error;
+      return { data: normalizeRecord(updated) };
+    }
+
     if (cleanUrl.startsWith('stakeholders/') && cleanUrl.includes('assign-stall')) {
       const stakeholderId = cleanUrl.split('/')[1];
       const { data: resData, error } = await supabase.functions.invoke('approval-workflow', {
@@ -546,6 +562,43 @@ const api = {
       });
       if (error || res?.error) throw new Error(error?.message || res?.error || 'Endorsement failed');
       return { data: res };
+    }
+
+    if (cleanUrl.includes('/market-approve') || cleanUrl.includes('/supervisor-approve')) {
+      const stakeholderId = cleanUrl.split('/')[1];
+      const { data: updated, error } = await supabase
+        .from('stakeholders')
+        .update({
+          market_supervisor_approved: true,
+          market_approval_status: 'APPROVED',
+          application_status: 'PENDING_BPLO_APPROVAL'
+        })
+        .eq('id', stakeholderId)
+        .select()
+        .single();
+      if (error) throw error;
+
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        await supabase.from('approval_history').insert({
+          stakeholder_id: Number(stakeholderId),
+          stage: 'MARKET_SUPERVISOR',
+          status: 'APPROVED',
+          approved_by: user?.id || null,
+          remarks: data?.remarks || 'Market Supervisor approved application'
+        });
+        await supabase.from('notifications').insert({
+          stakeholder_id: Number(stakeholderId),
+          title: 'Market Supervisor Approved',
+          message: 'Your application has been approved by the Market Supervisor and forwarded to BPLO.',
+          priority: 'MEDIUM',
+          notification_type: 'APPROVAL_UPDATE',
+          related_record_type: 'STAKEHOLDER',
+          related_record_id: Number(stakeholderId)
+        });
+      } catch (_) {}
+
+      return { data: normalizeRecord(updated) };
     }
 
     if (cleanUrl.includes('/bplo-approve')) {

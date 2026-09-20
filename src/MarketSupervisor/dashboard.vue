@@ -154,23 +154,15 @@
                     v-tooltip="'View Details'"
                   />
 
-                  <!-- IF canApprove -->
+                  <!-- IF canApprove: ONLY Approve button -->
                   <template v-if="canApprove(app)">
 
                     <button
                       class="btn-approve inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg shadow-sm hover:opacity-90 active:scale-95 transition-all cursor-pointer"
-                      @click="handleApproveClick(app)"
+                      @click="approveMarketSupervisor(app)"
                     >
                       <i class="pi pi-check text-xs"></i>
                       Approve
-                    </button>
-
-                    <button
-                      class="btn-reject inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg shadow-sm hover:opacity-90 active:scale-95 transition-all cursor-pointer"
-                      @click="rejectMarketSupervisor(app)"
-                    >
-                      <i class="pi pi-times text-xs"></i>
-                      Reject
                     </button>
 
                   </template>
@@ -362,21 +354,13 @@
             </span>
           </div>
           <div class="flex items-center gap-2">
-            <template v-if="canApprove(selected)">
-              <Button
-                label="Approve"
-                icon="pi pi-check"
-                severity="success"
-                @click="handleApproveClick(selected)"
-              />
-              <Button
-                label="Reject"
-                icon="pi pi-times"
-                severity="danger"
-                outlined
-                @click="rejectMarketSupervisor(selected)"
-              />
-            </template>
+            <Button
+              v-if="canApprove(selected)"
+              label="Approve"
+              icon="pi pi-check"
+              severity="success"
+              @click="approveMarketSupervisor(selected)"
+            />
             <Button label="Close" icon="pi pi-times" text @click="close" class="text-slate-600" />
           </div>
         </div>
@@ -427,118 +411,6 @@
         <Button label="Close" icon="pi pi-times" text @click="showImagePreview = false" class="text-slate-600" />
       </template>
     </Dialog>
-
-
-    <!-- ASSIGN STALL & APPROVE MODAL -->
-    <Dialog
-      v-model:visible="showAssignModal"
-      modal
-      header="Approve Application & Assign Stall"
-      :style="{ width: '38vw', minWidth: '360px' }"
-      :breakpoints="{ '960px': '65vw', '641px': '95vw' }"
-      class="modern-dialog"
-    >
-      <div v-if="assigningApp" class="flex flex-col gap-4 pt-1">
-        <!-- Applicant Info Banner -->
-        <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex items-center justify-between">
-          <div>
-            <h4 class="font-bold text-slate-800 text-base">
-              {{ assigningApp.firstName }} {{ assigningApp.lastName }}
-            </h4>
-            <p class="text-xs text-slate-600 mt-0.5">
-              {{ assigningApp.businessName }} &bull; {{ assigningApp.businessType || 'General Merchandise' }}
-            </p>
-          </div>
-          <div class="text-right">
-            <span class="block text-[10px] uppercase font-bold text-indigo-500 tracking-wider">Receipt #</span>
-            <span class="font-mono text-xs font-bold text-indigo-700 bg-white border border-indigo-200 px-2 py-0.5 rounded shadow-sm inline-block mt-0.5">
-              {{ getApplicantReceipt(assigningApp) || 'Verified' }}
-            </span>
-          </div>
-        </div>
-
-        <!-- Stall Selection Form -->
-        <div class="flex flex-col gap-3.5">
-          <div>
-            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-              Select Vacant Stall <span class="text-rose-500">*</span>
-            </label>
-            <select
-              v-model="selectedStallId"
-              class="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
-            >
-              <option value="" disabled>-- Choose an available stall --</option>
-              <option
-                v-for="stall in availableStalls"
-                :key="stall.id"
-                :value="stall.id"
-              >
-                {{ stall.stallNo || stall.stall_no }} &mdash; {{ stall.stallType || stall.stall_type || 'Standard' }} (₱{{ Number(stall.monthlyRent || stall.monthly_rent || 0).toLocaleString() }}/mo)
-              </option>
-            </select>
-            <p v-if="availableStalls.length === 0" class="text-xs text-amber-600 mt-1">
-              <i class="pi pi-exclamation-circle mr-1"></i> No vacant stalls found in system.
-            </p>
-          </div>
-
-          <!-- Contract Start & End Date -->
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Start Date
-              </label>
-              <input
-                type="date"
-                v-model="contractStartDate"
-                class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
-              />
-            </div>
-            <div>
-              <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                End Date
-              </label>
-              <input
-                type="date"
-                v-model="contractEndDate"
-                class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-              Lease Terms & Agreement
-            </label>
-            <input
-              type="text"
-              v-model="contractTerms"
-              class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
-              placeholder="e.g. Standard Municipal Public Market Lease Terms"
-            />
-          </div>
-        </div>
-      </div>
-
-      <template #footer>
-        <div class="flex items-center justify-end gap-2">
-          <Button
-            label="Cancel"
-            icon="pi pi-times"
-            text
-            @click="showAssignModal = false"
-            class="text-slate-600"
-          />
-          <Button
-            label="Confirm & Approve"
-            icon="pi pi-check"
-            severity="success"
-            :loading="isSubmitting"
-            :disabled="!selectedStallId"
-            @click="submitApproval"
-          />
-        </div>
-      </template>
-    </Dialog>
   </div>
 
 </template>
@@ -561,15 +433,8 @@ const applications = ref([])
 const showModal = ref(false)
 const selected = ref({})
 
-// Stall assignment & approval state
-const availableStalls = ref([])
-const showAssignModal = ref(false)
-const assigningApp = ref(null)
-const selectedStallId = ref('')
-const contractStartDate = ref(new Date().toISOString().slice(0, 10))
-const contractEndDate = ref('')
-const contractTerms = ref('Standard Municipal Public Market Lease Terms')
-const isSubmitting = ref(false)
+// Approval state
+const isApproving = ref(false)
 
 // IMAGE PREVIEW
 const showImagePreview = ref(false)
@@ -721,75 +586,52 @@ function close() {
   selected.value = {}
 }
 
-async function loadStalls() {
-  try {
-    const res = await api.get('/stalls')
-    const all = res.data || []
-    availableStalls.value = all.filter(s => {
-      const st = (s.status || '').toUpperCase()
-      return st === 'AVAILABLE' || st === 'VACANT'
-    })
-  } catch (err) {
-    console.error('Failed to load available stalls:', err)
-  }
-}
-
-function handleApproveClick(app) {
-  assigningApp.value = app
-
-  // Pre-select stall if the applicant already selected one
-  const stallId = app.selectedStall?.id || app.selected_stall_id || app.selectedStallId
-  if (stallId) {
-    selectedStallId.value = stallId
-  } else if (availableStalls.value.length > 0) {
-    selectedStallId.value = availableStalls.value[0].id
-  } else {
-    selectedStallId.value = ''
-  }
-
-  const today = new Date()
-  contractStartDate.value = today.toISOString().slice(0, 10)
-  const oneYearLater = new Date(today)
-  oneYearLater.setFullYear(oneYearLater.getFullYear() + 1)
-  contractEndDate.value = oneYearLater.toISOString().slice(0, 10)
-  contractTerms.value = 'Standard Municipal Public Market Lease Terms'
-  showAssignModal.value = true
-}
-
-async function submitApproval() {
-  if (!assigningApp.value) return
-  if (!selectedStallId.value) {
-    alert('Please select a vacant stall to assign.')
-    return
-  }
-
-  isSubmitting.value = true
-  try {
-    const response = await api.post(
-      `/stakeholders/${assigningApp.value.id}/assign-stall`,
-      {
-        stallId: Number(selectedStallId.value),
-        startDate: contractStartDate.value,
-        endDate: contractEndDate.value,
-        terms: contractTerms.value || 'Standard Municipal Public Market Lease Terms'
-      }
-    )
-
-    alert('Application approved and stall assigned successfully!')
-    showAssignModal.value = false
-    showModal.value = false
-    await loadApplications()
-    await loadStalls()
-  } catch (error) {
-    console.error('Approval failed:', error)
-    alert(error.message || 'Approval failed')
-  } finally {
-    isSubmitting.value = false
-  }
-}
-
 async function approveMarketSupervisor(app) {
-  handleApproveClick(app)
+  if (!app) return
+  const applicantName = `${app.firstName || ''} ${app.lastName || ''}`.trim() || 'this applicant'
+
+  confirm.require({
+    header: 'Approve Application',
+    message: `Are you sure you want to approve the market application for ${applicantName}?`,
+    icon: 'pi pi-check-circle',
+    acceptLabel: 'Approve',
+    rejectLabel: 'Cancel',
+    acceptClass: 'p-button-success',
+    accept: async () => {
+      isApproving.value = true
+      try {
+        const response = await api.put(`/stakeholders/${app.id}/market-approve`)
+        const updated = response.data
+
+        const index = applications.value.findIndex(a => a.id === app.id)
+        if (index !== -1) {
+          applications.value[index] = {
+            ...applications.value[index],
+            ...updated,
+            marketApprovalStatus: 'APPROVED',
+            marketSupervisorApproved: true
+          }
+        }
+
+        if (selected.value?.id === app.id) {
+          selected.value = {
+            ...selected.value,
+            ...updated,
+            marketApprovalStatus: 'APPROVED',
+            marketSupervisorApproved: true
+          }
+        }
+
+        alert('Application approved successfully!')
+        await loadApplications()
+      } catch (error) {
+        console.error('Approval failed:', error)
+        alert(error.message || 'Approval failed')
+      } finally {
+        isApproving.value = false
+      }
+    }
+  })
 }
 
 async function rejectMarketSupervisor(app) {
@@ -982,7 +824,6 @@ function handleImageError(event, doc) {
 
 onMounted(() => {
   loadApplications()
-  loadStalls()
 })
 </script>
 
