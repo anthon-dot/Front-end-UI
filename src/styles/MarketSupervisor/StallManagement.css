@@ -535,12 +535,14 @@ tr:hover td {
   color: #0f172a;
 }
 
-.summary-status {
+.summary-type-tag {
   font-size: 11px;
   font-weight: 700;
-  padding: 2px 8px;
+  padding: 3px 9px;
   border-radius: 999px;
-  text-transform: uppercase;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
 }
 
 .summary-details {
@@ -573,7 +575,13 @@ tr:hover td {
   margin-left: auto;
   cursor: pointer;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 14px;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+
+.btn-clear-selection:hover {
+  background: rgba(22, 101, 52, 0.1);
 }
 
 /* Occupant Section in Modal */
@@ -621,24 +629,100 @@ tr:hover td {
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-unassign:hover {
+  background: #fecaca;
+}
+
+/* Search input with clear button */
+.search-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-input-wrap input {
+  width: 100%;
+  padding: 9px 32px 9px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.search-input-wrap input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+.btn-clear-search {
+  position: absolute;
+  right: 8px;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.btn-clear-search:hover {
+  color: #0f172a;
+  background: #f1f5f9;
 }
 
 .stakeholder-results {
-  max-height: 160px;
+  max-height: 200px;
   overflow-y: auto;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   background: #ffffff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.stakeholder-empty-notice {
+  padding: 16px;
+  font-size: 12px;
+  color: #64748b;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  line-height: 1.4;
+  background: #f8fafc;
+}
+
+.stakeholder-empty-notice i {
+  color: #3b82f6;
+  font-size: 14px;
+  margin-top: 1px;
+  flex-shrink: 0;
 }
 
 .stakeholder-item {
-  padding: 9px 12px;
+  padding: 10px 12px;
   cursor: pointer;
   border-bottom: 1px solid #f1f5f9;
+  transition: background 0.15s;
+}
+
+.stakeholder-item:last-child {
+  border-bottom: none;
 }
 
 .stakeholder-item:hover {
   background: #eff6ff;
+}
+
+.stakeholder-item-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
 }
 
 .stakeholder-name {
@@ -647,21 +731,95 @@ tr:hover td {
   color: #0f172a;
 }
 
+.badge-approved {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #166534;
+  background: #dcfce7;
+  border: 1px solid #bbf7d0;
+  padding: 2px 7px;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+
 .stakeholder-biz {
+  font-size: 12px;
+  color: #475569;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.stakeholder-contact {
   font-size: 11px;
   color: #64748b;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.stakeholder-pref {
+  font-size: 11px;
+  color: #2563eb;
+  margin-top: 3px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 500;
 }
 
 .selected-occupant {
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: #dcfce7;
+  justify-content: space-between;
+  gap: 12px;
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  padding: 10px 14px;
+  border-radius: 10px;
+}
+
+.selected-occupant-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.selected-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.selected-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: #15803d;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.selected-occupant-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #14532d;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.selected-occupant-biz {
+  font-size: 12px;
   color: #166534;
-  padding: 8px 12px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 
 /* Coordinates Box */

@@ -167,15 +167,13 @@
           <button type="button" class="gm-close" @click="closeModal">✕</button>
         </div>
 
-        <div class="gm-body">
+        <div class="gm-body" @click="onModalBodyClick">
           <form @submit.prevent="saveStall">
             <!-- Stall Info Summary Card (Read-only master data) -->
             <div class="stall-summary-card">
               <div class="summary-top">
                 <span class="summary-stall-no">Stall {{ form.number }}</span>
-                <span :class="['summary-status', getNormalizedStatus(form.status)]">
-                  {{ form.status }}
-                </span>
+                <span class="summary-type-tag">{{ form.type || 'Standard Stall' }}</span>
               </div>
               <div class="summary-details">
                 <div class="summary-item">
@@ -193,20 +191,10 @@
               </div>
             </div>
 
-            <!-- OCCUPANCY CONFIGURATION -->
-            <label>
-              Occupancy Status
-              <select v-model="form.status" @change="onStatusChange">
-                <option value="VACANT">VACANT (Available)</option>
-                <option value="OCCUPIED">OCCUPIED</option>
-                <option value="RESERVED">RESERVED</option>
-              </select>
-            </label>
-
             <!-- OCCUPANT MANAGEMENT -->
             <div class="occupant-section">
               <!-- Current Occupant Display -->
-              <div v-if="currentOccupantName" class="current-occupant-card">
+              <div v-if="currentOccupantName && !selectedStakeholder" class="current-occupant-card">
                 <div class="current-occupant-header">
                   <strong>Current Occupant:</strong>
                   <button type="button" class="btn-unassign" @click="unassignCurrentOccupant">
@@ -221,39 +209,69 @@
 
               <!-- Search/Assign Stakeholder -->
               <label>
-                {{ currentOccupantName ? 'Reassign to Stakeholder' : 'Assign Stakeholder / Tenant' }}
-                <input
-                  v-model="stakeholderSearch"
-                  type="text"
-                  placeholder="Search stakeholder by name or business..."
-                />
+                {{ currentOccupantName ? 'Reassign to Approved Stakeholder' : 'Assign Approved Stakeholder' }}
+                <div class="search-input-wrap">
+                  <input
+                    v-model="stakeholderSearch"
+                    type="text"
+                    placeholder="Search approved stakeholder by name, business, or contact..."
+                    @focus="isSearchDropdownOpen = true"
+                    @input="onSearchInput"
+                  />
+                  <button
+                    v-if="stakeholderSearch"
+                    type="button"
+                    class="btn-clear-search"
+                    title="Clear search"
+                    @click="clearSearch"
+                  >
+                    ✕
+                  </button>
+                </div>
               </label>
 
               <!-- RESULTS DROPDOWN -->
               <div
-                v-if="stakeholderSearch && filteredStakeholders.length"
+                v-if="isSearchDropdownOpen"
                 class="stakeholder-results"
               >
                 <div
+                  v-if="approvedStakeholders.length === 0"
+                  class="stakeholder-empty-notice"
+                >
+                  <i class="pi pi-info-circle"></i>
+                  <span>No approved stakeholders found. Stakeholders will appear here once approved by the Market Supervisor under Applications for Approval.</span>
+                </div>
+
+                <div
+                  v-else-if="filteredStakeholders.length === 0"
+                  class="stakeholder-empty-notice"
+                >
+                  <i class="pi pi-search"></i>
+                  <span>No approved stakeholder matching "{{ stakeholderSearch }}"</span>
+                </div>
+
+                <div
                   v-for="person in filteredStakeholders"
+                  v-else
                   :key="person.id"
                   class="stakeholder-item"
                   @click="selectStakeholder(person)"
                 >
-                  <div class="stakeholder-name">
-                    {{ person.firstName }} {{ person.lastName }}
+                  <div class="stakeholder-item-top">
+                    <span class="stakeholder-name">{{ getPersonName(person) }}</span>
+                    <span class="badge-approved">Approved</span>
                   </div>
-                  <div v-if="person.businessName" class="stakeholder-biz">
-                    {{ person.businessName }}
+                  <div v-if="person.businessName || person.business_name" class="stakeholder-biz">
+                    <i class="pi pi-briefcase"></i> {{ person.businessName || person.business_name }}
+                  </div>
+                  <div v-if="person.contact || person.email" class="stakeholder-contact">
+                    <i class="pi pi-id-card"></i> {{ person.contact || person.email }}
+                  </div>
+                  <div v-if="person.selectedStall" class="stakeholder-pref">
+                    <i class="pi pi-bookmark"></i> Applied for Stall {{ person.selectedStall.stall_no || person.selectedStall.stallNo }}
                   </div>
                 </div>
-              </div>
-
-              <!-- SELECTED PREVIEW -->
-              <div v-if="selectedStakeholder" class="selected-occupant">
-                <i class="pi pi-check"></i>
-                <span>Selected: {{ selectedStakeholder.firstName }} {{ selectedStakeholder.lastName }}</span>
-                <button type="button" class="btn-clear-selection" @click="selectedStakeholder = null">✕</button>
               </div>
             </div>
 
@@ -306,6 +324,8 @@ const stakeholders = ref([])
 const stakeholderSearch = ref('')
 const selectedStakeholder = ref(null)
 const currentOccupantName = ref('')
+const initialOccupantName = ref('')
+const isSearchDropdownOpen = ref(false)
 
 const form = ref({
   id: null,
@@ -408,33 +428,101 @@ const filteredStalls = computed(() => {
   })
 })
 
-// Stakeholder Filter
-const filteredStakeholders = computed(() => {
-  if (!stakeholderSearch.value) return []
-  const q = stakeholderSearch.value.toLowerCase()
+// Helper to get person full name
+function getPersonName(person) {
+  if (!person) return ''
+  const first = person.firstName || person.first_name || ''
+  const last = person.lastName || person.last_name || ''
+  return `${first} ${last}`.trim() || 'Unknown Stakeholder'
+}
 
-  return stakeholders.value.filter((s) => {
-    const full = `${s.firstName || ''} ${s.lastName || ''}`.toLowerCase()
-    const biz = `${s.businessName || ''}`.toLowerCase()
-    return full.includes(q) || biz.includes(q)
+// Stakeholder is approved by Market Supervisor from application for approval
+function isApprovedByMarketSupervisor(s) {
+  if (!s) return false
+
+  // 1. Explicit Market Supervisor approval flag
+  if (s.marketSupervisorApproved === true || s.market_supervisor_approved === true) {
+    return true
+  }
+
+  // 2. Explicit Market Approval Status string
+  const marketStatus = String(
+    s.marketApprovalStatus || s.market_approval_status || ''
+  ).trim().toUpperCase()
+
+  if (marketStatus === 'APPROVED') {
+    return true
+  }
+
+  // 3. Application status at or downstream of Market Supervisor approval
+  const appStatus = String(
+    s.applicationStatus || s.application_status || ''
+  ).trim().toUpperCase()
+
+  const downstreamStatuses = [
+    'PENDING_BPLO_APPROVAL',
+    'BPLO_APPROVED',
+    'PENDING_ENDORSEMENT',
+    'ENDORSED',
+    'COMPLETED'
+  ]
+
+  return downstreamStatuses.includes(appStatus)
+}
+
+// Approved Stakeholders Filter: only stakeholders approved by Market Supervisor
+const approvedStakeholders = computed(() => {
+  return (stakeholders.value || []).filter(isApprovedByMarketSupervisor)
+})
+
+const filteredStakeholders = computed(() => {
+  const list = approvedStakeholders.value
+  const q = stakeholderSearch.value.trim().toLowerCase()
+  if (!q) return list
+
+  return list.filter((s) => {
+    const full = getPersonName(s).toLowerCase()
+    const biz = String(s.businessName || s.business_name || '').toLowerCase()
+    const contact = String(s.contact || '').toLowerCase()
+    const email = String(s.email || '').toLowerCase()
+    return full.includes(q) || biz.includes(q) || contact.includes(q) || email.includes(q)
   })
 })
 
+function onSearchInput() {
+  isSearchDropdownOpen.value = true
+  if (selectedStakeholder.value && stakeholderSearch.value !== getPersonName(selectedStakeholder.value)) {
+    selectedStakeholder.value = null
+  }
+}
+
 function selectStakeholder(person) {
   selectedStakeholder.value = person
-  stakeholderSearch.value = `${person.firstName || ''} ${person.lastName || ''}`.trim()
+  form.value.status = 'OCCUPIED'
+  stakeholderSearch.value = getPersonName(person)
+  isSearchDropdownOpen.value = false
+}
+
+function clearSearch() {
+  selectedStakeholder.value = null
+  stakeholderSearch.value = ''
+  isSearchDropdownOpen.value = false
+  if (!currentOccupantName.value) {
+    form.value.status = 'VACANT'
+  }
 }
 
 function unassignCurrentOccupant() {
   currentOccupantName.value = ''
   selectedStakeholder.value = null
+  stakeholderSearch.value = ''
   form.value.status = 'VACANT'
+  isSearchDropdownOpen.value = false
 }
 
-function onStatusChange() {
-  if (form.value.status === 'VACANT') {
-    selectedStakeholder.value = null
-    currentOccupantName.value = ''
+function onModalBodyClick(e) {
+  if (e && e.target && !e.target.closest('.search-input-wrap') && !e.target.closest('.stakeholder-results')) {
+    isSearchDropdownOpen.value = false
   }
 }
 
@@ -708,11 +796,16 @@ function editStall(stall) {
   }
 
   currentOccupantName.value = getOccupantName(stall)
+  initialOccupantName.value = currentOccupantName.value
   stakeholderSearch.value = ''
   selectedStakeholder.value = null
+  isSearchDropdownOpen.value = false
 
   imagePreview.value = resolveImageUrl(stall.imageUrl)
   showModal.value = true
+
+  // Ensure latest approvals from Market Supervisor are loaded
+  loadStakeholders()
 }
 
 function closeModal() {
@@ -720,27 +813,37 @@ function closeModal() {
   stakeholderSearch.value = ''
   selectedStakeholder.value = null
   currentOccupantName.value = ''
+  initialOccupantName.value = ''
+  isSearchDropdownOpen.value = false
 }
 
 async function saveStall() {
   if (!editing.value) return
+
+  // Validation: If stall was vacant and no stakeholder selected, prompt user
+  if (!selectedStakeholder.value && !initialOccupantName.value) {
+    alert('Please search and select an approved stakeholder to assign to this stall.')
+    return
+  }
+
   isSaving.value = true
   try {
     const targetStallId = editing.value
 
-    // Handle Occupant allocation or unassign
-    if (selectedStakeholder.value && (form.value.status === 'OCCUPIED' || form.value.status === 'RESERVED')) {
+    if (selectedStakeholder.value) {
+      // 1. Assign occupant and automatically set stall status as OCCUPIED
       await allocateOccupant(targetStallId, selectedStakeholder.value.id)
-    } else if (form.value.status === 'VACANT' || !currentOccupantName.value) {
+      await updateStall(targetStallId, { status: 'OCCUPIED' })
+      alert(`Stall ${form.value.number} successfully assigned to ${getPersonName(selectedStakeholder.value)} and updated as OCCUPIED!`)
+    } else if (initialOccupantName.value && !currentOccupantName.value) {
+      // 2. Current occupant removed: unassign and update status as VACANT
       await unassignOccupant(targetStallId)
+      await updateStall(targetStallId, { status: 'VACANT' })
+      alert(`Occupant removed from Stall ${form.value.number} and updated as VACANT!`)
     }
-
-    // Update stall status
-    await updateStall(targetStallId, { status: form.value.status })
 
     await loadStalls()
     closeModal()
-    alert('Stall assignment updated successfully!')
   } catch (error) {
     console.error(error)
     alert(error.message || 'Failed to update stall assignment')
