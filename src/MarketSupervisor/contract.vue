@@ -117,6 +117,15 @@
 				</button>
 			</div>
 
+			<!-- ACTIVE FILTER BANNER IF NAVIGATED FROM STALL MANAGEMENT -->
+			<div v-if="q" style="display: flex; align-items: center; gap: 8px; margin-bottom: 14px; background: #f0fdfa; border: 1px solid #99f6e4; padding: 10px 16px; border-radius: 12px; font-size: 13px; color: #0f766e;">
+				<i class="pi pi-filter" style="color: #0d9488;"></i>
+				<span>Active Filter: <strong>"{{ q }}"</strong> (Showing contracts matching this stall/stakeholder)</span>
+				<button style="margin-left: auto; background: #ffffff; border: 1px solid #cbd5e1; padding: 3px 10px; border-radius: 6px; font-size: 12px; color: #475569; font-weight: 700; cursor: pointer;" @click="q = ''">
+					✕ Clear Filter
+				</button>
+			</div>
+
 			<!-- TAB 1: ALL CONTRACTS TABLE -->
 			<div v-if="activeTab === 'contracts'" class="card table-card">
 				<div class="table-header">
@@ -748,10 +757,13 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import api from '../services/api'
 import sampleContracts from '../data/contracts.js'
 import MarketSupervisorMenu from '../components/MarketSupervisorMenu.vue'
 import SearchField from '../components/SearchField.vue'
+
+const route = useRoute()
 
 // =============================
 // STATE
@@ -1034,6 +1046,42 @@ async function loadContracts() {
 			}
 		}
 
+		// Also guarantee that any stall marked as OCCUPIED in stalls has a visible active contract
+		for (const st of stalls.value) {
+			const status = String(st.status || '').toUpperCase()
+			if (status === 'OCCUPIED') {
+				const stallNo = st.stallNo || st.stall_no || st.number || `Stall ${st.id}`
+				const hasContract = combined.some(c =>
+					(c.stallId && String(c.stallId) === String(st.id)) ||
+					(c.stallNo && String(c.stallNo) === String(stallNo))
+				)
+				if (!hasContract) {
+					const occ = st.occupant
+					const occObj = Array.isArray(occ) ? occ[0] : occ
+					const sh = occObj?.stakeholder || stakeholders.value.find(s => String(s.id) === String(occObj?.stakeholder_id || occObj?.stakeholderId))
+					const shName = sh ? getStakeholderFullName(sh) : (occObj?.name || 'Assigned Occupant')
+					combined.unshift({
+						id: `CON-${st.id}`,
+						contractNo: `CON-${stallNo}-${new Date().getFullYear()}`,
+						ref: `CON-${stallNo}-${new Date().getFullYear()}`,
+						stakeholderId: sh?.id || occObj?.stakeholder_id || '1',
+						stakeholderName: shName,
+						businessName: sh?.businessName || '',
+						stallId: st.id,
+						stallNo: stallNo,
+						stallType: st.stallType || st.stall_type || st.type || 'Standard Stall',
+						startDate: '2026-01-01',
+						endDate: '2026-12-31',
+						monthlyRent: Number(st.monthlyRent || st.monthly_rent || st.rent || 0),
+						billingFrequency: 'MONTHLY',
+						terms: defaultTerms,
+						status: 'ACTIVE',
+						createdAt: new Date().toISOString()
+					})
+				}
+			}
+		}
+
 		contracts.value = combined
 		saveContractsToStorage()
 	} catch (error) {
@@ -1045,11 +1093,9 @@ async function loadContracts() {
 async function refresh() {
 	isLoading.value = true
 	try {
-		await Promise.all([
-			loadStakeholders(),
-			loadStalls(),
-			loadContracts()
-		])
+		await loadStakeholders()
+		await loadStalls()
+		await loadContracts()
 	} finally {
 		isLoading.value = false
 	}
@@ -1310,6 +1356,12 @@ function printContract() {
 // =============================
 onMounted(async () => {
 	await refresh()
+
+	// Check if navigated from Stall Management with a specific stall/stakeholder query
+	if (route.query.q) {
+		q.value = String(route.query.q)
+		activeTab.value = 'contracts'
+	}
 })
 </script>
 

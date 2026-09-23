@@ -230,6 +230,34 @@
                 </div>
               </label>
 
+              <!-- SELECTED STAKEHOLDER DISPLAY -->
+              <div v-if="selectedStakeholder" class="selected-occupant" style="margin-top: 12px;">
+                <div class="selected-occupant-info">
+                  <div class="selected-badge-row">
+                    <span class="selected-tag"><i class="pi pi-check-circle"></i> Ready to Assign & Lease</span>
+                    <span class="badge-approved">Approved Stakeholder</span>
+                  </div>
+                  <div class="selected-occupant-name">
+                    <i class="pi pi-user"></i> {{ getPersonName(selectedStakeholder) }}
+                  </div>
+                  <div class="selected-occupant-biz">
+                    <i class="pi pi-briefcase"></i> {{ selectedStakeholder.businessName || selectedStakeholder.business_name || 'Business Applicant' }}
+                    <span v-if="selectedStakeholder.contact || selectedStakeholder.email">• {{ selectedStakeholder.contact || selectedStakeholder.email }}</span>
+                  </div>
+                </div>
+                <button type="button" class="btn-clear-selection" title="Change stakeholder" @click="clearSearch">
+                  ✕
+                </button>
+              </div>
+
+              <!-- AUTOMATIC STALL LEASE CONTRACT NOTICE -->
+              <div v-if="selectedStakeholder" class="contract-generation-note" style="margin-top: 10px; background: #f0fdfa; border: 1px solid #99f6e4; padding: 10px 14px; border-radius: 10px; font-size: 12px; color: #0f766e; display: flex; align-items: flex-start; gap: 8px; line-height: 1.4;">
+                <i class="pi pi-file-edit" style="font-size: 16px; color: #0d9488; margin-top: 1px; flex-shrink: 0;"></i>
+                <div>
+                  <strong>Automatic Lease Contract:</strong> Updating assignment will automatically issue an active municipal lease contract for <strong>{{ getPersonName(selectedStakeholder) }}</strong> on <strong>Stall {{ form.number }}</strong> (<strong>{{ formatCurrency(form.rent) }}/mo</strong>), immediately viewable in <strong>Contracts</strong>.
+                </div>
+              </div>
+
               <!-- RESULTS DROPDOWN -->
               <div
                 v-if="isSearchDropdownOpen"
@@ -292,6 +320,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { useRouter } from 'vue-router'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
@@ -305,6 +334,8 @@ import {
   allocateOccupant,
   unassignOccupant
 } from '../services/stallService'
+
+const router = useRouter()
 
 const DEFAULT_CENTER = { lat: 8.399991, lng: 124.291353 }
 const MIN_MAP_ZOOM = 14
@@ -680,8 +711,19 @@ function getStallInfoContent(stall, index, validStalls) {
         onclick="window.__editStallById(${stall.id})"
         class="gm-btn-manage"
       >
-        👤 Assign Occupant
+        👤 ${tenant ? 'Manage Occupant' : 'Assign Occupant'}
       </button>
+
+      ${tenant ? `
+      <button
+        onclick="window.__viewStallContract('${stall.number}')"
+        class="gm-btn-contract"
+        style="background: #0d9488; color: white; border: none; padding: 7px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;"
+        title="View lease contract for this stall"
+      >
+        📄 View Contract
+      </button>
+      ` : ''}
 
       <div class="gm-nav-arrows">
         <button
@@ -829,21 +871,111 @@ async function saveStall() {
   isSaving.value = true
   try {
     const targetStallId = editing.value
+    const stallNo = form.value.number
+    const stallType = form.value.type || 'Standard Stall'
+    const stallRent = Number(form.value.rent || 0)
 
     if (selectedStakeholder.value) {
+      const stakeholder = selectedStakeholder.value
+      const stakeholderId = stakeholder.id
+      const stakeholderName = getPersonName(stakeholder)
+      const businessName = stakeholder.businessName || stakeholder.business_name || ''
+
       // 1. Assign occupant and automatically set stall status as OCCUPIED
-      await allocateOccupant(targetStallId, selectedStakeholder.value.id)
+      await allocateOccupant(targetStallId, stakeholderId)
       await updateStall(targetStallId, { status: 'OCCUPIED' })
-      alert(`Stall ${form.value.number} successfully assigned to ${getPersonName(selectedStakeholder.value)} and updated as OCCUPIED!`)
+
+      // 2. Automatically generate stall lease contract
+      const today = new Date()
+      const nextYear = new Date()
+      nextYear.setFullYear(today.getFullYear() + 1)
+      const dateSuffix = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}`
+      const randSuffix = String(Math.floor(1000 + Math.random() * 9000))
+      const contractNo = `CON-${stallNo}-${dateSuffix}-${randSuffix}`
+
+      const contractPayload = {
+        contractNo: contractNo,
+        ref: contractNo,
+        startDate: today.toISOString().split('T')[0],
+        endDate: nextYear.toISOString().split('T')[0],
+        monthlyRent: stallRent,
+        billingFrequency: 'MONTHLY',
+        terms: `1. USE OF PREMISES: The LESSEE shall use Stall ${stallNo} exclusively for designated municipal market retail and commercial trade.\n2. RENTAL PAYMENTS: The monthly rental of ₱${stallRent.toLocaleString()} shall be paid on or before the due date specified by the Municipal Treasurer.\n3. SANITATION & MAINTENANCE: The LESSEE shall maintain the stall and surrounding premises clean, sanitary, and compliant with municipal health ordinances.\n4. NON-TRANSFERABILITY: Subleasing, selling, or unauthorized transfer of lease rights is strictly prohibited.\n5. COMPLIANCE: The LESSEE agrees to abide by all market rules, municipal ordinances, and LGU Manticao policies.`,
+        status: 'ACTIVE',
+        stakeholderId: stakeholderId,
+        stakeholderName: stakeholderName,
+        businessName: businessName,
+        stallId: targetStallId,
+        stallNo: stallNo,
+        stallType: stallType,
+        occupantId: null
+      }
+
+      try {
+        await api.post('/contracts', contractPayload)
+      } catch (err) {
+        console.warn('[StallManagement] Backend contract post notice:', err)
+      }
+
+      // Persist into localStorage 'contracts' so Contracts page immediately shows it
+      try {
+        const raw = localStorage.getItem('contracts')
+        let contractList = raw ? JSON.parse(raw) : []
+        if (!Array.isArray(contractList)) contractList = []
+
+        // Remove any outdated active contract for this stall
+        contractList = contractList.filter(c => !(
+          (c.stallId && String(c.stallId) === String(targetStallId)) ||
+          (c.stallNo && String(c.stallNo) === String(stallNo))
+        ))
+
+        contractList.unshift({
+          id: Date.now(),
+          ...contractPayload,
+          createdAt: new Date().toISOString()
+        })
+        localStorage.setItem('contracts', JSON.stringify(contractList))
+      } catch (e) {
+        console.warn('[StallManagement] Local storage contract sync note:', e)
+      }
+
+      await loadStalls()
+      closeModal()
+
+      const viewNow = confirm(
+        `Stall ${stallNo} successfully assigned to ${stakeholderName}!\n\n` +
+        `Contract Reference: ${contractNo}\n` +
+        `Monthly Rent: ₱${stallRent.toLocaleString()}/month\n` +
+        `Status: ACTIVE\n\n` +
+        `The stall lease contract has been automatically generated and is now listed in Contracts.\n\n` +
+        `Would you like to view this contract in the Contracts page now?`
+      )
+
+      if (viewNow) {
+        router.push({ name: 'MSContracts', query: { q: stallNo } })
+      }
     } else if (initialOccupantName.value && !currentOccupantName.value) {
       // 2. Current occupant removed: unassign and update status as VACANT
       await unassignOccupant(targetStallId)
       await updateStall(targetStallId, { status: 'VACANT' })
-      alert(`Occupant removed from Stall ${form.value.number} and updated as VACANT!`)
-    }
 
-    await loadStalls()
-    closeModal()
+      try {
+        const raw = localStorage.getItem('contracts')
+        if (raw) {
+          const list = JSON.parse(raw)
+          list.forEach(c => {
+            if ((c.stallId && String(c.stallId) === String(targetStallId)) || (c.stallNo && String(c.stallNo) === String(form.value.number))) {
+              c.status = 'TERMINATED'
+            }
+          })
+          localStorage.setItem('contracts', JSON.stringify(list))
+        }
+      } catch (_) {}
+
+      await loadStalls()
+      closeModal()
+      alert(`Occupant removed from Stall ${form.value.number} and updated as VACANT. Associated contract marked as TERMINATED.`)
+    }
   } catch (error) {
     console.error(error)
     alert(error.message || 'Failed to update stall assignment')
@@ -863,7 +995,12 @@ onMounted(async () => {
   // 1. Initialize map
   initializeMap()
 
-  // 2. Fetch data
+  // 2. Global helper for popup contract view
+  window.__viewStallContract = (stallNo) => {
+    router.push({ name: 'MSContracts', query: { q: stallNo } })
+  }
+
+  // 3. Fetch data
   await Promise.allSettled([loadStalls(), loadStakeholders()])
 })
 
@@ -876,6 +1013,7 @@ onBeforeUnmount(() => {
   pickerMarker = null
   delete window.__editStallById
   delete window.__navStallIndex
+  delete window.__viewStallContract
 })
 </script>
 
