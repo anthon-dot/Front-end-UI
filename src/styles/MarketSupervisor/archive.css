@@ -1,9 +1,11 @@
 .page-content {
-  margin-left: var(--sidebar-width, 280px);
-  padding: 24px;
-  padding-top: calc(var(--header-height, 64px) + 24px);
+  width: calc(100% - var(--sidebar-width, 260px));
+  max-width: calc(100% - var(--sidebar-width, 260px));
+  margin-left: var(--sidebar-width, 260px);
+  padding: 1.75rem 2rem 3rem;
   box-sizing: border-box;
-  transition: margin-left 0.3s ease;
+  transition: margin-left 0.25s ease, width 0.25s ease, max-width 0.25s ease;
+  min-width: 0;
 }
 
 .app-table { width: 100%; border-collapse: collapse; }
@@ -44,9 +46,10 @@
 
 @media (max-width: 1023px) {
   .page-content {
+    width: 100% !important;
+    max-width: 100% !important;
     margin-left: 0 !important;
-    padding: 16px;
-    padding-top: calc(var(--header-height, 60px) + 16px);
+    padding: calc(var(--header-height, 60px) + 1.25rem) 1rem 2.5rem !important;
   }
   .search-input { width: 140px; }
   .tabs { overflow-x: auto; }

@@ -69,9 +69,7 @@
           }"
           @click="navigate(item)"
         >
-          <span class="nav-icon">
-            {{ item.icon }}
-          </span>
+          <i :class="item.icon" class="nav-icon" />
 
           <Transition name="fade-slide">
             <span
@@ -96,9 +94,7 @@
           :class="{ collapsed: !isMobile && collapsed }"
           @click="logout"
         >
-          <span class="nav-icon">
-            🚪
-          </span>
+          <i class="pi pi-sign-out nav-icon" />
 
           <Transition name="fade-slide">
             <span v-if="isMobile || !collapsed">
@@ -147,31 +143,31 @@ const baseItems = [
   {
     id: 'dashboard',
     label: 'Dashboard',
-    icon: '📊',
+    icon: 'pi pi-home',
     routeName: 'MarketSupervisor'
   },
   {
     id: 'contracts',
     label: 'Contracts',
-    icon: '📑',
+    icon: 'pi pi-file-edit',
     routeName: 'MSContracts'
   },
   {
     id: 'stalls',
     label: 'Stall Management',
-    icon: '🏪',
+    icon: 'pi pi-building',
     routeName: 'MSStalls'
   },
   {
     id: 'archive',
     label: 'Archive Record',
-    icon: '🗂️',
+    icon: 'pi pi-inbox',
     routeName: 'MSArchive'
   },
   {
     id: 'reports',
     label: 'Reports',
-    icon: '📈',
+    icon: 'pi pi-chart-bar',
     routeName: 'MSReports'
   }
 ]
@@ -233,7 +229,7 @@ const updateSidebarWidth = () => {
   } else {
     document.documentElement.style.setProperty(
       '--sidebar-width',
-      collapsed.value ? '90px' : '280px'
+      collapsed.value ? '76px' : '260px'
     )
   }
 }

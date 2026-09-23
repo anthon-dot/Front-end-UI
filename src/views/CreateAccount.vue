@@ -1,23 +1,37 @@
 <template>
   <div class="create-page">
-
     <div class="container">
+      <div class="create-top-bar">
+        <router-link to="/login" class="back-link">
+          <i class="pi pi-arrow-left"></i>
+          <span>Back to Login</span>
+        </router-link>
+      </div>
+
+      <div class="brand-badge-wrap">
+        <div class="brand-logo-lg">RM</div>
+        <div class="brand-meta">
+          <span class="muni-title">Manticao Public Market</span>
+          <span class="system-sub">Tenant & Applicant Registration</span>
+        </div>
+      </div>
 
       <h2>Create Account</h2>
-
-      <p class="subtitle">Enter your credentials to create a new account.</p>
+      <p class="subtitle">Enter your credentials to register a new applicant account.</p>
 
       <!-- ERROR -->
-      <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
+      <div v-if="errorMessage" class="error-banner">
+        <i class="pi pi-exclamation-circle"></i>
+        <span>{{ errorMessage }}</span>
+      </div>
 
       <form @submit.prevent="createAccount">
-
         <div class="field">
           <label>Username</label>
           <input
             v-model="username"
             type="text"
-            placeholder="Enter username"
+            placeholder="Choose a username"
             required
           />
         </div>
@@ -27,7 +41,7 @@
           <input
             v-model="password"
             type="password"
-            placeholder="Enter password"
+            placeholder="Create password (min 6 characters)"
             required
           />
         </div>
@@ -43,8 +57,7 @@
         </div>
 
         <div class="actions">
-
-          <router-link to="/" class="btn cancel">
+          <router-link to="/login" class="btn cancel">
             Cancel
           </router-link>
 
@@ -55,12 +68,13 @@
           >
             {{ isLoading ? 'Creating...' : 'Create Account' }}
           </button>
-
         </div>
 
+        <div class="login-footer">
+          <p>Already have an account? <router-link to="/login" class="login-link">Sign in here</router-link></p>
+        </div>
       </form>
     </div>
-
   </div>
 </template>
 

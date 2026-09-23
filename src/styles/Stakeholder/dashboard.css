@@ -1,11 +1,20 @@
-.stakeholder-layout { display:flex; align-items:flex-start }
-.stakeholder-dashboard { padding: 20px; flex:1; padding-top: calc(var(--header-height,64px) + 20px) }
-.header { display:flex; justify-content:space-between; align-items:center; gap:12px }
-.header h1 { margin:0; font-size:1.5rem }
-.header .meta { color:#6b7280; margin:0; font-size:0.95rem }
-.header-left { display:flex; flex-direction:column }
-.header-right { display:flex; align-items:center }
-.grid { display:grid; grid-template-columns: 360px 1fr; gap:16px }
+.stakeholder-layout { display: flex; min-height: 100vh; width: 100%; max-width: 100vw; overflow-x: hidden; box-sizing: border-box; }
+.stakeholder-dashboard {
+  flex: 1;
+  width: calc(100% - var(--sidebar-width, 260px));
+  max-width: calc(100% - var(--sidebar-width, 260px));
+  margin-left: var(--sidebar-width, 260px);
+  padding: 1.75rem 2rem 3rem;
+  transition: margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1), width 0.25s cubic-bezier(0.4, 0, 0.2, 1), max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-sizing: border-box;
+  min-width: 0;
+}
+.header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 1.5rem; }
+.header h1 { margin: 0; font-size: 1.75rem; font-weight: 800; color: #0f172a; }
+.header .meta { color: #64748b; margin: 4px 0 0; font-size: 0.95rem; }
+.header-left { display: flex; flex-direction: column; }
+.header-right { display: flex; align-items: center; }
+.grid { display: grid; grid-template-columns: 360px 1fr; gap: 16px; }
 .card { background: var(--card); padding:14px; border-radius:12px; box-shadow:0 8px 24px rgba(2,6,23,0.04); color:var(--surface-text) }
 .card.progress { grid-column: 1 / -1 }
 .row { display:flex; gap:16px; margin-bottom:12px }
@@ -45,7 +54,15 @@
 .modal label { display:block; margin-bottom:8px }
 .modal input { width:100%; padding:8px; border:1px solid #e6eef7; border-radius:8px }
 .modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:10px }
-@media (max-width:900px){ .grid { grid-template-columns: 1fr } .stakeholder-dashboard{ margin-left:0; padding-left:16px } }
+@media (max-width: 1023px) {
+  .grid { grid-template-columns: 1fr; }
+  .stakeholder-dashboard {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    padding: calc(var(--header-height, 60px) + 1.25rem) 1rem 2.5rem !important;
+  }
+}
 
 .progress .steps { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:8px }
 .stepper-wrap{ padding:22px 12px }

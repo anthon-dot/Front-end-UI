@@ -5,9 +5,22 @@
 
 .content {
   min-height: 100vh;
-  margin-left: var(--sidebar-width, 280px);
-  padding: 24px;
-  transition: margin-left 0.25s ease;
+  width: calc(100% - var(--sidebar-width, 260px));
+  max-width: calc(100% - var(--sidebar-width, 260px));
+  margin-left: var(--sidebar-width, 260px);
+  padding: 1.75rem 2rem 3rem;
+  transition: margin-left 0.25s ease, width 0.25s ease, max-width 0.25s ease;
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+@media (max-width: 1023px) {
+  .content {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    padding: calc(var(--header-height, 60px) + 1.25rem) 1rem 2.5rem !important;
+  }
 }
 
 .page-header,

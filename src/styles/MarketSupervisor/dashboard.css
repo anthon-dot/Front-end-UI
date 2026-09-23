@@ -7,39 +7,46 @@
 
 .summary-overview {
   padding: 16px 20px;
+  margin-top: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .summary-overview .metrics {
-  display:flex;
-  gap:18px;
-  align-items:center;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .summary-overview .metric {
-  background:#ffffff;
-  padding:12px 16px;
-  border-radius:10px;
-  box-shadow:0 2px 8px rgba(0,0,0,0.04);
-  min-width:140px;
+  background: #ffffff;
+  padding: 14px 18px;
+  border-radius: 12px;
+  border: 1px solid #edf2f7;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  flex: 1 1 140px;
+  min-width: 130px;
 }
 
 .summary-overview .metric-label {
-  margin:0;
-  font-size:13px;
-  color:#6b7280;
+  margin: 0;
+  font-size: 13px;
+  color: #6b7280;
+  font-weight: 500;
 }
 
 .summary-overview .metric-value {
-  font-size:22px;
-  font-weight:700;
-  margin-top:6px;
+  font-size: 22px;
+  font-weight: 700;
+  margin-top: 6px;
+  color: #0f172a;
 }
 
 .btn-outline {
-  padding:8px 14px;
-  border:1px solid #d1d5db;
-  border-radius:8px;
-  background:white;
+  padding: 8px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: white;
 }
 
 .btn-approve {
@@ -83,18 +90,35 @@
 }
 
 .dashboard {
-  margin-left:220px;
-  padding:20px;
+  width: calc(100% - var(--sidebar-width, 260px));
+  max-width: calc(100% - var(--sidebar-width, 260px));
+  margin-left: var(--sidebar-width, 260px);
+  padding: 1.75rem 2rem 3rem;
+  transition: margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1), width 0.25s cubic-bezier(0.4, 0, 0.2, 1), max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-sizing: border-box;
+  min-height: 100vh;
+  min-width: 0;
+}
+
+@media (max-width: 1023px) {
+  .dashboard {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    padding: calc(var(--header-height, 60px) + 1.25rem) 1rem 2.5rem !important;
+  }
 }
 
 .table-scroll {
-  max-height:480px;
-  overflow:auto;
+  max-height: 480px;
+  overflow-x: auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .app-table {
-  table-layout:fixed;
-  width:100%;
+  min-width: 640px;
+  width: 100%;
 }
 
 .app-table th,

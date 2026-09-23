@@ -22,7 +22,7 @@
       </div>
 
       <!-- ================= STATS ================= -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
         
         <Card class="bg-gradient-to-br from-indigo-50/50 to-white hover:-translate-y-1 transition-all duration-300 border border-slate-100 hover:shadow-md">
           <template #content>
@@ -87,10 +87,10 @@
       </div>
 
       <!-- ================= CHART + STATUS ================= -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
 
         <!-- LINE CHART -->
-        <Card class="lg:col-span-2 border border-slate-100 shadow-sm rounded-2xl">
+        <Card class="xl:col-span-2 border border-slate-100 shadow-sm rounded-2xl">
           <template #title>
             <div class="flex items-center justify-between border-b border-slate-100 pb-4">
               <div class="flex items-center gap-2">
@@ -171,7 +171,7 @@
 
       </div>
 
-      <div class="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="mt-8 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         <Card
           v-for="insight in aiInsights"
           :key="`${insight.title}-${insight.message}`"

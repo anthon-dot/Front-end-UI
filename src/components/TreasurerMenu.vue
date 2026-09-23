@@ -197,7 +197,7 @@ const updateSidebarWidth = () => {
   } else {
     document.documentElement.style.setProperty(
       '--sidebar-width',
-      collapsed.value ? '90px' : '280px'
+      collapsed.value ? '76px' : '260px'
     )
   }
 }

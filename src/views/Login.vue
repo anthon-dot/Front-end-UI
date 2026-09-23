@@ -1,81 +1,101 @@
 <template>
   <div class="login-wrap">
-
     <div class="login-box">
-
-      <h1 class="title">
-        Welcome Back
-      </h1>
-
-      <p class="subtitle">
-        Please login to continue
-      </p>
-
-      <!-- USERNAME -->
-      <label class="label">
-        Username
-      </label>
-
-      <div class="pill">
-        <input
-          v-model="username"
-          type="text"
-          placeholder="Enter username"
-        />
+      <div class="login-top-bar">
+        <router-link to="/" class="back-link">
+          <i class="pi pi-arrow-left"></i>
+          <span>Home</span>
+        </router-link>
+        <span class="secure-tag">
+          <i class="pi pi-shield"></i>
+          <span>Official Portal</span>
+        </span>
       </div>
 
-      <!-- PASSWORD -->
-      <label class="label">
-        Password
-      </label>
+      <div class="brand-badge-wrap">
+        <div class="brand-logo-lg">RM</div>
+        <div class="brand-meta">
+          <span class="muni-title">Manticao Public Market</span>
+          <span class="system-sub">Rental & Management System</span>
+        </div>
+      </div>
 
-      <div class="pill">
-        <input
-          v-model="password"
-          :type="showPassword ? 'text' : 'password'"
-          placeholder="Enter password"
-        />
+      <h1 class="title">Welcome Back</h1>
+      <p class="subtitle">Enter your account credentials to access your portal</p>
 
+      <form @submit.prevent="onSubmit" class="login-form">
+        <!-- USERNAME -->
+        <label class="label" for="usernameInput">
+          <i class="pi pi-user"></i>
+          <span>Username or Email</span>
+        </label>
+        <div class="pill">
+          <input
+            id="usernameInput"
+            v-model="username"
+            type="text"
+            placeholder="e.g. admin or your email"
+            autocomplete="username"
+            required
+          />
+        </div>
+
+        <!-- PASSWORD -->
+        <div class="password-header">
+          <label class="label" for="passwordInput">
+            <i class="pi pi-lock"></i>
+            <span>Password</span>
+          </label>
+          <router-link to="/forgot-password" class="forgot">
+            Forgot password?
+          </router-link>
+        </div>
+        <div class="pill">
+          <input
+            id="passwordInput"
+            v-model="password"
+            :type="showPassword ? 'text' : 'password'"
+            placeholder="Enter your password"
+            autocomplete="current-password"
+            required
+          />
+          <button
+            type="button"
+            class="show-btn"
+            @click="toggleShow"
+            :aria-label="showPassword ? 'Hide password' : 'Show password'"
+          >
+            <i :class="showPassword ? 'pi pi-eye-slash' : 'pi pi-eye'"></i>
+          </button>
+        </div>
+
+        <!-- ERROR -->
+        <div v-if="errorMessage" class="error-banner">
+          <i class="pi pi-exclamation-circle"></i>
+          <span>{{ errorMessage }}</span>
+        </div>
+
+        <!-- LOGIN BUTTON -->
         <button
-          type="button"
-          class="show"
-          @click="toggleShow"
+          type="submit"
+          class="signin"
+          :class="{ 'is-loading': isLoading }"
+          :disabled="isLoading"
         >
-          {{ showPassword ? '🙈' : '👁' }}
+          <span v-if="isLoading" class="spinner" aria-hidden="true"></span>
+          <i v-else class="pi pi-sign-in"></i>
+          <span>{{ isLoading ? 'Signing in...' : 'Sign in to Portal' }}</span>
         </button>
-      </div>
+      </form>
 
-      <!-- ERROR -->
-      <p
-        v-if="errorMessage"
-        class="error"
-      >
-        {{ errorMessage }}
-      </p>
-
-      <!-- FORGOT PASSWORD -->
-      <div class="forgot-box">
-        <router-link
-          to="/forgot-password"
-          class="forgot"
-        >
-          Forgot Password?
+      <div class="signup-footer">
+        <p>New stall applicant or tenant?</p>
+        <router-link to="/create-account" class="signup-link">
+          Create an Account
+          <i class="pi pi-arrow-right"></i>
         </router-link>
       </div>
-
-      <!-- LOGIN -->
-      <button
-        class="signin"
-        :class="{ 'is-loading': isLoading }"
-        :disabled="isLoading"
-        @click="onSubmit"
-      >
-        <span v-if="isLoading" class="spinner" aria-hidden="true"></span>
-        {{ isLoading ? 'Signing in...' : 'Sign in' }}
-      </button>
-
     </div>
-
   </div>
 </template>
 
@@ -104,6 +124,27 @@ const isLoading = ref(false)
 // =====================
 function toggleShow() {
   showPassword.value = !showPassword.value
+}
+
+function quickLogin(targetRole) {
+  const token = 'eyJhbGciOiJIUzI1NiJ9.' + btoa(JSON.stringify({
+    sub: 'demo-user-1',
+    role: targetRole,
+    exp: Math.floor(Date.now() / 1000) + 86400 * 7
+  })) + '.sig'
+
+  authStore.setSession({
+    token,
+    role: targetRole,
+    userId: 'demo-user-1',
+    user: { name: 'Demo ' + targetRole, email: targetRole.toLowerCase() + '@manticao.gov.ph' }
+  })
+
+  if (targetRole === 'ADMIN') router.push('/admin/dashboard')
+  else if (targetRole === 'TREASURER') router.push('/treasurer')
+  else if (targetRole === 'MARKET_SUPERVISOR') router.push('/supervisor')
+  else if (targetRole === 'BPLO_OFFICE') router.push('/bplo')
+  else if (targetRole === 'ENDORSING_OFFICE') router.push('/endorsing')
 }
 
 // =====================
