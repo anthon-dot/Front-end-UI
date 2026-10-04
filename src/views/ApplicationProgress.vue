@@ -451,7 +451,7 @@ const overallSeverity = computed(() => {
 
 const applicantFeeRequired = computed(() => {
   const data = stakeholder.value
-  if (!data || data.applicantFeePaid || data.applicant_fee_paid) {
+  if (!data || data.applicantFeePaid || data.applicant_fee_paid || data.applicationFormPaid || data.application_form_paid || data.treasurerPaid || data.treasurer_paid) {
     return false
   }
 
@@ -667,10 +667,12 @@ function applyStepStatuses(data) {
     steps.value[6].status = 'approved'
   }
 
-  // 8. Business Permit Payment
+  // 8. Business Permit Payment (Application Fee & Business Permit Payment are unified)
   const hasPermitFee = Boolean(
     data.applicantFeePaid ||
     data.applicant_fee_paid ||
+    data.applicationFormPaid ||
+    data.application_form_paid ||
     data.treasurerPaid ||
     data.treasurer_paid ||
     (data.applicationStatus === 'COMPLETED' || data.application_status === 'COMPLETED')

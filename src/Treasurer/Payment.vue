@@ -262,36 +262,36 @@
                     </div>
                   </div>
 
-                  <!-- Card 02: Application payment -->
+                  <!-- Card 02: Business permit / Application payment -->
                   <div
-                    @click="setCategory('APPLICATION_FORM')"
+                    @click="setCategory('BUSINESS_PERMIT_PAYMENT')"
                     class="group border rounded-xl sm:rounded-2xl p-3 sm:p-4 flex flex-col justify-between min-h-[120px] sm:min-h-[135px] cursor-pointer transition-all duration-200 select-none relative overflow-hidden active:scale-[0.98]"
-                    :class="activeCategory === 'APPLICATION_FORM'
+                    :class="isPermitOrApp(activeCategory)
                       ? 'border-2 border-emerald-600 bg-emerald-50/50 shadow-md ring-2 ring-emerald-500/20'
                       : 'border-slate-200 bg-white hover:border-emerald-300 hover:bg-slate-50/80 hover:shadow-sm'"
                   >
                     <!-- Active top accent glow line -->
                     <div 
-                      v-if="activeCategory === 'APPLICATION_FORM'" 
+                      v-if="isPermitOrApp(activeCategory)" 
                       class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-500"
                     ></div>
 
                     <div class="flex items-center justify-between mb-2 sm:mb-3">
                       <span 
                         class="text-xs sm:text-sm font-bold font-mono transition-colors"
-                        :class="activeCategory === 'APPLICATION_FORM' ? 'text-emerald-700' : 'text-slate-400 group-hover:text-slate-600'"
+                        :class="isPermitOrApp(activeCategory) ? 'text-emerald-700' : 'text-slate-400 group-hover:text-slate-600'"
                       >02</span>
 
                       <!-- Interactive Green Check Indicator -->
                       <div 
                         class="w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 shadow-2xs"
-                        :class="activeCategory === 'APPLICATION_FORM' 
+                        :class="isPermitOrApp(activeCategory) 
                           ? 'bg-emerald-600 text-white scale-100 shadow-emerald-200 ring-2 ring-emerald-100 check-pop' 
                           : 'border-2 border-slate-200 bg-slate-50/80 text-transparent group-hover:border-emerald-300 group-hover:bg-emerald-50/50'"
                       >
                         <i 
                           class="pi pi-check text-[11px] font-black transition-transform duration-200"
-                          :class="activeCategory === 'APPLICATION_FORM' ? 'scale-100' : 'scale-0'"
+                          :class="isPermitOrApp(activeCategory) ? 'scale-100' : 'scale-0'"
                         ></i>
                       </div>
                     </div>
@@ -299,15 +299,15 @@
                     <div>
                       <div 
                         class="text-xs sm:text-sm leading-tight transition-colors"
-                        :class="activeCategory === 'APPLICATION_FORM' ? 'font-extrabold text-emerald-950' : 'font-bold text-slate-800 group-hover:text-slate-900'"
+                        :class="isPermitOrApp(activeCategory) ? 'font-extrabold text-emerald-950' : 'font-bold text-slate-800 group-hover:text-slate-900'"
                       >
-                        Application payment
+                        Business permit / Application
                       </div>
                       <div 
                         class="text-[11px] sm:text-xs mt-1 leading-normal transition-colors"
-                        :class="activeCategory === 'APPLICATION_FORM' ? 'text-emerald-800/80' : 'text-slate-500'"
+                        :class="isPermitOrApp(activeCategory) ? 'text-emerald-800/80' : 'text-slate-500'"
                       >
-                        Fee received with an application
+                        Application fee & business permit
                       </div>
                     </div>
                   </div>
@@ -670,11 +670,11 @@ const advancePaymentStakeholders = computed(() => {
   })
 })
 
-// 2. Application Form List: ONLY stakeholders whose application fee is NOT finished/paid
+// 2. Application Form / Business Permit List: ONLY stakeholders whose application fee / business permit fee is NOT finished/paid
 const appFormStakeholders = computed(() => {
   const search = searchAppForm.value.toLowerCase().trim()
   return stakeholders.value.filter(s => {
-    if (s.applicantFeePaid || s.treasurerPaid) return false
+    if (s.applicantFeePaid || s.treasurerPaid || s.applicationFormPaid || s.application_form_paid) return false
     if (s.isArchived) return false
     if (s.applicationStatus === 'REJECTED' || s.onboardingStatus === 'REJECTED') return false
 
@@ -719,6 +719,11 @@ const filteredPayments = computed(() => {
   })
 })
 
+// Helper to check if type is business permit or application payment
+function isPermitOrApp(type) {
+  return type === 'APPLICATION_FORM' || type === 'BUSINESS_PERMIT_PAYMENT' || type === 'APPLICATION_FEE'
+}
+
 // =========================
 // SELECTION METHODS
 // =========================
@@ -727,7 +732,7 @@ const filteredStakeholdersForDropdown = computed(() => {
   let list = []
   if (activeCategory.value === 'ADVANCE_PAYMENT') {
     list = advancePaymentStakeholders.value
-  } else if (activeCategory.value === 'APPLICATION_FORM') {
+  } else if (isPermitOrApp(activeCategory.value)) {
     list = appFormStakeholders.value
   } else if (activeCategory.value === 'RENT_PAYMENT') {
     list = rentPaymentStakeholders.value
@@ -777,7 +782,9 @@ function onStakeholderBlur() {
 function generateReceiptNo(type = selectedPaymentType.value) {
   const prefixMap = {
     ADVANCE_PAYMENT: 'ADV',
-    APPLICATION_FORM: 'APP',
+    APPLICATION_FORM: 'BP',
+    BUSINESS_PERMIT_PAYMENT: 'BP',
+    APPLICATION_FEE: 'BP',
     RENT_PAYMENT: 'RNT'
   }
   const prefix = prefixMap[type] || 'OR'
@@ -816,7 +823,7 @@ function selectStakeholderForType(s, type) {
       selectedBillingId.value = null
       form.value.amount = null
     }
-  } else if (type === 'APPLICATION_FORM') {
+  } else if (isPermitOrApp(type)) {
     form.value.totalAdvanceAmount = null
     selectedBillingId.value = null
     form.value.amount = s.applicantFeeAmount ? Number(s.applicantFeeAmount) : null
@@ -864,6 +871,9 @@ function initials(first, last) {
 
 function formatType(type) {
   if (!type) return ''
+  if (isPermitOrApp(type)) {
+    return 'Business Permit / Application'
+  }
   return type.replaceAll('_', ' ')
 }
 
@@ -902,7 +912,7 @@ const canRecord = computed(() => {
 const confirmBtnLabel = computed(() => {
   if (!activeCategory.value) return 'Record Payment'
   if (activeCategory.value === 'ADVANCE_PAYMENT') return 'Record Advance Payment'
-  if (activeCategory.value === 'APPLICATION_FORM') return 'Record Application Fee'
+  if (isPermitOrApp(activeCategory.value)) return 'Record Business Permit / Application Payment'
   if (activeCategory.value === 'RENT_PAYMENT') return 'Record Rent Payment'
   return 'Record Payment'
 })
@@ -1002,7 +1012,7 @@ async function recordPayment() {
       amount: Number(form.value.amount),
       referenceNo: form.value.referenceNo,
       receiptNo: form.value.receiptNo || generateReceiptNo(activeCategory.value),
-      paymentType: activeCategory.value,
+      paymentType: isPermitOrApp(activeCategory.value) ? 'BUSINESS_PERMIT_PAYMENT' : activeCategory.value,
       paymentDate: form.value.dateReceived ? new Date(form.value.dateReceived).toISOString() : new Date().toISOString()
     }
 

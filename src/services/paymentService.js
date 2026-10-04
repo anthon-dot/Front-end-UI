@@ -15,13 +15,17 @@ export async function createPayment(payload) {
   const stakeholderId = payload.stakeholderId || payload.stakeholder?.id
   const billingId = payload.billingId || payload.billing?.id || null
 
+  const canonicalType = ['APPLICATION_FORM', 'APPLICATION_FEE', 'BUSINESS_PERMIT_PAYMENT'].includes(payload.paymentType)
+    ? 'BUSINESS_PERMIT_PAYMENT'
+    : (payload.paymentType || 'RENT_PAYMENT')
+
   const { data, error } = await supabase
     .from('payments')
     .insert({
       stakeholder_id: stakeholderId,
       billing_id: billingId,
       amount: payload.amount,
-      payment_type: payload.paymentType || 'RENT_PAYMENT',
+      payment_type: canonicalType,
       reference_no: payload.referenceNo || '',
       receipt_no: receiptNo,
       payment_date: payload.paymentDate || new Date().toISOString()
@@ -83,17 +87,36 @@ export async function createPayment(payload) {
     }
   }
 
-  // 3. If APPLICATION_FORM, update stakeholder application fee status
-  if (payload.paymentType === 'APPLICATION_FORM' && stakeholderId) {
+  // 3. If BUSINESS_PERMIT_PAYMENT or APPLICATION_FORM (they are the same payment), update stakeholder permit & fee status
+  const isPermitOrAppPayment = ['APPLICATION_FORM', 'APPLICATION_FEE', 'BUSINESS_PERMIT_PAYMENT'].includes(payload.paymentType)
+  if (isPermitOrAppPayment && stakeholderId) {
     try {
-      const { error: feeErr } = await supabase.from('stakeholders').update({
+      const updateData = {
         application_form_paid: true,
-        applicant_fee_paid: true
-      }).eq('id', stakeholderId)
+        applicant_fee_paid: true,
+        treasurer_paid: true,
+        applicant_fee_amount: Number(payload.amount || 0),
+        applicant_fee_date: new Date().toISOString().split('T')[0]
+      }
+
+      const { data: sData } = await supabase.from('stakeholders').select('*').eq('id', stakeholderId).single()
+      if (sData) {
+        if (sData.final_endorsed || sData.application_status === 'PENDING_BUSINESS_PERMIT_PAYMENT' || sData.endorsement_status === 'APPROVED') {
+          updateData.application_status = 'COMPLETED'
+          updateData.onboarding_status = 'APPROVED'
+          updateData.final_status = 'APPROVED'
+          updateData.verified_tenant = true
+          updateData.verified_stakeholder = true
+        }
+      }
+
+      const { error: feeErr } = await supabase.from('stakeholders').update(updateData).eq('id', stakeholderId)
       if (feeErr) {
-        console.warn('[paymentService] Trying fallback update for application_form_paid:', feeErr)
+        console.warn('[paymentService] Primary permit update failed, trying fallback:', feeErr)
         await supabase.from('stakeholders').update({
-          application_form_paid: true
+          application_form_paid: true,
+          applicant_fee_paid: true,
+          treasurer_paid: true
         }).eq('id', stakeholderId)
       }
     } catch (sErr) {
