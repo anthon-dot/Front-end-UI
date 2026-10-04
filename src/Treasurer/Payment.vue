@@ -23,100 +23,163 @@
         </div>
       </div>
 
-      <!-- TABLE -->
-      <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto p-2">
-        <DataTable 
-          :value="filteredPayments"
-          :loading="loading" 
-          paginator 
-          :rows="10" 
-          :rowsPerPageOptions="[10, 20, 50]"
-          responsiveLayout="scroll"
-          class="p-datatable-sm modern-table"
+      <!-- REPORT-STYLE SUMMARY STATS CARDS -->
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="summary-icon green">
+            <i class="pi pi-check-circle text-xl"></i>
+          </div>
+          <div class="summary-content">
+            <span class="summary-label">Total Collected</span>
+            <span class="summary-value">₱{{ totalAmountCollected.toLocaleString() }}</span>
+          </div>
+        </div>
+
+        <div class="summary-card">
+          <div class="summary-icon blue">
+            <i class="pi pi-wallet text-xl"></i>
+          </div>
+          <div class="summary-content">
+            <span class="summary-label">Total Transactions</span>
+            <span class="summary-value">{{ filteredPayments.length }}</span>
+          </div>
+        </div>
+
+        <div class="summary-card">
+          <div class="summary-icon amber">
+            <i class="pi pi-users text-xl"></i>
+          </div>
+          <div class="summary-content">
+            <span class="summary-label">Stakeholders</span>
+            <span class="summary-value">{{ stakeholderPaymentGroups.length }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Loading Skeleton or Spinner -->
+      <div v-if="loading" class="bg-white rounded-2xl border border-slate-200/80 p-12 text-center text-slate-500 shadow-sm">
+        <i class="pi pi-spin pi-spinner text-3xl text-indigo-600 mb-3"></i>
+        <p class="font-medium text-sm">Loading payment records...</p>
+      </div>
+
+      <!-- Empty State -->
+      <div v-else-if="stakeholderPaymentGroups.length === 0" class="bg-white rounded-2xl border border-slate-200/80 p-12 text-center text-slate-400 shadow-sm">
+        <i class="pi pi-wallet text-4xl mb-3 text-slate-300"></i>
+        <p class="font-medium text-slate-600">No payments found matching the criteria.</p>
+      </div>
+
+      <!-- Separate Card/Box per Stakeholder -->
+      <div v-else class="space-y-6">
+        <div 
+          v-for="group in stakeholderPaymentGroups" 
+          :key="group.stakeholder"
+          class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md"
         >
-          <template #empty>
-            <div class="text-center py-12 text-slate-400">
-              <i class="pi pi-wallet text-4xl mb-3 text-slate-300"></i>
-              <p>No payments found matching the criteria.</p>
-            </div>
-          </template>
-
-          <Column header="Stakeholder" sortable sortField="stakeholder.lastName">
-            <template #body="{ data }">
-              <div class="flex items-center gap-3">
-                <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-xs">
-                  {{ initials(getStakeholder(data)?.firstName || getStakeholder(data)?.first_name, getStakeholder(data)?.lastName || getStakeholder(data)?.last_name) }}
-                </div>
-                <div>
-                  <div class="font-semibold text-slate-800">
-                    {{ getStakeholder(data)?.firstName || getStakeholder(data)?.first_name || 'Unknown' }} {{ getStakeholder(data)?.lastName || getStakeholder(data)?.last_name || '' }}
-                  </div>
-                  <div class="text-xs text-slate-500">
-                    {{ getStakeholder(data)?.businessName || getStakeholder(data)?.business_name || 'Stakeholder' }}
-                  </div>
-                </div>
+          <!-- Box Header: Profile Avatar, Stakeholder Name, Stall Occupied, Totals -->
+          <div class="p-4 sm:p-5 bg-gradient-to-r from-slate-50 via-slate-50/80 to-white border-b border-slate-200/80 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="flex items-center gap-3.5">
+              <!-- Profile Avatar Circle -->
+              <div class="w-11 h-11 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-extrabold text-sm shadow-xs border border-indigo-200 flex-shrink-0">
+                {{ initials(group.stakeholder) }}
               </div>
-            </template>
-          </Column>
+              
+              <div>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <h3 class="font-extrabold text-slate-900 text-base sm:text-lg tracking-tight">
+                    {{ group.stakeholder }}
+                  </h3>
+                  
+                  <!-- Stall Occupied Badge -->
+                  <span v-if="group.stallNo" class="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-lg shadow-xs">
+                    <i class="pi pi-shop text-[11px]"></i>
+                    Stall {{ group.stallNo }}
+                  </span>
 
-          <Column field="id" header="Payment ID" sortable>
-            <template #body="{ data }">
-              <span class="font-mono text-sm font-bold text-slate-600">#{{ data.id }}</span>
-            </template>
-          </Column>
+                  <!-- Verified Tenant Tag -->
+                  <Tag value="VERIFIED TENANT" severity="success" rounded class="!text-[10px] !py-0.5 !px-2 font-bold" />
+                </div>
 
-          <Column header="Type" sortable sortField="paymentType">
-            <template #body="{ data }">
-              <Tag :value="formatType(data.paymentType || data.payment_type)" severity="info" rounded class="!bg-blue-50 !text-blue-600 !font-semibold border border-blue-100" />
-            </template>
-          </Column>
+                <p v-if="group.businessName && group.businessName !== group.stakeholder" class="text-xs text-slate-500 font-medium mt-0.5">
+                  {{ group.businessName }}
+                </p>
+              </div>
+            </div>
 
-          <Column header="Rent Cycle" sortable sortField="rentCycle">
-            <template #body="{ data }">
-              <span v-if="data.rentCycle || data.rent_cycle">{{ formatType(data.rentCycle || data.rent_cycle) }}</span>
-              <span v-else class="text-slate-400">—</span>
-            </template>
-          </Column>
+            <!-- Group Financial Summary in Header -->
+            <div class="flex items-center gap-4 text-xs font-semibold bg-white px-4 py-2 rounded-xl border border-slate-200/80 shadow-xs self-start md:self-auto">
+              <span>Total Paid: <strong class="text-emerald-600">₱{{ group.totalAmount.toLocaleString() }}</strong></span>
+              <span class="text-slate-200">|</span>
+              <span>Transactions: <strong class="text-slate-800">{{ group.payments.length }}</strong></span>
+            </div>
+          </div>
 
-          <Column field="amount" header="Amount" sortable>
-            <template #body="{ data }">
-              <span class="font-bold text-emerald-600">₱{{ Number(data.amount || 0).toLocaleString() }}</span>
-            </template>
-          </Column>
+          <!-- Payments Table inside the Stakeholder Box -->
+          <div class="overflow-x-auto">
+            <DataTable 
+              :value="group.payments" 
+              responsiveLayout="scroll"
+              class="p-datatable-sm modern-table"
+            >
+              <Column field="id" header="Payment ID" sortable style="min-width: 120px;">
+                <template #body="{ data }">
+                  <span class="font-mono text-sm font-bold text-slate-600">#{{ data.id }}</span>
+                </template>
+              </Column>
 
-          <Column header="Receipt" sortable sortField="receiptNo">
-            <template #body="{ data }">
-              <span class="font-mono text-xs font-bold text-slate-700">{{ data.receiptNo || data.receipt_no || '—' }}</span>
-            </template>
-          </Column>
-          
-          <Column header="Reference">
-            <template #body="{ data }">
-              <span v-if="data.referenceNo || data.reference_no">{{ data.referenceNo || data.reference_no }}</span>
-              <span v-else class="text-slate-400">—</span>
-            </template>
-          </Column>
+              <Column header="Type" sortable sortField="paymentType" style="min-width: 170px;">
+                <template #body="{ data }">
+                  <Tag :value="formatType(data.paymentType || data.payment_type)" severity="info" rounded class="!bg-blue-50 !text-blue-600 !font-semibold border border-blue-100" />
+                </template>
+              </Column>
 
-          <Column header="Date" sortable sortField="paymentDate">
-            <template #body="{ data }">
-              {{ formatDate(data.paymentDate || data.payment_date) }}
-            </template>
-          </Column>
+              <Column header="Rent Cycle" sortable sortField="rentCycle" style="min-width: 130px;">
+                <template #body="{ data }">
+                  <span v-if="data.rentCycle || data.rent_cycle">{{ formatType(data.rentCycle || data.rent_cycle) }}</span>
+                  <span v-else class="text-slate-400">—</span>
+                </template>
+              </Column>
 
-          <Column header="Action" alignFrozen="right" :frozen="true" class="text-right" style="min-width: 140px;">
-            <template #body="{ data }">
-              <Button 
-                label="View Details" 
-                icon="pi pi-eye" 
-                size="small" 
-                outlined 
-                severity="secondary" 
-                @click="openDetailsModal(data)"
-                class="!py-1.5 !px-3 !text-xs !font-semibold hover:!bg-slate-100 shadow-2xs"
-              />
-            </template>
-          </Column>
-        </DataTable>
+              <Column field="amount" header="Amount" sortable style="min-width: 120px;">
+                <template #body="{ data }">
+                  <span class="font-bold text-emerald-600">₱{{ Number(data.amount || 0).toLocaleString() }}</span>
+                </template>
+              </Column>
+
+              <Column header="Receipt" sortable sortField="receiptNo" style="min-width: 140px;">
+                <template #body="{ data }">
+                  <span class="font-mono text-xs font-bold text-slate-700">{{ data.receiptNo || data.receipt_no || '—' }}</span>
+                </template>
+              </Column>
+              
+              <Column header="Reference" style="min-width: 130px;">
+                <template #body="{ data }">
+                  <span v-if="data.referenceNo || data.reference_no">{{ data.referenceNo || data.reference_no }}</span>
+                  <span v-else class="text-slate-400">—</span>
+                </template>
+              </Column>
+
+              <Column header="Date" sortable sortField="paymentDate" style="min-width: 120px;">
+                <template #body="{ data }">
+                  {{ formatDate(data.paymentDate || data.payment_date) }}
+                </template>
+              </Column>
+
+              <Column header="Action" alignFrozen="right" :frozen="true" class="text-right" style="min-width: 130px;">
+                <template #body="{ data }">
+                  <Button 
+                    label="View Details" 
+                    icon="pi pi-eye" 
+                    size="small" 
+                    outlined 
+                    severity="secondary" 
+                    @click="openDetailsModal(data)"
+                    class="!py-1.5 !px-3 !text-xs !font-semibold hover:!bg-slate-100 shadow-2xs"
+                  />
+                </template>
+              </Column>
+            </DataTable>
+          </div>
+        </div>
       </div>
 
       <!-- RECORD PAYMENT MODAL -->
@@ -954,13 +1017,67 @@ const filteredPayments = computed(() => {
     const pType = formatType(p.paymentType || p.payment_type).toLowerCase()
     const receipt = (p.receiptNo || p.receipt_no || '').toLowerCase()
     const ref = (p.referenceNo || p.reference_no || '').toLowerCase()
+    const stall = (s?.occupant?.stall?.stallNo || s?.selectedStall?.stallNo || s?.stall?.stallNo || s?.stallNo || s?.stall_no || p.stallNo || '').toLowerCase()
     return name.includes(search) || 
            bName.includes(search) || 
            pType.includes(search) || 
            String(p.id).includes(search) || 
            receipt.includes(search) || 
-           ref.includes(search)
+           ref.includes(search) ||
+           stall.includes(search)
   })
+})
+
+const totalAmountCollected = computed(() => {
+  return filteredPayments.value.reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
+})
+
+const stakeholderPaymentGroups = computed(() => {
+  const groupsMap = new Map()
+
+  for (const p of filteredPayments.value) {
+    const s = getStakeholder(p)
+    const firstName = s?.firstName || s?.first_name || ''
+    const lastName = s?.lastName || s?.last_name || ''
+    const fullName = `${firstName} ${lastName}`.trim() || s?.businessName || s?.business_name || 'Verified Tenant'
+    const businessName = s?.businessName || s?.business_name || ''
+    const stallNo = s?.occupant?.stall?.stallNo || s?.selectedStall?.stallNo || s?.stall?.stallNo || s?.stallNo || s?.stall_no || p.stallNo || ''
+    const stakeholderId = s?.id || p.stakeholderId || p.stakeholder_id || fullName
+
+    const key = stakeholderId ? `s_${stakeholderId}` : fullName
+
+    if (!groupsMap.has(key)) {
+      groupsMap.set(key, {
+        id: stakeholderId,
+        stakeholder: fullName,
+        firstName,
+        lastName,
+        businessName,
+        stallNo,
+        payments: []
+      })
+    }
+
+    const group = groupsMap.get(key)
+    if (!group.stallNo && stallNo) group.stallNo = stallNo
+    if (!group.businessName && businessName) group.businessName = businessName
+    group.payments.push(p)
+  }
+
+  const groups = Array.from(groupsMap.values()).map(g => {
+    // Sort payments within the group by date descending (latest payment first)
+    g.payments.sort((a, b) => {
+      const dateA = new Date(a.paymentDate || a.payment_date || 0).getTime()
+      const dateB = new Date(b.paymentDate || b.payment_date || 0).getTime()
+      return dateB - dateA
+    })
+    g.totalAmount = g.payments.reduce((sum, item) => sum + (Number(item.amount) || 0), 0)
+    return g
+  })
+
+  // Sort groups alphabetically by stakeholder name
+  groups.sort((a, b) => a.stakeholder.localeCompare(b.stakeholder))
+  return groups
 })
 
 // Helper to check if type is business permit or application payment
@@ -1109,8 +1226,18 @@ function resetSelection() {
   }
 }
 
-function initials(first, last) {
-  return ((first?.charAt(0) || '') + (last?.charAt(0) || '')).toUpperCase()
+function initials(nameOrFirst, last) {
+  if (last !== undefined && last !== null && last !== '') {
+    return (((nameOrFirst?.charAt(0) || '') + (last?.charAt(0) || '')).toUpperCase()) || '?'
+  }
+  if (!nameOrFirst) return '?'
+  return String(nameOrFirst)
+    .split(' ')
+    .filter(Boolean)
+    .map(p => p[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase() || '?'
 }
 
 function formatType(type) {
