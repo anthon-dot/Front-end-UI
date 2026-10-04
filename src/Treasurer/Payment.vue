@@ -97,7 +97,7 @@
         </DataTable>
       </div>
 
-      <!-- RECORD PAYMENT MODAL MATCHING IMAGE 1 DESIGN -->
+      <!-- RECORD PAYMENT MODAL -->
       <Dialog v-model:visible="showModal" modal :closable="false"
               :style="{ width: '96vw', maxWidth: '680px' }" 
               :breakpoints="{ '960px': '96vw', '640px': '98vw' }" 
@@ -106,18 +106,18 @@
                 root: { class: '!rounded-3xl !border !border-slate-200 !shadow-2xl overflow-hidden' },
                 content: { class: '!p-0 !bg-[#fcfbf9]' }
               }">
-        <div class="p-6 sm:p-8 bg-[#fdfdfc] text-slate-800 font-sans max-h-[92vh] overflow-y-auto custom-scroll">
+        <div class="bg-[#fdfdfc] text-slate-800 font-sans max-h-[90vh] flex flex-col">
           
-          <!-- Header -->
-          <div class="flex items-start justify-between gap-4 pb-4 border-b border-slate-200/80 mb-6">
+          <!-- Header (Always visible at top) -->
+          <div class="flex items-start justify-between gap-4 p-6 sm:p-7 pb-4 border-b border-slate-200/80 bg-white flex-shrink-0 z-20">
             <div>
-              <span class="text-[11px] font-extrabold uppercase tracking-widest text-[#92400e]">NEW LEDGER ENTRY</span>
-              <h2 class="text-2xl sm:text-3xl font-serif font-bold text-slate-900 mt-1 tracking-tight">Payment details</h2>
+              <span class="text-[11px] font-extrabold uppercase tracking-widest text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200 inline-block mb-1">RECORD PAYMENT</span>
+              <h2 class="text-2xl sm:text-3xl font-serif font-bold text-slate-900 tracking-tight">Record stakeholder payment</h2>
               <p class="text-xs text-slate-500 mt-1">Fields marked with an asterisk are required.</p>
             </div>
             <div class="flex items-center gap-2">
-              <div class="w-10 h-10 rounded-xl bg-[#fef3c7] border border-[#fde68a] text-[#92400e] flex items-center justify-center text-lg shadow-xs" title="Ledger Entry">
-                <i class="pi pi-book"></i>
+              <div class="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-center justify-center text-lg shadow-xs" title="Record Payment">
+                <i class="pi pi-wallet"></i>
               </div>
               <button type="button" @click="closeModal" class="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer" title="Close">
                 <i class="pi pi-times text-sm"></i>
@@ -125,373 +125,389 @@
             </div>
           </div>
 
-          <form @submit.prevent="recordPayment" class="space-y-6">
-            
-            <!-- STAKEHOLDER NAME -->
-            <div class="flex flex-col gap-2 relative">
-              <label class="text-sm font-bold text-slate-800">Stakeholder name <span class="text-rose-500">*</span></label>
+          <!-- Scrollable Body with Form Fields -->
+          <div class="p-6 sm:p-8 overflow-y-auto flex-1 custom-scroll">
+            <form @submit.prevent="recordPayment" id="recordPaymentForm" class="space-y-6">
               
-              <div class="relative">
-                <input
-                  type="text"
-                  v-model="stakeholderSearch"
-                  @focus="isStakeholderDropdownOpen = true"
-                  @input="isStakeholderDropdownOpen = true; if(selectedStakeholder) selectedStakeholder = null"
-                  @blur="onStakeholderBlur"
-                  placeholder="Search stakeholder by name, business, or stall..."
-                  class="w-full h-12 px-4 pr-10 border border-slate-200 rounded-xl text-sm sm:text-base text-slate-800 bg-[#fafafa] focus:bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#133e35]/20 focus:border-[#133e35] transition-all"
-                />
-                <button
-                  v-if="stakeholderSearch"
-                  type="button"
-                  @click="resetSelection"
-                  class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 text-xs cursor-pointer"
-                  title="Clear"
-                >
-                  <i class="pi pi-times"></i>
-                </button>
-                <i v-else class="pi pi-search absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none"></i>
-
-                <!-- Floating Dropdown list of matching stakeholders -->
-                <div
-                  v-if="isStakeholderDropdownOpen && filteredStakeholdersForDropdown.length"
-                  class="absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-56 overflow-y-auto p-1.5 custom-scroll"
-                >
-                  <div
-                    v-for="s in filteredStakeholdersForDropdown"
-                    :key="s.id"
-                    @mousedown.prevent="chooseStakeholder(s)"
-                    class="p-2.5 rounded-lg hover:bg-slate-50 cursor-pointer flex items-center justify-between transition-colors border-b border-slate-50 last:border-none"
+              <!-- STAKEHOLDER NAME (HIGH Z-INDEX SO DROPDOWN FLOATS IN FRONT) -->
+              <div class="flex flex-col gap-2 relative z-50">
+                <div class="flex items-center justify-between">
+                  <label class="text-sm font-bold text-slate-800">Stakeholder name <span class="text-rose-500">*</span></label>
+                  <span v-if="selectedStakeholder" class="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">Selected</span>
+                </div>
+                
+                <div class="relative z-50">
+                  <input
+                    type="text"
+                    v-model="stakeholderSearch"
+                    @focus="isStakeholderDropdownOpen = true"
+                    @input="isStakeholderDropdownOpen = true; if(selectedStakeholder) selectedStakeholder = null"
+                    @blur="onStakeholderBlur"
+                    placeholder="Search stakeholder by name, business, or stall..."
+                    class="w-full h-12 px-4 pr-10 border border-slate-200 rounded-xl text-sm sm:text-base text-slate-800 bg-[#fafafa] focus:bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#133e35]/20 focus:border-[#133e35] transition-all"
+                  />
+                  <button
+                    v-if="stakeholderSearch"
+                    type="button"
+                    @click="resetSelection"
+                    class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 text-xs cursor-pointer z-10"
+                    title="Clear"
                   >
-                    <div class="flex items-center gap-2.5 min-w-0">
-                      <div class="w-8 h-8 rounded-full bg-slate-100 text-slate-700 font-bold text-xs flex items-center justify-center flex-shrink-0">
-                        {{ initials(s.firstName, s.lastName) }}
-                      </div>
-                      <div class="min-w-0">
-                        <div class="font-bold text-sm text-slate-900 truncate">{{ s.firstName }} {{ s.lastName }}</div>
-                        <div class="text-xs text-slate-500 truncate">
-                          {{ s.businessName || 'Applicant' }}
-                          <span v-if="s.occupant?.stall?.stallNo || s.selectedStall?.stallNo">
-                            • Stall {{ s.occupant?.stall?.stallNo || s.selectedStall?.stallNo }}
+                    <i class="pi pi-times"></i>
+                  </button>
+                  <i v-else class="pi pi-search absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none z-10"></i>
+
+                  <!-- Floating Dropdown list of matching stakeholders (RENDERED IN FRONT OF ALL ELEMENTS) -->
+                  <div
+                    v-if="isStakeholderDropdownOpen"
+                    class="absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-2xl z-[9999] max-h-60 overflow-y-auto p-2 custom-scroll"
+                    style="box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.08);"
+                  >
+                    <div v-if="filteredStakeholdersForDropdown.length > 0">
+                      <div
+                        v-for="s in filteredStakeholdersForDropdown"
+                        :key="s.id"
+                        @mousedown.prevent="chooseStakeholder(s)"
+                        class="p-2.5 rounded-xl hover:bg-emerald-50/60 cursor-pointer flex items-center justify-between transition-colors border-b border-slate-100 last:border-none group"
+                      >
+                        <div class="flex items-center gap-2.5 min-w-0">
+                          <div class="w-8 h-8 rounded-full bg-slate-100 group-hover:bg-emerald-100 text-slate-700 group-hover:text-emerald-800 font-bold text-xs flex items-center justify-center flex-shrink-0 transition-colors">
+                            {{ initials(s.firstName, s.lastName) }}
+                          </div>
+                          <div class="min-w-0">
+                            <div class="font-bold text-sm text-slate-900 group-hover:text-emerald-950 truncate">{{ s.firstName }} {{ s.lastName }}</div>
+                            <div class="text-xs text-slate-500 truncate">
+                              {{ s.businessName || 'Applicant' }}
+                              <span v-if="s.occupant?.stall?.stallNo || s.selectedStall?.stallNo">
+                                • Stall {{ s.occupant?.stall?.stallNo || s.selectedStall?.stallNo }}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="text-right text-xs font-bold text-slate-600 flex-shrink-0 ml-2">
+                          <span v-if="activeCategory === 'ADVANCE_PAYMENT'" class="text-indigo-600">
+                            ₱{{ Number(s.advanceBalance || 0).toLocaleString() }}
                           </span>
+                          <span v-else-if="activeCategory === 'RENT_PAYMENT'" class="text-rose-600">
+                            ₱{{ getTotalUnpaidAmount(s).toLocaleString() }}
+                          </span>
+                          <span v-else class="text-amber-600">Fee Pending</span>
                         </div>
                       </div>
                     </div>
-                    <div class="text-right text-xs font-bold text-slate-600 flex-shrink-0 ml-2">
-                      <span v-if="activeCategory === 'ADVANCE_PAYMENT'" class="text-indigo-600">
-                        ₱{{ Number(s.advanceBalance || 0).toLocaleString() }}
-                      </span>
-                      <span v-else-if="activeCategory === 'RENT_PAYMENT'" class="text-rose-600">
-                        ₱{{ getTotalUnpaidAmount(s).toLocaleString() }}
-                      </span>
-                      <span v-else class="text-amber-600">Fee Pending</span>
+                    <div v-else-if="stakeholderSearch" class="p-4 text-center text-xs text-slate-400">
+                      <i class="pi pi-search text-base mb-1 block text-slate-300"></i>
+                      No stakeholders found matching "{{ stakeholderSearch }}"
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <!-- PAYMENT TYPE (BOXES IN A STRAIGHT LINE WITH INTERACTIVE GREEN CHECK) -->
-            <div class="flex flex-col gap-2">
-              <div class="flex items-center justify-between">
-                <label class="text-sm font-bold text-slate-800">Payment type <span class="text-rose-500">*</span></label>
-                <span class="text-xs text-slate-400">Select one option</span>
-              </div>
-              
-              <div class="grid grid-cols-3 gap-2.5 sm:gap-4">
-                
-                <!-- Card 01: Advance payment -->
-                <div
-                  @click="setCategory('ADVANCE_PAYMENT')"
-                  class="group border rounded-xl sm:rounded-2xl p-3 sm:p-4 flex flex-col justify-between min-h-[120px] sm:min-h-[135px] cursor-pointer transition-all duration-200 select-none relative overflow-hidden active:scale-[0.98]"
-                  :class="activeCategory === 'ADVANCE_PAYMENT'
-                    ? 'border-2 border-emerald-600 bg-emerald-50/50 shadow-md ring-2 ring-emerald-500/20'
-                    : 'border-slate-200 bg-white hover:border-emerald-300 hover:bg-slate-50/80 hover:shadow-sm'"
-                >
-                  <!-- Active top accent glow line -->
-                  <div 
-                    v-if="activeCategory === 'ADVANCE_PAYMENT'" 
-                    class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-500"
-                  ></div>
-
-                  <div class="flex items-center justify-between mb-2 sm:mb-3">
-                    <span 
-                      class="text-xs sm:text-sm font-bold font-mono transition-colors"
-                      :class="activeCategory === 'ADVANCE_PAYMENT' ? 'text-emerald-700' : 'text-slate-400 group-hover:text-slate-600'"
-                    >01</span>
-
-                    <!-- Interactive Green Check Indicator -->
-                    <div 
-                      class="w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 shadow-2xs"
-                      :class="activeCategory === 'ADVANCE_PAYMENT' 
-                        ? 'bg-emerald-600 text-white scale-100 shadow-emerald-200 ring-2 ring-emerald-100 check-pop' 
-                        : 'border-2 border-slate-200 bg-slate-50/80 text-transparent group-hover:border-emerald-300 group-hover:bg-emerald-50/50'"
-                    >
-                      <i 
-                        class="pi pi-check text-[11px] font-black transition-transform duration-200"
-                        :class="activeCategory === 'ADVANCE_PAYMENT' ? 'scale-100' : 'scale-0'"
-                      ></i>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div 
-                      class="text-xs sm:text-sm leading-tight transition-colors"
-                      :class="activeCategory === 'ADVANCE_PAYMENT' ? 'font-extrabold text-emerald-950' : 'font-bold text-slate-800 group-hover:text-slate-900'"
-                    >
-                      Advance payment
-                    </div>
-                    <div 
-                      class="text-[11px] sm:text-xs mt-1 leading-normal transition-colors"
-                      :class="activeCategory === 'ADVANCE_PAYMENT' ? 'text-emerald-800/80' : 'text-slate-500'"
-                    >
-                      Payment received in advance
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Card 02: Application payment -->
-                <div
-                  @click="setCategory('APPLICATION_FORM')"
-                  class="group border rounded-xl sm:rounded-2xl p-3 sm:p-4 flex flex-col justify-between min-h-[120px] sm:min-h-[135px] cursor-pointer transition-all duration-200 select-none relative overflow-hidden active:scale-[0.98]"
-                  :class="activeCategory === 'APPLICATION_FORM'
-                    ? 'border-2 border-emerald-600 bg-emerald-50/50 shadow-md ring-2 ring-emerald-500/20'
-                    : 'border-slate-200 bg-white hover:border-emerald-300 hover:bg-slate-50/80 hover:shadow-sm'"
-                >
-                  <!-- Active top accent glow line -->
-                  <div 
-                    v-if="activeCategory === 'APPLICATION_FORM'" 
-                    class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-500"
-                  ></div>
-
-                  <div class="flex items-center justify-between mb-2 sm:mb-3">
-                    <span 
-                      class="text-xs sm:text-sm font-bold font-mono transition-colors"
-                      :class="activeCategory === 'APPLICATION_FORM' ? 'text-emerald-700' : 'text-slate-400 group-hover:text-slate-600'"
-                    >02</span>
-
-                    <!-- Interactive Green Check Indicator -->
-                    <div 
-                      class="w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 shadow-2xs"
-                      :class="activeCategory === 'APPLICATION_FORM' 
-                        ? 'bg-emerald-600 text-white scale-100 shadow-emerald-200 ring-2 ring-emerald-100 check-pop' 
-                        : 'border-2 border-slate-200 bg-slate-50/80 text-transparent group-hover:border-emerald-300 group-hover:bg-emerald-50/50'"
-                    >
-                      <i 
-                        class="pi pi-check text-[11px] font-black transition-transform duration-200"
-                        :class="activeCategory === 'APPLICATION_FORM' ? 'scale-100' : 'scale-0'"
-                      ></i>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div 
-                      class="text-xs sm:text-sm leading-tight transition-colors"
-                      :class="activeCategory === 'APPLICATION_FORM' ? 'font-extrabold text-emerald-950' : 'font-bold text-slate-800 group-hover:text-slate-900'"
-                    >
-                      Application payment
-                    </div>
-                    <div 
-                      class="text-[11px] sm:text-xs mt-1 leading-normal transition-colors"
-                      :class="activeCategory === 'APPLICATION_FORM' ? 'text-emerald-800/80' : 'text-slate-500'"
-                    >
-                      Fee received with an application
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Card 03: Contract stall payment -->
-                <div
-                  @click="setCategory('RENT_PAYMENT')"
-                  class="group border rounded-xl sm:rounded-2xl p-3 sm:p-4 flex flex-col justify-between min-h-[120px] sm:min-h-[135px] cursor-pointer transition-all duration-200 select-none relative overflow-hidden active:scale-[0.98]"
-                  :class="activeCategory === 'RENT_PAYMENT'
-                    ? 'border-2 border-emerald-600 bg-emerald-50/50 shadow-md ring-2 ring-emerald-500/20'
-                    : 'border-slate-200 bg-white hover:border-emerald-300 hover:bg-slate-50/80 hover:shadow-sm'"
-                >
-                  <!-- Active top accent glow line -->
-                  <div 
-                    v-if="activeCategory === 'RENT_PAYMENT'" 
-                    class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-500"
-                  ></div>
-
-                  <div class="flex items-center justify-between mb-2 sm:mb-3">
-                    <span 
-                      class="text-xs sm:text-sm font-bold font-mono transition-colors"
-                      :class="activeCategory === 'RENT_PAYMENT' ? 'text-emerald-700' : 'text-slate-400 group-hover:text-slate-600'"
-                    >03</span>
-
-                    <!-- Interactive Green Check Indicator -->
-                    <div 
-                      class="w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 shadow-2xs"
-                      :class="activeCategory === 'RENT_PAYMENT' 
-                        ? 'bg-emerald-600 text-white scale-100 shadow-emerald-200 ring-2 ring-emerald-100 check-pop' 
-                        : 'border-2 border-slate-200 bg-slate-50/80 text-transparent group-hover:border-emerald-300 group-hover:bg-emerald-50/50'"
-                    >
-                      <i 
-                        class="pi pi-check text-[11px] font-black transition-transform duration-200"
-                        :class="activeCategory === 'RENT_PAYMENT' ? 'scale-100' : 'scale-0'"
-                      ></i>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div 
-                      class="text-xs sm:text-sm leading-tight transition-colors"
-                      :class="activeCategory === 'RENT_PAYMENT' ? 'font-extrabold text-emerald-950' : 'font-bold text-slate-800 group-hover:text-slate-900'"
-                    >
-                      Contract stall payment
-                    </div>
-                    <div 
-                      class="text-[11px] sm:text-xs mt-1 leading-normal transition-colors"
-                      :class="activeCategory === 'RENT_PAYMENT' ? 'text-emerald-800/80' : 'text-slate-500'"
-                    >
-                      Stall payment under a contract
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-            </div>
-
-            <!-- Total Advance Amount (if Advance Payment) -->
-            <div v-if="activeCategory === 'ADVANCE_PAYMENT'" class="flex flex-col gap-1.5 p-4 bg-amber-50/40 border border-amber-200/80 rounded-xl">
-              <div class="flex items-center justify-between">
-                <label class="text-xs font-bold text-slate-800">Total required advance amount <span class="text-rose-500">*</span></label>
-                <span v-if="selectedStakeholder" class="text-xs text-slate-500">Paid so far: ₱{{ Number(selectedStakeholder?.advanceBalance || 0).toLocaleString() }}</span>
-              </div>
-              <InputNumber v-model="form.totalAdvanceAmount" mode="currency" currency="PHP" locale="en-PH" class="w-full" placeholder="₱ 0.00" />
-            </div>
-
-            <!-- Select Billing Statement (if Contract Stall Payment) -->
-            <div v-if="activeCategory === 'RENT_PAYMENT' && selectedStakeholder" class="flex flex-col gap-1.5 p-4 bg-slate-50 border border-slate-200 rounded-xl">
-              <div class="flex items-center justify-between">
-                <label class="text-xs font-bold text-slate-800">Select billing statement <span class="text-rose-500">*</span></label>
-                <span class="text-xs text-slate-500">{{ selectedStakeholderBillings.length }} unpaid statement(s)</span>
-              </div>
-              <div v-if="selectedStakeholderBillings.length" class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
-                <div
-                  v-for="b in selectedStakeholderBillings"
-                  :key="b.id"
-                  @click="selectBilling(b)"
-                  class="p-3 rounded-lg border cursor-pointer transition-all flex items-center justify-between select-none"
-                  :class="selectedBillingId === b.id ? 'border-2 border-[#133e35] bg-[#eff6f2]' : 'border-slate-200 bg-white hover:border-slate-300'"
-                >
-                  <div>
-                    <div class="text-xs font-bold text-slate-900">{{ b.billingNo }}</div>
-                    <div class="text-[11px] text-slate-500 mt-0.5">Due: {{ formatDate(b.dueDate) }}</div>
-                  </div>
-                  <div class="text-right">
-                    <div class="text-sm font-extrabold text-rose-600">₱{{ Number(b.balance || 0).toLocaleString() }}</div>
-                    <div v-if="selectedBillingId === b.id" class="text-[10px] font-bold text-[#133e35]">Selected</div>
-                  </div>
-                </div>
-              </div>
-              <div v-else class="text-xs text-slate-400 py-1">
-                No unpaid billing statements recorded for this tenant.
-              </div>
-            </div>
-
-            <!-- STANDARDIZED 2-COLUMN INPUT FIELDS GRID (MATCHING IMAGE - PAYMENT METHOD REMOVED) -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-              
-              <!-- Amount received * -->
-              <div class="flex flex-col gap-2">
-                <label class="text-sm font-bold text-slate-800">Amount received <span class="text-rose-500">*</span></label>
-                <InputNumber
-                  v-model="form.amount"
-                  mode="currency"
-                  currency="PHP"
-                  locale="en-PH"
-                  class="w-full font-bold"
-                  placeholder="₱ 0.00"
-                />
-              </div>
-
-              <!-- Date received * -->
-              <div class="flex flex-col gap-2">
-                <label class="text-sm font-bold text-slate-800">Date received <span class="text-rose-500">*</span></label>
-                <div class="relative">
-                  <input
-                    type="date"
-                    v-model="form.dateReceived"
-                    class="w-full h-12 px-4 pr-10 border border-slate-200 rounded-xl text-sm sm:text-base text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#133e35]/20 focus:border-[#133e35]"
-                  />
-                  <i class="pi pi-calendar absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
-                </div>
-              </div>
-
-              <!-- Reference number -->
-              <div class="flex flex-col gap-2">
-                <label class="text-sm font-bold text-slate-800">Reference number</label>
-                <input
-                  type="text"
-                  v-model="form.referenceNo"
-                  placeholder="e.g. CHQ-1048"
-                  class="w-full h-12 px-4 border border-slate-200 rounded-xl text-sm sm:text-base text-slate-800 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#133e35]/20 focus:border-[#133e35]"
-                />
-                <span class="text-xs text-slate-400">Cheque, transfer, or receipt number (optional)</span>
-              </div>
-
-              <!-- Official receipt number * -->
-              <div class="flex flex-col gap-2">
+              <!-- PAYMENT TYPE (LOWER Z-INDEX TO PREVENT OVERLAY ISSUES) -->
+              <div class="flex flex-col gap-2 relative z-10">
                 <div class="flex items-center justify-between">
-                  <label class="text-sm font-bold text-slate-800">Official receipt number <span class="text-rose-500">*</span></label>
-                  <button type="button" @click="regenerateReceiptNo" class="text-xs text-[#133e35] hover:text-emerald-950 font-semibold flex items-center gap-1 cursor-pointer">
-                    <i class="pi pi-refresh text-[10px]"></i> Auto-generate
-                  </button>
+                  <label class="text-sm font-bold text-slate-800">Payment type <span class="text-rose-500">*</span></label>
+                  <span class="text-xs text-slate-400">Select one option</span>
                 </div>
-                <div class="relative">
+                
+                <div class="grid grid-cols-3 gap-2.5 sm:gap-4">
+                  
+                  <!-- Card 01: Advance payment -->
+                  <div
+                    @click="setCategory('ADVANCE_PAYMENT')"
+                    class="group border rounded-xl sm:rounded-2xl p-3 sm:p-4 flex flex-col justify-between min-h-[120px] sm:min-h-[135px] cursor-pointer transition-all duration-200 select-none relative overflow-hidden active:scale-[0.98]"
+                    :class="activeCategory === 'ADVANCE_PAYMENT'
+                      ? 'border-2 border-emerald-600 bg-emerald-50/50 shadow-md ring-2 ring-emerald-500/20'
+                      : 'border-slate-200 bg-white hover:border-emerald-300 hover:bg-slate-50/80 hover:shadow-sm'"
+                  >
+                    <!-- Active top accent glow line -->
+                    <div 
+                      v-if="activeCategory === 'ADVANCE_PAYMENT'" 
+                      class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-500"
+                    ></div>
+
+                    <div class="flex items-center justify-between mb-2 sm:mb-3">
+                      <span 
+                        class="text-xs sm:text-sm font-bold font-mono transition-colors"
+                        :class="activeCategory === 'ADVANCE_PAYMENT' ? 'text-emerald-700' : 'text-slate-400 group-hover:text-slate-600'"
+                      >01</span>
+
+                      <!-- Interactive Green Check Indicator -->
+                      <div 
+                        class="w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 shadow-2xs"
+                        :class="activeCategory === 'ADVANCE_PAYMENT' 
+                          ? 'bg-emerald-600 text-white scale-100 shadow-emerald-200 ring-2 ring-emerald-100 check-pop' 
+                          : 'border-2 border-slate-200 bg-slate-50/80 text-transparent group-hover:border-emerald-300 group-hover:bg-emerald-50/50'"
+                      >
+                        <i 
+                          class="pi pi-check text-[11px] font-black transition-transform duration-200"
+                          :class="activeCategory === 'ADVANCE_PAYMENT' ? 'scale-100' : 'scale-0'"
+                        ></i>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div 
+                        class="text-xs sm:text-sm leading-tight transition-colors"
+                        :class="activeCategory === 'ADVANCE_PAYMENT' ? 'font-extrabold text-emerald-950' : 'font-bold text-slate-800 group-hover:text-slate-900'"
+                      >
+                        Advance payment
+                      </div>
+                      <div 
+                        class="text-[11px] sm:text-xs mt-1 leading-normal transition-colors"
+                        :class="activeCategory === 'ADVANCE_PAYMENT' ? 'text-emerald-800/80' : 'text-slate-500'"
+                      >
+                        Payment received in advance
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Card 02: Application payment -->
+                  <div
+                    @click="setCategory('APPLICATION_FORM')"
+                    class="group border rounded-xl sm:rounded-2xl p-3 sm:p-4 flex flex-col justify-between min-h-[120px] sm:min-h-[135px] cursor-pointer transition-all duration-200 select-none relative overflow-hidden active:scale-[0.98]"
+                    :class="activeCategory === 'APPLICATION_FORM'
+                      ? 'border-2 border-emerald-600 bg-emerald-50/50 shadow-md ring-2 ring-emerald-500/20'
+                      : 'border-slate-200 bg-white hover:border-emerald-300 hover:bg-slate-50/80 hover:shadow-sm'"
+                  >
+                    <!-- Active top accent glow line -->
+                    <div 
+                      v-if="activeCategory === 'APPLICATION_FORM'" 
+                      class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-500"
+                    ></div>
+
+                    <div class="flex items-center justify-between mb-2 sm:mb-3">
+                      <span 
+                        class="text-xs sm:text-sm font-bold font-mono transition-colors"
+                        :class="activeCategory === 'APPLICATION_FORM' ? 'text-emerald-700' : 'text-slate-400 group-hover:text-slate-600'"
+                      >02</span>
+
+                      <!-- Interactive Green Check Indicator -->
+                      <div 
+                        class="w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 shadow-2xs"
+                        :class="activeCategory === 'APPLICATION_FORM' 
+                          ? 'bg-emerald-600 text-white scale-100 shadow-emerald-200 ring-2 ring-emerald-100 check-pop' 
+                          : 'border-2 border-slate-200 bg-slate-50/80 text-transparent group-hover:border-emerald-300 group-hover:bg-emerald-50/50'"
+                      >
+                        <i 
+                          class="pi pi-check text-[11px] font-black transition-transform duration-200"
+                          :class="activeCategory === 'APPLICATION_FORM' ? 'scale-100' : 'scale-0'"
+                        ></i>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div 
+                        class="text-xs sm:text-sm leading-tight transition-colors"
+                        :class="activeCategory === 'APPLICATION_FORM' ? 'font-extrabold text-emerald-950' : 'font-bold text-slate-800 group-hover:text-slate-900'"
+                      >
+                        Application payment
+                      </div>
+                      <div 
+                        class="text-[11px] sm:text-xs mt-1 leading-normal transition-colors"
+                        :class="activeCategory === 'APPLICATION_FORM' ? 'text-emerald-800/80' : 'text-slate-500'"
+                      >
+                        Fee received with an application
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Card 03: Contract stall payment -->
+                  <div
+                    @click="setCategory('RENT_PAYMENT')"
+                    class="group border rounded-xl sm:rounded-2xl p-3 sm:p-4 flex flex-col justify-between min-h-[120px] sm:min-h-[135px] cursor-pointer transition-all duration-200 select-none relative overflow-hidden active:scale-[0.98]"
+                    :class="activeCategory === 'RENT_PAYMENT'
+                      ? 'border-2 border-emerald-600 bg-emerald-50/50 shadow-md ring-2 ring-emerald-500/20'
+                      : 'border-slate-200 bg-white hover:border-emerald-300 hover:bg-slate-50/80 hover:shadow-sm'"
+                  >
+                    <!-- Active top accent glow line -->
+                    <div 
+                      v-if="activeCategory === 'RENT_PAYMENT'" 
+                      class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-500"
+                    ></div>
+
+                    <div class="flex items-center justify-between mb-2 sm:mb-3">
+                      <span 
+                        class="text-xs sm:text-sm font-bold font-mono transition-colors"
+                        :class="activeCategory === 'RENT_PAYMENT' ? 'text-emerald-700' : 'text-slate-400 group-hover:text-slate-600'"
+                      >03</span>
+
+                      <!-- Interactive Green Check Indicator -->
+                      <div 
+                        class="w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 shadow-2xs"
+                        :class="activeCategory === 'RENT_PAYMENT' 
+                          ? 'bg-emerald-600 text-white scale-100 shadow-emerald-200 ring-2 ring-emerald-100 check-pop' 
+                          : 'border-2 border-slate-200 bg-slate-50/80 text-transparent group-hover:border-emerald-300 group-hover:bg-emerald-50/50'"
+                      >
+                        <i 
+                          class="pi pi-check text-[11px] font-black transition-transform duration-200"
+                          :class="activeCategory === 'RENT_PAYMENT' ? 'scale-100' : 'scale-0'"
+                        ></i>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div 
+                        class="text-xs sm:text-sm leading-tight transition-colors"
+                        :class="activeCategory === 'RENT_PAYMENT' ? 'font-extrabold text-emerald-950' : 'font-bold text-slate-800 group-hover:text-slate-900'"
+                      >
+                        Contract stall payment
+                      </div>
+                      <div 
+                        class="text-[11px] sm:text-xs mt-1 leading-normal transition-colors"
+                        :class="activeCategory === 'RENT_PAYMENT' ? 'text-emerald-800/80' : 'text-slate-500'"
+                      >
+                        Stall payment under a contract
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+              <!-- Total Advance Amount (if Advance Payment) -->
+              <div v-if="activeCategory === 'ADVANCE_PAYMENT'" class="flex flex-col gap-1.5 p-4 bg-amber-50/40 border border-amber-200/80 rounded-xl relative z-10">
+                <div class="flex items-center justify-between">
+                  <label class="text-xs font-bold text-slate-800">Total required advance amount <span class="text-rose-500">*</span></label>
+                  <span v-if="selectedStakeholder" class="text-xs text-slate-500">Paid so far: ₱{{ Number(selectedStakeholder?.advanceBalance || 0).toLocaleString() }}</span>
+                </div>
+                <InputNumber v-model="form.totalAdvanceAmount" mode="currency" currency="PHP" locale="en-PH" class="w-full" placeholder="₱ 0.00" />
+              </div>
+
+              <!-- Select Billing Statement (if Contract Stall Payment) -->
+              <div v-if="activeCategory === 'RENT_PAYMENT' && selectedStakeholder" class="flex flex-col gap-1.5 p-4 bg-slate-50 border border-slate-200 rounded-xl relative z-10">
+                <div class="flex items-center justify-between">
+                  <label class="text-xs font-bold text-slate-800">Select billing statement <span class="text-rose-500">*</span></label>
+                  <span class="text-xs text-slate-500">{{ selectedStakeholderBillings.length }} unpaid statement(s)</span>
+                </div>
+                <div v-if="selectedStakeholderBillings.length" class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
+                  <div
+                    v-for="b in selectedStakeholderBillings"
+                    :key="b.id"
+                    @click="selectBilling(b)"
+                    class="p-3 rounded-lg border cursor-pointer transition-all flex items-center justify-between select-none"
+                    :class="selectedBillingId === b.id ? 'border-2 border-[#133e35] bg-[#eff6f2]' : 'border-slate-200 bg-white hover:border-slate-300'"
+                  >
+                    <div>
+                      <div class="text-xs font-bold text-slate-900">{{ b.billingNo }}</div>
+                      <div class="text-[11px] text-slate-500 mt-0.5">Due: {{ formatDate(b.dueDate) }}</div>
+                    </div>
+                    <div class="text-right">
+                      <div class="text-sm font-extrabold text-rose-600">₱{{ Number(b.balance || 0).toLocaleString() }}</div>
+                      <div v-if="selectedBillingId === b.id" class="text-[10px] font-bold text-[#133e35]">Selected</div>
+                    </div>
+                  </div>
+                </div>
+                <div v-else class="text-xs text-slate-400 py-1">
+                  No unpaid billing statements recorded for this tenant.
+                </div>
+              </div>
+
+              <!-- STANDARDIZED 2-COLUMN INPUT FIELDS GRID -->
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-5 relative z-10">
+                
+                <!-- Amount received * -->
+                <div class="flex flex-col gap-2">
+                  <label class="text-sm font-bold text-slate-800">Amount received <span class="text-rose-500">*</span></label>
+                  <InputNumber
+                    v-model="form.amount"
+                    mode="currency"
+                    currency="PHP"
+                    locale="en-PH"
+                    class="w-full font-bold"
+                    placeholder="₱ 0.00"
+                  />
+                </div>
+
+                <!-- Date received * -->
+                <div class="flex flex-col gap-2">
+                  <label class="text-sm font-bold text-slate-800">Date received <span class="text-rose-500">*</span></label>
+                  <div class="relative">
+                    <input
+                      type="date"
+                      v-model="form.dateReceived"
+                      class="w-full h-12 px-4 pr-10 border border-slate-200 rounded-xl text-sm sm:text-base text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#133e35]/20 focus:border-[#133e35]"
+                    />
+                    <i class="pi pi-calendar absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
+                  </div>
+                </div>
+
+                <!-- Reference number -->
+                <div class="flex flex-col gap-2">
+                  <label class="text-sm font-bold text-slate-800">Reference number</label>
                   <input
                     type="text"
-                    v-model="form.receiptNo"
-                    placeholder="Receipt #"
-                    class="w-full h-12 px-4 pl-10 font-mono text-xs sm:text-sm font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#133e35]/20 focus:border-[#133e35]"
+                    v-model="form.referenceNo"
+                    placeholder="e.g. CHQ-1048"
+                    class="w-full h-12 px-4 border border-slate-200 rounded-xl text-sm sm:text-base text-slate-800 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#133e35]/20 focus:border-[#133e35]"
                   />
-                  <i class="pi pi-receipt absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                  <span class="text-xs text-slate-400">Cheque, transfer, or receipt number (optional)</span>
                 </div>
+
+                <!-- Official receipt number * -->
+                <div class="flex flex-col gap-2">
+                  <div class="flex items-center justify-between">
+                    <label class="text-sm font-bold text-slate-800">Official receipt number <span class="text-rose-500">*</span></label>
+                    <button type="button" @click="regenerateReceiptNo" class="text-xs text-[#133e35] hover:text-emerald-950 font-semibold flex items-center gap-1 cursor-pointer">
+                      <i class="pi pi-refresh text-[10px]"></i> Auto-generate
+                    </button>
+                  </div>
+                  <div class="relative">
+                    <input
+                      type="text"
+                      v-model="form.receiptNo"
+                      placeholder="Receipt #"
+                      class="w-full h-12 px-4 pl-10 font-mono text-xs sm:text-sm font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#133e35]/20 focus:border-[#133e35]"
+                    />
+                    <i class="pi pi-receipt absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                  </div>
+                </div>
+
               </div>
 
-            </div>
-
-            <!-- NOTES (FULL-WIDTH TEXTAREA MATCHING IMAGE) -->
-            <div class="flex flex-col gap-2">
-              <label class="text-sm font-bold text-slate-800">Notes</label>
-              <textarea
-                v-model="form.notes"
-                rows="4"
-                placeholder="Add any context for this payment record..."
-                class="w-full p-4 border border-slate-200 rounded-xl text-sm sm:text-base text-slate-800 bg-white placeholder:text-slate-400 resize-none focus:outline-none focus:ring-2 focus:ring-[#133e35]/20 focus:border-[#133e35]"
-              ></textarea>
-            </div>
-
-            <!-- FOOTER (MATCHING IMAGE) -->
-            <div class="flex items-center justify-between pt-6 border-t border-slate-200/80">
-              <div class="flex items-center gap-2 text-xs text-slate-400 font-medium">
-                <i class="pi pi-lock text-slate-400 text-xs"></i>
-                <span>Saved to the internal market ledger</span>
+              <!-- NOTES (FULL-WIDTH TEXTAREA) -->
+              <div class="flex flex-col gap-2 relative z-10">
+                <label class="text-sm font-bold text-slate-800">Notes</label>
+                <textarea
+                  v-model="form.notes"
+                  rows="3"
+                  placeholder="Add any context for this payment record..."
+                  class="w-full p-4 border border-slate-200 rounded-xl text-sm sm:text-base text-slate-800 bg-white placeholder:text-slate-400 resize-none focus:outline-none focus:ring-2 focus:ring-[#133e35]/20 focus:border-[#133e35]"
+                ></textarea>
               </div>
 
-              <div class="flex items-center gap-3">
-                <button
-                  type="button"
-                  @click="closeModal"
-                  class="px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  :disabled="!canRecord || isSubmitting"
-                  class="flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm text-white transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed select-none bg-[#133e35] hover:bg-[#0c2b24]"
-                >
-                  <span>{{ isSubmitting ? 'Recording...' : 'Record payment' }}</span>
-                  <i v-if="!isSubmitting" class="pi pi-arrow-right text-xs"></i>
-                  <i v-else class="pi pi-spin pi-spinner text-xs"></i>
-                </button>
-              </div>
+            </form>
+          </div>
+
+          <!-- Sticky Footer (Always visible at the bottom of the modal) -->
+          <div class="flex items-center justify-between p-4 sm:p-6 border-t border-slate-200/80 bg-white/95 backdrop-blur-xs flex-shrink-0 z-30">
+            <div class="flex items-center gap-2 text-xs text-slate-400 font-medium">
+              <i class="pi pi-lock text-slate-400 text-xs"></i>
+              <span class="hidden sm:inline">Saved to the internal market ledger</span>
+              <span class="sm:hidden text-[11px]">Internal ledger</span>
             </div>
 
-          </form>
+            <div class="flex items-center gap-3">
+              <button
+                type="button"
+                @click="closeModal"
+                class="px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="recordPaymentForm"
+                :disabled="isSubmitting"
+                class="flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm text-white transition-all shadow-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed select-none bg-[#133e35] hover:bg-[#0c2b24] active:scale-95"
+              >
+                <span>{{ isSubmitting ? 'Recording...' : 'Record payment' }}</span>
+                <i v-if="!isSubmitting" class="pi pi-arrow-right text-xs"></i>
+                <i v-else class="pi pi-spin pi-spinner text-xs"></i>
+              </button>
+            </div>
+          </div>
+
         </div>
       </Dialog>
 
@@ -719,6 +735,11 @@ const filteredStakeholdersForDropdown = computed(() => {
     list = stakeholders.value
   }
 
+  // If category-specific list is empty, default to all active stakeholders
+  if (!list || list.length === 0) {
+    list = stakeholders.value.filter(s => !s.isArchived)
+  }
+
   if (!q) return list
 
   const filtered = list.filter(s => {
@@ -919,6 +940,16 @@ async function recordPayment() {
         summary: 'Approval Required',
         detail: 'This stakeholder must be approved by the Treasurer before advance payment can be recorded.',
         life: 4500
+      })
+      return
+    }
+
+    if (activeCategory.value === 'ADVANCE_PAYMENT' && (!form.value.totalAdvanceAmount || Number(form.value.totalAdvanceAmount) <= 0)) {
+      toast.add({
+        severity: 'warn',
+        summary: 'Total Advance Required',
+        detail: 'Please enter the total required advance amount.',
+        life: 3500
       })
       return
     }
