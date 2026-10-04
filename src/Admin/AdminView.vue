@@ -918,9 +918,13 @@ async function saveStall() {
   try {
     const payload = {
       stallNo: stallDialog.form.stallNo,
+      stall_no: stallDialog.form.stallNo,
       section: stallDialog.form.section,
+      info: stallDialog.form.section,
       stallType: stallDialog.form.stallType,
-      monthlyRent: stallDialog.form.monthlyRent,
+      stall_type: stallDialog.form.stallType,
+      monthlyRent: Number(stallDialog.form.monthlyRent || 0),
+      monthly_rent: Number(stallDialog.form.monthlyRent || 0),
       status: stallDialog.form.status,
       latitude: stallDialog.form.latitude !== undefined && stallDialog.form.latitude !== null && stallDialog.form.latitude !== '' ? Number(stallDialog.form.latitude) : null,
       longitude: stallDialog.form.longitude !== undefined && stallDialog.form.longitude !== null && stallDialog.form.longitude !== '' ? Number(stallDialog.form.longitude) : null

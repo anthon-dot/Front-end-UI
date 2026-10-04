@@ -70,6 +70,9 @@ export function normalizeRecord(item) {
   if (result.document_type && !result.documentType) result.documentType = result.document_type;
   if (result.monthly_rent !== undefined && result.monthlyRent === undefined) result.monthlyRent = result.monthly_rent;
   if (result.stall_no && !result.stallNo) result.stallNo = result.stall_no;
+  if (result.stall_type && !result.stallType) result.stallType = result.stall_type;
+  if (result.monthly_rate !== undefined && result.monthlyRate === undefined) result.monthlyRate = result.monthly_rate;
+  if (result.info && !result.section) result.section = result.info;
   if (result.contract_no && !result.contractNo) result.contractNo = result.contract_no;
   if (result.start_date && !result.startDate) result.startDate = result.start_date;
   if (result.end_date && !result.endDate) result.endDate = result.end_date;
@@ -78,6 +81,65 @@ export function normalizeRecord(item) {
   if (result.stall_id && !result.stallId) result.stallId = result.stall_id;
 
   return result;
+}
+
+
+function mapStallPayload(data) {
+  if (!data || typeof data !== 'object') return data;
+  const payload = {};
+
+  const stallNo = data.stall_no ?? data.stallNo ?? data.number ?? data.stallNumber;
+  if (stallNo !== undefined && stallNo !== null) payload.stall_no = String(stallNo).trim();
+
+  const stallType = data.stall_type ?? data.stallType ?? data.type;
+  if (stallType !== undefined && stallType !== null) payload.stall_type = String(stallType).trim();
+
+  const monthlyRent = data.monthly_rent ?? data.monthlyRent ?? data.rent ?? data.rentalRate;
+  if (monthlyRent !== undefined && monthlyRent !== null) payload.monthly_rent = Number(monthlyRent || 0);
+
+  if (data.status !== undefined && data.status !== null) {
+    const s = String(data.status).trim().toUpperCase();
+    payload.status = (s === 'VACANT') ? 'AVAILABLE' : s;
+  }
+
+  const imageUrl = data.image_url ?? data.imageUrl;
+  if (imageUrl !== undefined) payload.image_url = imageUrl || null;
+
+  const info = data.info ?? data.section ?? data.location;
+  if (info !== undefined) payload.info = info || null;
+
+  const lat = data.latitude ?? data.lat;
+  if (lat !== undefined) {
+    payload.latitude = (lat !== null && lat !== '' && !isNaN(Number(lat))) ? Number(lat) : null;
+  }
+
+  const lng = data.longitude ?? data.lng;
+  if (lng !== undefined) {
+    payload.longitude = (lng !== null && lng !== '' && !isNaN(Number(lng))) ? Number(lng) : null;
+  }
+
+  const occupantId = data.occupant_id ?? data.occupantId ?? data.occupant?.id;
+  if (occupantId !== undefined) {
+    payload.occupant_id = occupantId ? Number(occupantId) : null;
+  }
+
+  return payload;
+}
+
+function mapRentalRatePayload(data) {
+  if (!data || typeof data !== 'object') return data;
+  const payload = {};
+
+  const stallType = data.stall_type ?? data.stallType;
+  if (stallType !== undefined && stallType !== null) payload.stall_type = String(stallType).trim();
+
+  const monthlyRate = data.monthly_rate ?? data.monthlyRate ?? data.rate;
+  if (monthlyRate !== undefined && monthlyRate !== null) payload.monthly_rate = Number(monthlyRate || 0);
+
+  if (data.description !== undefined) payload.description = data.description || '';
+  if (data.status !== undefined) payload.status = data.status || 'ACTIVE';
+
+  return payload;
 }
 
 // Smart Adapter that translates REST endpoints directly into Supabase operations
@@ -455,7 +517,12 @@ const api = {
 
     // 3. Stalls create
     if (cleanUrl === 'stalls') {
-      const { data: newStall, error } = await supabase.from('stalls').insert(data).select().single();
+      const stallPayload = mapStallPayload(data);
+      const { data: newStall, error } = await supabase
+        .from('stalls')
+        .insert(stallPayload)
+        .select('*, occupant:occupants(*, stakeholder:stakeholders(*))')
+        .single();
       if (error) throw error;
       return { data: normalizeRecord(newStall) };
     }
@@ -469,7 +536,8 @@ const api = {
 
     // 5. Rental Rates create
     if (cleanUrl === 'rental-rates' || cleanUrl === 'admin/rental-rates') {
-      const { data: newRate, error } = await supabase.from('rental_rates').insert(data).select().single();
+      const ratePayload = mapRentalRatePayload(data);
+      const { data: newRate, error } = await supabase.from('rental_rates').insert(ratePayload).select().single();
       if (error) throw error;
       return { data: normalizeRecord(newRate) };
     }
@@ -711,7 +779,13 @@ const api = {
     // 2. Update stalls
     if (cleanUrl.startsWith('stalls/')) {
       const id = cleanUrl.replace('stalls/', '');
-      const { data: updated, error } = await supabase.from('stalls').update(data).eq('id', id).select().single();
+      const updatePayload = mapStallPayload(data);
+      const { data: updated, error } = await supabase
+        .from('stalls')
+        .update(updatePayload)
+        .eq('id', id)
+        .select('*, occupant:occupants(*, stakeholder:stakeholders(*))')
+        .single();
       if (error) throw error;
       return { data: normalizeRecord(updated) };
     }
@@ -727,7 +801,8 @@ const api = {
     // 4. Update rental rates
     if (cleanUrl.startsWith('rental-rates/') || cleanUrl.startsWith('admin/rental-rates/')) {
       const id = cleanUrl.split('/')[1];
-      const { data: updated, error } = await supabase.from('rental_rates').update(data).eq('id', id).select().single();
+      const ratePayload = mapRentalRatePayload(data);
+      const { data: updated, error } = await supabase.from('rental_rates').update(ratePayload).eq('id', id).select().single();
       if (error) throw error;
       return { data: normalizeRecord(updated) };
     }
