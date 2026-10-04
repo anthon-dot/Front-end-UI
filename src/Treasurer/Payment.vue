@@ -102,6 +102,20 @@
               {{ formatDate(data.paymentDate || data.payment_date) }}
             </template>
           </Column>
+
+          <Column header="Action" alignFrozen="right" :frozen="true" class="text-right" style="min-width: 140px;">
+            <template #body="{ data }">
+              <Button 
+                label="View Details" 
+                icon="pi pi-eye" 
+                size="small" 
+                outlined 
+                severity="secondary" 
+                @click="openDetailsModal(data)"
+                class="!py-1.5 !px-3 !text-xs !font-semibold hover:!bg-slate-100 shadow-2xs"
+              />
+            </template>
+          </Column>
         </DataTable>
       </div>
 
@@ -519,6 +533,167 @@
         </div>
       </Dialog>
 
+      <!-- VIEW PAYMENT DETAILS MODAL -->
+      <Dialog 
+        v-model:visible="showDetailsModal" 
+        modal 
+        :closable="false" 
+        :focusOnShow="false"
+        :style="{ width: '96vw', maxWidth: '620px' }" 
+        :breakpoints="{ '960px': '96vw', '640px': '98vw' }" 
+        class="ledger-dialog"
+        :pt="{
+          root: { class: '!rounded-3xl !border !border-slate-200 !shadow-2xl overflow-hidden' },
+          content: { class: '!p-0 !bg-[#fcfbf9]' }
+        }"
+      >
+        <div v-if="selectedPaymentDetails" class="bg-[#fdfdfc] text-slate-800 font-sans max-h-[90vh] flex flex-col">
+          
+          <!-- Header -->
+          <div class="flex items-start justify-between gap-4 p-6 sm:p-7 pb-4 border-b border-slate-200/80 bg-white flex-shrink-0">
+            <div>
+              <span class="text-[11px] font-extrabold uppercase tracking-widest text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200 inline-block mb-1">
+                TRANSACTION DETAILS
+              </span>
+              <h2 class="text-2xl font-serif font-bold text-slate-900 tracking-tight">Payment #{{ selectedPaymentDetails.id }}</h2>
+              <p class="text-xs text-slate-500 mt-1">Recorded on {{ formatDateTime(selectedPaymentDetails.paymentDate || selectedPaymentDetails.payment_date) }}</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-center justify-center text-lg shadow-xs">
+                <i class="pi pi-receipt"></i>
+              </div>
+              <button 
+                type="button" 
+                @click="closeDetailsModal" 
+                class="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer" 
+                title="Close"
+              >
+                <i class="pi pi-times text-sm"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Body -->
+          <div class="p-6 sm:p-7 overflow-y-auto flex-1 space-y-5">
+            
+            <!-- Amount & Receipt Highlight Card -->
+            <div class="bg-gradient-to-br from-emerald-50/70 via-white to-emerald-50/30 p-5 rounded-2xl border border-emerald-200/80 flex items-center justify-between shadow-xs">
+              <div>
+                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Amount Paid</p>
+                <p class="text-3xl font-extrabold text-emerald-700 mt-1">
+                  ₱{{ Number(selectedPaymentDetails.amount || 0).toLocaleString() }}
+                </p>
+              </div>
+              <div class="text-right">
+                <Tag 
+                  :value="formatType(selectedPaymentDetails.paymentType || selectedPaymentDetails.payment_type)" 
+                  severity="info" 
+                  rounded 
+                  class="!bg-emerald-100 !text-emerald-800 !font-bold border border-emerald-200 mb-1" 
+                />
+                <p class="text-xs font-mono font-bold text-slate-600 mt-1">
+                  OR: {{ selectedPaymentDetails.receiptNo || selectedPaymentDetails.receipt_no || '—' }}
+                </p>
+              </div>
+            </div>
+
+            <!-- Stakeholder Profile Card -->
+            <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+              <div class="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
+                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Stakeholder Profile</span>
+                <span v-if="getStakeholder(selectedPaymentDetails)?.id" class="text-[11px] font-mono font-semibold text-slate-500">
+                  ID: #{{ getStakeholder(selectedPaymentDetails)?.id }}
+                </span>
+              </div>
+              <div class="flex items-center gap-3.5">
+                <div class="w-11 h-11 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-extrabold text-sm shadow-xs border border-indigo-200 flex-shrink-0">
+                  {{ initials(getStakeholder(selectedPaymentDetails)?.firstName || getStakeholder(selectedPaymentDetails)?.first_name, getStakeholder(selectedPaymentDetails)?.lastName || getStakeholder(selectedPaymentDetails)?.last_name) }}
+                </div>
+                <div class="min-w-0">
+                  <h4 class="font-bold text-slate-900 text-base">
+                    {{ getStakeholder(selectedPaymentDetails)?.firstName || getStakeholder(selectedPaymentDetails)?.first_name || 'Unknown' }} {{ getStakeholder(selectedPaymentDetails)?.lastName || getStakeholder(selectedPaymentDetails)?.last_name || '' }}
+                  </h4>
+                  <div class="flex items-center gap-2 flex-wrap text-xs text-slate-500 mt-0.5">
+                    <span>{{ getStakeholder(selectedPaymentDetails)?.businessName || getStakeholder(selectedPaymentDetails)?.business_name || 'Stakeholder' }}</span>
+                    <span v-if="getStakeholder(selectedPaymentDetails)?.selectedStall?.stallNo || getStakeholder(selectedPaymentDetails)?.occupant?.stall?.stallNo" class="text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.2 rounded-md">
+                      Stall {{ getStakeholder(selectedPaymentDetails)?.selectedStall?.stallNo || getStakeholder(selectedPaymentDetails)?.occupant?.stall?.stallNo }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Transaction Details Grid -->
+            <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+              <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-3 border-b border-slate-100 pb-2">Transaction Details</span>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span class="text-xs text-slate-400 font-medium block">Payment ID</span>
+                  <span class="font-mono font-bold text-slate-800">#{{ selectedPaymentDetails.id }}</span>
+                </div>
+                <div>
+                  <span class="text-xs text-slate-400 font-medium block">Official Receipt (OR)</span>
+                  <span class="font-mono font-bold text-slate-800">{{ selectedPaymentDetails.receiptNo || selectedPaymentDetails.receipt_no || '—' }}</span>
+                </div>
+                <div>
+                  <span class="text-xs text-slate-400 font-medium block">Reference / Check No.</span>
+                  <span class="font-medium text-slate-800">{{ selectedPaymentDetails.referenceNo || selectedPaymentDetails.reference_no || 'None' }}</span>
+                </div>
+                <div>
+                  <span class="text-xs text-slate-400 font-medium block">Payment Date</span>
+                  <span class="font-medium text-slate-800">{{ formatDateTime(selectedPaymentDetails.paymentDate || selectedPaymentDetails.payment_date) }}</span>
+                </div>
+                <div>
+                  <span class="text-xs text-slate-400 font-medium block">Payment Type</span>
+                  <span class="font-medium text-slate-800">{{ formatType(selectedPaymentDetails.paymentType || selectedPaymentDetails.payment_type) }}</span>
+                </div>
+                <div v-if="selectedPaymentDetails.rentCycle || selectedPaymentDetails.rent_cycle">
+                  <span class="text-xs text-slate-400 font-medium block">Rent Cycle</span>
+                  <span class="font-medium text-slate-800">{{ formatType(selectedPaymentDetails.rentCycle || selectedPaymentDetails.rent_cycle) }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Linked Billing Details (If available) -->
+            <div v-if="selectedPaymentDetails.billing" class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+              <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-3 border-b border-slate-100 pb-2">Linked Billing Statement</span>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span class="text-xs text-slate-400 font-medium block">Billing Invoice</span>
+                  <span class="font-mono font-bold text-slate-800">{{ selectedPaymentDetails.billing.billingNo || selectedPaymentDetails.billing.billing_no || `#${selectedPaymentDetails.billing.id}` }}</span>
+                </div>
+                <div>
+                  <span class="text-xs text-slate-400 font-medium block">Billing Period</span>
+                  <span class="font-medium text-slate-800">{{ selectedPaymentDetails.billing.billingPeriod || selectedPaymentDetails.billing.billing_period || 'N/A' }}</span>
+                </div>
+                <div>
+                  <span class="text-xs text-slate-400 font-medium block">Remaining Balance</span>
+                  <span class="font-bold text-rose-600">₱{{ Number(selectedPaymentDetails.billing.balance || 0).toLocaleString() }}</span>
+                </div>
+                <div>
+                  <span class="text-xs text-slate-400 font-medium block">Billing Status</span>
+                  <Tag :value="selectedPaymentDetails.billing.status || 'UNPAID'" rounded class="font-bold px-2 py-0.5 text-xs" />
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Footer -->
+          <div class="p-4 sm:p-5 border-t border-slate-200/80 bg-white flex items-center justify-end gap-3 flex-shrink-0">
+            <Button 
+              label="Close" 
+              icon="pi pi-times" 
+              outlined 
+              severity="secondary" 
+              @click="closeDetailsModal"
+              class="!px-5 !py-2.5 !rounded-xl !font-bold text-sm"
+            />
+          </div>
+
+        </div>
+      </Dialog>
+
     </main>
   </div>
 </template>
@@ -550,6 +725,37 @@ const stakeholders = ref([])
 const billings = ref([])
 
 const tableSearch = ref('')
+
+// Details modal state
+const showDetailsModal = ref(false)
+const selectedPaymentDetails = ref(null)
+
+function openDetailsModal(payment) {
+  selectedPaymentDetails.value = payment
+  showDetailsModal.value = true
+}
+
+function closeDetailsModal() {
+  showDetailsModal.value = false
+  selectedPaymentDetails.value = null
+}
+
+function formatDateTime(dateStr) {
+  if (!dateStr) return '—'
+  try {
+    const d = new Date(dateStr)
+    if (isNaN(d.getTime())) return dateStr
+    return d.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  } catch (e) {
+    return dateStr
+  }
+}
 
 // Modal state
 const showModal = ref(false)
