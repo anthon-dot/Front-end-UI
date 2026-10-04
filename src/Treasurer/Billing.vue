@@ -24,36 +24,43 @@
         </div>
       </div>
 
-      <!-- Quick Summary Cards -->
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
-          <div>
-            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Invoiced</p>
-            <p class="text-2xl font-extrabold text-slate-800 mt-1">₱{{ totalInvoiced.toLocaleString() }}</p>
+      <!-- Quick Summary Cards (Single Row: Rectangle 1 | Rectangle 2 | Rectangle 3) -->
+      <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-slate-100">
+          
+          <!-- Rectangle 1: Total Invoiced -->
+          <div class="p-5 flex items-center justify-between">
+            <div>
+              <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Invoiced</p>
+              <p class="text-2xl sm:text-3xl font-extrabold text-slate-800 mt-1">₱{{ totalInvoiced.toLocaleString() }}</p>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl shadow-xs">
+              <i class="pi pi-receipt"></i>
+            </div>
           </div>
-          <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl shadow-xs">
-            <i class="pi pi-receipt"></i>
-          </div>
-        </div>
 
-        <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
-          <div>
-            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Collected</p>
-            <p class="text-2xl font-extrabold text-emerald-600 mt-1">₱{{ totalPaid.toLocaleString() }}</p>
+          <!-- Rectangle 2: Total Collected -->
+          <div class="p-5 flex items-center justify-between">
+            <div>
+              <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Collected</p>
+              <p class="text-2xl sm:text-3xl font-extrabold text-emerald-600 mt-1">₱{{ totalPaid.toLocaleString() }}</p>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl shadow-xs">
+              <i class="pi pi-check-circle"></i>
+            </div>
           </div>
-          <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl shadow-xs">
-            <i class="pi pi-check-circle"></i>
-          </div>
-        </div>
 
-        <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
-          <div>
-            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Outstanding Balance</p>
-            <p class="text-2xl font-extrabold text-rose-600 mt-1">₱{{ totalBalance.toLocaleString() }}</p>
+          <!-- Rectangle 3: Outstanding Balance -->
+          <div class="p-5 flex items-center justify-between">
+            <div>
+              <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Outstanding Balance</p>
+              <p class="text-2xl sm:text-3xl font-extrabold text-rose-600 mt-1">₱{{ totalBalance.toLocaleString() }}</p>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-xl shadow-xs">
+              <i class="pi pi-exclamation-circle"></i>
+            </div>
           </div>
-          <div class="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-xl shadow-xs">
-            <i class="pi pi-exclamation-circle"></i>
-          </div>
+
         </div>
       </div>
 
@@ -77,10 +84,15 @@
         <p class="text-slate-500 font-medium">Fetching real-time billing records...</p>
       </div>
 
-      <!-- Table with Color Coded Rows and 1:1 Column Alignment -->
+      <!-- Grouped Table (Sakai PrimeVue Grouping Style) -->
       <div v-else class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden p-2">
         <DataTable 
-          :value="filteredRows" 
+          :value="sortedFilteredRows" 
+          rowGroupMode="subheader" 
+          groupRowsBy="stakeholder" 
+          sortMode="single" 
+          sortField="stakeholder" 
+          :sortOrder="1"
           :rowClass="getRowClass"
           paginator 
           :rows="10" 
@@ -95,36 +107,49 @@
             </div>
           </template>
 
-          <!-- 1. Stakeholder Profile Column -->
-          <Column header="Stakeholder" sortable sortField="stakeholder" style="min-width: 220px;">
-            <template #body="{ data }">
-              <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-xs shadow-sm flex-shrink-0">
-                  {{ initials(data.stakeholder) }}
+          <!-- Sakai Group Header Box: Profile, Stakeholder, Stall Occupied -->
+          <template #groupheader="slotProps">
+            <div class="flex items-center justify-between gap-4 py-1.5 px-1 flex-wrap">
+              <div class="flex items-center gap-3 flex-wrap">
+                <!-- Profile Avatar -->
+                <div class="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-extrabold text-xs shadow-xs border border-indigo-200 flex-shrink-0">
+                  {{ initials(slotProps.data.stakeholder) }}
                 </div>
-                <div class="min-w-0">
-                  <div class="flex items-center gap-2 flex-wrap">
-                    <span class="font-bold text-slate-800 text-sm">
-                      {{ data.stakeholder }}
-                    </span>
-                    <span v-if="data.stallNo" class="text-[11px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
-                      Stall {{ data.stallNo }}
-                    </span>
-                  </div>
-                  <div class="text-xs text-slate-500 font-medium truncate flex items-center gap-1.5 mt-0.5">
-                    <span>{{ data.businessName || 'Verified Tenant' }}</span>
-                    <span class="text-[10px] text-emerald-600 font-semibold bg-emerald-50 px-1.5 py-0.2 rounded">VERIFIED</span>
-                  </div>
-                </div>
+                
+                <!-- Stakeholder Name -->
+                <span class="font-extrabold text-slate-900 text-sm sm:text-base tracking-tight">
+                  {{ slotProps.data.stakeholder }}
+                </span>
+
+                <!-- Stall Occupied Badge -->
+                <span v-if="slotProps.data.stallNo" class="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-lg shadow-xs">
+                  <i class="pi pi-shop text-[11px]"></i>
+                  Stall {{ slotProps.data.stallNo }}
+                </span>
+
+                <!-- Business Name -->
+                <span v-if="slotProps.data.businessName && slotProps.data.businessName !== slotProps.data.stakeholder" class="text-xs text-slate-500 font-medium">
+                  ({{ slotProps.data.businessName }})
+                </span>
+
+                <!-- Verified Badge -->
+                <Tag value="VERIFIED TENANT" severity="success" rounded class="!text-[10px] !py-0.5 !px-2 font-bold" />
               </div>
-            </template>
-          </Column>
 
-          <!-- 2. Billing ID Column -->
-          <Column field="id" header="Billing ID" sortable class="font-mono text-sm font-bold text-slate-600" style="min-width: 140px;"></Column>
+              <!-- Stakeholder Financial Summary in Group Header -->
+              <div class="flex items-center gap-4 text-xs font-semibold">
+                <span class="text-slate-500">Total: <strong class="text-slate-800">₱{{ getGroupTotal(slotProps.data.stakeholder, 'total').toLocaleString() }}</strong></span>
+                <span class="text-slate-500">Paid: <strong class="text-emerald-600">₱{{ getGroupTotal(slotProps.data.stakeholder, 'paid').toLocaleString() }}</strong></span>
+                <span class="text-slate-500">Balance: <strong class="text-rose-600">₱{{ getGroupTotal(slotProps.data.stakeholder, 'balance').toLocaleString() }}</strong></span>
+              </div>
+            </div>
+          </template>
 
-          <!-- 3. Period Column -->
-          <Column field="period" header="Period" sortable class="text-slate-600 text-sm font-medium" style="min-width: 150px;">
+          <!-- 1. Billing ID Column -->
+          <Column field="id" header="Billing ID" class="font-mono text-sm font-bold text-slate-600" style="min-width: 140px;"></Column>
+
+          <!-- 2. Period Column -->
+          <Column field="period" header="Period" class="text-slate-600 text-sm font-medium" style="min-width: 160px;">
             <template #body="{ data }">
               <div class="flex items-center gap-2 flex-wrap">
                 <span class="font-semibold">{{ formatPeriod(data.period) }}</span>
@@ -141,42 +166,42 @@
             </template>
           </Column>
           
-          <!-- 4. Total Column -->
-          <Column field="total" header="Total" sortable style="min-width: 100px;">
+          <!-- 3. Total Column -->
+          <Column field="total" header="Total" style="min-width: 100px;">
             <template #body="{ data }">
               <span class="font-semibold text-slate-700">₱{{ Number(data.total || 0).toLocaleString() }}</span>
             </template>
           </Column>
 
-          <!-- 5. Paid Column -->
-          <Column field="paid" header="Paid" sortable style="min-width: 100px;">
+          <!-- 4. Paid Column -->
+          <Column field="paid" header="Paid" style="min-width: 100px;">
             <template #body="{ data }">
               <span class="font-bold text-emerald-600">₱{{ Number(data.paid || 0).toLocaleString() }}</span>
             </template>
           </Column>
 
-          <!-- 6. Balance Column -->
-          <Column field="balance" header="Balance" sortable style="min-width: 100px;">
+          <!-- 5. Balance Column -->
+          <Column field="balance" header="Balance" style="min-width: 100px;">
             <template #body="{ data }">
               <span class="font-bold text-rose-600">₱{{ Number(data.balance || 0).toLocaleString() }}</span>
             </template>
           </Column>
 
-          <!-- 7. Due Date Column -->
-          <Column field="due" header="Due Date" sortable class="text-slate-600 text-sm" style="min-width: 110px;">
+          <!-- 6. Due Date Column -->
+          <Column field="due" header="Due Date" class="text-slate-600 text-sm" style="min-width: 110px;">
             <template #body="{ data }">
               <span>{{ formatDate(data.due) }}</span>
             </template>
           </Column>
 
-          <!-- 8. Status Column -->
-          <Column field="status" header="Status" sortable style="min-width: 110px;">
+          <!-- 7. Status Column -->
+          <Column field="status" header="Status" style="min-width: 110px;">
             <template #body="{ data }">
               <Tag :value="data.status" :severity="getStatusSeverity(data.status)" rounded class="font-bold px-3 py-1" />
             </template>
           </Column>
 
-          <!-- 9. Action Column -->
+          <!-- 8. Action Column -->
           <Column header="Action" alignFrozen="right" :frozen="true" class="text-right" style="min-width: 100px;">
             <template #body="{ data }">
               <Button 
@@ -263,7 +288,7 @@ async function fetchBillings() {
 }
 
 /* =========================
-   FILTER & COMPUTED TOTALS
+   FILTER & SORTED ROWS (FOR SAKAI GROUPING)
 ========================= */
 const filteredRows = computed(() =>
   rows.value.filter(r =>
@@ -275,9 +300,23 @@ const filteredRows = computed(() =>
   )
 )
 
+const sortedFilteredRows = computed(() => {
+  return [...filteredRows.value].sort((a, b) => {
+    const sComp = (a.stakeholder || '').localeCompare(b.stakeholder || '')
+    if (sComp !== 0) return sComp
+    return (a.due || '').localeCompare(b.due || '')
+  })
+})
+
 const totalInvoiced = computed(() => filteredRows.value.reduce((sum, r) => sum + r.total, 0))
 const totalPaid = computed(() => filteredRows.value.reduce((sum, r) => sum + r.paid, 0))
 const totalBalance = computed(() => filteredRows.value.reduce((sum, r) => sum + r.balance, 0))
+
+function getGroupTotal(stakeholder, field) {
+  return filteredRows.value
+    .filter(r => r.stakeholder === stakeholder)
+    .reduce((sum, r) => sum + (Number(r[field]) || 0), 0)
+}
 
 /* =========================
    SCHEDULE & COLOR CLASSIFIER
