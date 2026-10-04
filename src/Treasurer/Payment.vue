@@ -130,13 +130,13 @@
             <form @submit.prevent="recordPayment" id="recordPaymentForm" class="space-y-6">
               
               <!-- STAKEHOLDER NAME (HIGH Z-INDEX SO DROPDOWN FLOATS IN FRONT) -->
-              <div class="flex flex-col gap-2 relative z-50">
+              <div class="flex flex-col gap-2 relative z-50 stakeholder-search-container" style="position: relative; z-index: 50;">
                 <div class="flex items-center justify-between">
                   <label class="text-sm font-bold text-slate-800">Stakeholder name <span class="text-rose-500">*</span></label>
                   <span v-if="selectedStakeholder" class="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">Selected</span>
                 </div>
                 
-                <div class="relative z-50">
+                <div class="relative z-50 stakeholder-search-container" style="position: relative; z-index: 50;">
                   <input
                     type="text"
                     v-model="stakeholderSearch"
@@ -160,8 +160,8 @@
                   <!-- Floating Dropdown list of matching stakeholders (RENDERED IN FRONT OF ALL ELEMENTS) -->
                   <div
                     v-if="isStakeholderDropdownOpen"
-                    class="absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-2xl z-[9999] max-h-60 overflow-y-auto p-2 custom-scroll"
-                    style="box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.08);"
+                    class="absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-2xl z-50 max-h-60 overflow-y-auto p-2 custom-scroll stakeholder-dropdown-menu"
+                    style="z-index: 1000; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.08);"
                   >
                     <div v-if="filteredStakeholdersForDropdown.length > 0">
                       <div
@@ -204,7 +204,7 @@
               </div>
 
               <!-- PAYMENT TYPE (LOWER Z-INDEX TO PREVENT OVERLAY ISSUES) -->
-              <div class="flex flex-col gap-2 relative z-10">
+              <div class="flex flex-col gap-2 relative z-1" style="position: relative; z-index: 1;">
                 <div class="flex items-center justify-between">
                   <label class="text-sm font-bold text-slate-800">Payment type <span class="text-rose-500">*</span></label>
                   <span class="text-xs text-slate-400">Select one option</span>
@@ -366,7 +366,7 @@
               </div>
 
               <!-- Total Advance Amount (if Advance Payment) -->
-              <div v-if="activeCategory === 'ADVANCE_PAYMENT'" class="flex flex-col gap-1.5 p-4 bg-amber-50/40 border border-amber-200/80 rounded-xl relative z-10">
+              <div v-if="activeCategory === 'ADVANCE_PAYMENT'" class="flex flex-col gap-1.5 p-4 bg-amber-50/40 border border-amber-200/80 rounded-xl relative z-1">
                 <div class="flex items-center justify-between">
                   <label class="text-xs font-bold text-slate-800">Total required advance amount <span class="text-rose-500">*</span></label>
                   <span v-if="selectedStakeholder" class="text-xs text-slate-500">Paid so far: ₱{{ Number(selectedStakeholder?.advanceBalance || 0).toLocaleString() }}</span>
@@ -375,7 +375,7 @@
               </div>
 
               <!-- Select Billing Statement (if Contract Stall Payment) -->
-              <div v-if="activeCategory === 'RENT_PAYMENT' && selectedStakeholder" class="flex flex-col gap-1.5 p-4 bg-slate-50 border border-slate-200 rounded-xl relative z-10">
+              <div v-if="activeCategory === 'RENT_PAYMENT' && selectedStakeholder" class="flex flex-col gap-1.5 p-4 bg-slate-50 border border-slate-200 rounded-xl relative z-1">
                 <div class="flex items-center justify-between">
                   <label class="text-xs font-bold text-slate-800">Select billing statement <span class="text-rose-500">*</span></label>
                   <span class="text-xs text-slate-500">{{ selectedStakeholderBillings.length }} unpaid statement(s)</span>
@@ -404,7 +404,7 @@
               </div>
 
               <!-- STANDARDIZED 2-COLUMN INPUT FIELDS GRID -->
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-5 relative z-10">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-5 relative z-1">
                 
                 <!-- Amount received * -->
                 <div class="flex flex-col gap-2">
