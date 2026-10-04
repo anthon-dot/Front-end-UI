@@ -128,8 +128,8 @@
           <form @submit.prevent="recordPayment" class="space-y-6">
             
             <!-- STAKEHOLDER NAME -->
-            <div class="flex flex-col gap-1.5 relative">
-              <label class="text-sm font-semibold text-slate-700">Stakeholder name <span class="text-rose-500">*</span></label>
+            <div class="flex flex-col gap-2 relative">
+              <label class="text-sm font-bold text-slate-800">Stakeholder name <span class="text-rose-500">*</span></label>
               
               <div class="relative">
                 <input
@@ -139,18 +139,18 @@
                   @input="isStakeholderDropdownOpen = true; if(selectedStakeholder) selectedStakeholder = null"
                   @blur="onStakeholderBlur"
                   placeholder="Search stakeholder by name, business, or stall..."
-                  class="w-full h-11 px-3.5 pr-10 border border-slate-200 rounded-lg text-sm text-slate-800 bg-[#fafafa] focus:bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1e4739]/20 focus:border-[#1e4739] transition-all"
+                  class="w-full h-12 px-4 pr-10 border border-slate-200 rounded-xl text-sm sm:text-base text-slate-800 bg-[#fafafa] focus:bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#133e35]/20 focus:border-[#133e35] transition-all"
                 />
                 <button
                   v-if="stakeholderSearch"
                   type="button"
                   @click="resetSelection"
-                  class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 text-xs cursor-pointer"
+                  class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 text-xs cursor-pointer"
                   title="Clear"
                 >
                   <i class="pi pi-times"></i>
                 </button>
-                <i v-else class="pi pi-search absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none"></i>
+                <i v-else class="pi pi-search absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none"></i>
 
                 <!-- Floating Dropdown list of matching stakeholders -->
                 <div
@@ -192,8 +192,8 @@
             </div>
 
             <!-- PAYMENT TYPE (RESPONSIVE 3-COLUMN GRID) -->
-            <div class="flex flex-col gap-1.5">
-              <label class="text-sm font-semibold text-slate-700">Payment type <span class="text-rose-500">*</span></label>
+            <div class="flex flex-col gap-2">
+              <label class="text-sm font-bold text-slate-800">Payment type <span class="text-rose-500">*</span></label>
               
               <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 
@@ -202,12 +202,12 @@
                   @click="setCategory('ADVANCE_PAYMENT')"
                   class="border rounded-xl p-4 flex flex-col justify-between min-h-[125px] cursor-pointer transition-all select-none"
                   :class="activeCategory === 'ADVANCE_PAYMENT'
-                    ? 'border-2 border-[#1e4739] bg-[#eff6f2] shadow-xs'
+                    ? 'border-2 border-[#133e35] bg-[#eff6f2] shadow-xs'
                     : 'border-slate-200 bg-white hover:border-slate-300'"
                 >
                   <div class="flex items-center justify-between mb-3">
                     <span class="text-sm font-bold text-[#b45309] font-mono">01</span>
-                    <span v-if="activeCategory === 'ADVANCE_PAYMENT'" class="w-6 h-6 rounded-full bg-[#1e4739] text-white flex items-center justify-center text-xs shadow-xs">
+                    <span v-if="activeCategory === 'ADVANCE_PAYMENT'" class="w-6 h-6 rounded-full bg-[#133e35] text-white flex items-center justify-center text-xs shadow-xs">
                       <i class="pi pi-check"></i>
                     </span>
                   </div>
@@ -222,12 +222,12 @@
                   @click="setCategory('APPLICATION_FORM')"
                   class="border rounded-xl p-4 flex flex-col justify-between min-h-[125px] cursor-pointer transition-all select-none"
                   :class="activeCategory === 'APPLICATION_FORM'
-                    ? 'border-2 border-[#1e4739] bg-[#eff6f2] shadow-xs'
+                    ? 'border-2 border-[#133e35] bg-[#eff6f2] shadow-xs'
                     : 'border-slate-200 bg-white hover:border-slate-300'"
                 >
                   <div class="flex items-center justify-between mb-3">
                     <span class="text-sm font-bold text-[#b45309] font-mono">02</span>
-                    <span v-if="activeCategory === 'APPLICATION_FORM'" class="w-6 h-6 rounded-full bg-[#1e4739] text-white flex items-center justify-center text-xs shadow-xs">
+                    <span v-if="activeCategory === 'APPLICATION_FORM'" class="w-6 h-6 rounded-full bg-[#133e35] text-white flex items-center justify-center text-xs shadow-xs">
                       <i class="pi pi-check"></i>
                     </span>
                   </div>
@@ -242,12 +242,12 @@
                   @click="setCategory('RENT_PAYMENT')"
                   class="border rounded-xl p-4 flex flex-col justify-between min-h-[125px] cursor-pointer transition-all select-none"
                   :class="activeCategory === 'RENT_PAYMENT'
-                    ? 'border-2 border-[#1e4739] bg-[#eff6f2] shadow-xs'
+                    ? 'border-2 border-[#133e35] bg-[#eff6f2] shadow-xs'
                     : 'border-slate-200 bg-white hover:border-slate-300'"
                 >
                   <div class="flex items-center justify-between mb-3">
                     <span class="text-sm font-bold text-[#b45309] font-mono">03</span>
-                    <span v-if="activeCategory === 'RENT_PAYMENT'" class="w-6 h-6 rounded-full bg-[#1e4739] text-white flex items-center justify-center text-xs shadow-xs">
+                    <span v-if="activeCategory === 'RENT_PAYMENT'" class="w-6 h-6 rounded-full bg-[#133e35] text-white flex items-center justify-center text-xs shadow-xs">
                       <i class="pi pi-check"></i>
                     </span>
                   </div>
@@ -281,7 +281,7 @@
                   :key="b.id"
                   @click="selectBilling(b)"
                   class="p-3 rounded-lg border cursor-pointer transition-all flex items-center justify-between select-none"
-                  :class="selectedBillingId === b.id ? 'border-2 border-[#1e4739] bg-[#eff6f2]' : 'border-slate-200 bg-white hover:border-slate-300'"
+                  :class="selectedBillingId === b.id ? 'border-2 border-[#133e35] bg-[#eff6f2]' : 'border-slate-200 bg-white hover:border-slate-300'"
                 >
                   <div>
                     <div class="text-xs font-bold text-slate-900">{{ b.billingNo }}</div>
@@ -289,7 +289,7 @@
                   </div>
                   <div class="text-right">
                     <div class="text-sm font-extrabold text-rose-600">₱{{ Number(b.balance || 0).toLocaleString() }}</div>
-                    <div v-if="selectedBillingId === b.id" class="text-[10px] font-bold text-[#1e4739]">Selected</div>
+                    <div v-if="selectedBillingId === b.id" class="text-[10px] font-bold text-[#133e35]">Selected</div>
                   </div>
                 </div>
               </div>
@@ -298,12 +298,12 @@
               </div>
             </div>
 
-            <!-- STANDARDIZED 2-COLUMN INPUT FIELDS GRID -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- STANDARDIZED 2-COLUMN INPUT FIELDS GRID (MATCHING IMAGE - PAYMENT METHOD REMOVED) -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
               
               <!-- Amount received * -->
-              <div class="flex flex-col gap-1.5">
-                <label class="text-sm font-semibold text-slate-700">Amount received <span class="text-rose-500">*</span></label>
+              <div class="flex flex-col gap-2">
+                <label class="text-sm font-bold text-slate-800">Amount received <span class="text-rose-500">*</span></label>
                 <InputNumber
                   v-model="form.amount"
                   mode="currency"
@@ -315,52 +315,35 @@
               </div>
 
               <!-- Date received * -->
-              <div class="flex flex-col gap-1.5">
-                <label class="text-sm font-semibold text-slate-700">Date received <span class="text-rose-500">*</span></label>
+              <div class="flex flex-col gap-2">
+                <label class="text-sm font-bold text-slate-800">Date received <span class="text-rose-500">*</span></label>
                 <div class="relative">
                   <input
                     type="date"
                     v-model="form.dateReceived"
-                    class="w-full h-11 px-3.5 pr-10 border border-slate-200 rounded-lg text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#1e4739]/20 focus:border-[#1e4739]"
+                    class="w-full h-12 px-4 pr-10 border border-slate-200 rounded-xl text-sm sm:text-base text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#133e35]/20 focus:border-[#133e35]"
                   />
-                  <i class="pi pi-calendar absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
-                </div>
-              </div>
-
-              <!-- Payment method * -->
-              <div class="flex flex-col gap-1.5">
-                <label class="text-sm font-semibold text-slate-700">Payment method <span class="text-rose-500">*</span></label>
-                <div class="relative">
-                  <select
-                    v-model="form.paymentMethod"
-                    class="w-full h-11 px-3.5 pr-10 border border-slate-200 rounded-lg text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#1e4739]/20 focus:border-[#1e4739] appearance-none cursor-pointer"
-                  >
-                    <option value="Cash">Cash</option>
-                    <option value="Bank Transfer">Bank Transfer</option>
-                    <option value="Check">Check / Cheque</option>
-                    <option value="GCash">GCash / E-Wallet</option>
-                    <option value="Other">Other</option>
-                  </select>
-                  <i class="pi pi-chevron-down absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+                  <i class="pi pi-calendar absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
                 </div>
               </div>
 
               <!-- Reference number -->
-              <div class="flex flex-col gap-1.5">
-                <label class="text-sm font-semibold text-slate-700">Reference number</label>
+              <div class="flex flex-col gap-2">
+                <label class="text-sm font-bold text-slate-800">Reference number</label>
                 <input
                   type="text"
                   v-model="form.referenceNo"
                   placeholder="e.g. CHQ-1048"
-                  class="w-full h-11 px-3.5 border border-slate-200 rounded-lg text-sm text-slate-800 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1e4739]/20 focus:border-[#1e4739]"
+                  class="w-full h-12 px-4 border border-slate-200 rounded-xl text-sm sm:text-base text-slate-800 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#133e35]/20 focus:border-[#133e35]"
                 />
+                <span class="text-xs text-slate-400">Cheque, transfer, or receipt number (optional)</span>
               </div>
 
-              <!-- Official receipt number * (Span full 2 cols on md) -->
-              <div class="md:col-span-2 flex flex-col gap-1.5">
+              <!-- Official receipt number * -->
+              <div class="flex flex-col gap-2">
                 <div class="flex items-center justify-between">
-                  <label class="text-sm font-semibold text-slate-700">Official receipt number <span class="text-rose-500">*</span></label>
-                  <button type="button" @click="regenerateReceiptNo" class="text-xs text-[#1e4739] hover:text-emerald-950 font-semibold flex items-center gap-1 cursor-pointer">
+                  <label class="text-sm font-bold text-slate-800">Official receipt number <span class="text-rose-500">*</span></label>
+                  <button type="button" @click="regenerateReceiptNo" class="text-xs text-[#133e35] hover:text-emerald-950 font-semibold flex items-center gap-1 cursor-pointer">
                     <i class="pi pi-refresh text-[10px]"></i> Auto-generate
                   </button>
                 </div>
@@ -369,29 +352,29 @@
                     type="text"
                     v-model="form.receiptNo"
                     placeholder="Receipt #"
-                    class="w-full h-11 px-3.5 pl-9 font-mono text-xs sm:text-sm font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#1e4739]/20 focus:border-[#1e4739]"
+                    class="w-full h-12 px-4 pl-10 font-mono text-xs sm:text-sm font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#133e35]/20 focus:border-[#133e35]"
                   />
-                  <i class="pi pi-receipt absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                  <i class="pi pi-receipt absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
                 </div>
               </div>
 
             </div>
 
-            <!-- NOTES (FULL-WIDTH TEXTAREA) -->
-            <div class="flex flex-col gap-1.5">
-              <label class="text-sm font-semibold text-slate-700">Notes <span class="text-slate-400 font-normal">(optional)</span></label>
+            <!-- NOTES (FULL-WIDTH TEXTAREA MATCHING IMAGE) -->
+            <div class="flex flex-col gap-2">
+              <label class="text-sm font-bold text-slate-800">Notes</label>
               <textarea
                 v-model="form.notes"
-                rows="3"
+                rows="4"
                 placeholder="Add any context for this payment record..."
-                class="w-full p-3.5 border border-slate-200 rounded-lg text-sm text-slate-800 bg-white placeholder:text-slate-400 resize-none focus:outline-none focus:ring-2 focus:ring-[#1e4739]/20 focus:border-[#1e4739]"
+                class="w-full p-4 border border-slate-200 rounded-xl text-sm sm:text-base text-slate-800 bg-white placeholder:text-slate-400 resize-none focus:outline-none focus:ring-2 focus:ring-[#133e35]/20 focus:border-[#133e35]"
               ></textarea>
             </div>
 
-            <!-- FOOTER -->
-            <div class="flex items-center justify-between pt-5 border-t border-slate-200/80">
-              <div class="flex items-center gap-2 text-xs text-slate-500 font-medium">
-                <i class="pi pi-lock text-slate-400"></i>
+            <!-- FOOTER (MATCHING IMAGE) -->
+            <div class="flex items-center justify-between pt-6 border-t border-slate-200/80">
+              <div class="flex items-center gap-2 text-xs text-slate-400 font-medium">
+                <i class="pi pi-lock text-slate-400 text-xs"></i>
                 <span>Saved to the internal market ledger</span>
               </div>
 
@@ -399,17 +382,14 @@
                 <button
                   type="button"
                   @click="closeModal"
-                  class="px-4 py-2.5 rounded-lg font-semibold text-xs sm:text-sm text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+                  class="px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   :disabled="!canRecord || isSubmitting"
-                  class="flex items-center gap-2 px-6 py-2.5 rounded-lg font-bold text-sm text-white transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed select-none"
-                  style="background-color: #11382b;"
-                  onmouseover="if(!this.disabled) this.style.backgroundColor='#0b271e'"
-                  onmouseout="if(!this.disabled) this.style.backgroundColor='#11382b'"
+                  class="flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm text-white transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed select-none bg-[#133e35] hover:bg-[#0c2b24]"
                 >
                   <span>{{ isSubmitting ? 'Recording...' : 'Record payment' }}</span>
                   <i v-if="!isSubmitting" class="pi pi-arrow-right text-xs"></i>
