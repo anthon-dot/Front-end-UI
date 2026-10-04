@@ -99,24 +99,24 @@
 
       <!-- RECORD PAYMENT MODAL MATCHING IMAGE 1 DESIGN -->
       <Dialog v-model:visible="showModal" modal :closable="false"
-              :style="{ width: '96vw', maxWidth: '720px' }" 
+              :style="{ width: '96vw', maxWidth: '680px' }" 
               :breakpoints="{ '960px': '96vw', '640px': '98vw' }" 
               class="ledger-dialog"
               :pt="{
                 root: { class: '!rounded-3xl !border !border-slate-200 !shadow-2xl overflow-hidden' },
                 content: { class: '!p-0 !bg-[#fcfbf9]' }
               }">
-        <form @submit.prevent="recordPayment" class="flex flex-col max-h-[90vh] bg-[#fdfdfc] text-slate-800 font-sans">
+        <div class="p-6 sm:p-8 bg-[#fdfdfc] text-slate-800 font-sans max-h-[92vh] overflow-y-auto custom-scroll">
           
-          <!-- Sticky Header -->
-          <div class="flex items-start justify-between gap-4 p-5 sm:p-7 pb-4 border-b border-slate-200/80 bg-white/95 backdrop-blur-xs sticky top-0 z-30">
+          <!-- Header -->
+          <div class="flex items-start justify-between gap-4 pb-4 border-b border-slate-200/80 mb-6">
             <div>
-              <span class="text-[11px] font-black uppercase tracking-widest text-[#92400e]">NEW LEDGER ENTRY</span>
-              <h2 class="text-xl sm:text-2xl md:text-3xl font-serif font-bold text-slate-900 mt-0.5 tracking-tight">Payment details</h2>
+              <span class="text-[11px] font-extrabold uppercase tracking-widest text-[#92400e]">NEW LEDGER ENTRY</span>
+              <h2 class="text-2xl sm:text-3xl font-serif font-bold text-slate-900 mt-1 tracking-tight">Payment details</h2>
               <p class="text-xs text-slate-500 mt-1">Fields marked with an asterisk are required.</p>
             </div>
             <div class="flex items-center gap-2">
-              <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#fef3c7] border border-[#fde68a] text-[#92400e] flex items-center justify-center text-base sm:text-lg shadow-xs" title="Ledger Entry">
+              <div class="w-10 h-10 rounded-xl bg-[#fef3c7] border border-[#fde68a] text-[#92400e] flex items-center justify-center text-lg shadow-xs" title="Ledger Entry">
                 <i class="pi pi-book"></i>
               </div>
               <button type="button" @click="closeModal" class="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer" title="Close">
@@ -125,320 +125,223 @@
             </div>
           </div>
 
-          <!-- Scrollable Body with Clean Guided Steps -->
-          <div class="p-5 sm:p-7 overflow-y-auto flex-1 space-y-6 custom-scroll">
+          <form @submit.prevent="recordPayment" class="space-y-6">
             
-            <!-- STEP 1: PAYMENT TYPE -->
-            <div class="space-y-2.5">
-              <div class="flex items-center justify-between">
-                <label class="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                  <span class="w-5 h-5 rounded-full bg-slate-200 text-slate-700 text-[11px] font-bold flex items-center justify-center">1</span>
-                  Payment Type <span class="text-rose-500">*</span>
-                </label>
-                <span class="text-[11px] text-slate-400">Choose category</span>
-              </div>
+            <!-- 1. STAKEHOLDER NAME (MATCHING IMAGE 1) -->
+            <div class="flex flex-col gap-2 relative">
+              <label class="text-sm font-bold text-slate-800">Stakeholder name <span class="text-rose-500">*</span></label>
               
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              <div class="relative">
+                <input
+                  type="text"
+                  v-model="stakeholderSearch"
+                  @focus="isStakeholderDropdownOpen = true"
+                  @input="isStakeholderDropdownOpen = true; if(selectedStakeholder) selectedStakeholder = null"
+                  @blur="onStakeholderBlur"
+                  placeholder="Search stakeholder by name, business, or stall..."
+                  class="w-full h-12 px-4 pr-10 border border-slate-200 rounded-2xl text-base text-slate-800 bg-[#fafafa] focus:bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1e4739]/20 focus:border-[#1e4739] transition-all"
+                />
+                <button
+                  v-if="stakeholderSearch"
+                  type="button"
+                  @click="resetSelection"
+                  class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 text-xs cursor-pointer"
+                  title="Clear"
+                >
+                  <i class="pi pi-times"></i>
+                </button>
+                <i v-else class="pi pi-search absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none"></i>
+
+                <!-- Floating Dropdown list of matching stakeholders -->
+                <div
+                  v-if="isStakeholderDropdownOpen && filteredStakeholdersForDropdown.length"
+                  class="absolute left-0 right-0 top-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 max-h-56 overflow-y-auto p-1.5 custom-scroll"
+                >
+                  <div
+                    v-for="s in filteredStakeholdersForDropdown"
+                    :key="s.id"
+                    @mousedown.prevent="chooseStakeholder(s)"
+                    class="p-2.5 rounded-xl hover:bg-slate-50 cursor-pointer flex items-center justify-between transition-colors border-b border-slate-50 last:border-none"
+                  >
+                    <div class="flex items-center gap-2.5 min-w-0">
+                      <div class="w-8 h-8 rounded-full bg-slate-100 text-slate-700 font-bold text-xs flex items-center justify-center flex-shrink-0">
+                        {{ initials(s.firstName, s.lastName) }}
+                      </div>
+                      <div class="min-w-0">
+                        <div class="font-bold text-sm text-slate-900 truncate">{{ s.firstName }} {{ s.lastName }}</div>
+                        <div class="text-xs text-slate-500 truncate">
+                          {{ s.businessName || 'Applicant' }}
+                          <span v-if="s.occupant?.stall?.stallNo || s.selectedStall?.stallNo">
+                            • Stall {{ s.occupant?.stall?.stallNo || s.selectedStall?.stallNo }}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="text-right text-xs font-bold text-slate-600 flex-shrink-0 ml-2">
+                      <span v-if="activeCategory === 'ADVANCE_PAYMENT'" class="text-indigo-600">
+                        ₱{{ Number(s.advanceBalance || 0).toLocaleString() }}
+                      </span>
+                      <span v-else-if="activeCategory === 'RENT_PAYMENT'" class="text-rose-600">
+                        ₱{{ getTotalUnpaidAmount(s).toLocaleString() }}
+                      </span>
+                      <span v-else class="text-amber-600">Fee Pending</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. PAYMENT TYPE (EXACTLY MATCHING IMAGE 1) -->
+            <div class="flex flex-col gap-2">
+              <label class="text-sm font-bold text-slate-800">Payment type <span class="text-rose-500">*</span></label>
+              
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-4">
                 
                 <!-- Card 01: Advance payment -->
                 <div
                   @click="setCategory('ADVANCE_PAYMENT')"
-                  class="p-3.5 rounded-2xl transition-all cursor-pointer relative flex flex-col justify-between select-none"
+                  class="p-4 sm:p-5 rounded-2xl transition-all cursor-pointer relative flex flex-col justify-between select-none min-h-[140px]"
                   :class="activeCategory === 'ADVANCE_PAYMENT'
-                    ? 'border-2 border-[#14532d] bg-[#f2f7f4] shadow-xs'
-                    : 'border border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50'"
+                    ? 'border-2 border-[#1e4739] bg-[#eff6f2] shadow-xs'
+                    : 'border border-slate-200 bg-white hover:border-slate-300'"
                 >
-                  <div class="flex items-center justify-between mb-2">
-                    <span class="text-xs font-bold text-[#b45309] font-mono">01</span>
-                    <span v-if="activeCategory === 'ADVANCE_PAYMENT'" class="w-5 h-5 rounded-full bg-[#14532d] text-white flex items-center justify-center text-[10px]">
+                  <div class="flex items-center justify-between mb-4">
+                    <span class="text-sm font-bold text-[#92400e] font-mono">01</span>
+                    <span v-if="activeCategory === 'ADVANCE_PAYMENT'" class="w-6 h-6 rounded-full bg-[#1e4739] text-white flex items-center justify-center text-xs shadow-xs">
                       <i class="pi pi-check"></i>
-                    </span>
-                    <span v-else class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                      {{ advancePaymentStakeholders.length }} pending
                     </span>
                   </div>
                   <div>
-                    <div class="font-bold text-sm text-slate-900 leading-tight">Advance payment</div>
-                    <div class="text-[11px] text-slate-500 mt-1 leading-normal">Initial security deposit</div>
+                    <div class="font-bold text-sm sm:text-base text-slate-900 leading-tight">Advance payment</div>
+                    <div class="text-xs text-slate-500 mt-1 leading-normal">Payment received in advance</div>
                   </div>
                 </div>
 
                 <!-- Card 02: Application payment -->
                 <div
                   @click="setCategory('APPLICATION_FORM')"
-                  class="p-3.5 rounded-2xl transition-all cursor-pointer relative flex flex-col justify-between select-none"
+                  class="p-4 sm:p-5 rounded-2xl transition-all cursor-pointer relative flex flex-col justify-between select-none min-h-[140px]"
                   :class="activeCategory === 'APPLICATION_FORM'
-                    ? 'border-2 border-[#14532d] bg-[#f2f7f4] shadow-xs'
-                    : 'border border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50'"
+                    ? 'border-2 border-[#1e4739] bg-[#eff6f2] shadow-xs'
+                    : 'border border-slate-200 bg-white hover:border-slate-300'"
                 >
-                  <div class="flex items-center justify-between mb-2">
-                    <span class="text-xs font-bold text-[#b45309] font-mono">02</span>
-                    <span v-if="activeCategory === 'APPLICATION_FORM'" class="w-5 h-5 rounded-full bg-[#14532d] text-white flex items-center justify-center text-[10px]">
+                  <div class="flex items-center justify-between mb-4">
+                    <span class="text-sm font-bold text-[#92400e] font-mono">02</span>
+                    <span v-if="activeCategory === 'APPLICATION_FORM'" class="w-6 h-6 rounded-full bg-[#1e4739] text-white flex items-center justify-center text-xs shadow-xs">
                       <i class="pi pi-check"></i>
-                    </span>
-                    <span v-else class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                      {{ appFormStakeholders.length }} pending
                     </span>
                   </div>
                   <div>
-                    <div class="font-bold text-sm text-slate-900 leading-tight">Application payment</div>
-                    <div class="text-[11px] text-slate-500 mt-1 leading-normal">Fee for new application</div>
+                    <div class="font-bold text-sm sm:text-base text-slate-900 leading-tight">Application payment</div>
+                    <div class="text-xs text-slate-500 mt-1 leading-normal">Fee received with an application</div>
                   </div>
                 </div>
 
                 <!-- Card 03: Contract stall payment -->
                 <div
                   @click="setCategory('RENT_PAYMENT')"
-                  class="p-3.5 rounded-2xl transition-all cursor-pointer relative flex flex-col justify-between select-none"
+                  class="p-4 sm:p-5 rounded-2xl transition-all cursor-pointer relative flex flex-col justify-between select-none min-h-[140px]"
                   :class="activeCategory === 'RENT_PAYMENT'
-                    ? 'border-2 border-[#14532d] bg-[#f2f7f4] shadow-xs'
-                    : 'border border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50'"
+                    ? 'border-2 border-[#1e4739] bg-[#eff6f2] shadow-xs'
+                    : 'border border-slate-200 bg-white hover:border-slate-300'"
                 >
-                  <div class="flex items-center justify-between mb-2">
-                    <span class="text-xs font-bold text-[#b45309] font-mono">03</span>
-                    <span v-if="activeCategory === 'RENT_PAYMENT'" class="w-5 h-5 rounded-full bg-[#14532d] text-white flex items-center justify-center text-[10px]">
+                  <div class="flex items-center justify-between mb-4">
+                    <span class="text-sm font-bold text-[#92400e] font-mono">03</span>
+                    <span v-if="activeCategory === 'RENT_PAYMENT'" class="w-6 h-6 rounded-full bg-[#1e4739] text-white flex items-center justify-center text-xs shadow-xs">
                       <i class="pi pi-check"></i>
-                    </span>
-                    <span v-else class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                      {{ rentPaymentStakeholders.length }} due
                     </span>
                   </div>
                   <div>
-                    <div class="font-bold text-sm text-slate-900 leading-tight">Contract stall payment</div>
-                    <div class="text-[11px] text-slate-500 mt-1 leading-normal">Monthly stall rental</div>
+                    <div class="font-bold text-sm sm:text-base text-slate-900 leading-tight">Contract stall payment</div>
+                    <div class="text-xs text-slate-500 mt-1 leading-normal">Stall payment under a contract</div>
                   </div>
                 </div>
 
               </div>
             </div>
 
-            <!-- STEP 2: STAKEHOLDER / PAYEE SELECTION -->
-            <div class="space-y-2.5">
+            <!-- Total Advance Amount (if Advance Payment) -->
+            <div v-if="activeCategory === 'ADVANCE_PAYMENT'" class="flex flex-col gap-1.5 p-4 bg-amber-50/40 border border-amber-200/80 rounded-2xl">
               <div class="flex items-center justify-between">
-                <label class="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                  <span class="w-5 h-5 rounded-full bg-slate-200 text-slate-700 text-[11px] font-bold flex items-center justify-center">2</span>
-                  Select Payee <span class="text-rose-500">*</span>
-                </label>
-                <span v-if="!selectedStakeholder" class="text-[11px] text-slate-400">
-                  {{ availableStakeholdersForType.length }} {{ activeCategory === 'RENT_PAYMENT' ? 'with due balance' : 'pending' }}
-                </span>
+                <label class="text-xs font-bold text-slate-800">Total Required Advance Amount <span class="text-rose-500">*</span></label>
+                <span v-if="selectedStakeholder" class="text-xs text-slate-500">Paid so far: ₱{{ Number(selectedStakeholder?.advanceBalance || 0).toLocaleString() }}</span>
               </div>
+              <InputNumber v-model="form.totalAdvanceAmount" mode="currency" currency="PHP" locale="en-PH" class="w-full" placeholder="₱ 0.00" />
+            </div>
 
-              <!-- Selected Payee Card -->
-              <div v-if="selectedStakeholder" class="p-4 bg-emerald-50/80 border border-emerald-300/90 rounded-2xl flex items-center justify-between transition-all shadow-xs">
-                <div class="flex items-center gap-3 min-w-0">
-                  <div class="w-10 h-10 rounded-full bg-[#11382b] text-white font-bold text-sm flex items-center justify-center flex-shrink-0 shadow-xs">
-                    {{ initials(selectedStakeholder.firstName, selectedStakeholder.lastName) }}
-                  </div>
-                  <div class="min-w-0">
-                    <div class="flex items-center gap-2 flex-wrap">
-                      <span class="font-bold text-sm text-slate-900 truncate">
-                        {{ selectedStakeholder.firstName }} {{ selectedStakeholder.lastName }}
-                      </span>
-                      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-200/70 text-emerald-900">
-                        <i class="pi pi-check text-[8px] mr-1"></i> Selected Payee
-                      </span>
-                    </div>
-                    <div class="text-xs text-slate-600 truncate mt-0.5">
-                      {{ selectedStakeholder.businessName || 'Applicant' }}
-                      <span v-if="selectedStakeholder.occupant?.stall?.stallNo || selectedStakeholder.selectedStall?.stallNo" class="font-medium text-slate-700">
-                        • Stall {{ selectedStakeholder.occupant?.stall?.stallNo || selectedStakeholder.selectedStall?.stallNo }}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  @click="resetSelection"
-                  class="flex-shrink-0 ml-2 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
+            <!-- Select Billing Statement (if Contract Stall Payment) -->
+            <div v-if="activeCategory === 'RENT_PAYMENT' && selectedStakeholder" class="flex flex-col gap-2 p-4 bg-slate-50 border border-slate-200 rounded-2xl">
+              <div class="flex items-center justify-between">
+                <label class="text-xs font-bold text-slate-800">Select Billing Statement to Pay <span class="text-rose-500">*</span></label>
+                <span class="text-xs text-slate-500">{{ selectedStakeholderBillings.length }} unpaid statement(s)</span>
+              </div>
+              <div v-if="selectedStakeholderBillings.length" class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
+                <div
+                  v-for="b in selectedStakeholderBillings"
+                  :key="b.id"
+                  @click="selectBilling(b)"
+                  class="p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between select-none"
+                  :class="selectedBillingId === b.id ? 'border-2 border-[#1e4739] bg-[#eff6f2]' : 'border-slate-200 bg-white hover:border-slate-300'"
                 >
-                  <i class="pi pi-sync text-[10px]"></i>
-                  <span>Change</span>
-                </button>
+                  <div>
+                    <div class="text-xs font-bold text-slate-900">{{ b.billingNo }}</div>
+                    <div class="text-[11px] text-slate-500 mt-0.5">Due: {{ formatDate(b.dueDate) }}</div>
+                  </div>
+                  <div class="text-right">
+                    <div class="text-sm font-extrabold text-rose-600">₱{{ Number(b.balance || 0).toLocaleString() }}</div>
+                    <div v-if="selectedBillingId === b.id" class="text-[10px] font-bold text-[#1e4739]">Selected</div>
+                  </div>
+                </div>
               </div>
-
-              <!-- Payee Search and List (when no payee selected yet) -->
-              <div v-else class="space-y-2">
-                <div class="relative">
-                  <input
-                    type="text"
-                    v-model="stakeholderSearch"
-                    placeholder="Type name, business, or stall # to filter..."
-                    class="w-full h-11 px-3.5 pl-10 pr-9 border border-slate-200 rounded-xl text-sm sm:text-base text-slate-800 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-700/20 focus:border-emerald-700 shadow-2xs"
-                  />
-                  <i class="pi pi-search absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
-                  <button
-                    v-if="stakeholderSearch"
-                    type="button"
-                    @click="stakeholderSearch = ''"
-                    class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 text-xs cursor-pointer"
-                  >
-                    <i class="pi pi-times"></i>
-                  </button>
-                </div>
-
-                <!-- Payee Card List -->
-                <div class="max-h-56 sm:max-h-60 overflow-y-auto space-y-2 pr-1 custom-scroll">
-                  <div
-                    v-for="s in availableStakeholdersForType"
-                    :key="s.id"
-                    @click="chooseStakeholder(s)"
-                    class="p-3 rounded-xl border border-slate-200 bg-white hover:border-emerald-600 hover:bg-emerald-50/20 cursor-pointer transition-all flex items-center justify-between active:scale-[0.99] shadow-2xs"
-                  >
-                    <div class="flex items-center gap-3 min-w-0">
-                      <div class="w-9 h-9 rounded-full bg-slate-100 text-slate-700 font-bold text-xs flex items-center justify-center flex-shrink-0">
-                        {{ initials(s.firstName, s.lastName) }}
-                      </div>
-                      <div class="min-w-0">
-                        <div class="font-bold text-xs sm:text-sm text-slate-900 truncate">
-                          {{ s.firstName }} {{ s.lastName }}
-                        </div>
-                        <div class="text-[11px] sm:text-xs text-slate-500 truncate flex items-center gap-1.5 mt-0.5">
-                          <span>{{ s.businessName || 'Applicant' }}</span>
-                          <span v-if="s.occupant?.stall?.stallNo || s.selectedStall?.stallNo" class="px-1.5 py-0.5 rounded bg-slate-100 font-semibold text-slate-600 text-[10px]">
-                            Stall {{ s.occupant?.stall?.stallNo || s.selectedStall?.stallNo }}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div class="text-right flex-shrink-0 ml-2">
-                      <div v-if="activeCategory === 'ADVANCE_PAYMENT'" class="font-bold text-xs sm:text-sm text-indigo-600">
-                        ₱{{ Math.max(Number(s.totalAdvanceAmount || 0) - Number(s.advanceBalance || 0), 0).toLocaleString() }}
-                        <div class="text-[10px] text-slate-400 font-normal">rem. advance</div>
-                      </div>
-                      <div v-else-if="activeCategory === 'RENT_PAYMENT'" class="font-bold text-xs sm:text-sm text-rose-600">
-                        ₱{{ getTotalUnpaidAmount(s).toLocaleString() }}
-                        <div class="text-[10px] text-slate-400 font-normal">due balance</div>
-                      </div>
-                      <div v-else class="text-[11px] sm:text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
-                        Fee Pending
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Empty State -->
-                  <div v-if="availableStakeholdersForType.length === 0" class="text-center py-6 px-4 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-slate-400">
-                    <i class="pi pi-users text-2xl mb-1 text-slate-300"></i>
-                    <p class="text-xs font-medium">No payees match your search for {{ formatType(activeCategory) }}.</p>
-                  </div>
-                </div>
+              <div v-else class="text-xs text-slate-400 py-1">
+                No unpaid billing statements recorded for this tenant.
               </div>
             </div>
 
-            <!-- STEP 3: PAYMENT DETAILS (EXPANDS ON PAYEE SELECT) -->
-            <div v-if="selectedStakeholder" class="space-y-4 pt-2 border-t border-slate-200/80">
-              <div class="flex items-center justify-between">
-                <label class="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                  <span class="w-5 h-5 rounded-full bg-slate-200 text-slate-700 text-[11px] font-bold flex items-center justify-center">3</span>
-                  Payment Details <span class="text-rose-500">*</span>
-                </label>
-              </div>
-
-              <!-- Advance Amount Field if Advance Payment -->
-              <div v-if="activeCategory === 'ADVANCE_PAYMENT'" class="p-3.5 bg-amber-50/50 border border-amber-200/80 rounded-2xl space-y-1">
-                <div class="flex items-center justify-between">
-                  <label class="text-xs font-bold text-slate-800">Total Required Advance Amount <span class="text-rose-500">*</span></label>
-                  <span class="text-[11px] text-slate-500">Already paid: ₱{{ Number(selectedStakeholder?.advanceBalance || 0).toLocaleString() }}</span>
-                </div>
+            <!-- Amount received & Date received (2 Columns) -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div class="flex flex-col gap-1.5">
+                <label class="text-xs font-bold text-slate-800">Amount received <span class="text-rose-500">*</span></label>
                 <InputNumber
-                  v-model="form.totalAdvanceAmount"
+                  v-model="form.amount"
                   mode="currency"
                   currency="PHP"
                   locale="en-PH"
-                  class="w-full text-base"
+                  class="w-full font-bold"
                   placeholder="₱ 0.00"
                 />
               </div>
 
-              <!-- Contract Rent Billing Selector -->
-              <div v-if="activeCategory === 'RENT_PAYMENT'" class="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
-                <div class="flex items-center justify-between">
-                  <label class="text-xs font-bold text-slate-800">Select Billing Statement to Pay <span class="text-rose-500">*</span></label>
-                  <span class="text-[11px] text-slate-500">{{ selectedStakeholderBillings.length }} unpaid statement(s)</span>
-                </div>
-                <div v-if="selectedStakeholderBillings.length" class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <div
-                    v-for="b in selectedStakeholderBillings"
-                    :key="b.id"
-                    @click="selectBilling(b)"
-                    class="p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between select-none"
-                    :class="selectedBillingId === b.id ? 'border-2 border-[#14532d] bg-[#f2f7f4] shadow-2xs' : 'border-slate-200 bg-white hover:border-slate-300'"
-                  >
-                    <div>
-                      <div class="text-xs font-bold text-slate-900">{{ b.billingNo }}</div>
-                      <div class="text-[11px] text-slate-500 mt-0.5">Due: {{ formatDate(b.dueDate) }}</div>
-                    </div>
-                    <div class="text-right">
-                      <div class="text-sm font-extrabold text-rose-600">₱{{ Number(b.balance || 0).toLocaleString() }}</div>
-                      <div v-if="selectedBillingId === b.id" class="text-[10px] font-bold text-emerald-700">Selected</div>
-                    </div>
-                  </div>
-                </div>
-                <div v-else class="text-xs text-slate-400 py-1">
-                  No unpaid billing statements recorded for this tenant.
-                </div>
-              </div>
-
-              <!-- Amount & Date (2 columns) -->
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div class="flex flex-col gap-1.5">
-                  <label class="text-xs font-bold text-slate-800">Amount received <span class="text-rose-500">*</span></label>
-                  <InputNumber
-                    v-model="form.amount"
-                    mode="currency"
-                    currency="PHP"
-                    locale="en-PH"
-                    class="w-full font-bold text-base"
-                    placeholder="₱ 0.00"
-                  />
-                </div>
-
-                <div class="flex flex-col gap-1.5">
-                  <label class="text-xs font-bold text-slate-800">Date received <span class="text-rose-500">*</span></label>
-                  <div class="relative">
-                    <input
-                      type="date"
-                      v-model="form.dateReceived"
-                      class="w-full h-11 px-3.5 pr-10 border border-slate-200 rounded-xl text-sm sm:text-base text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-700/20 focus:border-emerald-700 shadow-2xs"
-                    />
-                    <i class="pi pi-calendar absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Payment Method & Reference Number (2 columns) -->
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div class="flex flex-col gap-1.5">
-                  <label class="text-xs font-bold text-slate-800">Payment method <span class="text-rose-500">*</span></label>
-                  <select
-                    v-model="form.paymentMethod"
-                    class="w-full h-11 px-3.5 border border-slate-200 rounded-xl text-sm sm:text-base text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-700/20 focus:border-emerald-700 shadow-2xs cursor-pointer"
-                  >
-                    <option value="Cash">Cash</option>
-                    <option value="Bank Transfer">Bank Transfer</option>
-                    <option value="Check">Check / Cheque</option>
-                    <option value="GCash">GCash / E-Wallet</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-
-                <div class="flex flex-col gap-1.5">
-                  <label class="text-xs font-bold text-slate-800">Reference number</label>
+              <div class="flex flex-col gap-1.5">
+                <label class="text-xs font-bold text-slate-800">Date received <span class="text-rose-500">*</span></label>
+                <div class="relative">
                   <input
-                    type="text"
-                    v-model="form.referenceNo"
-                    placeholder="e.g. CHQ-1048, GCash Ref #"
-                    class="w-full h-11 px-3.5 border border-slate-200 rounded-xl text-sm sm:text-base text-slate-800 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-700/20 focus:border-emerald-700 shadow-2xs"
+                    type="date"
+                    v-model="form.dateReceived"
+                    class="w-full h-11 px-3.5 pr-10 border border-slate-200 rounded-xl text-sm sm:text-base text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#1e4739]/20 focus:border-[#1e4739]"
                   />
+                  <i class="pi pi-calendar absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
                 </div>
               </div>
+            </div>
 
-              <!-- Official Receipt Number -->
+            <!-- Reference number & Official Receipt Number (2 Columns - Payment method removed) -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div class="flex flex-col gap-1.5">
+                <label class="text-xs font-bold text-slate-800">Reference number</label>
+                <input
+                  type="text"
+                  v-model="form.referenceNo"
+                  placeholder="e.g. CHQ-1048, Ref #"
+                  class="w-full h-11 px-3.5 border border-slate-200 rounded-xl text-sm sm:text-base text-slate-800 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1e4739]/20 focus:border-[#1e4739]"
+                />
+                <span class="text-[11px] text-slate-400">Cheque, transfer, or reference (optional)</span>
+              </div>
+
               <div class="flex flex-col gap-1.5">
                 <div class="flex items-center justify-between">
                   <label class="text-xs font-bold text-slate-800">Official Receipt Number <span class="text-rose-500">*</span></label>
-                  <button type="button" @click="regenerateReceiptNo" class="text-xs text-emerald-800 hover:text-emerald-950 font-semibold flex items-center gap-1 cursor-pointer">
+                  <button type="button" @click="regenerateReceiptNo" class="text-xs text-[#1e4739] hover:text-emerald-950 font-semibold flex items-center gap-1 cursor-pointer">
                     <i class="pi pi-refresh text-[10px]"></i> Auto-generate
                   </button>
                 </div>
@@ -447,58 +350,56 @@
                     type="text"
                     v-model="form.receiptNo"
                     placeholder="Receipt #"
-                    class="w-full h-11 px-3.5 pl-9 font-mono text-xs sm:text-sm font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-700/20 focus:border-emerald-700 shadow-2xs"
+                    class="w-full h-11 px-3.5 pl-9 font-mono text-xs sm:text-sm font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#1e4739]/20 focus:border-[#1e4739]"
                   />
                   <i class="pi pi-receipt absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
                 </div>
               </div>
+            </div>
 
-              <!-- Notes -->
-              <div class="flex flex-col gap-1.5">
-                <label class="text-xs font-bold text-slate-800">Notes <span class="text-slate-400 font-normal">(optional)</span></label>
-                <textarea
-                  v-model="form.notes"
-                  rows="2"
-                  placeholder="Add any context for this payment record..."
-                  class="w-full p-3 border border-slate-200 rounded-xl text-sm sm:text-base text-slate-800 bg-white placeholder-slate-400 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-700/20 focus:border-emerald-700 shadow-2xs"
-                ></textarea>
+            <!-- Notes -->
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-bold text-slate-800">Notes <span class="text-slate-400 font-normal">(optional)</span></label>
+              <textarea
+                v-model="form.notes"
+                rows="2"
+                placeholder="Add any context for this payment record..."
+                class="w-full p-3 border border-slate-200 rounded-xl text-sm sm:text-base text-slate-800 bg-white placeholder-slate-400 resize-none focus:outline-none focus:ring-2 focus:ring-[#1e4739]/20 focus:border-[#1e4739]"
+              ></textarea>
+            </div>
+
+            <!-- Footer -->
+            <div class="flex items-center justify-between pt-5 border-t border-slate-200/80">
+              <div class="flex items-center gap-2 text-xs text-slate-500 font-medium">
+                <i class="pi pi-lock text-slate-400"></i>
+                <span>Saved to the internal market ledger</span>
+              </div>
+
+              <div class="flex items-center gap-3">
+                <button
+                  type="button"
+                  @click="closeModal"
+                  class="px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  :disabled="!canRecord || isSubmitting"
+                  class="flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm text-white transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed select-none"
+                  style="background-color: #11382b;"
+                  onmouseover="if(!this.disabled) this.style.backgroundColor='#0b271e'"
+                  onmouseout="if(!this.disabled) this.style.backgroundColor='#11382b'"
+                >
+                  <span>{{ isSubmitting ? 'Recording...' : 'Record payment' }}</span>
+                  <i v-if="!isSubmitting" class="pi pi-arrow-right text-xs"></i>
+                  <i v-else class="pi pi-spin pi-spinner text-xs"></i>
+                </button>
               </div>
             </div>
 
-          </div>
-
-          <!-- Sticky Footer -->
-          <div class="flex items-center justify-between p-4 sm:p-6 border-t border-slate-200/80 bg-white/95 backdrop-blur-xs sticky bottom-0 z-30">
-            <div class="flex items-center gap-2 text-xs text-slate-500 font-medium">
-              <i class="pi pi-lock text-slate-400 text-xs"></i>
-              <span class="hidden sm:inline">Saved to the internal market ledger</span>
-              <span class="sm:hidden text-[11px]">Internal ledger</span>
-            </div>
-
-            <div class="flex items-center gap-2.5">
-              <button
-                type="button"
-                @click="closeModal"
-                class="px-3.5 sm:px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                :disabled="!canRecord || isSubmitting"
-                class="flex items-center gap-2 px-5 sm:px-6 py-2.5 rounded-xl font-bold text-xs sm:text-sm text-white transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed select-none"
-                style="background-color: #11382b;"
-                onmouseover="if(!this.disabled) this.style.backgroundColor='#0b271e'"
-                onmouseout="if(!this.disabled) this.style.backgroundColor='#11382b'"
-              >
-                <span>{{ isSubmitting ? 'Recording...' : submitButtonText }}</span>
-                <i v-if="!isSubmitting" class="pi pi-arrow-right text-xs"></i>
-                <i v-else class="pi pi-spin pi-spinner text-xs"></i>
-              </button>
-            </div>
-          </div>
-
-        </form>
+          </form>
+        </div>
       </Dialog>
 
     </main>
@@ -712,7 +613,7 @@ const filteredPayments = computed(() => {
 // =========================
 // SELECTION METHODS
 // =========================
-const availableStakeholdersForType = computed(() => {
+const filteredStakeholdersForDropdown = computed(() => {
   const q = stakeholderSearch.value.toLowerCase().trim()
   let list = []
   if (activeCategory.value === 'ADVANCE_PAYMENT') {
@@ -745,11 +646,18 @@ const availableStakeholdersForType = computed(() => {
     return name.includes(q) || bName.includes(q) || stall.includes(q)
   })
 })
+const availableStakeholdersForType = filteredStakeholdersForDropdown
 
 function chooseStakeholder(s) {
   selectStakeholderForType(s, activeCategory.value)
+  stakeholderSearch.value = `${s.firstName} ${s.lastName}${s.occupant?.stall?.stallNo ? ' • Stall ' + s.occupant.stall.stallNo : ''}`
   isStakeholderDropdownOpen.value = false
-  stakeholderSearch.value = ''
+}
+
+function onStakeholderBlur() {
+  setTimeout(() => {
+    isStakeholderDropdownOpen.value = false
+  }, 250)
 }
 
 function generateReceiptNo(type = selectedPaymentType.value) {
@@ -814,6 +722,7 @@ function setCategory(category) {
 
   if (selectedStakeholder.value) {
     selectStakeholderForType(selectedStakeholder.value, category)
+    stakeholderSearch.value = `${selectedStakeholder.value.firstName} ${selectedStakeholder.value.lastName}${selectedStakeholder.value.occupant?.stall?.stallNo ? ' • Stall ' + selectedStakeholder.value.occupant.stall.stallNo : ''}`
   }
 }
 
