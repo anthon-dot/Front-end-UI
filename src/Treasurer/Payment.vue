@@ -191,69 +191,69 @@
               </div>
             </div>
 
-            <!-- PAYMENT TYPE (RESPONSIVE 3-COLUMN GRID) -->
+            <!-- PAYMENT TYPE (BOXES IN A STRAIGHT LINE ACROSS 3 COLUMNS) -->
             <div class="flex flex-col gap-2">
               <label class="text-sm font-bold text-slate-800">Payment type <span class="text-rose-500">*</span></label>
               
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div class="grid grid-cols-3 gap-2.5 sm:gap-4">
                 
                 <!-- Card 01: Advance payment -->
                 <div
                   @click="setCategory('ADVANCE_PAYMENT')"
-                  class="border rounded-xl p-4 flex flex-col justify-between min-h-[125px] cursor-pointer transition-all select-none"
+                  class="border rounded-xl sm:rounded-2xl p-3 sm:p-4 flex flex-col justify-between min-h-[120px] sm:min-h-[135px] cursor-pointer transition-all select-none"
                   :class="activeCategory === 'ADVANCE_PAYMENT'
-                    ? 'border-2 border-[#133e35] bg-[#eff6f2] shadow-xs'
-                    : 'border-slate-200 bg-white hover:border-slate-300'"
+                    ? 'border-2 border-[#133e35] bg-[#eff6f2] shadow-xs ring-1 ring-[#133e35]/10'
+                    : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50'"
                 >
-                  <div class="flex items-center justify-between mb-3">
-                    <span class="text-sm font-bold text-[#b45309] font-mono">01</span>
-                    <span v-if="activeCategory === 'ADVANCE_PAYMENT'" class="w-6 h-6 rounded-full bg-[#133e35] text-white flex items-center justify-center text-xs shadow-xs">
+                  <div class="flex items-center justify-between mb-2 sm:mb-3">
+                    <span class="text-xs sm:text-sm font-bold text-[#b45309] font-mono">01</span>
+                    <span v-if="activeCategory === 'ADVANCE_PAYMENT'" class="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-[#133e35] text-white flex items-center justify-center text-[10px] sm:text-xs shadow-xs">
                       <i class="pi pi-check"></i>
                     </span>
                   </div>
                   <div>
-                    <div class="font-bold text-slate-900 text-sm leading-tight">Advance payment</div>
-                    <div class="text-xs text-slate-500 mt-1 leading-normal">Payment received in advance</div>
+                    <div class="font-bold text-slate-900 text-xs sm:text-sm leading-tight">Advance payment</div>
+                    <div class="text-[11px] sm:text-xs text-slate-500 mt-1 leading-normal">Payment received in advance</div>
                   </div>
                 </div>
 
                 <!-- Card 02: Application payment -->
                 <div
                   @click="setCategory('APPLICATION_FORM')"
-                  class="border rounded-xl p-4 flex flex-col justify-between min-h-[125px] cursor-pointer transition-all select-none"
+                  class="border rounded-xl sm:rounded-2xl p-3 sm:p-4 flex flex-col justify-between min-h-[120px] sm:min-h-[135px] cursor-pointer transition-all select-none"
                   :class="activeCategory === 'APPLICATION_FORM'
-                    ? 'border-2 border-[#133e35] bg-[#eff6f2] shadow-xs'
-                    : 'border-slate-200 bg-white hover:border-slate-300'"
+                    ? 'border-2 border-[#133e35] bg-[#eff6f2] shadow-xs ring-1 ring-[#133e35]/10'
+                    : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50'"
                 >
-                  <div class="flex items-center justify-between mb-3">
-                    <span class="text-sm font-bold text-[#b45309] font-mono">02</span>
-                    <span v-if="activeCategory === 'APPLICATION_FORM'" class="w-6 h-6 rounded-full bg-[#133e35] text-white flex items-center justify-center text-xs shadow-xs">
+                  <div class="flex items-center justify-between mb-2 sm:mb-3">
+                    <span class="text-xs sm:text-sm font-bold text-[#b45309] font-mono">02</span>
+                    <span v-if="activeCategory === 'APPLICATION_FORM'" class="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-[#133e35] text-white flex items-center justify-center text-[10px] sm:text-xs shadow-xs">
                       <i class="pi pi-check"></i>
                     </span>
                   </div>
                   <div>
-                    <div class="font-bold text-slate-900 text-sm leading-tight">Application payment</div>
-                    <div class="text-xs text-slate-500 mt-1 leading-normal">Fee received with an application</div>
+                    <div class="font-bold text-slate-900 text-xs sm:text-sm leading-tight">Application payment</div>
+                    <div class="text-[11px] sm:text-xs text-slate-500 mt-1 leading-normal">Fee received with an application</div>
                   </div>
                 </div>
 
                 <!-- Card 03: Contract stall payment -->
                 <div
                   @click="setCategory('RENT_PAYMENT')"
-                  class="border rounded-xl p-4 flex flex-col justify-between min-h-[125px] cursor-pointer transition-all select-none"
+                  class="border rounded-xl sm:rounded-2xl p-3 sm:p-4 flex flex-col justify-between min-h-[120px] sm:min-h-[135px] cursor-pointer transition-all select-none"
                   :class="activeCategory === 'RENT_PAYMENT'
-                    ? 'border-2 border-[#133e35] bg-[#eff6f2] shadow-xs'
-                    : 'border-slate-200 bg-white hover:border-slate-300'"
+                    ? 'border-2 border-[#133e35] bg-[#eff6f2] shadow-xs ring-1 ring-[#133e35]/10'
+                    : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50'"
                 >
-                  <div class="flex items-center justify-between mb-3">
-                    <span class="text-sm font-bold text-[#b45309] font-mono">03</span>
-                    <span v-if="activeCategory === 'RENT_PAYMENT'" class="w-6 h-6 rounded-full bg-[#133e35] text-white flex items-center justify-center text-xs shadow-xs">
+                  <div class="flex items-center justify-between mb-2 sm:mb-3">
+                    <span class="text-xs sm:text-sm font-bold text-[#b45309] font-mono">03</span>
+                    <span v-if="activeCategory === 'RENT_PAYMENT'" class="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-[#133e35] text-white flex items-center justify-center text-[10px] sm:text-xs shadow-xs">
                       <i class="pi pi-check"></i>
                     </span>
                   </div>
                   <div>
-                    <div class="font-bold text-slate-900 text-sm leading-tight">Contract stall payment</div>
-                    <div class="text-xs text-slate-500 mt-1 leading-normal">Stall payment under a contract</div>
+                    <div class="font-bold text-slate-900 text-xs sm:text-sm leading-tight">Contract stall payment</div>
+                    <div class="text-[11px] sm:text-xs text-slate-500 mt-1 leading-normal">Stall payment under a contract</div>
                   </div>
                 </div>
 
