@@ -13,10 +13,14 @@ export async function ensureBillingsForVerifiedTenants() {
   try {
     const { data: verifiedStakeholders, error: stErr } = await supabase
       .from('stakeholders')
-      .select('*, occupant:occupants(*), business_applications(*)')
+      .select('*, occupant:occupants(*)')
       .or('verified_tenant.eq.true,verified_stakeholder.eq.true,applicant_fee_paid.eq.true')
 
-    if (stErr || !verifiedStakeholders || verifiedStakeholders.length === 0) return
+    if (stErr) {
+      console.warn('[billingService] Error fetching verified stakeholders:', stErr)
+      return
+    }
+    if (!verifiedStakeholders || verifiedStakeholders.length === 0) return
 
     const todayDate = new Date().toISOString().split('T')[0]
     const currentMonth = new Date().getMonth() + 1
@@ -77,8 +81,21 @@ export async function ensureBillingsForVerifiedTenants() {
         if (existingCon) {
           contract = existingCon
         } else {
-          const app = Array.isArray(s.business_applications) ? s.business_applications[0] : s.business_applications
-          const stallId = s.selected_stall_id || s.stall_id || app?.selected_stall_id || app?.stall_id
+          let stallId = s.selected_stall_id || s.stall_id
+          if (!stallId && s.user_id) {
+            try {
+              const { data: appData } = await supabase
+                .from('business_applications')
+                .select('selected_stall_id, stall_id')
+                .eq('user_id', s.user_id)
+                .order('id', { ascending: false })
+                .limit(1)
+                .maybeSingle()
+              stallId = appData?.selected_stall_id || appData?.stall_id
+            } catch (appLookupErr) {
+              console.warn('[billingService] Could not lookup business application stall:', appLookupErr)
+            }
+          }
           let stallRent = 1500
 
           if (stallId) {
