@@ -81,6 +81,16 @@ export function normalizeRecord(item) {
   if (result.stall_id && !result.stallId) result.stallId = result.stall_id;
   if (result.hazard_free_confirmed !== undefined && result.hazardFreeConfirmed === undefined) result.hazardFreeConfirmed = result.hazard_free_confirmed;
   if (result.hazard_free_document_url && !result.hazardFreeDocumentUrl) result.hazardFreeDocumentUrl = result.hazard_free_document_url;
+  if (result.verified_tenant !== undefined && result.verifiedTenant === undefined) result.verifiedTenant = result.verified_tenant;
+  if (result.verifiedTenant !== undefined && result.verified_tenant === undefined) result.verified_tenant = result.verifiedTenant;
+  if (result.verified_stakeholder !== undefined && result.verifiedStakeholder === undefined) result.verifiedStakeholder = result.verified_stakeholder;
+  if (result.verifiedStakeholder !== undefined && result.verified_stakeholder === undefined) result.verified_stakeholder = result.verifiedStakeholder;
+  if (result.applicant_fee_paid !== undefined && result.applicantFeePaid === undefined) result.applicantFeePaid = result.applicant_fee_paid;
+  if (result.applicantFeePaid !== undefined && result.applicant_fee_paid === undefined) result.applicant_fee_paid = result.applicantFeePaid;
+  if (result.application_form_paid !== undefined && result.applicationFormPaid === undefined) result.applicationFormPaid = result.application_form_paid;
+  if (result.applicationFormPaid !== undefined && result.application_form_paid === undefined) result.application_form_paid = result.applicationFormPaid;
+  if (result.treasurer_paid !== undefined && result.treasurerPaid === undefined) result.treasurerPaid = result.treasurer_paid;
+  if (result.treasurerPaid !== undefined && result.treasurer_paid === undefined) result.treasurer_paid = result.treasurerPaid;
 
   return result;
 }

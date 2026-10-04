@@ -93,38 +93,99 @@ export async function createPayment(payload) {
     }
   }
 
-  // 3. If BUSINESS_PERMIT_PAYMENT or APPLICATION_FORM (they are the same payment), update stakeholder permit & fee status
+  // 3. If BUSINESS_PERMIT_PAYMENT or APPLICATION_FORM (they are the same payment), update stakeholder permit & fee status and directly verify tenant
   const isPermitOrAppPayment = ['APPLICATION_FORM', 'APPLICATION_FEE', 'BUSINESS_PERMIT_PAYMENT'].includes(payload.paymentType)
   if (isPermitOrAppPayment && stakeholderId) {
     try {
+      const nowIso = new Date().toISOString()
+      const todayDate = nowIso.split('T')[0]
+      const amountVal = Number(payload.amount || 0)
+
       const updateData = {
         application_form_paid: true,
         applicant_fee_paid: true,
         treasurer_paid: true,
-        applicant_fee_amount: Number(payload.amount || 0),
-        applicant_fee_date: new Date().toISOString().split('T')[0]
+        applicant_fee_amount: amountVal,
+        applicant_fee_date: todayDate,
+        verified_tenant: true,
+        verified_stakeholder: true,
+        verified: true,
+        verification_date: nowIso,
+        application_status: 'COMPLETED',
+        onboarding_status: 'APPROVED',
+        final_status: 'APPROVED'
       }
 
-      const { data: sData } = await supabase.from('stakeholders').select('*').eq('id', stakeholderId).single()
-      if (sData) {
-        if (sData.final_endorsed || sData.application_status === 'PENDING_BUSINESS_PERMIT_PAYMENT' || sData.endorsement_status === 'APPROVED') {
-          updateData.application_status = 'COMPLETED'
-          updateData.onboarding_status = 'APPROVED'
-          updateData.final_status = 'APPROVED'
-          updateData.verified_tenant = true
-          updateData.verified_stakeholder = true
-        }
-      }
+      const { data: sData } = await supabase.from('stakeholders').select('*').eq('id', stakeholderId).maybeSingle()
 
       const { error: feeErr } = await supabase.from('stakeholders').update(updateData).eq('id', stakeholderId)
       if (feeErr) {
         console.warn('[paymentService] Primary permit update failed, trying fallback:', feeErr)
         await supabase.from('stakeholders').update({
+          verified_tenant: true,
+          verified_stakeholder: true,
+          verified: true,
           application_form_paid: true,
           applicant_fee_paid: true,
-          treasurer_paid: true
+          treasurer_paid: true,
+          application_status: 'COMPLETED'
         }).eq('id', stakeholderId)
       }
+
+      // Sync business_applications table if user_id exists
+      const targetUserId = sData?.user_id || payload.userId || payload.user_id
+      if (targetUserId) {
+        try {
+          await supabase.from('business_applications').update({
+            applicant_fee_paid: true,
+            application_form_paid: true,
+            applicant_fee_amount: amountVal,
+            applicant_fee_date: todayDate,
+            application_status: 'COMPLETED',
+            final_status: 'APPROVED',
+            verified_tenant: true,
+            verified_stakeholder: true
+          }).eq('user_id', targetUserId)
+        } catch (appErr) {
+          console.warn('[paymentService] Could not update business_applications:', appErr)
+        }
+      }
+
+      // Also activate occupant & contract if present
+      try {
+        const { data: occ } = await supabase.from('occupants').select('*').eq('stakeholder_id', stakeholderId).maybeSingle()
+        if (occ) {
+          await supabase.from('occupants').update({
+            status: 'ACTIVE',
+            occupancy_date: occ.occupancy_date || todayDate
+          }).eq('id', occ.id)
+
+          if (occ.contract_id) {
+            await supabase.from('contracts').update({ status: 'ACTIVE' }).eq('id', occ.contract_id)
+          }
+        }
+      } catch (occErr) {
+        console.warn('[paymentService] Could not activate occupant:', occErr)
+      }
+
+      // Record in approval_history
+      try {
+        await supabase.from('approval_history').insert({
+          stakeholder_id: Number(stakeholderId),
+          stage: 'PERMIT_PAYMENT',
+          status: 'COMPLETED',
+          remarks: `Business permit / application fee recorded (₱${amountVal}). Tenant directly verified.`
+        })
+      } catch (_) {}
+
+      // Add notification for stakeholder
+      try {
+        await supabase.from('notifications').insert({
+          stakeholder_id: Number(stakeholderId),
+          title: 'Tenant Verified',
+          message: 'Your business permit / application fee has been recorded. Your stakeholder account is now verified!'
+        })
+      } catch (_) {}
     } catch (sErr) {
       console.warn('[paymentService] Could not update stakeholder application fee status:', sErr)
     }

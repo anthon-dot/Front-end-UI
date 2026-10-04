@@ -443,12 +443,13 @@ export async function rejectByBPLO(id, remarks = '', stakeholderId = null) {
 
 export function isDashboardReady(stakeholder, requirements = null) {
   if (!stakeholder) return false
-  const feePaid = Boolean(stakeholder.applicantFeePaid || stakeholder.applicant_fee_paid)
-  const statusCompleted = Boolean(
-    stakeholder.applicationStatus === 'COMPLETED' ||
-    stakeholder.application_status === 'COMPLETED' ||
-    stakeholder.applicationStatus === 'FULLY_APPROVED' ||
-    stakeholder.application_status === 'FULLY_APPROVED'
+  const feePaid = Boolean(
+    stakeholder.applicantFeePaid ||
+    stakeholder.applicant_fee_paid ||
+    stakeholder.applicationFormPaid ||
+    stakeholder.application_form_paid ||
+    stakeholder.treasurerPaid ||
+    stakeholder.treasurer_paid
   )
   const isVerified = Boolean(
     stakeholder.verified ||
@@ -457,7 +458,13 @@ export function isDashboardReady(stakeholder, requirements = null) {
     stakeholder.verifiedTenant ||
     stakeholder.verified_tenant
   )
-  return feePaid && statusCompleted && isVerified
+  const statusCompleted = Boolean(
+    stakeholder.applicationStatus === 'COMPLETED' ||
+    stakeholder.application_status === 'COMPLETED' ||
+    stakeholder.applicationStatus === 'FULLY_APPROVED' ||
+    stakeholder.application_status === 'FULLY_APPROVED'
+  )
+  return (feePaid && isVerified) || feePaid || isVerified || statusCompleted
 }
 
 export function getStakeholderRouteForApplication(application) {
@@ -465,10 +472,24 @@ export function getStakeholderRouteForApplication(application) {
     return '/business-application'
   }
 
-  const feePaid = Boolean(application.applicantFeePaid || application.applicant_fee_paid)
+  const feePaid = Boolean(
+    application.applicantFeePaid ||
+    application.applicant_fee_paid ||
+    application.applicationFormPaid ||
+    application.application_form_paid ||
+    application.treasurerPaid ||
+    application.treasurer_paid
+  )
+  const isVerified = Boolean(
+    application.verified ||
+    application.verifiedStakeholder ||
+    application.verified_stakeholder ||
+    application.verifiedTenant ||
+    application.verified_tenant
+  )
   const status = application.applicationStatus || application.application_status
 
-  if (feePaid && (status === 'COMPLETED' || status === 'FULLY_APPROVED')) {
+  if (feePaid || isVerified || (status === 'COMPLETED' || status === 'FULLY_APPROVED' || status === 'APPROVED')) {
     return '/stakeholder'
   }
 

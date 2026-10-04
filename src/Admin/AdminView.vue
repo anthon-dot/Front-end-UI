@@ -636,7 +636,7 @@ function mapStakeholder(item) {
     name,
     business: item.businessName || item.business || '',
     contact: item.contact || item.contactNo || item.phone || item.mobileNo || '',
-    verification: item.verified || item.verifiedStakeholder || item.verifiedTenant ? 'VERIFIED' : 'PENDING',
+    verification: item.verified || item.verifiedStakeholder || item.verifiedTenant || item.verified_tenant || item.applicantFeePaid || item.applicant_fee_paid || item.treasurerPaid ? 'VERIFIED' : 'PENDING',
     stall,
     contract,
     registrationDate: formatDate(item.createdAt || item.registrationDate || item.dateRegistered),

@@ -443,11 +443,25 @@ router.beforeEach(async (to) => {
         return true
       }
 
+      const feePaidOrVerified = Boolean(
+        stakeholder.applicantFeePaid ||
+        stakeholder.applicant_fee_paid ||
+        stakeholder.applicationFormPaid ||
+        stakeholder.application_form_paid ||
+        stakeholder.treasurerPaid ||
+        stakeholder.treasurer_paid ||
+        stakeholder.verifiedTenant ||
+        stakeholder.verified_tenant ||
+        stakeholder.verifiedStakeholder ||
+        stakeholder.verified_stakeholder ||
+        stakeholder.verified
+      )
+
       const feeReady =
-        stakeholder.applicationStatus === 'PENDING_BUSINESS_PERMIT_PAYMENT' ||
+        !feePaidOrVerified &&
         (
-          stakeholder.finalEndorsed === true &&
-          stakeholder.applicantFeePaid !== true
+          stakeholder.applicationStatus === 'PENDING_BUSINESS_PERMIT_PAYMENT' ||
+          stakeholder.finalEndorsed === true
         )
 
       if (feeReady && to.name !== 'ApplicantFee') {

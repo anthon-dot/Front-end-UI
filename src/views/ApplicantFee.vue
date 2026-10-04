@@ -22,7 +22,7 @@
         <section class="grid gap-4 md:grid-cols-3">
           <article class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <p class="text-sm font-bold text-slate-500">Payment Status</p>
-            <strong class="mt-2 block text-2xl text-slate-950">{{ stakeholder?.applicantFeePaid ? 'Paid' : 'Required' }}</strong>
+            <strong class="mt-2 block text-2xl text-slate-950">{{ (stakeholder?.applicantFeePaid || stakeholder?.applicant_fee_paid || stakeholder?.treasurerPaid || stakeholder?.verifiedTenant || stakeholder?.verified_tenant) ? 'Paid' : 'Required' }}</strong>
           </article>
           <article class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <p class="text-sm font-bold text-slate-500">Amount Recorded</p>
@@ -67,7 +67,19 @@ const loading = ref(true)
 const errorMessage = ref('')
 let refreshTimer = null
 
-const verified = computed(() => isDashboardReady(stakeholder.value))
+const verified = computed(() => {
+  if (!stakeholder.value) return false
+  return Boolean(
+    stakeholder.value.verifiedTenant ||
+    stakeholder.value.verified_tenant ||
+    stakeholder.value.verifiedStakeholder ||
+    stakeholder.value.verified_stakeholder ||
+    stakeholder.value.verified ||
+    stakeholder.value.applicantFeePaid ||
+    stakeholder.value.applicant_fee_paid ||
+    isDashboardReady(stakeholder.value)
+  )
+})
 const amountLabel = computed(() => {
   const amount = Number(stakeholder.value?.applicantFeeAmount || 0)
   return amount > 0
@@ -103,7 +115,7 @@ async function refreshStakeholderStatus() {
     return
   }
 
-  if (isDashboardReady(stakeholder.value)) {
+  if (verified.value || isDashboardReady(stakeholder.value)) {
     router.replace('/stakeholder')
   }
 }

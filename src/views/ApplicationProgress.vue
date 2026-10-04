@@ -675,6 +675,11 @@ function applyStepStatuses(data) {
     data.application_form_paid ||
     data.treasurerPaid ||
     data.treasurer_paid ||
+    data.verifiedTenant ||
+    data.verified_tenant ||
+    data.verifiedStakeholder ||
+    data.verified_stakeholder ||
+    data.verified ||
     (data.applicationStatus === 'COMPLETED' || data.application_status === 'COMPLETED')
   )
   if (hasPermitFee) {
@@ -682,7 +687,13 @@ function applyStepStatuses(data) {
   }
 
   // 9. Completed
-  const isCompleted = (data.applicationStatus === 'COMPLETED' || data.application_status === 'COMPLETED' || data.applicationStatus === 'FULLY_APPROVED')
+  const isCompleted = (
+    data.applicationStatus === 'COMPLETED' ||
+    data.application_status === 'COMPLETED' ||
+    data.applicationStatus === 'FULLY_APPROVED' ||
+    data.verifiedTenant ||
+    data.verified_tenant
+  )
   if (isCompleted) {
     steps.value[8].status = requirements.value?.complete !== false ? 'approved' : 'needs-action'
   }

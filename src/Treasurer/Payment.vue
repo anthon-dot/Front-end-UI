@@ -702,7 +702,7 @@ const advancePaymentStakeholders = computed(() => {
 const appFormStakeholders = computed(() => {
   const search = searchAppForm.value.toLowerCase().trim()
   return stakeholders.value.filter(s => {
-    if (s.applicantFeePaid || s.treasurerPaid || s.applicationFormPaid || s.application_form_paid) return false
+    if (s.applicantFeePaid || s.applicant_fee_paid || s.treasurerPaid || s.treasurer_paid || s.applicationFormPaid || s.application_form_paid || s.verifiedTenant || s.verified_tenant) return false
     if (s.isArchived) return false
     if (s.applicationStatus === 'REJECTED' || s.onboardingStatus === 'REJECTED') return false
 
