@@ -65,7 +65,7 @@
       </div>
 
       <!-- Schedule Color Legend -->
-      <div class="flex items-center gap-2 sm:gap-4 flex-wrap bg-white px-4 py-2.5 rounded-xl border border-slate-100 shadow-xs mb-4 text-xs font-semibold">
+      <div class="flex items-center gap-2 sm:gap-4 flex-wrap bg-white px-4 py-2.5 rounded-xl border border-slate-100 shadow-xs mb-6 text-xs font-semibold">
         <span class="text-slate-400 font-bold uppercase tracking-wider text-[11px] mr-1">Billing Schedule:</span>
         <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
           <span class="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-xs"></span> Past Due Date (Red)
@@ -84,139 +84,141 @@
         <p class="text-slate-500 font-medium">Fetching real-time billing records...</p>
       </div>
 
-      <!-- Grouped Table (Sakai PrimeVue Grouping Style) -->
-      <div v-else class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden p-2">
-        <DataTable 
-          :value="sortedFilteredRows" 
-          rowGroupMode="subheader" 
-          groupRowsBy="stakeholder" 
-          sortMode="single" 
-          sortField="stakeholder" 
-          :sortOrder="1"
-          :rowClass="getRowClass"
-          paginator 
-          :rows="10" 
-          :rowsPerPageOptions="[10, 20, 50]"
-          responsiveLayout="scroll"
-          class="p-datatable-sm modern-table"
+      <!-- Empty State -->
+      <div v-else-if="stakeholderGroups.length === 0" class="text-center py-16 bg-white rounded-2xl border border-slate-100 shadow-sm text-slate-400">
+        <i class="pi pi-inbox text-5xl mb-3 text-slate-300"></i>
+        <p class="text-base font-medium">No billing records found.</p>
+      </div>
+
+      <!-- Separate Card/Box per Stakeholder -->
+      <div v-else class="space-y-6">
+        <div 
+          v-for="group in stakeholderGroups" 
+          :key="group.stakeholder"
+          class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md"
         >
-          <template #empty>
-            <div class="text-center py-12 text-slate-400">
-              <i class="pi pi-inbox text-4xl mb-3 text-slate-300"></i>
-              <p>No billing records found.</p>
-            </div>
-          </template>
+          <!-- Box Header: Profile Avatar, Stakeholder Name, Stall Occupied, Totals -->
+          <div class="p-4 sm:p-5 bg-gradient-to-r from-slate-50 via-slate-50/80 to-white border-b border-slate-200/80 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="flex items-center gap-3.5">
+              <!-- Profile Avatar Circle -->
+              <div class="w-11 h-11 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-extrabold text-sm shadow-xs border border-indigo-200 flex-shrink-0">
+                {{ initials(group.stakeholder) }}
+              </div>
+              
+              <div>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <h3 class="font-extrabold text-slate-900 text-base sm:text-lg tracking-tight">
+                    {{ group.stakeholder }}
+                  </h3>
+                  
+                  <!-- Stall Occupied Badge -->
+                  <span v-if="group.stallNo" class="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-lg shadow-xs">
+                    <i class="pi pi-shop text-[11px]"></i>
+                    Stall {{ group.stallNo }}
+                  </span>
 
-          <!-- Sakai Group Header Box: Profile, Stakeholder, Stall Occupied -->
-          <template #groupheader="slotProps">
-            <div class="flex items-center justify-between gap-4 py-1.5 px-1 flex-wrap">
-              <div class="flex items-center gap-3 flex-wrap">
-                <!-- Profile Avatar -->
-                <div class="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-extrabold text-xs shadow-xs border border-indigo-200 flex-shrink-0">
-                  {{ initials(slotProps.data.stakeholder) }}
+                  <!-- Verified Tenant Tag -->
+                  <Tag value="VERIFIED TENANT" severity="success" rounded class="!text-[10px] !py-0.5 !px-2 font-bold" />
                 </div>
-                
-                <!-- Stakeholder Name -->
-                <span class="font-extrabold text-slate-900 text-sm sm:text-base tracking-tight">
-                  {{ slotProps.data.stakeholder }}
-                </span>
 
-                <!-- Stall Occupied Badge -->
-                <span v-if="slotProps.data.stallNo" class="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-lg shadow-xs">
-                  <i class="pi pi-shop text-[11px]"></i>
-                  Stall {{ slotProps.data.stallNo }}
-                </span>
-
-                <!-- Business Name -->
-                <span v-if="slotProps.data.businessName && slotProps.data.businessName !== slotProps.data.stakeholder" class="text-xs text-slate-500 font-medium">
-                  ({{ slotProps.data.businessName }})
-                </span>
-
-                <!-- Verified Badge -->
-                <Tag value="VERIFIED TENANT" severity="success" rounded class="!text-[10px] !py-0.5 !px-2 font-bold" />
-              </div>
-
-              <!-- Stakeholder Financial Summary in Group Header -->
-              <div class="flex items-center gap-4 text-xs font-semibold">
-                <span class="text-slate-500">Total: <strong class="text-slate-800">₱{{ getGroupTotal(slotProps.data.stakeholder, 'total').toLocaleString() }}</strong></span>
-                <span class="text-slate-500">Paid: <strong class="text-emerald-600">₱{{ getGroupTotal(slotProps.data.stakeholder, 'paid').toLocaleString() }}</strong></span>
-                <span class="text-slate-500">Balance: <strong class="text-rose-600">₱{{ getGroupTotal(slotProps.data.stakeholder, 'balance').toLocaleString() }}</strong></span>
+                <p v-if="group.businessName && group.businessName !== group.stakeholder" class="text-xs text-slate-500 font-medium mt-0.5">
+                  {{ group.businessName }}
+                </p>
               </div>
             </div>
-          </template>
 
-          <!-- 1. Billing ID Column -->
-          <Column field="id" header="Billing ID" class="font-mono text-sm font-bold text-slate-600" style="min-width: 140px;"></Column>
+            <!-- Group Financial Summary in Header -->
+            <div class="flex items-center gap-4 text-xs font-semibold bg-white px-4 py-2 rounded-xl border border-slate-200/80 shadow-xs self-start md:self-auto">
+              <span>Total: <strong class="text-slate-800">₱{{ group.totalInvoiced.toLocaleString() }}</strong></span>
+              <span class="text-slate-200">|</span>
+              <span>Paid: <strong class="text-emerald-600">₱{{ group.totalPaid.toLocaleString() }}</strong></span>
+              <span class="text-slate-200">|</span>
+              <span>Balance: <strong class="text-rose-600">₱{{ group.totalBalance.toLocaleString() }}</strong></span>
+            </div>
+          </div>
 
-          <!-- 2. Period Column -->
-          <Column field="period" header="Period" class="text-slate-600 text-sm font-medium" style="min-width: 160px;">
-            <template #body="{ data }">
-              <div class="flex items-center gap-2 flex-wrap">
-                <span class="font-semibold">{{ formatPeriod(data.period) }}</span>
-                <span v-if="isPastDue(data)" class="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 border border-rose-200">
-                  PAST DUE
-                </span>
-                <span v-else-if="isThisMonth(data)" class="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
-                  THIS MONTH
-                </span>
-                <span v-else-if="isNextTwoMonths(data)" class="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
-                  ADVANCE
-                </span>
-              </div>
-            </template>
-          </Column>
-          
-          <!-- 3. Total Column -->
-          <Column field="total" header="Total" style="min-width: 100px;">
-            <template #body="{ data }">
-              <span class="font-semibold text-slate-700">₱{{ Number(data.total || 0).toLocaleString() }}</span>
-            </template>
-          </Column>
+          <!-- Bills Table inside the Stakeholder Box -->
+          <div class="overflow-x-auto">
+            <DataTable 
+              :value="group.bills" 
+              :rowClass="getRowClass"
+              responsiveLayout="scroll"
+              class="p-datatable-sm modern-table"
+            >
+              <!-- 1. Billing ID -->
+              <Column field="id" header="Billing ID" class="font-mono text-sm font-bold text-slate-600" style="min-width: 140px;"></Column>
 
-          <!-- 4. Paid Column -->
-          <Column field="paid" header="Paid" style="min-width: 100px;">
-            <template #body="{ data }">
-              <span class="font-bold text-emerald-600">₱{{ Number(data.paid || 0).toLocaleString() }}</span>
-            </template>
-          </Column>
+              <!-- 2. Period -->
+              <Column field="period" header="Period" class="text-slate-600 text-sm font-medium" style="min-width: 160px;">
+                <template #body="{ data }">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="font-semibold text-slate-800">{{ formatPeriod(data.period) }}</span>
+                    <span v-if="isPastDue(data)" class="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 border border-rose-200">
+                      PAST DUE
+                    </span>
+                    <span v-else-if="isThisMonth(data)" class="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                      THIS MONTH
+                    </span>
+                    <span v-else-if="isNextTwoMonths(data)" class="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
+                      ADVANCE
+                    </span>
+                  </div>
+                </template>
+              </Column>
+              
+              <!-- 3. Total -->
+              <Column field="total" header="Total" style="min-width: 100px;">
+                <template #body="{ data }">
+                  <span class="font-semibold text-slate-700">₱{{ Number(data.total || 0).toLocaleString() }}</span>
+                </template>
+              </Column>
 
-          <!-- 5. Balance Column -->
-          <Column field="balance" header="Balance" style="min-width: 100px;">
-            <template #body="{ data }">
-              <span class="font-bold text-rose-600">₱{{ Number(data.balance || 0).toLocaleString() }}</span>
-            </template>
-          </Column>
+              <!-- 4. Paid -->
+              <Column field="paid" header="Paid" style="min-width: 100px;">
+                <template #body="{ data }">
+                  <span class="font-bold text-emerald-600">₱{{ Number(data.paid || 0).toLocaleString() }}</span>
+                </template>
+              </Column>
 
-          <!-- 6. Due Date Column -->
-          <Column field="due" header="Due Date" class="text-slate-600 text-sm" style="min-width: 110px;">
-            <template #body="{ data }">
-              <span>{{ formatDate(data.due) }}</span>
-            </template>
-          </Column>
+              <!-- 5. Balance -->
+              <Column field="balance" header="Balance" style="min-width: 100px;">
+                <template #body="{ data }">
+                  <span class="font-bold text-rose-600">₱{{ Number(data.balance || 0).toLocaleString() }}</span>
+                </template>
+              </Column>
 
-          <!-- 7. Status Column -->
-          <Column field="status" header="Status" style="min-width: 110px;">
-            <template #body="{ data }">
-              <Tag :value="data.status" :severity="getStatusSeverity(data.status)" rounded class="font-bold px-3 py-1" />
-            </template>
-          </Column>
+              <!-- 6. Due Date -->
+              <Column field="due" header="Due Date" class="text-slate-600 text-sm" style="min-width: 110px;">
+                <template #body="{ data }">
+                  <span>{{ formatDate(data.due) }}</span>
+                </template>
+              </Column>
 
-          <!-- 8. Action Column -->
-          <Column header="Action" alignFrozen="right" :frozen="true" class="text-right" style="min-width: 100px;">
-            <template #body="{ data }">
-              <Button 
-                label="Send" 
-                icon="pi pi-send" 
-                size="small" 
-                :disabled="data.status === 'PAID'" 
-                @click="sendNotification(data)"
-                :outlined="data.status !== 'PAID'"
-                :severity="data.status === 'PAID' ? 'secondary' : 'info'"
-                class="!py-1.5"
-              />
-            </template>
-          </Column>
-        </DataTable>
+              <!-- 7. Status -->
+              <Column field="status" header="Status" style="min-width: 110px;">
+                <template #body="{ data }">
+                  <Tag :value="data.status" :severity="getStatusSeverity(data.status)" rounded class="font-bold px-3 py-1" />
+                </template>
+              </Column>
+
+              <!-- 8. Action -->
+              <Column header="Action" alignFrozen="right" :frozen="true" class="text-right" style="min-width: 100px;">
+                <template #body="{ data }">
+                  <Button 
+                    label="Send" 
+                    icon="pi pi-send" 
+                    size="small" 
+                    :disabled="data.status === 'PAID'" 
+                    @click="sendNotification(data)"
+                    :outlined="data.status !== 'PAID'"
+                    :severity="data.status === 'PAID' ? 'secondary' : 'info'"
+                    class="!py-1.5"
+                  />
+                </template>
+              </Column>
+            </DataTable>
+          </div>
+        </div>
       </div>
 
     </main>
@@ -288,7 +290,7 @@ async function fetchBillings() {
 }
 
 /* =========================
-   FILTER & SORTED ROWS (FOR SAKAI GROUPING)
+   FILTER & GROUP BY STAKEHOLDER
 ========================= */
 const filteredRows = computed(() =>
   rows.value.filter(r =>
@@ -300,23 +302,42 @@ const filteredRows = computed(() =>
   )
 )
 
-const sortedFilteredRows = computed(() => {
-  return [...filteredRows.value].sort((a, b) => {
-    const sComp = (a.stakeholder || '').localeCompare(b.stakeholder || '')
-    if (sComp !== 0) return sComp
-    return (a.due || '').localeCompare(b.due || '')
-  })
-})
-
 const totalInvoiced = computed(() => filteredRows.value.reduce((sum, r) => sum + r.total, 0))
 const totalPaid = computed(() => filteredRows.value.reduce((sum, r) => sum + r.paid, 0))
 const totalBalance = computed(() => filteredRows.value.reduce((sum, r) => sum + r.balance, 0))
 
-function getGroupTotal(stakeholder, field) {
-  return filteredRows.value
-    .filter(r => r.stakeholder === stakeholder)
-    .reduce((sum, r) => sum + (Number(r[field]) || 0), 0)
-}
+const stakeholderGroups = computed(() => {
+  const groupsMap = new Map()
+
+  for (const r of filteredRows.value) {
+    const key = r.stakeholder || 'Verified Tenant'
+    if (!groupsMap.has(key)) {
+      groupsMap.set(key, {
+        stakeholder: key,
+        businessName: r.businessName || '',
+        stallNo: r.stallNo || '',
+        bills: []
+      })
+    }
+    const group = groupsMap.get(key)
+    if (!group.stallNo && r.stallNo) group.stallNo = r.stallNo
+    if (!group.businessName && r.businessName) group.businessName = r.businessName
+    group.bills.push(r)
+  }
+
+  const groups = Array.from(groupsMap.values()).map(g => {
+    // Sort bills: past due first, then this month, then future advance months
+    g.bills.sort((a, b) => (a.due || '').localeCompare(b.due || ''))
+    g.totalInvoiced = g.bills.reduce((sum, b) => sum + (Number(b.total) || 0), 0)
+    g.totalPaid = g.bills.reduce((sum, b) => sum + (Number(b.paid) || 0), 0)
+    g.totalBalance = g.bills.reduce((sum, b) => sum + (Number(b.balance) || 0), 0)
+    return g
+  })
+
+  // Sort groups alphabetically by stakeholder name
+  groups.sort((a, b) => a.stakeholder.localeCompare(b.stakeholder))
+  return groups
+})
 
 /* =========================
    SCHEDULE & COLOR CLASSIFIER
