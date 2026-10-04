@@ -217,7 +217,8 @@ function getStatusSeverity(status) {
   switch (status) {
     case 'PAID': return 'success'
     case 'UNPAID': return 'warning'
-    case 'PARTIAL': return 'info'
+    case 'PARTIAL':
+    case 'PARTIALLY_PAID': return 'info'
     case 'OVERDUE': return 'danger'
     default: return 'secondary'
   }

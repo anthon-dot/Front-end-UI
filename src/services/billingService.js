@@ -3,10 +3,11 @@ import { normalizeRecord } from './api'
 
 /**
  * Ensures that every verified tenant has their billing cycle started.
- * When a tenant is verified, this automatically ensures:
- * 1. An active occupant record exists
- * 2. An active contract record exists with stall monthly rent
- * 3. An initial billing statement exists in billings table
+ * Mirrors the exact backend logic from BillingService.java:
+ * 1. Ensures an active occupant record exists
+ * 2. Ensures an active contract record exists with stall monthly rent
+ * 3. Checks advance_balance (deducts advance balance if available)
+ * 4. Generates initial billing statement in billings table
  */
 export async function ensureBillingsForVerifiedTenants() {
   try {
@@ -18,9 +19,9 @@ export async function ensureBillingsForVerifiedTenants() {
     if (stErr || !verifiedStakeholders || verifiedStakeholders.length === 0) return
 
     const todayDate = new Date().toISOString().split('T')[0]
-    const currentMonth = new Date().toLocaleString('default', { month: 'short' })
+    const currentMonth = new Date().getMonth() + 1
     const currentYear = new Date().getFullYear()
-    const billingPeriod = `${currentMonth} ${currentYear}`
+    const billingPeriod = `MONTHLY-${currentMonth}-${currentYear}`
     const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
     for (const s of verifiedStakeholders) {
@@ -41,7 +42,8 @@ export async function ensureBillingsForVerifiedTenants() {
               .insert({
                 stakeholder_id: s.id,
                 status: 'ACTIVE',
-                occupancy_date: todayDate
+                occupancy_date: todayDate,
+                advance_balance: Number(s.advance_balance || 0)
               })
               .select()
               .maybeSingle()
@@ -114,7 +116,29 @@ export async function ensureBillingsForVerifiedTenants() {
         }
 
         const rentAmount = Number(contract?.monthly_rent || 1500)
-        const billingNo = `INV-${Date.now().toString().slice(-8)}`
+        const billingNo = `BILL-${Date.now().toString().slice(-8)}`
+
+        // Apply advance balance (identical to backend BillingService.java lines 520-595)
+        let curAdvance = Number(occ.advance_balance || s.advance_balance || 0)
+        let paidAmount = 0
+        let balance = rentAmount
+        let status = 'UNPAID'
+
+        if (curAdvance <= 0) {
+          paidAmount = 0
+          balance = rentAmount
+          status = 'UNPAID'
+        } else if (curAdvance >= rentAmount) {
+          paidAmount = rentAmount
+          balance = 0
+          status = 'PAID'
+          curAdvance = curAdvance - rentAmount
+        } else {
+          paidAmount = curAdvance
+          balance = rentAmount - curAdvance
+          status = 'PARTIAL'
+          curAdvance = 0
+        }
 
         // Start initial billing invoice for the verified tenant
         await supabase.from('billings').insert({
@@ -123,13 +147,19 @@ export async function ensureBillingsForVerifiedTenants() {
           billing_no: billingNo,
           billing_period: billingPeriod,
           total_amount: rentAmount,
-          paid_amount: 0,
-          balance: rentAmount,
+          paid_amount: paidAmount,
+          balance: balance,
           due_date: dueDate,
-          status: 'UNPAID'
+          status: status
         })
 
-        console.log(`[billingService] Started billing invoice ${billingNo} for verified stakeholder ${s.id}`)
+        // Update remaining advance balance on occupant and stakeholder
+        if (Number(occ.advance_balance || 0) !== curAdvance) {
+          await supabase.from('occupants').update({ advance_balance: curAdvance }).eq('id', occ.id)
+          await supabase.from('stakeholders').update({ advance_balance: curAdvance }).eq('id', s.id)
+        }
+
+        console.log(`[billingService] Started billing invoice ${billingNo} for verified stakeholder ${s.id} (Status: ${status}, Balance: ${balance})`)
       } catch (innerErr) {
         console.warn('[billingService] Could not start billing for stakeholder', s.id, innerErr)
       }
