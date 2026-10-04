@@ -33,43 +33,72 @@ export async function createPayment(payload) {
 
   // 1. If RENT_PAYMENT with billing, update billing status and balance
   if (billingId) {
-    const { data: bData } = await supabase.from('billings').select('*').eq('id', billingId).single()
-    if (bData) {
-      const newPaid = Number(bData.paid_amount || 0) + Number(payload.amount || 0)
-      const newBalance = Math.max(Number(bData.total_amount || 0) - newPaid, 0)
-      const newStatus = newBalance <= 0 ? 'PAID' : 'PARTIALLY_PAID'
-      await supabase.from('billings').update({
-        paid_amount: newPaid,
-        balance: newBalance,
-        status: newStatus
-      }).eq('id', billingId)
+    try {
+      const { data: bData } = await supabase.from('billings').select('*').eq('id', billingId).single()
+      if (bData) {
+        const newPaid = Number(bData.paid_amount || 0) + Number(payload.amount || 0)
+        const newBalance = Math.max(Number(bData.total_amount || 0) - newPaid, 0)
+        const newStatus = newBalance <= 0 ? 'PAID' : 'PARTIALLY_PAID'
+        await supabase.from('billings').update({
+          paid_amount: newPaid,
+          balance: newBalance,
+          status: newStatus
+        }).eq('id', billingId)
+      }
+    } catch (bErr) {
+      console.warn('[paymentService] Could not update billing balance:', bErr)
     }
   }
 
   // 2. If ADVANCE_PAYMENT, update stakeholder advance balance
   if (payload.paymentType === 'ADVANCE_PAYMENT' && stakeholderId) {
-    const { data: sData } = await supabase.from('stakeholders').select('*').eq('id', stakeholderId).single()
-    if (sData) {
-      const curAdvance = Number(sData.advance_balance || 0)
-      const newAdvance = curAdvance + Number(payload.amount || 0)
-      const totalAdv = Number(payload.totalAdvanceAmount || sData.total_advance_amount || newAdvance)
-      await supabase.from('stakeholders').update({
-        advance_balance: newAdvance,
-        advance_payment_amount: newAdvance,
-        total_advance_amount: totalAdv,
-        advance_payment_paid: newAdvance >= totalAdv,
-        advance_payment_completed: newAdvance >= totalAdv,
-        advance_payment_date: new Date().toISOString().split('T')[0]
-      }).eq('id', stakeholderId)
+    try {
+      const { data: sData, error: sFetchErr } = await supabase.from('stakeholders').select('*').eq('id', stakeholderId).single()
+      if (!sFetchErr && sData) {
+        const curAdvance = Number(sData.advance_balance || 0)
+        const newAdvance = curAdvance + Number(payload.amount || 0)
+        const totalAdv = Number(payload.totalAdvanceAmount || sData.total_advance_amount || newAdvance)
+        
+        const updatePayload = {
+          advance_balance: newAdvance,
+          total_advance_amount: totalAdv,
+          advance_payment_paid: newAdvance >= totalAdv,
+          advance_payment_completed: newAdvance >= totalAdv
+        }
+        if (sData.advance_payment_amount !== undefined) {
+          updatePayload.advance_payment_amount = newAdvance
+        }
+        if (sData.advance_payment_date !== undefined) {
+          updatePayload.advance_payment_date = new Date().toISOString().split('T')[0]
+        }
+
+        const { error: sUpdateErr } = await supabase.from('stakeholders').update(updatePayload).eq('id', stakeholderId)
+        if (sUpdateErr) {
+          console.warn('[paymentService] Primary advance balance update failed, trying fallback:', sUpdateErr)
+          await supabase.from('stakeholders').update({ advance_balance: newAdvance }).eq('id', stakeholderId)
+        }
+      }
+    } catch (sErr) {
+      console.warn('[paymentService] Could not update stakeholder advance status:', sErr)
     }
   }
 
   // 3. If APPLICATION_FORM, update stakeholder application fee status
   if (payload.paymentType === 'APPLICATION_FORM' && stakeholderId) {
-    await supabase.from('stakeholders').update({
-      application_form_paid: true,
-      application_fee_paid: true
-    }).eq('id', stakeholderId)
+    try {
+      const { error: feeErr } = await supabase.from('stakeholders').update({
+        application_form_paid: true,
+        applicant_fee_paid: true
+      }).eq('id', stakeholderId)
+      if (feeErr) {
+        console.warn('[paymentService] Trying fallback update for application_form_paid:', feeErr)
+        await supabase.from('stakeholders').update({
+          application_form_paid: true
+        }).eq('id', stakeholderId)
+      }
+    } catch (sErr) {
+      console.warn('[paymentService] Could not update stakeholder application fee status:', sErr)
+    }
   }
 
   return data

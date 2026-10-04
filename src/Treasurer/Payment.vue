@@ -98,7 +98,7 @@
       </div>
 
       <!-- RECORD PAYMENT MODAL -->
-      <Dialog v-model:visible="showModal" modal :closable="false"
+      <Dialog v-model:visible="showModal" modal :closable="false" :focusOnShow="false"
               :style="{ width: '96vw', maxWidth: '680px' }" 
               :breakpoints="{ '960px': '96vw', '640px': '98vw' }" 
               class="ledger-dialog"
@@ -1019,11 +1019,17 @@ async function recordPayment() {
       payload.totalAdvanceAmount = Number(form.value.totalAdvanceAmount)
     }
 
+    const stakeholderFirstName = selectedStakeholder.value?.firstName || ''
+    const stakeholderLastName = selectedStakeholder.value?.lastName || ''
+    const stakeholderFullName = `${stakeholderFirstName} ${stakeholderLastName}`.trim() || 'stakeholder'
+    const typeLabel = formatType(selectedPaymentType.value || activeCategory.value).toLowerCase()
+    const recordedAmount = Number(form.value.amount || 0).toLocaleString()
+
     const savedData = await createPayment(payload)
     console.log('[Payment] payment saved', {
       paymentId: savedData?.id,
-      stakeholderId: selectedStakeholder.value.id,
-      paymentType: savedData?.paymentType,
+      stakeholderId: payload.stakeholderId,
+      paymentType: savedData?.payment_type || savedData?.paymentType || payload.paymentType,
       amount: savedData?.amount
     })
     
@@ -1033,7 +1039,7 @@ async function recordPayment() {
     toast.add({
       severity: 'success',
       summary: 'Payment Recorded',
-      detail: `Successfully recorded ${formatType(selectedPaymentType.value).toLowerCase()} of ₱${Number(form.value.amount).toLocaleString()} for ${selectedStakeholder.value.firstName} ${selectedStakeholder.value.lastName}.`,
+      detail: `Successfully recorded ${typeLabel} of ₱${recordedAmount} for ${stakeholderFullName}.`,
       life: 4500
     })
   } catch (error) {
