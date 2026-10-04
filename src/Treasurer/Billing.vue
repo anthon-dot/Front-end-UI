@@ -24,39 +24,39 @@
         </div>
       </div>
 
-      <!-- Quick Summary Cards (3 Separate Rectangular Cards in a 3-Column Row) -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
+      <!-- Summary Cards (Report Style: Compact Display) -->
+      <div class="summary-grid">
         
-        <!-- Rectangle 1: Total Invoiced -->
-        <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between transition-all duration-200 hover:shadow-md">
-          <div>
-            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Invoiced</p>
-            <p class="text-2xl sm:text-3xl font-extrabold text-slate-800 mt-1">₱{{ totalInvoiced.toLocaleString() }}</p>
-          </div>
-          <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl shadow-xs flex-shrink-0">
+        <!-- Total Invoiced -->
+        <div class="summary-card">
+          <div class="summary-icon blue">
             <i class="pi pi-receipt"></i>
           </div>
+          <div>
+            <p class="summary-label">Total Invoiced</p>
+            <h3 class="summary-value">₱ {{ totalInvoiced.toLocaleString() }}</h3>
+          </div>
         </div>
 
-        <!-- Rectangle 2: Total Collected -->
-        <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between transition-all duration-200 hover:shadow-md">
-          <div>
-            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Collected</p>
-            <p class="text-2xl sm:text-3xl font-extrabold text-emerald-600 mt-1">₱{{ totalPaid.toLocaleString() }}</p>
-          </div>
-          <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl shadow-xs flex-shrink-0">
+        <!-- Total Collected -->
+        <div class="summary-card">
+          <div class="summary-icon green">
             <i class="pi pi-check-circle"></i>
           </div>
+          <div>
+            <p class="summary-label">Total Collected</p>
+            <h3 class="summary-value text-emerald-600">₱ {{ totalPaid.toLocaleString() }}</h3>
+          </div>
         </div>
 
-        <!-- Rectangle 3: Outstanding Balance -->
-        <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between transition-all duration-200 hover:shadow-md">
-          <div>
-            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Outstanding Balance</p>
-            <p class="text-2xl sm:text-3xl font-extrabold text-rose-600 mt-1">₱{{ totalBalance.toLocaleString() }}</p>
-          </div>
-          <div class="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-xl shadow-xs flex-shrink-0">
+        <!-- Outstanding Balance -->
+        <div class="summary-card">
+          <div class="summary-icon red">
             <i class="pi pi-exclamation-circle"></i>
+          </div>
+          <div>
+            <p class="summary-label">Outstanding</p>
+            <h3 class="summary-value text-rose-600">₱ {{ totalBalance.toLocaleString() }}</h3>
           </div>
         </div>
 
