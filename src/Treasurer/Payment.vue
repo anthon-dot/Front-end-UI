@@ -191,69 +191,162 @@
               </div>
             </div>
 
-            <!-- PAYMENT TYPE (BOXES IN A STRAIGHT LINE ACROSS 3 COLUMNS) -->
+            <!-- PAYMENT TYPE (BOXES IN A STRAIGHT LINE WITH INTERACTIVE GREEN CHECK) -->
             <div class="flex flex-col gap-2">
-              <label class="text-sm font-bold text-slate-800">Payment type <span class="text-rose-500">*</span></label>
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-bold text-slate-800">Payment type <span class="text-rose-500">*</span></label>
+                <span class="text-xs text-slate-400">Select one option</span>
+              </div>
               
               <div class="grid grid-cols-3 gap-2.5 sm:gap-4">
                 
                 <!-- Card 01: Advance payment -->
                 <div
                   @click="setCategory('ADVANCE_PAYMENT')"
-                  class="border rounded-xl sm:rounded-2xl p-3 sm:p-4 flex flex-col justify-between min-h-[120px] sm:min-h-[135px] cursor-pointer transition-all select-none"
+                  class="group border rounded-xl sm:rounded-2xl p-3 sm:p-4 flex flex-col justify-between min-h-[120px] sm:min-h-[135px] cursor-pointer transition-all duration-200 select-none relative overflow-hidden active:scale-[0.98]"
                   :class="activeCategory === 'ADVANCE_PAYMENT'
-                    ? 'border-2 border-[#133e35] bg-[#eff6f2] shadow-xs ring-1 ring-[#133e35]/10'
-                    : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50'"
+                    ? 'border-2 border-emerald-600 bg-emerald-50/50 shadow-md ring-2 ring-emerald-500/20'
+                    : 'border-slate-200 bg-white hover:border-emerald-300 hover:bg-slate-50/80 hover:shadow-sm'"
                 >
+                  <!-- Active top accent glow line -->
+                  <div 
+                    v-if="activeCategory === 'ADVANCE_PAYMENT'" 
+                    class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-500"
+                  ></div>
+
                   <div class="flex items-center justify-between mb-2 sm:mb-3">
-                    <span class="text-xs sm:text-sm font-bold text-[#b45309] font-mono">01</span>
-                    <span v-if="activeCategory === 'ADVANCE_PAYMENT'" class="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-[#133e35] text-white flex items-center justify-center text-[10px] sm:text-xs shadow-xs">
-                      <i class="pi pi-check"></i>
-                    </span>
+                    <span 
+                      class="text-xs sm:text-sm font-bold font-mono transition-colors"
+                      :class="activeCategory === 'ADVANCE_PAYMENT' ? 'text-emerald-700' : 'text-slate-400 group-hover:text-slate-600'"
+                    >01</span>
+
+                    <!-- Interactive Green Check Indicator -->
+                    <div 
+                      class="w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 shadow-2xs"
+                      :class="activeCategory === 'ADVANCE_PAYMENT' 
+                        ? 'bg-emerald-600 text-white scale-100 shadow-emerald-200 ring-2 ring-emerald-100 check-pop' 
+                        : 'border-2 border-slate-200 bg-slate-50/80 text-transparent group-hover:border-emerald-300 group-hover:bg-emerald-50/50'"
+                    >
+                      <i 
+                        class="pi pi-check text-[11px] font-black transition-transform duration-200"
+                        :class="activeCategory === 'ADVANCE_PAYMENT' ? 'scale-100' : 'scale-0'"
+                      ></i>
+                    </div>
                   </div>
+
                   <div>
-                    <div class="font-bold text-slate-900 text-xs sm:text-sm leading-tight">Advance payment</div>
-                    <div class="text-[11px] sm:text-xs text-slate-500 mt-1 leading-normal">Payment received in advance</div>
+                    <div 
+                      class="text-xs sm:text-sm leading-tight transition-colors"
+                      :class="activeCategory === 'ADVANCE_PAYMENT' ? 'font-extrabold text-emerald-950' : 'font-bold text-slate-800 group-hover:text-slate-900'"
+                    >
+                      Advance payment
+                    </div>
+                    <div 
+                      class="text-[11px] sm:text-xs mt-1 leading-normal transition-colors"
+                      :class="activeCategory === 'ADVANCE_PAYMENT' ? 'text-emerald-800/80' : 'text-slate-500'"
+                    >
+                      Payment received in advance
+                    </div>
                   </div>
                 </div>
 
                 <!-- Card 02: Application payment -->
                 <div
                   @click="setCategory('APPLICATION_FORM')"
-                  class="border rounded-xl sm:rounded-2xl p-3 sm:p-4 flex flex-col justify-between min-h-[120px] sm:min-h-[135px] cursor-pointer transition-all select-none"
+                  class="group border rounded-xl sm:rounded-2xl p-3 sm:p-4 flex flex-col justify-between min-h-[120px] sm:min-h-[135px] cursor-pointer transition-all duration-200 select-none relative overflow-hidden active:scale-[0.98]"
                   :class="activeCategory === 'APPLICATION_FORM'
-                    ? 'border-2 border-[#133e35] bg-[#eff6f2] shadow-xs ring-1 ring-[#133e35]/10'
-                    : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50'"
+                    ? 'border-2 border-emerald-600 bg-emerald-50/50 shadow-md ring-2 ring-emerald-500/20'
+                    : 'border-slate-200 bg-white hover:border-emerald-300 hover:bg-slate-50/80 hover:shadow-sm'"
                 >
+                  <!-- Active top accent glow line -->
+                  <div 
+                    v-if="activeCategory === 'APPLICATION_FORM'" 
+                    class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-500"
+                  ></div>
+
                   <div class="flex items-center justify-between mb-2 sm:mb-3">
-                    <span class="text-xs sm:text-sm font-bold text-[#b45309] font-mono">02</span>
-                    <span v-if="activeCategory === 'APPLICATION_FORM'" class="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-[#133e35] text-white flex items-center justify-center text-[10px] sm:text-xs shadow-xs">
-                      <i class="pi pi-check"></i>
-                    </span>
+                    <span 
+                      class="text-xs sm:text-sm font-bold font-mono transition-colors"
+                      :class="activeCategory === 'APPLICATION_FORM' ? 'text-emerald-700' : 'text-slate-400 group-hover:text-slate-600'"
+                    >02</span>
+
+                    <!-- Interactive Green Check Indicator -->
+                    <div 
+                      class="w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 shadow-2xs"
+                      :class="activeCategory === 'APPLICATION_FORM' 
+                        ? 'bg-emerald-600 text-white scale-100 shadow-emerald-200 ring-2 ring-emerald-100 check-pop' 
+                        : 'border-2 border-slate-200 bg-slate-50/80 text-transparent group-hover:border-emerald-300 group-hover:bg-emerald-50/50'"
+                    >
+                      <i 
+                        class="pi pi-check text-[11px] font-black transition-transform duration-200"
+                        :class="activeCategory === 'APPLICATION_FORM' ? 'scale-100' : 'scale-0'"
+                      ></i>
+                    </div>
                   </div>
+
                   <div>
-                    <div class="font-bold text-slate-900 text-xs sm:text-sm leading-tight">Application payment</div>
-                    <div class="text-[11px] sm:text-xs text-slate-500 mt-1 leading-normal">Fee received with an application</div>
+                    <div 
+                      class="text-xs sm:text-sm leading-tight transition-colors"
+                      :class="activeCategory === 'APPLICATION_FORM' ? 'font-extrabold text-emerald-950' : 'font-bold text-slate-800 group-hover:text-slate-900'"
+                    >
+                      Application payment
+                    </div>
+                    <div 
+                      class="text-[11px] sm:text-xs mt-1 leading-normal transition-colors"
+                      :class="activeCategory === 'APPLICATION_FORM' ? 'text-emerald-800/80' : 'text-slate-500'"
+                    >
+                      Fee received with an application
+                    </div>
                   </div>
                 </div>
 
                 <!-- Card 03: Contract stall payment -->
                 <div
                   @click="setCategory('RENT_PAYMENT')"
-                  class="border rounded-xl sm:rounded-2xl p-3 sm:p-4 flex flex-col justify-between min-h-[120px] sm:min-h-[135px] cursor-pointer transition-all select-none"
+                  class="group border rounded-xl sm:rounded-2xl p-3 sm:p-4 flex flex-col justify-between min-h-[120px] sm:min-h-[135px] cursor-pointer transition-all duration-200 select-none relative overflow-hidden active:scale-[0.98]"
                   :class="activeCategory === 'RENT_PAYMENT'
-                    ? 'border-2 border-[#133e35] bg-[#eff6f2] shadow-xs ring-1 ring-[#133e35]/10'
-                    : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50'"
+                    ? 'border-2 border-emerald-600 bg-emerald-50/50 shadow-md ring-2 ring-emerald-500/20'
+                    : 'border-slate-200 bg-white hover:border-emerald-300 hover:bg-slate-50/80 hover:shadow-sm'"
                 >
+                  <!-- Active top accent glow line -->
+                  <div 
+                    v-if="activeCategory === 'RENT_PAYMENT'" 
+                    class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-500"
+                  ></div>
+
                   <div class="flex items-center justify-between mb-2 sm:mb-3">
-                    <span class="text-xs sm:text-sm font-bold text-[#b45309] font-mono">03</span>
-                    <span v-if="activeCategory === 'RENT_PAYMENT'" class="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-[#133e35] text-white flex items-center justify-center text-[10px] sm:text-xs shadow-xs">
-                      <i class="pi pi-check"></i>
-                    </span>
+                    <span 
+                      class="text-xs sm:text-sm font-bold font-mono transition-colors"
+                      :class="activeCategory === 'RENT_PAYMENT' ? 'text-emerald-700' : 'text-slate-400 group-hover:text-slate-600'"
+                    >03</span>
+
+                    <!-- Interactive Green Check Indicator -->
+                    <div 
+                      class="w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 shadow-2xs"
+                      :class="activeCategory === 'RENT_PAYMENT' 
+                        ? 'bg-emerald-600 text-white scale-100 shadow-emerald-200 ring-2 ring-emerald-100 check-pop' 
+                        : 'border-2 border-slate-200 bg-slate-50/80 text-transparent group-hover:border-emerald-300 group-hover:bg-emerald-50/50'"
+                    >
+                      <i 
+                        class="pi pi-check text-[11px] font-black transition-transform duration-200"
+                        :class="activeCategory === 'RENT_PAYMENT' ? 'scale-100' : 'scale-0'"
+                      ></i>
+                    </div>
                   </div>
+
                   <div>
-                    <div class="font-bold text-slate-900 text-xs sm:text-sm leading-tight">Contract stall payment</div>
-                    <div class="text-[11px] sm:text-xs text-slate-500 mt-1 leading-normal">Stall payment under a contract</div>
+                    <div 
+                      class="text-xs sm:text-sm leading-tight transition-colors"
+                      :class="activeCategory === 'RENT_PAYMENT' ? 'font-extrabold text-emerald-950' : 'font-bold text-slate-800 group-hover:text-slate-900'"
+                    >
+                      Contract stall payment
+                    </div>
+                    <div 
+                      class="text-[11px] sm:text-xs mt-1 leading-normal transition-colors"
+                      :class="activeCategory === 'RENT_PAYMENT' ? 'text-emerald-800/80' : 'text-slate-500'"
+                    >
+                      Stall payment under a contract
+                    </div>
                   </div>
                 </div>
 
