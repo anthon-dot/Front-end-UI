@@ -7,7 +7,7 @@
     <main class="page-container">
       
       <!-- Title -->
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>
           <h2 class="text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-3">
             <span class="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl">
@@ -19,7 +19,40 @@
         </div>
         <div class="flex items-center gap-3">
           <div class="w-full md:w-80">
-            <SearchField v-model="search" placeholder="Search stakeholder or billing ID..." />
+            <SearchField v-model="search" placeholder="Search stakeholder, stall, or ID..." />
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Summary Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Invoiced</p>
+            <p class="text-2xl font-extrabold text-slate-800 mt-1">₱{{ totalInvoiced.toLocaleString() }}</p>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl shadow-xs">
+            <i class="pi pi-receipt"></i>
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Collected</p>
+            <p class="text-2xl font-extrabold text-emerald-600 mt-1">₱{{ totalPaid.toLocaleString() }}</p>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl shadow-xs">
+            <i class="pi pi-check-circle"></i>
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Outstanding Balance</p>
+            <p class="text-2xl font-extrabold text-rose-600 mt-1">₱{{ totalBalance.toLocaleString() }}</p>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-xl shadow-xs">
+            <i class="pi pi-exclamation-circle"></i>
           </div>
         </div>
       </div>
@@ -30,15 +63,13 @@
         <p class="text-slate-500 font-medium">Fetching real-time billing records...</p>
       </div>
 
-      <!-- Table -->
+      <!-- Table with 1:1 Column Alignment -->
       <div v-else class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden p-2">
         <DataTable 
-          :value="sortedFilteredRows" 
-          rowGroupMode="subheader" 
-          groupRowsBy="stakeholder" 
-          sortMode="single" 
-          sortField="stakeholder" 
-          :sortOrder="1"
+          :value="filteredRows" 
+          paginator 
+          :rows="10" 
+          :rowsPerPageOptions="[10, 20, 50]"
           responsiveLayout="scroll"
           class="p-datatable-sm modern-table"
         >
@@ -49,72 +80,87 @@
             </div>
           </template>
 
-          <template #groupheader="slotProps">
-            <div class="flex items-center gap-4 py-2">
-              <div class="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm shadow-sm">
-                {{ initials(slotProps.data.stakeholder) }}
-              </div>
-              <div class="flex-1">
-                <div class="flex items-center gap-2 flex-wrap">
-                  <span class="font-bold text-slate-800 text-base">
-                    {{ slotProps.data.stakeholder }}
-                  </span>
-                  <span v-if="slotProps.data.businessName && slotProps.data.businessName !== slotProps.data.stakeholder" class="text-xs text-slate-500 font-medium">
-                    ({{ slotProps.data.businessName }})
-                  </span>
-                  <Tag value="VERIFIED TENANT" severity="success" rounded class="!text-[10px] !py-0.5 !px-2 font-bold" />
-                  <span v-if="slotProps.data.stallNo" class="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
-                    Stall {{ slotProps.data.stallNo }}
-                  </span>
+          <!-- 1. Stakeholder Profile Column -->
+          <Column header="Stakeholder" sortable sortField="stakeholder" style="min-width: 220px;">
+            <template #body="{ data }">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-xs shadow-sm flex-shrink-0">
+                  {{ initials(data.stakeholder) }}
                 </div>
-                <div class="text-xs font-semibold text-slate-500 flex gap-4 mt-1">
-                  <span>Total: <span class="text-slate-700">₱{{ getGroupTotal(slotProps.data.stakeholder, 'total').toLocaleString() }}</span></span>
-                  <span>Paid: <span class="text-emerald-600">₱{{ getGroupTotal(slotProps.data.stakeholder, 'paid').toLocaleString() }}</span></span>
-                  <span>Balance: <span class="text-rose-600">₱{{ getGroupTotal(slotProps.data.stakeholder, 'balance').toLocaleString() }}</span></span>
+                <div class="min-w-0">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="font-bold text-slate-800 text-sm">
+                      {{ data.stakeholder }}
+                    </span>
+                    <span v-if="data.stallNo" class="text-[11px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+                      Stall {{ data.stallNo }}
+                    </span>
+                  </div>
+                  <div class="text-xs text-slate-500 font-medium truncate flex items-center gap-1.5 mt-0.5">
+                    <span>{{ data.businessName || 'Verified Tenant' }}</span>
+                    <span class="text-[10px] text-emerald-600 font-semibold bg-emerald-50 px-1.5 py-0.2 rounded">VERIFIED</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          </template>
+            </template>
+          </Column>
 
-          <Column field="id" header="Billing ID" class="font-mono text-sm font-bold text-slate-600"></Column>
-          <Column field="period" header="Period" class="text-slate-600 text-sm font-medium"></Column>
+          <!-- 2. Billing ID Column -->
+          <Column field="id" header="Billing ID" sortable class="font-mono text-sm font-bold text-slate-600" style="min-width: 140px;"></Column>
+
+          <!-- 3. Period Column -->
+          <Column field="period" header="Period" sortable class="text-slate-600 text-sm font-medium" style="min-width: 130px;">
+            <template #body="{ data }">
+              <span class="font-medium text-slate-700">{{ formatPeriod(data.period) }}</span>
+            </template>
+          </Column>
           
-          <Column field="total" header="Total">
-            <template #body="slotProps">
-              <span class="font-semibold text-slate-700">₱{{ slotProps.data.total.toLocaleString() }}</span>
+          <!-- 4. Total Column -->
+          <Column field="total" header="Total" sortable style="min-width: 100px;">
+            <template #body="{ data }">
+              <span class="font-semibold text-slate-700">₱{{ Number(data.total || 0).toLocaleString() }}</span>
             </template>
           </Column>
 
-          <Column field="paid" header="Paid">
-            <template #body="slotProps">
-              <span class="font-bold text-emerald-600">₱{{ slotProps.data.paid.toLocaleString() }}</span>
+          <!-- 5. Paid Column -->
+          <Column field="paid" header="Paid" sortable style="min-width: 100px;">
+            <template #body="{ data }">
+              <span class="font-bold text-emerald-600">₱{{ Number(data.paid || 0).toLocaleString() }}</span>
             </template>
           </Column>
 
-          <Column field="balance" header="Balance">
-            <template #body="slotProps">
-              <span class="font-bold text-rose-600">₱{{ slotProps.data.balance.toLocaleString() }}</span>
+          <!-- 6. Balance Column -->
+          <Column field="balance" header="Balance" sortable style="min-width: 100px;">
+            <template #body="{ data }">
+              <span class="font-bold text-rose-600">₱{{ Number(data.balance || 0).toLocaleString() }}</span>
             </template>
           </Column>
 
-          <Column field="due" header="Due Date" class="text-slate-600 text-sm"></Column>
-
-          <Column field="status" header="Status">
-            <template #body="slotProps">
-              <Tag :value="slotProps.data.status" :severity="getStatusSeverity(slotProps.data.status)" rounded class="font-bold px-3 py-1" />
+          <!-- 7. Due Date Column -->
+          <Column field="due" header="Due Date" sortable class="text-slate-600 text-sm" style="min-width: 110px;">
+            <template #body="{ data }">
+              <span>{{ formatDate(data.due) }}</span>
             </template>
           </Column>
 
-          <Column header="Action" alignFrozen="right" :frozen="true" class="text-right">
-            <template #body="slotProps">
+          <!-- 8. Status Column -->
+          <Column field="status" header="Status" sortable style="min-width: 110px;">
+            <template #body="{ data }">
+              <Tag :value="data.status" :severity="getStatusSeverity(data.status)" rounded class="font-bold px-3 py-1" />
+            </template>
+          </Column>
+
+          <!-- 9. Action Column -->
+          <Column header="Action" alignFrozen="right" :frozen="true" class="text-right" style="min-width: 100px;">
+            <template #body="{ data }">
               <Button 
                 label="Send" 
                 icon="pi pi-send" 
                 size="small" 
-                :disabled="slotProps.data.status === 'PAID'" 
-                @click="sendNotification(slotProps.data)"
-                :outlined="slotProps.data.status !== 'PAID'"
-                :severity="slotProps.data.status === 'PAID' ? 'secondary' : 'info'"
+                :disabled="data.status === 'PAID'" 
+                @click="sendNotification(data)"
+                :outlined="data.status !== 'PAID'"
+                :severity="data.status === 'PAID' ? 'secondary' : 'info'"
                 class="!py-1.5"
               />
             </template>
@@ -133,7 +179,6 @@ import TreasurerMenu from '../components/TreasurerMenu.vue'
 import SearchField from '../components/SearchField.vue'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
-import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
 import Tag from 'primevue/tag'
 
@@ -165,7 +210,9 @@ async function fetchBillings() {
 
       return {
         ...b,
-        id: b.billingNo || b.billing_no || (b.id ? `INV-${b.id}` : 'N/A'),
+        rawId: b.id,
+        id: b.billingNo || b.billing_no || (b.id ? `BILL-${b.id}` : 'N/A'),
+        billingNo: b.billingNo || b.billing_no || '',
         stakeholder: stakeholderLabel,
         businessName,
         stallNo,
@@ -185,7 +232,7 @@ async function fetchBillings() {
 }
 
 /* =========================
-   FILTER & SORT
+   FILTER & COMPUTED TOTALS
 ========================= */
 const filteredRows = computed(() =>
   rows.value.filter(r =>
@@ -197,20 +244,38 @@ const filteredRows = computed(() =>
   )
 )
 
-// DataTable with rowGroupMode="subheader" expects sorted data by the group field
-const sortedFilteredRows = computed(() => {
-  return [...filteredRows.value].sort((a, b) => {
-    return a.stakeholder.localeCompare(b.stakeholder);
-  });
-})
+const totalInvoiced = computed(() => filteredRows.value.reduce((sum, r) => sum + r.total, 0))
+const totalPaid = computed(() => filteredRows.value.reduce((sum, r) => sum + r.paid, 0))
+const totalBalance = computed(() => filteredRows.value.reduce((sum, r) => sum + r.balance, 0))
 
 /* =========================
-   HELPERS
+   FORMATTERS & HELPERS
 ========================= */
-function getGroupTotal(stakeholder, field) {
-  return filteredRows.value
-    .filter(r => r.stakeholder === stakeholder)
-    .reduce((sum, r) => sum + r[field], 0);
+function formatPeriod(period) {
+  if (!period || period === 'N/A') return '—'
+  if (typeof period === 'string' && period.startsWith('MONTHLY-')) {
+    const parts = period.split('-')
+    if (parts.length === 3) {
+      const monthNum = parseInt(parts[1], 10)
+      const year = parts[2]
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+      if (monthNum >= 1 && monthNum <= 12) {
+        return `${monthNames[monthNum - 1]} ${year}`
+      }
+    }
+  }
+  return period
+}
+
+function formatDate(dateStr) {
+  if (!dateStr || dateStr === 'N/A') return '—'
+  try {
+    const d = new Date(dateStr)
+    if (isNaN(d.getTime())) return dateStr
+    return dateStr // Standard clean YYYY-MM-DD
+  } catch (e) {
+    return dateStr
+  }
 }
 
 function getStatusSeverity(status) {
@@ -231,7 +296,7 @@ function initials(name) {
 
 async function sendNotification(row) {
   try {
-    await sendBillingNotification(row.id)
+    await sendBillingNotification(row.rawId || row.billingNo || row.id)
     alert(`Notification sent to ${row.stakeholder}`)
   } catch (err) {
     console.error('Failed to send notification', err)

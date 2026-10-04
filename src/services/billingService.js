@@ -217,12 +217,18 @@ export async function fetchBillings() {
   return verifiedBillings.map(normalizeRecord)
 }
 
-export async function sendBillingNotification(billingId) {
-  const { data: bill, error: billErr } = await supabase
+export async function sendBillingNotification(billingIdentifier) {
+  let query = supabase
     .from('billings')
     .select('*, occupant:occupants(stakeholder_id)')
-    .eq('id', billingId)
-    .single()
+
+  if (typeof billingIdentifier === 'number' || /^\d+$/.test(String(billingIdentifier))) {
+    query = query.eq('id', Number(billingIdentifier))
+  } else {
+    query = query.or(`billing_no.eq.${billingIdentifier},id.eq.${billingIdentifier}`)
+  }
+
+  const { data: bill, error: billErr } = await query.maybeSingle()
 
   if (billErr) throw billErr
 
@@ -236,7 +242,7 @@ export async function sendBillingNotification(billingId) {
         priority: 'MEDIUM',
         notification_type: 'BILLING_REMINDER',
         related_record_type: 'BILLING',
-        related_record_id: billingId
+        related_record_id: bill.id
       })
     if (notifErr) throw notifErr
   }
