@@ -137,6 +137,14 @@
                 </button>
                 <button
                   type="button"
+                  class="btn-action btn-assign-row"
+                  title="Assign Occupant to this Stall"
+                  @click="openAssignForStall(stall)"
+                >
+                  👤 Assign
+                </button>
+                <button
+                  type="button"
                   class="btn-action btn-edit"
                   title="View Stall Details, Manage Occupant & Contracts"
                   @click="editStall(stall)"
@@ -192,18 +200,18 @@
             </div>
           </div>
 
-          <!-- 2. OCCUPANT ASSIGNMENT SECTION -->
+          <!-- 2. OCCUPANT INFORMATION SECTION -->
           <div class="occupant-section">
             <div class="section-title">
               <i class="pi pi-user" style="color: #2563eb;"></i>
-              <span>Occupant Assignment</span>
+              <span>Occupant Information</span>
             </div>
 
             <!-- Current Occupant Display -->
-            <div v-if="currentOccupantName && !selectedStakeholder" class="current-occupant-card">
+            <div v-if="currentOccupantName" class="current-occupant-card">
               <div class="current-occupant-header">
-                <strong>Current Occupant:</strong>
-                <button type="button" class="btn-unassign" @click="unassignCurrentOccupant">
+                <span class="occupant-tag-label"><i class="pi pi-check-circle"></i> Assigned Occupant</span>
+                <button type="button" class="btn-unassign" @click="vacateOccupant">
                   ✕ Remove Occupant
                 </button>
               </div>
@@ -211,106 +219,34 @@
                 <i class="pi pi-user"></i>
                 {{ currentOccupantName }}
               </div>
-            </div>
-
-            <!-- Search/Assign Stakeholder -->
-            <label>
-              {{ currentOccupantName ? 'Reassign to Approved Stakeholder' : 'Assign Approved Stakeholder' }}
-              <div class="search-input-wrap">
-                <input
-                  v-model="stakeholderSearch"
-                  type="text"
-                  placeholder="Search approved stakeholder by name, business, or contact..."
-                  @focus="isSearchDropdownOpen = true"
-                  @input="onSearchInput"
-                />
+              <div class="occupant-card-action">
                 <button
-                  v-if="stakeholderSearch"
                   type="button"
-                  class="btn-clear-search"
-                  title="Clear search"
-                  @click="clearSearch"
+                  class="btn-open-assign-secondary"
+                  @click="openAssignModal"
                 >
-                  ✕
+                  <i class="pi pi-user-edit"></i>
+                  Reassign Occupant
                 </button>
               </div>
-            </label>
-
-            <!-- SELECTED STAKEHOLDER DISPLAY -->
-            <div v-if="selectedStakeholder" class="selected-occupant">
-              <div class="selected-occupant-info">
-                <div class="selected-badge-row">
-                  <span class="selected-tag"><i class="pi pi-check-circle"></i> Ready to Assign</span>
-                  <span class="badge-approved">Approved Stakeholder</span>
-                </div>
-                <div class="selected-occupant-name">
-                  <i class="pi pi-user"></i> {{ getPersonName(selectedStakeholder) }}
-                </div>
-                <div class="selected-occupant-biz">
-                  <i class="pi pi-briefcase"></i> {{ selectedStakeholder.businessName || selectedStakeholder.business_name || 'Business Applicant' }}
-                  <span v-if="selectedStakeholder.contact || selectedStakeholder.email">• {{ selectedStakeholder.contact || selectedStakeholder.email }}</span>
-                </div>
-              </div>
-              <button type="button" class="btn-clear-selection" title="Change stakeholder" @click="clearSearch">
-                ✕
-              </button>
             </div>
 
-            <!-- RESULTS DROPDOWN -->
-            <div
-              v-if="isSearchDropdownOpen"
-              class="stakeholder-results"
-            >
-              <div
-                v-if="approvedStakeholders.length === 0"
-                class="stakeholder-empty-notice"
-              >
-                <i class="pi pi-info-circle"></i>
-                <span>No approved stakeholders found. Stakeholders will appear here once approved by the Market Supervisor under Applications for Approval.</span>
-              </div>
-
-              <div
-                v-else-if="filteredStakeholders.length === 0"
-                class="stakeholder-empty-notice"
-              >
-                <i class="pi pi-search"></i>
-                <span>No approved stakeholder matching "{{ stakeholderSearch }}"</span>
-              </div>
-
-              <div
-                v-for="person in filteredStakeholders"
-                v-else
-                :key="person.id"
-                class="stakeholder-item"
-                @click="selectStakeholder(person)"
-              >
-                <div class="stakeholder-item-top">
-                  <span class="stakeholder-name">{{ getPersonName(person) }}</span>
-                  <span class="badge-approved">Approved</span>
-                </div>
-                <div v-if="person.businessName || person.business_name" class="stakeholder-biz">
-                  <i class="pi pi-briefcase"></i> {{ person.businessName || person.business_name }}
-                </div>
-                <div v-if="person.contact || person.email" class="stakeholder-contact">
-                  <i class="pi pi-id-card"></i> {{ person.contact || person.email }}
-                </div>
-                <div v-if="person.selectedStall" class="stakeholder-pref">
-                  <i class="pi pi-bookmark"></i> Applied for Stall {{ person.selectedStall.stall_no || person.selectedStall.stallNo }}
+            <!-- Vacant Display with Assign Occupant Button -->
+            <div v-else class="vacant-occupant-card">
+              <div class="vacant-status-info">
+                <i class="pi pi-info-circle text-blue-500"></i>
+                <div>
+                  <strong>No Occupant Assigned</strong>
+                  <p>This stall is currently vacant. You can assign an approved stakeholder to occupy it.</p>
                 </div>
               </div>
-            </div>
-
-            <!-- UPDATE ASSIGNMENT BUTTON -->
-            <div v-if="selectedStakeholder || (initialOccupantName && !currentOccupantName)" style="margin-top: 6px;">
               <button
                 type="button"
-                class="btn-primary"
-                style="width: 100%; justify-content: center;"
-                :disabled="isSaving"
-                @click="saveStall"
+                class="btn-open-assign-primary"
+                @click="openAssignModal"
               >
-                <i class="pi pi-check" :class="{ 'pi-spin': isSaving }"></i>
-                {{ isSaving ? 'Saving Assignment...' : 'Save Occupant Assignment' }}
+                <i class="pi pi-user-plus"></i>
+                Assign Occupant
               </button>
             </div>
           </div>
@@ -490,6 +426,146 @@
         </div>
       </div>
     </div>
+
+    <!-- DEDICATED ASSIGN STAKEHOLDER MODAL -->
+    <div v-if="showAssignModal" class="assign-backdrop" @click.self="closeAssignModal">
+      <div class="assign-dialog-card" @click="onAssignModalClick">
+        <div class="assign-dialog-header">
+          <div class="assign-header-title">
+            <div class="assign-header-icon">
+              <i class="pi pi-user-plus"></i>
+            </div>
+            <div>
+              <h3>Assign Stakeholder to Stall</h3>
+              <p>Stall {{ form.number ? '#' + form.number : '' }} &bull; {{ form.type || 'Standard Stall' }}</p>
+            </div>
+          </div>
+          <button type="button" class="gm-close" @click="closeAssignModal">✕</button>
+        </div>
+
+        <div class="assign-dialog-body">
+          <!-- Stall Quick Summary Banner -->
+          <div class="assign-stall-banner">
+            <div class="banner-pill">
+              <span class="lbl">Stall Number</span>
+              <strong>#{{ form.number }}</strong>
+            </div>
+            <div class="banner-pill">
+              <span class="lbl">Section / Type</span>
+              <strong>{{ form.type || 'Standard Stall' }}</strong>
+            </div>
+            <div class="banner-pill">
+              <span class="lbl">Monthly Rent</span>
+              <strong class="text-emerald-600">{{ formatCurrency(form.rent) }}</strong>
+            </div>
+          </div>
+
+          <!-- Stakeholder Search Input -->
+          <div class="assign-field-group">
+            <label class="assign-input-label">
+              <span>Select Approved Stakeholder</span>
+              <small>Stakeholders approved by the Market Supervisor</small>
+            </label>
+            <div class="search-input-wrap">
+              <input
+                v-model="stakeholderSearch"
+                type="text"
+                placeholder="Search approved stakeholder by name, business, contact or stall..."
+                @focus="isSearchDropdownOpen = true"
+                @input="onSearchInput"
+              />
+              <button
+                v-if="stakeholderSearch"
+                type="button"
+                class="btn-clear-search"
+                title="Clear search"
+                @click="clearSearch"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+
+          <!-- Selected Stakeholder Card (if chosen) -->
+          <div v-if="selectedStakeholder" class="selected-occupant-card">
+            <div class="selected-badge-row">
+              <span class="selected-tag"><i class="pi pi-check-circle"></i> Ready to Assign</span>
+              <span class="badge-approved">Approved Stakeholder</span>
+            </div>
+            <div class="selected-occupant-name">
+              <i class="pi pi-user"></i> {{ getPersonName(selectedStakeholder) }}
+            </div>
+            <div class="selected-occupant-biz">
+              <i class="pi pi-briefcase"></i> {{ selectedStakeholder.businessName || selectedStakeholder.business_name || 'Business Applicant' }}
+              <span v-if="selectedStakeholder.contact || selectedStakeholder.email">&bull; {{ selectedStakeholder.contact || selectedStakeholder.email }}</span>
+            </div>
+            <div v-if="selectedStakeholder.selectedStall" class="selected-occupant-pref">
+              <i class="pi pi-bookmark"></i> Applied for Stall {{ selectedStakeholder.selectedStall.stall_no || selectedStakeholder.selectedStall.stallNo }}
+            </div>
+            <button type="button" class="btn-change-selection" @click="clearSearch">
+              Change Stakeholder Selection
+            </button>
+          </div>
+
+          <!-- Stakeholders List to Pick From (when not selected yet) -->
+          <div v-else class="assign-stakeholders-container">
+            <div class="stakeholder-list-title">
+              Approved Stakeholders ({{ filteredStakeholders.length }})
+            </div>
+
+            <div v-if="approvedStakeholders.length === 0" class="stakeholder-empty-notice">
+              <i class="pi pi-info-circle"></i>
+              <span>No approved stakeholders found. Stakeholders will appear here once approved under Applications for Approval.</span>
+            </div>
+
+            <div v-else-if="filteredStakeholders.length === 0" class="stakeholder-empty-notice">
+              <i class="pi pi-search"></i>
+              <span>No approved stakeholder matching "{{ stakeholderSearch }}"</span>
+            </div>
+
+            <div v-else class="stakeholders-pick-list">
+              <div
+                v-for="person in filteredStakeholders"
+                :key="person.id"
+                class="stakeholder-pick-item"
+                @click="selectStakeholder(person)"
+              >
+                <div class="pick-item-top">
+                  <span class="pick-name">{{ getPersonName(person) }}</span>
+                  <span class="badge-approved">Approved</span>
+                </div>
+                <div v-if="person.businessName || person.business_name" class="pick-biz">
+                  <i class="pi pi-briefcase"></i> {{ person.businessName || person.business_name }}
+                </div>
+                <div class="pick-meta">
+                  <span v-if="person.contact || person.email">
+                    <i class="pi pi-id-card"></i> {{ person.contact || person.email }}
+                  </span>
+                  <span v-if="person.selectedStall" class="pick-pref">
+                    <i class="pi pi-bookmark"></i> Stall {{ person.selectedStall.stall_no || person.selectedStall.stallNo }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="assign-dialog-footer">
+          <button type="button" class="btn-cancel" @click="closeAssignModal">
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="btn-confirm-assign"
+            :disabled="!selectedStakeholder || isSaving"
+            @click="confirmAssignOccupant"
+          >
+            <i class="pi pi-check" :class="{ 'pi-spin': isSaving }"></i>
+            {{ isSaving ? 'Assigning...' : 'Confirm & Assign to Stall' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -521,6 +597,7 @@ const search = ref('')
 const filterStatus = ref('All')
 const stalls = ref([])
 const showModal = ref(false)
+const showAssignModal = ref(false)
 const editing = ref(null)
 const selectedImage = ref(null)
 const imagePreview = ref('')
@@ -757,12 +834,30 @@ function clearSearch() {
   }
 }
 
-function unassignCurrentOccupant() {
-  currentOccupantName.value = ''
+function openAssignModal() {
   selectedStakeholder.value = null
   stakeholderSearch.value = ''
-  form.value.status = 'VACANT'
   isSearchDropdownOpen.value = false
+  loadStakeholders()
+  showAssignModal.value = true
+}
+
+function openAssignForStall(stall) {
+  editStall(stall)
+  openAssignModal()
+}
+
+function closeAssignModal() {
+  showAssignModal.value = false
+  selectedStakeholder.value = null
+  stakeholderSearch.value = ''
+  isSearchDropdownOpen.value = false
+}
+
+function onAssignModalClick(e) {
+  if (e && e.target && !e.target.closest('.search-input-wrap') && !e.target.closest('.stakeholders-pick-list')) {
+    isSearchDropdownOpen.value = false
+  }
 }
 
 function onModalBodyClick(e) {
@@ -1242,134 +1337,146 @@ function formatDate(d) {
   }
 }
 
-async function saveStall() {
-  if (!editing.value) return
-
-  // Validation: If stall was vacant and no stakeholder selected, prompt user
-  if (!selectedStakeholder.value && !initialOccupantName.value) {
-    alert('Please search and select an approved stakeholder to assign to this stall.')
+async function vacateOccupant() {
+  if (!confirm(`Are you sure you want to remove occupant "${currentOccupantName.value}" from Stall ${form.value.number}? The stall will be set to VACANT.`)) {
     return
   }
 
   isSaving.value = true
   try {
-    const targetStallId = editing.value
+    const targetStallId = form.value.id || editing.value
+    await unassignOccupant(targetStallId)
+    await updateStall(targetStallId, { status: 'VACANT' })
+
+    try {
+      const raw = localStorage.getItem('contracts')
+      if (raw) {
+        const list = JSON.parse(raw)
+        list.forEach((c) => {
+          if (
+            (c.stallId && String(c.stallId) === String(targetStallId)) ||
+            (c.stallNo && String(c.stallNo) === String(form.value.number))
+          ) {
+            c.status = 'TERMINATED'
+          }
+        })
+        localStorage.setItem('contracts', JSON.stringify(list))
+      }
+    } catch (_) {}
+
+    await loadStalls()
+    await loadContracts()
+
+    currentOccupantName.value = ''
+    initialOccupantName.value = ''
+    form.value.status = 'VACANT'
+
+    alert(`Occupant removed from Stall ${form.value.number}. Stall is now VACANT.`)
+  } catch (err) {
+    console.error(err)
+    alert(err.message || 'Failed to remove occupant')
+  } finally {
+    isSaving.value = false
+  }
+}
+
+async function confirmAssignOccupant() {
+  if (!selectedStakeholder.value) {
+    alert('Please select an approved stakeholder to assign to this stall.')
+    return
+  }
+
+  isSaving.value = true
+  try {
+    const targetStallId = form.value.id || editing.value
     const stallNo = form.value.number
     const stallType = form.value.type || 'Standard Stall'
     const stallRent = Number(form.value.rent || 0)
 
-    if (selectedStakeholder.value) {
-      const stakeholder = selectedStakeholder.value
-      const stakeholderId = stakeholder.id
-      const stakeholderName = getPersonName(stakeholder)
-      const businessName = stakeholder.businessName || stakeholder.business_name || ''
+    const stakeholder = selectedStakeholder.value
+    const stakeholderId = stakeholder.id
+    const stakeholderName = getPersonName(stakeholder)
+    const businessName = stakeholder.businessName || stakeholder.business_name || ''
 
-      // 1. Assign occupant and automatically set stall status as OCCUPIED
-      await allocateOccupant(targetStallId, stakeholderId)
-      await updateStall(targetStallId, { status: 'OCCUPIED' })
+    // 1. Assign occupant and set stall status as OCCUPIED
+    await allocateOccupant(targetStallId, stakeholderId)
+    await updateStall(targetStallId, { status: 'OCCUPIED' })
 
-      // 2. Automatically generate baseline stall lease contract if none exists
-      if (!currentStallContract.value) {
-        const today = new Date()
-        const nextYear = new Date()
-        nextYear.setFullYear(today.getFullYear() + 1)
-        const dateSuffix = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}`
-        const randSuffix = String(Math.floor(1000 + Math.random() * 9000))
-        const contractNo = `CON-${stallNo}-${dateSuffix}-${randSuffix}`
+    // 2. Automatically generate baseline stall lease contract if none exists
+    if (!currentStallContract.value) {
+      const today = new Date()
+      const nextYear = new Date()
+      nextYear.setFullYear(today.getFullYear() + 1)
+      const dateSuffix = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}`
+      const randSuffix = String(Math.floor(1000 + Math.random() * 9000))
+      const contractNo = `CON-${stallNo}-${dateSuffix}-${randSuffix}`
 
-        const contractPayload = {
-          contractNo: contractNo,
-          ref: contractNo,
-          startDate: today.toISOString().split('T')[0],
-          endDate: nextYear.toISOString().split('T')[0],
-          monthlyRent: stallRent,
-          billingFrequency: 'MONTHLY',
-          terms: `1. USE OF PREMISES: The LESSEE shall use Stall ${stallNo} exclusively for designated municipal market retail and commercial trade.\n2. RENTAL PAYMENTS: The monthly rental of ₱${stallRent.toLocaleString()} shall be paid on or before the due date specified by the Municipal Treasurer.\n3. SANITATION & MAINTENANCE: The LESSEE shall maintain the stall and surrounding premises clean, sanitary, and compliant with municipal health ordinances.\n4. NON-TRANSFERABILITY: Subleasing, selling, or unauthorized transfer of lease rights is strictly prohibited.\n5. COMPLIANCE: The LESSEE agrees to abide by all market rules, municipal ordinances, and LGU Manticao policies.`,
-          status: 'ACTIVE',
-          stakeholderId: stakeholderId,
-          stakeholderName: stakeholderName,
-          businessName: businessName,
-          stallId: targetStallId,
-          stallNo: stallNo,
-          stallType: stallType,
-          occupantId: null
-        }
-
-        try {
-          await api.post('/contracts', contractPayload)
-        } catch (err) {
-          console.warn('[StallManagement] Backend contract post notice:', err)
-        }
-
-        // Persist into localStorage 'contracts' so Contracts page immediately shows it
-        try {
-          const raw = localStorage.getItem('contracts')
-          let contractList = raw ? JSON.parse(raw) : []
-          if (!Array.isArray(contractList)) contractList = []
-
-          // Remove any outdated active contract for this stall
-          contractList = contractList.filter(
-            (c) =>
-              !(
-                (c.stallId && String(c.stallId) === String(targetStallId)) ||
-                (c.stallNo && String(c.stallNo) === String(stallNo))
-              )
-          )
-
-          contractList.unshift({
-            id: Date.now(),
-            ...contractPayload,
-            createdAt: new Date().toISOString()
-          })
-          localStorage.setItem('contracts', JSON.stringify(contractList))
-        } catch (e) {
-          console.warn('[StallManagement] Local storage contract sync note:', e)
-        }
+      const contractPayload = {
+        contractNo: contractNo,
+        ref: contractNo,
+        startDate: today.toISOString().split('T')[0],
+        endDate: nextYear.toISOString().split('T')[0],
+        monthlyRent: stallRent,
+        billingFrequency: 'MONTHLY',
+        terms: `1. USE OF PREMISES: The LESSEE shall use Stall ${stallNo} exclusively for designated municipal market retail and commercial trade.\n2. RENTAL PAYMENTS: The monthly rental of ₱${stallRent.toLocaleString()} shall be paid on or before the due date specified by the Municipal Treasurer.\n3. SANITATION & MAINTENANCE: The LESSEE shall maintain the stall and surrounding premises clean, sanitary, and compliant with municipal health ordinances.\n4. NON-TRANSFERABILITY: Subleasing, selling, or unauthorized transfer of lease rights is strictly prohibited.\n5. COMPLIANCE: The LESSEE agrees to abide by all market rules, municipal ordinances, and LGU Manticao policies.`,
+        status: 'ACTIVE',
+        stakeholderId: stakeholderId,
+        stakeholderName: stakeholderName,
+        businessName: businessName,
+        stallId: targetStallId,
+        stallNo: stallNo,
+        stallType: stallType,
+        occupantId: null
       }
 
-      await loadStalls()
-      await loadContracts()
-      currentOccupantName.value = stakeholderName
-      initialOccupantName.value = stakeholderName
-      selectedStakeholder.value = null
-      stakeholderSearch.value = ''
-      form.value.status = 'OCCUPIED'
-
-      alert(`Stall ${stallNo} successfully assigned to ${stakeholderName}!`)
-    } else if (initialOccupantName.value && !currentOccupantName.value) {
-      // 2. Current occupant removed: unassign and update status as VACANT
-      await unassignOccupant(targetStallId)
-      await updateStall(targetStallId, { status: 'VACANT' })
+      try {
+        await api.post('/contracts', contractPayload)
+      } catch (err) {
+        console.warn('[StallManagement] Backend contract post notice:', err)
+      }
 
       try {
         const raw = localStorage.getItem('contracts')
-        if (raw) {
-          const list = JSON.parse(raw)
-          list.forEach((c) => {
-            if (
-              (c.stallId && String(c.stallId) === String(targetStallId)) ||
-              (c.stallNo && String(c.stallNo) === String(form.value.number))
-            ) {
-              c.status = 'TERMINATED'
-            }
-          })
-          localStorage.setItem('contracts', JSON.stringify(list))
-        }
-      } catch (_) {}
+        let contractList = raw ? JSON.parse(raw) : []
+        if (!Array.isArray(contractList)) contractList = []
 
-      await loadStalls()
-      await loadContracts()
-      closeModal()
-      alert(
-        `Occupant removed from Stall ${form.value.number} and updated as VACANT. Associated contract marked as TERMINATED.`
-      )
+        contractList = contractList.filter(
+          (c) =>
+            !(
+              (c.stallId && String(c.stallId) === String(targetStallId)) ||
+              (c.stallNo && String(c.stallNo) === String(stallNo))
+            )
+        )
+
+        contractList.unshift({
+          id: Date.now(),
+          ...contractPayload,
+          createdAt: new Date().toISOString()
+        })
+        localStorage.setItem('contracts', JSON.stringify(contractList))
+      } catch (e) {
+        console.warn('[StallManagement] Local storage contract sync note:', e)
+      }
     }
+
+    await loadStalls()
+    await loadContracts()
+    currentOccupantName.value = stakeholderName
+    initialOccupantName.value = stakeholderName
+    form.value.status = 'OCCUPIED'
+
+    closeAssignModal()
+    alert(`Stall ${stallNo} successfully assigned to ${stakeholderName}!`)
   } catch (error) {
     console.error(error)
-    alert(error.message || 'Failed to update stall assignment')
+    alert(error.message || 'Failed to assign stakeholder')
   } finally {
     isSaving.value = false
   }
+}
+
+async function saveStall() {
+  await confirmAssignOccupant()
 }
 
 function formatCurrency(n) {
