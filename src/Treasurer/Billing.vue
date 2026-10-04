@@ -24,44 +24,42 @@
         </div>
       </div>
 
-      <!-- Quick Summary Cards (Single Row: Rectangle 1 | Rectangle 2 | Rectangle 3) -->
-      <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden mb-6">
-        <div class="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-slate-100">
-          
-          <!-- Rectangle 1: Total Invoiced -->
-          <div class="p-5 flex items-center justify-between">
-            <div>
-              <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Invoiced</p>
-              <p class="text-2xl sm:text-3xl font-extrabold text-slate-800 mt-1">₱{{ totalInvoiced.toLocaleString() }}</p>
-            </div>
-            <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl shadow-xs">
-              <i class="pi pi-receipt"></i>
-            </div>
+      <!-- Quick Summary Cards (3 Separate Rectangular Cards in a 3-Column Row) -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
+        
+        <!-- Rectangle 1: Total Invoiced -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between transition-all duration-200 hover:shadow-md">
+          <div>
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Invoiced</p>
+            <p class="text-2xl sm:text-3xl font-extrabold text-slate-800 mt-1">₱{{ totalInvoiced.toLocaleString() }}</p>
           </div>
-
-          <!-- Rectangle 2: Total Collected -->
-          <div class="p-5 flex items-center justify-between">
-            <div>
-              <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Collected</p>
-              <p class="text-2xl sm:text-3xl font-extrabold text-emerald-600 mt-1">₱{{ totalPaid.toLocaleString() }}</p>
-            </div>
-            <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl shadow-xs">
-              <i class="pi pi-check-circle"></i>
-            </div>
+          <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl shadow-xs flex-shrink-0">
+            <i class="pi pi-receipt"></i>
           </div>
-
-          <!-- Rectangle 3: Outstanding Balance -->
-          <div class="p-5 flex items-center justify-between">
-            <div>
-              <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Outstanding Balance</p>
-              <p class="text-2xl sm:text-3xl font-extrabold text-rose-600 mt-1">₱{{ totalBalance.toLocaleString() }}</p>
-            </div>
-            <div class="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-xl shadow-xs">
-              <i class="pi pi-exclamation-circle"></i>
-            </div>
-          </div>
-
         </div>
+
+        <!-- Rectangle 2: Total Collected -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between transition-all duration-200 hover:shadow-md">
+          <div>
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Collected</p>
+            <p class="text-2xl sm:text-3xl font-extrabold text-emerald-600 mt-1">₱{{ totalPaid.toLocaleString() }}</p>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl shadow-xs flex-shrink-0">
+            <i class="pi pi-check-circle"></i>
+          </div>
+        </div>
+
+        <!-- Rectangle 3: Outstanding Balance -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between transition-all duration-200 hover:shadow-md">
+          <div>
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Outstanding Balance</p>
+            <p class="text-2xl sm:text-3xl font-extrabold text-rose-600 mt-1">₱{{ totalBalance.toLocaleString() }}</p>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-xl shadow-xs flex-shrink-0">
+            <i class="pi pi-exclamation-circle"></i>
+          </div>
+        </div>
+
       </div>
 
       <!-- Schedule Color Legend -->
