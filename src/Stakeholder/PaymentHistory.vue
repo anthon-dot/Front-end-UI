@@ -8,7 +8,9 @@
           <p class="muted">Recent payments and reconciliations</p>
         </div>
         <div class="header-actions">
-          <input class="search" v-model="q" placeholder="Search by type or date" />
+          <div style="width: 260px;">
+            <SearchField v-model="q" placeholder="Search by type or date..." />
+          </div>
           <div class="summary">Total: <strong>{{ formatCurrency(totalAmount) }}</strong></div>
         </div>
       </div>
@@ -39,6 +41,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import StakeholderMenu from '../components/StakeholderMenu.vue'
+import SearchField from '../components/SearchField.vue'
 
 const payments = ref([])
 const q = ref('')

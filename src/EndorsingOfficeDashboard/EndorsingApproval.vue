@@ -3,7 +3,9 @@
     <div v-if="toast.text" :class="['toast', toast.type]">{{ toast.text }}</div>
 
     <div class="toolbar">
-      <input v-model="search" class="control" type="search" placeholder="Search applicant or business" />
+      <div style="flex: 1; max-width: 320px;">
+        <SearchField v-model="search" placeholder="Search applicant or business..." />
+      </div>
       <select v-model="filter" class="control">
         <option value="READY">Ready for review</option>
         <option value="PENDING">Pending</option>
@@ -174,6 +176,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { endorseApplication, getApplications, rejectEndorsement } from '../services/applicationService'
+import SearchField from '../components/SearchField.vue'
 
 const applications = ref([])
 const loading = ref(true)

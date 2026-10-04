@@ -18,10 +18,9 @@
           <p class="text-sm text-slate-500 mt-1">Stakeholder billing records and payment status</p>
         </div>
         <div class="flex items-center gap-3">
-          <span class="p-input-icon-left w-full md:w-80 shadow-sm rounded-lg overflow-hidden border border-slate-200">
-            <i class="pi pi-search text-slate-400 pl-3"></i>
-            <InputText v-model="search" placeholder="Search stakeholder or billing ID..." class="w-full border-none pl-10 bg-white" />
-          </span>
+          <div class="w-full md:w-80">
+            <SearchField v-model="search" placeholder="Search stakeholder or billing ID..." />
+          </div>
         </div>
       </div>
 
@@ -122,6 +121,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { fetchBillings as getBillingsApi, sendBillingNotification } from '../services/billingService'
 import TreasurerMenu from '../components/TreasurerMenu.vue'
+import SearchField from '../components/SearchField.vue'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import InputText from 'primevue/inputtext'

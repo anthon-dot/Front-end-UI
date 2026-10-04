@@ -6,16 +6,12 @@
 						<div class="flex justify-between items-center mb-4">
 							<h1 class="text-2xl font-semibold">Archive Records</h1>
 
-							<div v-if="selectedTab === 'stakeholders'" class="search-field" role="search">
-								<i class="pi pi-search search-icon" aria-hidden="true"></i>
-								<input ref="stakeSearchRef" v-model="q" placeholder="Search by name or business" class="search-input" aria-label="Search stakeholders" />
-								<button v-if="q" class="search-clear" @click="clearStakeSearch" aria-label="Clear search"><i class="pi pi-times"></i></button>
+							<div v-if="selectedTab === 'stakeholders'" style="width: 280px;">
+								<SearchField v-model="q" placeholder="Search by name or business..." />
 							</div>
 
-							<div v-if="selectedTab === 'stalls'" class="search-field" role="search">
-								<i class="pi pi-search search-icon" aria-hidden="true"></i>
-								<input ref="stallsSearchRef" v-model="qStalls" placeholder="Search stall # or occupant" class="search-input" aria-label="Search stalls" />
-								<button v-if="qStalls" class="search-clear" @click="clearStallsSearch" aria-label="Clear search"><i class="pi pi-times"></i></button>
+							<div v-if="selectedTab === 'stalls'" style="width: 280px;">
+								<SearchField v-model="qStalls" placeholder="Search stall # or occupant..." />
 							</div>
 						</div>
 			<div class="bg-white rounded-2xl shadow overflow-hidden">
@@ -139,6 +135,7 @@
 import { ref, computed, nextTick, watch } from 'vue'
 import { useConfirm } from 'primevue/useconfirm'
 import MarketSupervisorMenu from '../components/MarketSupervisorMenu.vue'
+import SearchField from '../components/SearchField.vue'
 import sampleApplicants from '../data/applicants.js'
 
 const STORAGE_KEY = 'ms_applications'

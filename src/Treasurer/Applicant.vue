@@ -18,10 +18,9 @@
         <p class="text-sm text-slate-500 mt-1">Applicants awaiting approval.</p>
         </div>
         <div class="flex items-center gap-3">
-          <span class="p-input-icon-left w-full md:w-80 shadow-sm rounded-lg overflow-hidden border border-slate-200">
-            <i class="pi pi-search text-slate-400 pl-3"></i>
-            <InputText v-model="filters['global'].value" placeholder="Search stakeholders..." class="w-full border-none pl-10 bg-white" />
-          </span>
+          <div class="w-full md:w-80">
+            <SearchField v-model="filters['global'].value" placeholder="Search stakeholders..." />
+          </div>
         </div>
       </div>
 
@@ -286,6 +285,7 @@ import { API_ORIGIN } from '../config/apiConfig'
 import { AUTH_TOKEN_KEY } from '../stores/auth'
 import { FilterMatchMode } from '@primevue/core/api'
 import TreasurerMenu from '../components/TreasurerMenu.vue'
+import SearchField from '../components/SearchField.vue'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Button from 'primevue/button'
