@@ -57,17 +57,6 @@ export async function ensureBillingsForVerifiedTenants() {
 
         if (!occ?.id) continue
 
-        // Check if billing already exists for this occupant
-        const { data: existingBills } = await supabase
-          .from('billings')
-          .select('id')
-          .eq('occupant_id', occ.id)
-          .limit(1)
-
-        if (existingBills && existingBills.length > 0) {
-          continue // Billing has already started for this tenant
-        }
-
         // Find or create contract to get monthly rent
         let contract = null
         const { data: existingCon } = await supabase
@@ -133,44 +122,97 @@ export async function ensureBillingsForVerifiedTenants() {
         }
 
         const rentAmount = Number(contract?.monthly_rent || 1500)
-        const billingNo = `BILL-${Date.now().toString().slice(-8)}`
 
-        // Apply advance balance (identical to backend BillingService.java lines 520-595)
-        let curAdvance = Number(occ.advance_balance || s.advance_balance || 0)
-        let paidAmount = 0
-        let balance = rentAmount
-        let status = 'UNPAID'
+        // Fetch all existing bills for this occupant
+        const { data: existingBills } = await supabase
+          .from('billings')
+          .select('id, billing_period, total_amount, paid_amount, balance, status')
+          .eq('occupant_id', occ.id)
 
-        if (curAdvance <= 0) {
-          paidAmount = 0
-          balance = rentAmount
-          status = 'UNPAID'
-        } else if (curAdvance >= rentAmount) {
-          paidAmount = rentAmount
-          balance = 0
-          status = 'PAID'
-          curAdvance = curAdvance - rentAmount
-        } else {
-          paidAmount = curAdvance
-          balance = rentAmount - curAdvance
-          status = 'PARTIAL'
-          curAdvance = 0
-        }
-
-        // Start initial billing invoice for the verified tenant
-        await supabase.from('billings').insert({
-          occupant_id: occ.id,
-          contract_id: contract?.id || null,
-          billing_no: billingNo,
-          billing_period: billingPeriod,
-          total_amount: rentAmount,
-          paid_amount: paidAmount,
-          balance: balance,
-          due_date: dueDate,
-          status: status
+        const existingPeriodMap = new Map()
+        ;(existingBills || []).forEach(b => {
+          if (b.billing_period) existingPeriodMap.set(b.billing_period, b)
         })
 
-        // Update remaining advance balance on occupant and stakeholder
+        // Determine starting month (from contract/occupant start, or up to 3 months back)
+        let startYear = currentYear
+        let startMonth = currentMonth
+
+        const rawStartDate = contract?.start_date || occ.occupancy_date
+        if (rawStartDate) {
+          const sDate = new Date(rawStartDate)
+          if (!isNaN(sDate.getTime())) {
+            const contractYear = sDate.getFullYear()
+            const contractMonth = sDate.getMonth() + 1
+            const diffMonths = (currentYear - contractYear) * 12 + (currentMonth - contractMonth)
+            if (diffMonths > 0) {
+              const backMonths = Math.min(diffMonths, 3)
+              const pastDate = new Date(currentYear, currentMonth - 1 - backMonths, 1)
+              startYear = pastDate.getFullYear()
+              startMonth = pastDate.getMonth() + 1
+            }
+          }
+        }
+
+        // Generate from startMonth/startYear up to (currentMonth + 2 months advance = 3 months total)
+        let iterYear = startYear
+        let iterMonth = startMonth
+        let curAdvance = Number(occ.advance_balance || s.advance_balance || 0)
+
+        while (true) {
+          const monthOffset = (iterYear - currentYear) * 12 + (iterMonth - currentMonth)
+          if (monthOffset > 2) break // Stop after current + 2 months ahead (3 months advance)
+
+          const billingPeriod = `MONTHLY-${iterMonth}-${iterYear}`
+
+          if (!existingPeriodMap.has(billingPeriod)) {
+            // Due date: 5th of that month
+            const dueDateStr = `${iterYear}-${String(iterMonth).padStart(2, '0')}-05`
+            const billingNo = `BILL-${Date.now().toString().slice(-6)}${Math.floor(Math.random() * 1000)}`
+
+            let paidAmount = 0
+            let balance = rentAmount
+            let status = 'UNPAID'
+
+            if (curAdvance <= 0) {
+              paidAmount = 0
+              balance = rentAmount
+              status = 'UNPAID'
+            } else if (curAdvance >= rentAmount) {
+              paidAmount = rentAmount
+              balance = 0
+              status = 'PAID'
+              curAdvance = curAdvance - rentAmount
+            } else {
+              paidAmount = curAdvance
+              balance = rentAmount - curAdvance
+              status = 'PARTIAL'
+              curAdvance = 0
+            }
+
+            await supabase.from('billings').insert({
+              occupant_id: occ.id,
+              contract_id: contract?.id || null,
+              billing_no: billingNo,
+              billing_period: billingPeriod,
+              total_amount: rentAmount,
+              paid_amount: paidAmount,
+              balance: balance,
+              due_date: dueDateStr,
+              status: status
+            })
+
+            console.log(`[billingService] Started billing invoice ${billingNo} (${billingPeriod}) for verified stakeholder ${s.id} (Status: ${status})`)
+          }
+
+          iterMonth++
+          if (iterMonth > 12) {
+            iterMonth = 1
+            iterYear++
+          }
+        }
+
+        // Update remaining advance balance on occupant and stakeholder if modified
         if (Number(occ.advance_balance || 0) !== curAdvance) {
           await supabase.from('occupants').update({ advance_balance: curAdvance }).eq('id', occ.id)
           await supabase.from('stakeholders').update({ advance_balance: curAdvance }).eq('id', s.id)

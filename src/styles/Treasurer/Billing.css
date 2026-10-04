@@ -25,9 +25,40 @@
   font-size: 0.875rem;
 }
 
-:deep(.p-rowgroup-header > td) {
-  background: #f8fafc !important;
-  border-bottom: 1px solid #e2e8f0 !important;
+/* Red for Past Due Date */
+:deep(.p-datatable-tbody > tr.row-past-due) {
+  background-color: #fff1f2 !important;
+  border-left: 5px solid #ef4444 !important;
+}
+:deep(.p-datatable-tbody > tr.row-past-due:hover) {
+  background-color: #ffe4e6 !important;
+}
+:deep(.p-datatable-tbody > tr.row-past-due td) {
+  color: #7f1d1d !important;
+}
+
+/* Yellow for This Month */
+:deep(.p-datatable-tbody > tr.row-this-month) {
+  background-color: #fefce8 !important;
+  border-left: 5px solid #eab308 !important;
+}
+:deep(.p-datatable-tbody > tr.row-this-month:hover) {
+  background-color: #fef9c3 !important;
+}
+:deep(.p-datatable-tbody > tr.row-this-month td) {
+  color: #713f12 !important;
+}
+
+/* Green for Next 2 Months Advance */
+:deep(.p-datatable-tbody > tr.row-advance-month) {
+  background-color: #f0fdf4 !important;
+  border-left: 5px solid #22c55e !important;
+}
+:deep(.p-datatable-tbody > tr.row-advance-month:hover) {
+  background-color: #dcfce7 !important;
+}
+:deep(.p-datatable-tbody > tr.row-advance-month td) {
+  color: #14532d !important;
 }
 
 @media (max-width: 1023px) {

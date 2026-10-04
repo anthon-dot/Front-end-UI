@@ -57,16 +57,31 @@
         </div>
       </div>
 
+      <!-- Schedule Color Legend -->
+      <div class="flex items-center gap-2 sm:gap-4 flex-wrap bg-white px-4 py-2.5 rounded-xl border border-slate-100 shadow-xs mb-4 text-xs font-semibold">
+        <span class="text-slate-400 font-bold uppercase tracking-wider text-[11px] mr-1">Billing Schedule:</span>
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+          <span class="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-xs"></span> Past Due Date (Red)
+        </span>
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+          <span class="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-xs"></span> This Month (Yellow)
+        </span>
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-xs"></span> Next 2 Months Advance (Green)
+        </span>
+      </div>
+
       <!-- Loading -->
       <div v-if="loading" class="flex flex-col items-center justify-center p-12 bg-white rounded-2xl border border-slate-100 shadow-sm min-h-[300px] mb-6">
         <i class="pi pi-spin pi-spinner text-4xl text-indigo-600 mb-4"></i>
         <p class="text-slate-500 font-medium">Fetching real-time billing records...</p>
       </div>
 
-      <!-- Table with 1:1 Column Alignment -->
+      <!-- Table with Color Coded Rows and 1:1 Column Alignment -->
       <div v-else class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden p-2">
         <DataTable 
           :value="filteredRows" 
+          :rowClass="getRowClass"
           paginator 
           :rows="10" 
           :rowsPerPageOptions="[10, 20, 50]"
@@ -109,9 +124,20 @@
           <Column field="id" header="Billing ID" sortable class="font-mono text-sm font-bold text-slate-600" style="min-width: 140px;"></Column>
 
           <!-- 3. Period Column -->
-          <Column field="period" header="Period" sortable class="text-slate-600 text-sm font-medium" style="min-width: 130px;">
+          <Column field="period" header="Period" sortable class="text-slate-600 text-sm font-medium" style="min-width: 150px;">
             <template #body="{ data }">
-              <span class="font-medium text-slate-700">{{ formatPeriod(data.period) }}</span>
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="font-semibold">{{ formatPeriod(data.period) }}</span>
+                <span v-if="isPastDue(data)" class="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 border border-rose-200">
+                  PAST DUE
+                </span>
+                <span v-else-if="isThisMonth(data)" class="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                  THIS MONTH
+                </span>
+                <span v-else-if="isNextTwoMonths(data)" class="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
+                  ADVANCE
+                </span>
+              </div>
             </template>
           </Column>
           
@@ -186,6 +212,11 @@ const search = ref('')
 const rows = ref([])
 const loading = ref(false)
 
+const now = new Date()
+const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+const currentMonth = now.getMonth() + 1
+const currentYear = now.getFullYear()
+
 /* =========================
    FETCH BACKEND DATA
 ========================= */
@@ -249,6 +280,69 @@ const totalPaid = computed(() => filteredRows.value.reduce((sum, r) => sum + r.p
 const totalBalance = computed(() => filteredRows.value.reduce((sum, r) => sum + r.balance, 0))
 
 /* =========================
+   SCHEDULE & COLOR CLASSIFIER
+========================= */
+function parsePeriod(periodStr) {
+  if (!periodStr || typeof periodStr !== 'string') return null
+  const match = periodStr.match(/MONTHLY-(\d+)-(\d+)/i)
+  if (match) {
+    return { month: parseInt(match[1], 10), year: parseInt(match[2], 10) }
+  }
+  return null
+}
+
+function isPastDue(row) {
+  if (row.status === 'PAID') return false
+  if (!row.due || row.due === 'N/A') return false
+  const due = new Date(row.due)
+  if (isNaN(due.getTime())) return false
+  return due < todayStart
+}
+
+function isThisMonth(row) {
+  if (isPastDue(row)) return false
+  const p = parsePeriod(row.period)
+  if (p) {
+    return p.month === currentMonth && p.year === currentYear
+  }
+  if (row.due && row.due !== 'N/A') {
+    const d = new Date(row.due)
+    if (!isNaN(d.getTime())) {
+      return d.getMonth() + 1 === currentMonth && d.getFullYear() === currentYear
+    }
+  }
+  return false
+}
+
+function isNextTwoMonths(row) {
+  if (isPastDue(row) || isThisMonth(row)) return false
+  const p = parsePeriod(row.period)
+  let m, y
+  if (p) {
+    m = p.month
+    y = p.year
+  } else if (row.due && row.due !== 'N/A') {
+    const d = new Date(row.due)
+    if (!isNaN(d.getTime())) {
+      m = d.getMonth() + 1
+      y = d.getFullYear()
+    }
+  }
+  if (m && y) {
+    const diff = (y - currentYear) * 12 + (m - currentMonth)
+    return diff >= 1 && diff <= 2
+  }
+  return false
+}
+
+function getRowClass(data) {
+  if (isPastDue(data)) return 'row-past-due'
+  if (isThisMonth(data)) return 'row-this-month'
+  if (isNextTwoMonths(data)) return 'row-advance-month'
+  return ''
+}
+
+/* =========================
    FORMATTERS & HELPERS
 ========================= */
 function formatPeriod(period) {
@@ -272,7 +366,7 @@ function formatDate(dateStr) {
   try {
     const d = new Date(dateStr)
     if (isNaN(d.getTime())) return dateStr
-    return dateStr // Standard clean YYYY-MM-DD
+    return dateStr
   } catch (e) {
     return dateStr
   }
