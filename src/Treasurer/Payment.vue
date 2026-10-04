@@ -130,13 +130,13 @@
             <form @submit.prevent="recordPayment" id="recordPaymentForm" class="space-y-6">
               
               <!-- STAKEHOLDER NAME (HIGH Z-INDEX SO DROPDOWN FLOATS IN FRONT) -->
-              <div class="flex flex-col gap-2 relative z-50 stakeholder-search-container" style="position: relative; z-index: 50;">
+              <div class="flex flex-col gap-2 relative z-50 stakeholder-field-wrapper mb-6" style="position: relative; z-index: 50; margin-bottom: 1.75rem;">
                 <div class="flex items-center justify-between">
                   <label class="text-sm font-bold text-slate-800">Stakeholder name <span class="text-rose-500">*</span></label>
                   <span v-if="selectedStakeholder" class="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">Selected</span>
                 </div>
                 
-                <div class="relative z-50 stakeholder-search-container" style="position: relative; z-index: 50;">
+                <div class="relative z-50 stakeholder-input-wrapper" style="position: relative; z-index: 50;">
                   <input
                     type="text"
                     v-model="stakeholderSearch"
