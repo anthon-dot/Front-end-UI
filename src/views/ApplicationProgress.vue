@@ -189,10 +189,26 @@
               class="hazard-hidden-input"
               @change="onHazardFileSelect"
             />
-            <div v-if="!selectedHazardFile" class="dropzone-prompt" @click="triggerHazardFileInput">
+            <input
+              ref="hazardCameraInput"
+              type="file"
+              accept="image/*"
+              capture="environment"
+              class="hazard-hidden-input"
+              @change="onHazardFileSelect"
+            />
+            <div v-if="!selectedHazardFile" class="dropzone-prompt">
               <i class="pi pi-cloud-upload dropzone-icon"></i>
-              <span>Click to select or drag and drop confirmation file</span>
-              <small>Supported formats: PDF, PNG, JPG (Max: 10MB)</small>
+              <span>Choose how to attach your Hazard-Free confirmation:</span>
+              <div style="display:flex;gap:10px;justify-content:center;margin-top:12px;flex-wrap:wrap">
+                <button type="button" @click.stop="triggerHazardCamera" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:1px solid #0284c7;background:#f0f9ff;color:#0284c7;font-weight:600;font-size:0.85rem;cursor:pointer">
+                  <i class="pi pi-camera"></i> Take Photo
+                </button>
+                <button type="button" @click.stop="triggerHazardFileInput" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;color:#334155;font-weight:600;font-size:0.85rem;cursor:pointer">
+                  <i class="pi pi-folder-open"></i> Upload File / PDF
+                </button>
+              </div>
+              <small style="margin-top:10px;display:block">Supported formats: PDF, PNG, JPG (Max: 10MB)</small>
             </div>
             <div v-else class="dropzone-selected-preview">
               <div class="file-info-row">
@@ -281,6 +297,10 @@ const selectedHazardFile = ref(null)
 const isUploadingHazard = ref(false)
 const hazardError = ref('')
 const hazardFileInput = ref(null)
+const hazardCameraInput = ref(null)
+function triggerHazardCamera() {
+  hazardCameraInput.value?.click()
+}
 const hasDismissedAutoPop = ref(false)
 
 const steps = ref([

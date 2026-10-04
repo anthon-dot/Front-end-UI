@@ -145,16 +145,20 @@ export async function getApplications() {
     const [appsRes, stakeholdersRes, docsRes] = await Promise.all([
       supabase.from('business_applications').select('*, stall:stalls(*)').order('id', { ascending: false }),
       supabase.from('stakeholders').select('*, occupant:occupants(*, stall:stalls(*)), stall:stalls(*)').order('id', { ascending: false }),
-      supabase.from('stakeholder_documents').select('*').in('document_type', ['HAZARD_FREE_CONFIRMATION', 'HAZARD_FREE_CERTIFICATE'])
+      supabase.from('stakeholder_documents').select('*').order('id', { ascending: false })
     ])
 
     const apps = appsRes.data || []
     const stakeholders = stakeholdersRes.data || []
     const docs = docsRes.data || []
 
-    const hazardDocs = new Map()
+    const docsByStakeholder = new Map()
     for (const d of docs) {
-      if (d.stakeholder_id) hazardDocs.set(Number(d.stakeholder_id), d)
+      if (d.stakeholder_id) {
+        const sid = Number(d.stakeholder_id)
+        if (!docsByStakeholder.has(sid)) docsByStakeholder.set(sid, [])
+        docsByStakeholder.get(sid).push(d)
+      }
     }
 
     const stakeholderByUser = new Map()
@@ -200,8 +204,10 @@ export async function getApplications() {
       }
 
       const sid = linkedSt?.id || normApp.stakeholderId
-      const hDoc = sid ? hazardDocs.get(Number(sid)) : null
+      const stDocs = sid ? (docsByStakeholder.get(Number(sid)) || []) : []
 
+      // 1. Hazard-Free Document
+      const hDoc = stDocs.find(d => ['HAZARD_FREE_CONFIRMATION', 'HAZARD_FREE_CERTIFICATE'].includes(d.document_type))
       normApp.hazardFreeConfirmed = Boolean(
         hDoc?.file_path ||
         linkedSt?.hazard_free_confirmed || linkedSt?.hazardFreeConfirmed ||
@@ -213,6 +219,19 @@ export async function getApplications() {
         app.hazard_free_document_url || app.hazardFreeDocumentUrl || null
       )
       normApp.hazardFreeFileName = hDoc?.file_name || 'Hazard_Free_Stall_Confirmation.pdf'
+
+      // 2. Valid ID Document
+      const idDoc = stDocs.find(d => d.document_type === 'VALID_ID')
+      normApp.idDocumentUrl = idDoc?.file_path || app.id_document_url || app.idDocumentUrl || linkedSt?.id_document_url || null
+      normApp.idDocumentName = idDoc?.file_name || 'Valid_Government_ID'
+
+      // 3. Letter of Intent Document
+      const letterDoc = stDocs.find(d => d.document_type === 'APPLICATION_LETTER')
+      normApp.letterDocumentUrl = letterDoc?.file_path || app.letter_document_url || app.letterDocumentUrl || linkedSt?.letter_document_url || null
+      normApp.letterDocumentName = letterDoc?.file_name || 'Letter_of_Intent'
+
+      // 4. Complete documents list
+      normApp.documents = stDocs
 
       return normApp
     })

@@ -68,22 +68,89 @@
           <div><dt>Type</dt><dd>{{ selected.businessType }}</dd></div>
           <div><dt>Contact</dt><dd>{{ selected.contact }}</dd></div>
           <div><dt>Address</dt><dd>{{ selected.address }}</dd></div>
-          <div>
-            <dt>Hazard-Free Stall Confirmation</dt>
-            <dd>
-              <template v-if="selected.hazardFreeConfirmed || selected.hazardFreeDocumentUrl">
-                <span class="badge approved" style="margin-right: 8px;">Verified</span>
-                <a
-                  v-if="selected.hazardFreeDocumentUrl"
-                  :href="selected.hazardFreeDocumentUrl"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style="color: #2563eb; font-weight: 600; text-decoration: underline;"
-                >
-                  View Uploaded Document ↗
-                </a>
-              </template>
-              <span v-else class="badge pending">Pending Upload from Stakeholder</span>
+          <div class="documents-section">
+            <dt style="font-size:0.95rem;font-weight:700;color:#0f172a;margin-bottom:8px">Uploaded Documents</dt>
+            <dd style="margin:0">
+              <div style="display:grid;gap:8px">
+                <!-- Valid ID -->
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">
+                  <div>
+                    <strong style="display:block;font-size:0.88rem;color:#1e293b">Valid Government ID</strong>
+                    <small style="color:#64748b">{{ selected.idDocumentName || 'Valid ID Document' }}</small>
+                  </div>
+                  <a
+                    v-if="selected.idDocumentUrl"
+                    :href="selected.idDocumentUrl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style="color:#2563eb;font-weight:700;font-size:0.85rem;text-decoration:underline;display:inline-flex;align-items:center;gap:4px"
+                  >
+                    View ID ↗
+                  </a>
+                  <span v-else style="color:#94a3b8;font-size:0.8rem;font-style:italic">Not provided</span>
+                </div>
+
+                <!-- Letter of Intent -->
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">
+                  <div>
+                    <strong style="display:block;font-size:0.88rem;color:#1e293b">Letter of Intent</strong>
+                    <small style="color:#64748b">{{ selected.letterDocumentName || 'Application Letter' }}</small>
+                  </div>
+                  <a
+                    v-if="selected.letterDocumentUrl"
+                    :href="selected.letterDocumentUrl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style="color:#2563eb;font-weight:700;font-size:0.85rem;text-decoration:underline;display:inline-flex;align-items:center;gap:4px"
+                  >
+                    View Letter ↗
+                  </a>
+                  <span v-else style="color:#94a3b8;font-size:0.8rem;font-style:italic">Not provided</span>
+                </div>
+
+                <!-- Hazard-Free Stall Confirmation -->
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">
+                  <div>
+                    <strong style="display:block;font-size:0.88rem;color:#1e293b">Hazard-Free Stall Confirmation</strong>
+                    <small style="color:#64748b">{{ selected.hazardFreeFileName || 'Hazard-Free Certificate' }}</small>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span v-if="selected.hazardFreeConfirmed || selected.hazardFreeDocumentUrl" class="badge approved">Verified</span>
+                    <span v-else class="badge pending">Pending</span>
+                    <a
+                      v-if="selected.hazardFreeDocumentUrl"
+                      :href="selected.hazardFreeDocumentUrl"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style="color:#2563eb;font-weight:700;font-size:0.85rem;text-decoration:underline;display:inline-flex;align-items:center;gap:4px"
+                    >
+                      View Doc ↗
+                    </a>
+                  </div>
+                </div>
+
+                <!-- Additional Documents if any -->
+                <template v-if="selected.documents && selected.documents.length">
+                  <div
+                    v-for="d in selected.documents.filter(doc => !['VALID_ID', 'APPLICATION_LETTER', 'HAZARD_FREE_CONFIRMATION', 'HAZARD_FREE_CERTIFICATE'].includes(doc.document_type))"
+                    :key="d.id"
+                    style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px"
+                  >
+                    <div>
+                      <strong style="display:block;font-size:0.88rem;color:#1e293b">{{ (d.document_type || 'Document').replace(/_/g, ' ') }}</strong>
+                      <small style="color:#64748b">{{ d.file_name }}</small>
+                    </div>
+                    <a
+                      :href="d.file_path"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style="color:#2563eb;font-weight:700;font-size:0.85rem;text-decoration:underline"
+                    >
+                      View ↗
+                    </a>
+                  </div>
+                </template>
+              </div>
             </dd>
           </div>
           <div><dt>Remarks</dt><dd>{{ selected.remarks || selected.endorsementRemarks || '-' }}</dd></div>

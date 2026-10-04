@@ -124,7 +124,16 @@
 									<div v-else class="meta muted">Locked</div>
 								</div>
 								<span v-else-if="getFileName(s.key)" class="meta">{{ getFileName(s.key) }}</span>
-								<input v-else-if="canUpload(s.key)" type="file" @change="handleFileChange(s.key, $event)" />
+								<div v-else-if="canUpload(s.key)" style="display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap">
+									<label class="btn-secondary" style="cursor:pointer;font-size:0.78rem;padding:4px 8px;display:inline-flex;align-items:center;gap:4px">
+										<input type="file" accept="image/*" capture="environment" @change="handleFileChange(s.key, $event)" style="display:none" />
+										📷 Photo
+									</label>
+									<label class="btn-secondary" style="cursor:pointer;font-size:0.78rem;padding:4px 8px;display:inline-flex;align-items:center;gap:4px">
+										<input type="file" accept="image/*,application/pdf" @change="handleFileChange(s.key, $event)" style="display:none" />
+										📁 File
+									</label>
+								</div>
 								<div v-else class="meta muted">Locked</div>
 							</div>
 							<div v-if="idx < stepDefs.length - 1" class="connector" :class="{done: isDone(s.key) && isDone(stepDefs[idx+1].key)}"></div>
