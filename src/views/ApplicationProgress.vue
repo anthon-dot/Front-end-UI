@@ -58,6 +58,51 @@
     <div v-else-if="errorMessage" class="state-box error">{{ errorMessage }}</div>
 
     <section v-else class="panel">
+      <!-- Hazard-Free Stall Confirmation Callout when Steps 1-5 are Green -->
+      <div v-if="isSteps1To5Green" class="hazard-callout-card" :class="{ 'is-confirmed': hasHazardFreeDoc }">
+        <div class="hazard-callout-icon">
+          <i :class="hasHazardFreeDoc ? 'pi pi-check-circle' : 'pi pi-exclamation-triangle'"></i>
+        </div>
+        <div class="hazard-callout-text">
+          <div class="hazard-callout-title">
+            <strong>{{ hasHazardFreeDoc ? 'Stall Hazard-Free Confirmation Submitted' : 'Action Required: Hazard-Free Stall Confirmation' }}</strong>
+            <Tag
+              :value="hasHazardFreeDoc ? 'VERIFIED' : 'UPLOAD REQUIRED'"
+              :severity="hasHazardFreeDoc ? 'success' : 'warn'"
+              rounded
+            />
+          </div>
+          <p>
+            {{
+              hasHazardFreeDoc
+                ? 'Your Hazard-Free Stall Confirmation has been recorded and submitted for BPLO and Endorsing Office validation.'
+                : 'Steps 1–5 have been approved! Please upload your Hazard-Free Stall Confirmation so BPLO and Endorsing Office can proceed with final business permit verification.'
+            }}
+          </p>
+          <small v-if="hazardDocInfo" class="hazard-doc-filename">
+            📄 {{ hazardDocInfo.name }}
+          </small>
+        </div>
+        <div class="hazard-callout-actions">
+          <a
+            v-if="hasHazardFreeDoc && hazardDocInfo?.url"
+            :href="hazardDocInfo.url"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="btn-view-doc"
+          >
+            <i class="pi pi-file"></i> View Document
+          </a>
+          <Button
+            :label="hasHazardFreeDoc ? 'Re-upload' : 'Upload Confirmation'"
+            :icon="hasHazardFreeDoc ? 'pi pi-sync' : 'pi pi-upload'"
+            :severity="hasHazardFreeDoc ? 'secondary' : 'primary'"
+            size="small"
+            @click="openHazardModal"
+          />
+        </div>
+      </div>
+
       <Timeline :value="steps" align="alternate" class="workflow-timeline">
         <template #marker="{ item }">
           <span :class="['circle', item.status]">{{ item.id }}</span>
@@ -90,6 +135,105 @@
         <Button label="View Payment Status" icon="pi pi-wallet" @click="router.push('/applicant-fee')" />
       </div>
     </section>
+
+    <!-- Dedicated Hazard-Free Stall Upload Modal -->
+    <div v-if="showHazardModal" class="hazard-modal-backdrop" @click.self="closeHazardModal">
+      <div class="hazard-modal-card">
+        <div class="hazard-modal-header">
+          <div class="hazard-header-title">
+            <div class="hazard-icon-circle">
+              <i class="pi pi-shield"></i>
+            </div>
+            <div>
+              <h3>Confirmation of Hazard-Free Stall</h3>
+              <p>Upload verification for your occupied stall</p>
+            </div>
+          </div>
+          <button class="hazard-btn-close" @click="closeHazardModal">
+            <i class="pi pi-times"></i>
+          </button>
+        </div>
+
+        <div class="hazard-modal-body">
+          <div v-if="stallInfo" class="hazard-stall-pill">
+            <div class="pill-item">
+              <span class="lbl">Occupied Stall</span>
+              <strong>Stall {{ stallInfo.stallNo || stallInfo.number }}</strong>
+            </div>
+            <div class="pill-item">
+              <span class="lbl">Section / Type</span>
+              <strong>{{ stallInfo.section || stallInfo.stallType || 'Market' }}</strong>
+            </div>
+            <div class="pill-item">
+              <span class="lbl">Status</span>
+              <strong class="text-emerald-600">Assigned & Active</strong>
+            </div>
+          </div>
+
+          <div class="hazard-instructions">
+            <p>
+              Please upload the official document confirming that your occupied stall is free from electrical, structural, fire, and health hazards. This confirmation is reviewed by the <strong>BPLO</strong> and <strong>Endorsing Office</strong>.
+            </p>
+          </div>
+
+          <div
+            class="hazard-dropzone"
+            :class="{ 'has-file': Boolean(selectedHazardFile) }"
+            @dragover.prevent
+            @drop.prevent="onHazardDrop"
+          >
+            <input
+              ref="hazardFileInput"
+              type="file"
+              accept=".pdf,.png,.jpg,.jpeg"
+              class="hazard-hidden-input"
+              @change="onHazardFileSelect"
+            />
+            <div v-if="!selectedHazardFile" class="dropzone-prompt" @click="triggerHazardFileInput">
+              <i class="pi pi-cloud-upload dropzone-icon"></i>
+              <span>Click to select or drag and drop confirmation file</span>
+              <small>Supported formats: PDF, PNG, JPG (Max: 10MB)</small>
+            </div>
+            <div v-else class="dropzone-selected-preview">
+              <div class="file-info-row">
+                <i class="pi pi-file-pdf file-type-icon"></i>
+                <div class="file-details">
+                  <span class="file-name">{{ selectedHazardFile.name }}</span>
+                  <span class="file-size">{{ (selectedHazardFile.size / 1024).toFixed(1) }} KB</span>
+                </div>
+              </div>
+              <button type="button" class="btn-remove-hazard-file" @click="selectedHazardFile = null">
+                <i class="pi pi-trash"></i> Remove
+              </button>
+            </div>
+          </div>
+
+          <div v-if="hazardError" class="hazard-error-notice">
+            <i class="pi pi-exclamation-circle"></i>
+            <span>{{ hazardError }}</span>
+          </div>
+        </div>
+
+        <div class="hazard-modal-footer">
+          <Button
+            label="Cancel"
+            severity="secondary"
+            outlined
+            size="small"
+            @click="closeHazardModal"
+          />
+          <Button
+            :label="isUploadingHazard ? 'Uploading...' : 'Upload & Submit Confirmation'"
+            icon="pi pi-check"
+            severity="primary"
+            size="small"
+            :disabled="!selectedHazardFile || isUploadingHazard"
+            :loading="isUploadingHazard"
+            @click="submitHazardFreeFile"
+          />
+        </div>
+      </div>
+    </div>
   </main>
 </template>
 
@@ -104,7 +248,8 @@ import {
   getApplicationByUserId,
   getStakeholderByUserId,
   getStakeholderRequirements,
-  isDashboardReady
+  isDashboardReady,
+  uploadHazardFreeDocument
 } from '../services/applicationService'
 import Button from 'primevue/button'
 import Tag from 'primevue/tag'
@@ -130,6 +275,14 @@ const stakeholder = ref(null)
 const requirements = ref(null)
 let pollTimer = null
 
+// Hazard-Free Modal & Upload State
+const showHazardModal = ref(false)
+const selectedHazardFile = ref(null)
+const isUploadingHazard = ref(false)
+const hazardError = ref('')
+const hazardFileInput = ref(null)
+const hasDismissedAutoPop = ref(false)
+
 const steps = ref([
   { id: 1, title: 'Application Submitted', description: 'Letter of Intent, Valid ID, and selected vacant stall were submitted.', status: 'pending' },
   { id: 2, title: 'Advance Payment Recorded', description: 'Treasurer records the advance payment and official receipt.', status: 'pending' },
@@ -141,6 +294,116 @@ const steps = ref([
   { id: 8, title: 'Business Permit Payment', description: 'Treasurer records business permit payment and official receipt.', status: 'pending' },
   { id: 9, title: 'Completed', description: 'Stakeholder account is active and linked to the assigned stall.', status: 'pending' }
 ])
+
+const isSteps1To5Green = computed(() => {
+  return steps.value[0]?.status === 'approved' &&
+         steps.value[1]?.status === 'approved' &&
+         steps.value[2]?.status === 'approved' &&
+         steps.value[3]?.status === 'approved' &&
+         steps.value[4]?.status === 'approved'
+})
+
+const hasHazardFreeDoc = computed(() => {
+  const data = stakeholder.value
+  if (!data) return false
+  return Boolean(
+    data.hazardFreeConfirmed ||
+    data.hazard_free_confirmed ||
+    data.hazardFreeDocumentUrl ||
+    data.hazard_free_document_url ||
+    requirements.value?.some(d =>
+      d.document_type === 'HAZARD_FREE_CONFIRMATION' ||
+      d.document_type === 'HAZARD_FREE_CERTIFICATE' ||
+      d.documentType === 'HAZARD_FREE_CONFIRMATION' ||
+      d.documentType === 'HAZARD_FREE_CERTIFICATE'
+    )
+  )
+})
+
+const hazardDocInfo = computed(() => {
+  const data = stakeholder.value
+  if (!data) return null
+  const reqDoc = requirements.value?.find(d =>
+    d.document_type === 'HAZARD_FREE_CONFIRMATION' ||
+    d.document_type === 'HAZARD_FREE_CERTIFICATE' ||
+    d.documentType === 'HAZARD_FREE_CONFIRMATION' ||
+    d.documentType === 'HAZARD_FREE_CERTIFICATE'
+  )
+  const url = reqDoc?.file_path || reqDoc?.filePath || data.hazardFreeDocumentUrl || data.hazard_free_document_url || null
+  const name = reqDoc?.file_name || reqDoc?.fileName || data.hazardFreeFileName || 'Hazard_Free_Stall_Confirmation.pdf'
+  if (!url && !hasHazardFreeDoc.value) return null
+  return { url, name }
+})
+
+function openHazardModal() {
+  hazardError.value = ''
+  selectedHazardFile.value = null
+  showHazardModal.value = true
+}
+
+function closeHazardModal() {
+  showHazardModal.value = false
+  selectedHazardFile.value = null
+  hazardError.value = ''
+  hasDismissedAutoPop.value = true
+}
+
+function triggerHazardFileInput() {
+  hazardFileInput.value?.click()
+}
+
+function onHazardFileSelect(e) {
+  const file = e.target.files?.[0]
+  if (file) {
+    selectedHazardFile.value = file
+    hazardError.value = ''
+  }
+}
+
+function onHazardDrop(e) {
+  const file = e.dataTransfer?.files?.[0]
+  if (file) {
+    selectedHazardFile.value = file
+    hazardError.value = ''
+  }
+}
+
+async function submitHazardFreeFile() {
+  if (!selectedHazardFile.value) {
+    hazardError.value = 'Please select a file to upload.'
+    return
+  }
+  isUploadingHazard.value = true
+  hazardError.value = ''
+
+  try {
+    const sid = stakeholder.value?.stakeholderId || stakeholder.value?.id
+    const appId = stakeholder.value?.businessApplicationId || stakeholder.value?.id
+    const result = await uploadHazardFreeDocument(selectedHazardFile.value, sid, appId)
+
+    if (stakeholder.value) {
+      stakeholder.value.hazardFreeConfirmed = true
+      stakeholder.value.hazardFreeDocumentUrl = result.publicUrl
+      stakeholder.value.hazardFreeFileName = result.fileName
+    }
+
+    toast.add({
+      severity: 'success',
+      summary: 'Hazard-Free Confirmation Uploaded',
+      detail: 'Document has been recorded and submitted to BPLO & Endorsing Office.',
+      life: 4500
+    })
+
+    showHazardModal.value = false
+    selectedHazardFile.value = null
+    await loadProgress(true)
+  } catch (err) {
+    console.error('[ApplicationProgress] hazard upload error:', err)
+    hazardError.value = err.message || 'Failed to upload document. Please try again.'
+  } finally {
+    isUploadingHazard.value = false
+  }
+}
 
 const stallInfo = computed(() => {
   const data = stakeholder.value
@@ -422,6 +685,11 @@ function applyStepStatuses(data) {
       const firstPending = steps.value.find(step => step.status === 'pending')
       if (firstPending) firstPending.status = 'rejected'
     }
+  }
+
+  // Auto-pop Hazard-Free Confirmation modal if steps 1-5 are green and not yet uploaded
+  if (isSteps1To5Green.value && !hasHazardFreeDoc.value && !hasDismissedAutoPop.value) {
+    showHazardModal.value = true
   }
 }
 

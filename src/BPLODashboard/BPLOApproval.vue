@@ -20,6 +20,7 @@
           <tr>
             <th>Applicant</th>
             <th>Business</th>
+            <th>Hazard-Free</th>
             <th>Endorsing</th>
             <th>BPLO</th>
             <th>Final</th>
@@ -30,6 +31,13 @@
           <tr v-for="app in paginated" :key="app.id">
             <td><strong>{{ fullName(app) }}</strong><small>{{ app.email || 'No email' }}</small></td>
             <td>{{ app.businessName }}</td>
+            <td>
+              <span v-if="app.hazardFreeConfirmed || app.hazardFreeDocumentUrl" class="badge approved" title="Hazard-Free Confirmation verified">
+                <a v-if="app.hazardFreeDocumentUrl" :href="app.hazardFreeDocumentUrl" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: underline;">Verified ↗</a>
+                <span v-else>Verified</span>
+              </span>
+              <span v-else class="badge pending" title="Stakeholder has not uploaded confirmation yet">Pending</span>
+            </td>
             <td><span :class="badge(app.endorsingStatus || app.endorsementStatus)">{{ app.endorsingStatus || app.endorsementStatus || 'PENDING' }}</span></td>
             <td><span :class="badge(app.bploStatus)">{{ app.bploStatus || 'PENDING' }}</span></td>
             <td><span :class="badge(app.finalStatus)">{{ app.finalStatus || 'PENDING' }}</span></td>
@@ -40,7 +48,7 @@
             </td>
           </tr>
           <tr v-if="paginated.length === 0">
-            <td class="empty" colspan="6">No applications match this view.</td>
+            <td class="empty" colspan="7">No applications match this view.</td>
           </tr>
         </tbody>
       </table>
@@ -60,6 +68,24 @@
           <div><dt>Type</dt><dd>{{ selected.businessType }}</dd></div>
           <div><dt>Endorsed by</dt><dd>{{ selected.endorsedBy || '-' }}</dd></div>
           <div><dt>Address</dt><dd>{{ selected.address }}</dd></div>
+          <div>
+            <dt>Hazard-Free Stall Confirmation</dt>
+            <dd>
+              <template v-if="selected.hazardFreeConfirmed || selected.hazardFreeDocumentUrl">
+                <span class="badge approved" style="margin-right: 8px;">Verified</span>
+                <a
+                  v-if="selected.hazardFreeDocumentUrl"
+                  :href="selected.hazardFreeDocumentUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style="color: #2563eb; font-weight: 600; text-decoration: underline;"
+                >
+                  View Uploaded Document ↗
+                </a>
+              </template>
+              <span v-else class="badge pending">Pending Upload from Stakeholder</span>
+            </dd>
+          </div>
           <div><dt>Remarks</dt><dd>{{ selected.remarks || selected.endorsementRemarks || '-' }}</dd></div>
         </dl>
       </div>

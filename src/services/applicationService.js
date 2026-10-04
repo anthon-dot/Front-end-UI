@@ -101,6 +101,27 @@ export async function getStakeholderByUserId(userId) {
       normalized.stall = normalized.occupant.stall
     }
 
+    // Look for Hazard-Free Stall Confirmation document
+    const sid = normalized.stakeholderId || normalized.id
+    if (sid) {
+      try {
+        const { data: hazardDoc } = await supabase
+          .from('stakeholder_documents')
+          .select('*')
+          .eq('stakeholder_id', Number(sid))
+          .in('document_type', ['HAZARD_FREE_CONFIRMATION', 'HAZARD_FREE_CERTIFICATE'])
+          .order('id', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (hazardDoc?.file_path) {
+          normalized.hazardFreeConfirmed = true
+          normalized.hazardFreeDocumentUrl = hazardDoc.file_path
+          normalized.hazardFreeFileName = hazardDoc.file_name
+        }
+      } catch (_) {}
+    }
+
     return normalized
   } catch (error) {
     console.error('[applicationService] getStakeholderByUserId error:', error)
@@ -121,13 +142,20 @@ export async function getStakeholderRequirements(stakeholderId) {
 
 export async function getApplications() {
   try {
-    const [appsRes, stakeholdersRes] = await Promise.all([
+    const [appsRes, stakeholdersRes, docsRes] = await Promise.all([
       supabase.from('business_applications').select('*, stall:stalls(*)').order('id', { ascending: false }),
-      supabase.from('stakeholders').select('*, occupant:occupants(*, stall:stalls(*)), stall:stalls(*)').order('id', { ascending: false })
+      supabase.from('stakeholders').select('*, occupant:occupants(*, stall:stalls(*)), stall:stalls(*)').order('id', { ascending: false }),
+      supabase.from('stakeholder_documents').select('*').in('document_type', ['HAZARD_FREE_CONFIRMATION', 'HAZARD_FREE_CERTIFICATE'])
     ])
 
     const apps = appsRes.data || []
     const stakeholders = stakeholdersRes.data || []
+    const docs = docsRes.data || []
+
+    const hazardDocs = new Map()
+    for (const d of docs) {
+      if (d.stakeholder_id) hazardDocs.set(Number(d.stakeholder_id), d)
+    }
 
     const stakeholderByUser = new Map()
     const stakeholderByEmail = new Map()
@@ -170,6 +198,22 @@ export async function getApplications() {
       } else {
         normApp.stakeholderId = normApp.id
       }
+
+      const sid = linkedSt?.id || normApp.stakeholderId
+      const hDoc = sid ? hazardDocs.get(Number(sid)) : null
+
+      normApp.hazardFreeConfirmed = Boolean(
+        hDoc?.file_path ||
+        linkedSt?.hazard_free_confirmed || linkedSt?.hazardFreeConfirmed ||
+        app.hazard_free_confirmed || app.hazardFreeConfirmed
+      )
+      normApp.hazardFreeDocumentUrl = (
+        hDoc?.file_path ||
+        linkedSt?.hazard_free_document_url || linkedSt?.hazardFreeDocumentUrl ||
+        app.hazard_free_document_url || app.hazardFreeDocumentUrl || null
+      )
+      normApp.hazardFreeFileName = hDoc?.file_name || 'Hazard_Free_Stall_Confirmation.pdf'
+
       return normApp
     })
 
@@ -178,6 +222,74 @@ export async function getApplications() {
     console.error('[applicationService] getApplications error:', error)
     return []
   }
+}
+
+export async function uploadHazardFreeDocument(file, stakeholderId, applicationId = null) {
+  if (!file) throw new Error('File is required')
+
+  const fileExt = file.name.split('.').pop()
+  const cleanExt = fileExt ? fileExt.replace(/[^a-zA-Z0-9]/g, '') : 'pdf'
+  const fileName = `hazard_free_${stakeholderId || 'app'}_${Date.now()}.${cleanExt}`
+  const filePath = `documents/${fileName}`
+
+  // 1. Upload to Supabase Storage bucket 'uploads'
+  const { error: uploadError } = await supabase.storage
+    .from('uploads')
+    .upload(filePath, file, { upsert: true })
+
+  if (uploadError) throw uploadError
+
+  // 2. Get Public URL
+  const { data: { publicUrl } } = supabase.storage
+    .from('uploads')
+    .getPublicUrl(filePath)
+
+  // 3. Save to stakeholder_documents table
+  if (stakeholderId) {
+    try {
+      await supabase.from('stakeholder_documents').insert({
+        stakeholder_id: Number(stakeholderId),
+        document_type: 'HAZARD_FREE_CONFIRMATION',
+        file_name: file.name,
+        file_path: publicUrl
+      })
+    } catch (_) {}
+
+    try {
+      await supabase.from('stakeholders').update({
+        hazard_free_confirmed: true,
+        hazard_free_document_url: publicUrl
+      }).eq('id', Number(stakeholderId))
+    } catch (_) {}
+  }
+
+  if (applicationId) {
+    try {
+      await supabase.from('business_applications').update({
+        hazard_free_confirmed: true,
+        hazard_free_document_url: publicUrl
+      }).eq('id', Number(applicationId))
+    } catch (_) {}
+  }
+
+  // Also sync by user_id if available from session
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    const userId = session?.user?.id
+    if (userId) {
+      await supabase.from('business_applications').update({
+        hazard_free_confirmed: true,
+        hazard_free_document_url: publicUrl
+      }).eq('user_id', userId)
+
+      await supabase.from('stakeholders').update({
+        hazard_free_confirmed: true,
+        hazard_free_document_url: publicUrl
+      }).eq('user_id', userId)
+    }
+  } catch (_) {}
+
+  return { publicUrl, fileName: file.name }
 }
 
 export async function endorseApplication(id, stakeholderId = null) {

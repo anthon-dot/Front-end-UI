@@ -79,6 +79,8 @@ export function normalizeRecord(item) {
   if (result.billing_frequency && !result.billingFrequency) result.billingFrequency = result.billing_frequency;
   if (result.occupant_id && !result.occupantId) result.occupantId = result.occupant_id;
   if (result.stall_id && !result.stallId) result.stallId = result.stall_id;
+  if (result.hazard_free_confirmed !== undefined && result.hazardFreeConfirmed === undefined) result.hazardFreeConfirmed = result.hazard_free_confirmed;
+  if (result.hazard_free_document_url && !result.hazardFreeDocumentUrl) result.hazardFreeDocumentUrl = result.hazard_free_document_url;
 
   return result;
 }
