@@ -122,6 +122,98 @@ export async function getStakeholderByUserId(userId) {
       } catch (_) {}
     }
 
+    // Check payment records for business permit / application fee
+    if (sid) {
+      try {
+        const { data: pList } = await supabase
+          .from('payments')
+          .select('id, payment_type, amount, payment_date')
+          .eq('stakeholder_id', Number(sid))
+          .in('payment_type', ['BUSINESS_PERMIT_PAYMENT', 'APPLICATION_FORM', 'APPLICATION_FEE'])
+          .order('id', { ascending: false })
+          .limit(1)
+
+        if (pList && pList.length > 0) {
+          normalized.applicantFeePaid = true
+          normalized.applicant_fee_paid = true
+          normalized.applicationFormPaid = true
+          normalized.application_form_paid = true
+          normalized.treasurerPaid = true
+          normalized.treasurer_paid = true
+          normalized.verifiedTenant = true
+          normalized.verified_tenant = true
+          normalized.verifiedStakeholder = true
+          normalized.verified_stakeholder = true
+          normalized.verified = true
+          normalized.applicantFeeAmount = pList[0].amount
+          normalized.applicantFeeDate = pList[0].payment_date
+          if (!normalized.applicationStatus || normalized.applicationStatus === 'PENDING' || normalized.applicationStatus === 'PENDING_BUSINESS_PERMIT_PAYMENT') {
+            normalized.applicationStatus = 'COMPLETED'
+          }
+          if (!normalized.onboardingStatus) {
+            normalized.onboardingStatus = 'APPROVED'
+          }
+        }
+      } catch (pErr) {
+        console.warn('[applicationService] Could not check payments table:', pErr)
+      }
+    }
+
+    // If applicant fee is paid or tenant is verified, ensure all verified properties are true
+    const hasPermitFee = Boolean(
+      normalized.applicantFeePaid ||
+      normalized.applicant_fee_paid ||
+      normalized.applicationFormPaid ||
+      normalized.application_form_paid ||
+      normalized.treasurerPaid ||
+      normalized.treasurer_paid ||
+      normalized.verifiedTenant ||
+      normalized.verified_tenant ||
+      normalized.verifiedStakeholder ||
+      normalized.verified_stakeholder ||
+      normalized.verified
+    )
+
+    if (hasPermitFee) {
+      normalized.applicantFeePaid = true
+      normalized.applicant_fee_paid = true
+      normalized.applicationFormPaid = true
+      normalized.application_form_paid = true
+      normalized.treasurerPaid = true
+      normalized.treasurer_paid = true
+      normalized.verifiedTenant = true
+      normalized.verified_tenant = true
+      normalized.verifiedStakeholder = true
+      normalized.verified_stakeholder = true
+      normalized.verified = true
+      if (!normalized.applicationStatus || normalized.applicationStatus === 'PENDING' || normalized.applicationStatus === 'PENDING_BUSINESS_PERMIT_PAYMENT') {
+        normalized.applicationStatus = 'COMPLETED'
+      }
+      if (!normalized.onboardingStatus) {
+        normalized.onboardingStatus = 'APPROVED'
+      }
+
+      // Auto-heal database row in Supabase if verified_tenant or applicant_fee_paid was false
+      if (stData?.id && (!stData.verified_tenant || !stData.verified_stakeholder || !stData.applicant_fee_paid)) {
+        supabase
+          .from('stakeholders')
+          .update({
+            verified_tenant: true,
+            verified_stakeholder: true,
+            verified: true,
+            applicant_fee_paid: true,
+            application_form_paid: true,
+            treasurer_paid: true,
+            application_status: 'COMPLETED',
+            onboarding_status: 'APPROVED',
+            final_status: 'APPROVED'
+          })
+          .eq('id', stData.id)
+          .then(() => {})
+          .catch(() => {})
+      }
+    }
+
     return normalized
   } catch (error) {
     console.error('[applicationService] getStakeholderByUserId error:', error)
