@@ -3,11 +3,8 @@
 <!-- ============================= -->
 
 <template>
-
   <div class="create-page">
-
     <div class="container">
-
       <div class="form-header">
         <div>
           <h2>Stakeholder Application</h2>
@@ -19,19 +16,53 @@
         </button>
       </div>
 
+      <!-- Active Application Banner -->
+      <div v-if="existingApplication" class="existing-application-banner">
+        <div class="banner-content">
+          <i class="pi pi-info-circle banner-icon"></i>
+          <div>
+            <strong>Active Application in Progress</strong>
+            <p>
+              You already have a submitted application (Status: 
+              <span class="status-badge">{{ existingApplication.applicationStatus || existingApplication.application_status || 'PENDING' }}</span>).
+            </p>
+          </div>
+        </div>
+        <button type="button" class="btn-view-progress" @click="router.push('/application-progress')">
+          View Application Progress →
+        </button>
+      </div>
+
       <form @submit.prevent="submitApplication">
         <p v-if="errorMessage" class="error">
           {{ errorMessage }}
         </p>
 
         <!-- ========================= -->
+        <!-- STALL SELECTION -->
+        <!-- ========================= -->
+        <h3>Market Stall Selection</h3>
+        <div class="row">
+          <div class="field">
+            <label>Target Stall</label>
+            <select v-model="selectedStallId" class="stall-select">
+              <option :value="null">-- Select a Vacant Stall (Optional) --</option>
+              <option v-for="stall in availableStalls" :key="stall.id" :value="stall.id">
+                Stall {{ stall.stallNo || stall.number }} - {{ stall.section || stall.stallType || 'Standard' }} (₱{{ Number(stall.monthlyRent || 0).toLocaleString() }}/mo)
+              </option>
+            </select>
+            <small v-if="selectedStallDetails" class="stall-details-hint">
+              Selected: <strong>Stall {{ selectedStallDetails.stallNo }}</strong> ({{ selectedStallDetails.section || selectedStallDetails.stallType }}) - ₱{{ Number(selectedStallDetails.monthlyRent || 0).toLocaleString() }}/month
+            </small>
+          </div>
+        </div>
+
+        <!-- ========================= -->
         <!-- BUSINESS -->
         <!-- ========================= -->
-
         <h3>Business Information</h3>
 
         <div class="row two">
-
           <div class="field">
             <label>Business Name</label>
             <input v-model="businessName" type="text" required />
@@ -41,17 +72,14 @@
             <label>Business Type</label>
             <input v-model="businessType" type="text" required />
           </div>
-
         </div>
 
         <!-- ========================= -->
         <!-- PERSONAL -->
         <!-- ========================= -->
-
         <h3>Personal Information</h3>
 
         <div class="row three">
-
           <div class="field">
             <label>First Name</label>
             <input v-model="firstName" type="text" required />
@@ -66,11 +94,9 @@
             <label>Last Name</label>
             <input v-model="lastName" type="text" required />
           </div>
-
         </div>
 
         <div class="row two">
-
           <div class="field">
             <label>Contact</label>
             <input v-model="contact" type="text" required />
@@ -80,22 +106,18 @@
             <label>Email</label>
             <input v-model="email" type="email" required />
           </div>
-
         </div>
 
         <div class="row">
-
           <div class="field">
             <label>Address</label>
             <input v-model="address" type="text" required />
           </div>
-
         </div>
 
         <!-- ========================= -->
         <!-- FILES -->
         <!-- ========================= -->
-
         <h3>Documents</h3>
 
         <div class="field">
@@ -111,40 +133,40 @@
         <!-- ========================= -->
         <!-- BUTTON -->
         <!-- ========================= -->
-
         <div class="actions">
           <button
             class="btn submit"
             type="submit"
             :disabled="isSubmitting"
           >
-            {{ isSubmitting ? 'Submitting...' : 'Submit Application' }}
+            {{ isSubmitting ? 'Submitting...' : (existingApplication ? 'Update & Re-Submit Application' : 'Submit Application') }}
           </button>
         </div>
-
       </form>
-
     </div>
-
   </div>
-
 </template>
 
 <script setup>
-
-import { onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import api from '../services/api'
 import { supabase } from '../config/supabase'
 import { useAuthStore } from '../stores/auth'
 import { useStakeholderStore } from '../stores/stakeholder'
+import { getStakeholderByUserId } from '../services/applicationService'
 
+const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
 const stakeholderStore = useStakeholderStore()
 
 // =========================
-// FORM
+// FORM STATE
 // =========================
+const selectedStallId = ref(null)
+const availableStalls = ref([])
+const existingApplication = ref(null)
 
 const businessName = ref('')
 const businessType = ref('')
@@ -160,21 +182,15 @@ const address = ref('')
 // =========================
 // FILES
 // =========================
-
 const idFile      = ref(null)
 const letterFile  = ref(null)
 const isSubmitting = ref(false)
 const errorMessage = ref('')
 
-// =========================
-// TOKEN / USER
-// =========================
-
-const userId = localStorage.getItem('userId')
-
-// =========================
-// FILE CHANGE
-// =========================
+const selectedStallDetails = computed(() => {
+  if (!selectedStallId.value) return null
+  return availableStalls.value.find(s => String(s.id) === String(selectedStallId.value)) || null
+})
 
 function onFileChange(e, type) {
   const file = e.target.files[0]
@@ -183,11 +199,60 @@ function onFileChange(e, type) {
 }
 
 // =========================
+// INIT / MOUNTED
+// =========================
+onMounted(async () => {
+  try {
+    let currentUserId = authStore.resolvedUserId || localStorage.getItem('userId')
+    if (!currentUserId || currentUserId === 'null' || currentUserId === 'undefined') {
+      const { data: { session } } = await supabase.auth.getSession()
+      currentUserId = session?.user?.id
+    }
+
+    // 1. Load vacant / available stalls
+    try {
+      const { data: stalls } = await supabase
+        .from('stalls')
+        .select('*')
+        .order('stall_no', { ascending: true })
+
+      if (stalls && stalls.length > 0) {
+        availableStalls.value = stalls.filter(s => String(s.status || '').toUpperCase() !== 'OCCUPIED')
+      }
+    } catch (_) {}
+
+    // Check query stallId
+    if (route.query.stallId) {
+      selectedStallId.value = Number(route.query.stallId)
+    }
+
+    // 2. Check if user already submitted an application
+    if (currentUserId) {
+      const existing = await getStakeholderByUserId(currentUserId)
+      if (existing) {
+        existingApplication.value = existing
+        // Pre-fill existing details if available
+        if (existing.businessName) businessName.value = existing.businessName
+        if (existing.businessType) businessType.value = existing.businessType
+        if (existing.firstName) firstName.value = existing.firstName
+        if (existing.middleName) middleName.value = existing.middleName
+        if (existing.lastName) lastName.value = existing.lastName
+        if (existing.contact) contact.value = existing.contact
+        if (existing.email) email.value = existing.email
+        if (existing.address) address.value = existing.address
+        if (existing.selectedStallId && !selectedStallId.value) {
+          selectedStallId.value = Number(existing.selectedStallId)
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[BusinessApplication] init warning:', err.message)
+  }
+})
+
+// =========================
 // SUBMIT APPLICATION
 // =========================
-
-const authStore = useAuthStore()
-
 async function submitApplication() {
   errorMessage.value = ''
   isSubmitting.value = true
@@ -203,6 +268,8 @@ async function submitApplication() {
       throw new Error('Please sign in or create an account before submitting.')
     }
 
+    localStorage.setItem('userId', currentUserId)
+
     const formData = new FormData()
 
     formData.append('userId',       currentUserId)
@@ -214,6 +281,9 @@ async function submitApplication() {
     formData.append('contact',      contact.value)
     formData.append('email',        email.value)
     formData.append('address',      address.value)
+    if (selectedStallId.value) {
+      formData.append('stallId', String(selectedStallId.value))
+    }
     formData.append('idFile',       idFile.value)
     formData.append('letterFile',   letterFile.value)
 
@@ -223,12 +293,12 @@ async function submitApplication() {
       { headers: { 'Content-Type': 'multipart/form-data' } }
     )
 
-    if (!response.data?.id) {
+    if (!response.data?.id && !response.data?.user_id) {
       throw new Error('Application was not saved')
     }
 
-    alert('Application submitted successfully')
     stakeholderStore.clearCache()
+    alert('Application submitted successfully!')
     router.push('/application-progress')
 
   } catch (error) {
@@ -245,8 +315,8 @@ async function logout() {
   localStorage.removeItem('stakeholderId')
   router.push('/login')
 }
-
 </script>
 
 <style scoped src="../styles/views/BusinessApplication.css"></style>
+
 

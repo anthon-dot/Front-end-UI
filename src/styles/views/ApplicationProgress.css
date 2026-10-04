@@ -19,6 +19,53 @@
   margin-bottom: 24px;
 }
 
+/* =========================
+   STALL PROGRESS SUMMARY
+   ========================= */
+.stall-progress-summary {
+  max-width: 1100px;
+  margin: 0 auto 20px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.stall-summary-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.stall-badge-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: #eff6ff;
+  color: #2563eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+}
+
+.stall-summary-title {
+  display: block;
+  font-size: 0.95rem;
+  color: #1e293b;
+}
+
+.stall-summary-sub {
+  display: block;
+  font-size: 0.82rem;
+  color: #64748b;
+  margin-top: 2px;
+}
+
 .page-header h1 {
   margin: 0;
   font-size: clamp(1.5rem, 4vw, 1.875rem);

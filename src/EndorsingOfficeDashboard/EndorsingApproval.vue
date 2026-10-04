@@ -131,7 +131,7 @@ function canReject(app) {
 
 async function endorse(app) {
   try {
-    await endorseApplication(app.id)
+    await endorseApplication(app.id, app.stakeholderId || app.id)
     showToast('Application endorsed for business permit payment.')
     await load()
   } catch (error) {
@@ -146,7 +146,7 @@ function openReject(app) {
 
 async function reject() {
   try {
-    await rejectEndorsement(rejecting.value.id, remarks.value)
+    await rejectEndorsement(rejecting.value.id, remarks.value, rejecting.value.stakeholderId || rejecting.value.id)
     rejecting.value = null
     showToast('Endorsement rejected.')
     await load()

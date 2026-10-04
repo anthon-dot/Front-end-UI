@@ -98,7 +98,8 @@ async function loadRequirements() {
   errorMessage.value = ''
 
   try {
-    stakeholder.value = await getStakeholderByUserId(userId)
+    const resolvedUserId = authStore.resolvedUserId || localStorage.getItem('userId')
+    stakeholder.value = await getStakeholderByUserId(resolvedUserId)
 
     if (!stakeholder.value?.id) {
       router.replace('/business-application')

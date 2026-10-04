@@ -126,7 +126,7 @@ function canDecide(app) {
 
 async function approve(app) {
   try {
-    await approveByBPLO(app.id)
+    await approveByBPLO(app.id, app.stakeholderId || app.id)
     showToast('Application approved by BPLO and sent to the Endorsing Office.')
     await load()
   } catch (error) {
@@ -141,7 +141,7 @@ function openReject(app) {
 
 async function reject() {
   try {
-    await rejectByBPLO(rejecting.value.id, remarks.value)
+    await rejectByBPLO(rejecting.value.id, remarks.value, rejecting.value.stakeholderId || rejecting.value.id)
     rejecting.value = null
     showToast('Application rejected by BPLO.')
     await load()

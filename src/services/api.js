@@ -411,6 +411,9 @@ const api = {
           }
         }
 
+        const stallId = data.get('stallId') || data.get('selectedStallId') || null;
+        const numStallId = stallId ? Number(stallId) : null;
+
         // Upsert into business_applications
         const { data: appData, error: appErr } = await supabase.from('business_applications')
           .upsert({
@@ -423,6 +426,7 @@ const api = {
             contact: data.get('contact') || '',
             email: data.get('email') || '',
             address: data.get('address') || '',
+            selected_stall_id: numStallId,
             id_document_url: idUrl,
             letter_document_url: letterUrl,
             application_status: 'PENDING',
@@ -455,6 +459,7 @@ const api = {
             contact: data.get('contact') || '',
             email: data.get('email') || '',
             address: data.get('address') || '',
+            selected_stall_id: numStallId,
             application_status: 'FOR_APPROVAL',
             onboarding_status: 'FOR_APPROVAL'
           }).eq('id', stakeholderId);
@@ -469,12 +474,14 @@ const api = {
             contact: data.get('contact') || '',
             email: data.get('email') || '',
             address: data.get('address') || '',
+            selected_stall_id: numStallId,
             application_status: 'FOR_APPROVAL',
             onboarding_status: 'FOR_APPROVAL'
           }).select('id').maybeSingle();
           stakeholderId = newStakeholder?.id;
         }
 
+        localStorage.setItem('userId', resolvedUserId);
         if (stakeholderId) {
           localStorage.setItem('stakeholderId', String(stakeholderId));
           const docs = [];
@@ -496,12 +503,12 @@ const api = {
           }
           if (docs.length > 0) {
             await supabase.from('stakeholder_documents').insert(docs);
-          }
         }
 
         return { data: normalizeRecord(appData) };
       }
     }
+  }
 
     // 2. Stalls upload
     if (cleanUrl === 'stalls/upload') {
@@ -569,6 +576,18 @@ const api = {
         body: { action: 'treasurer-approve', stakeholderId, ...(data || {}) }
       });
       if (error || resData?.error) throw new Error(error?.message || resData?.error || 'Treasurer approval failed');
+
+      try {
+        const { data: st } = await supabase.from('stakeholders').select('user_id').eq('id', stakeholderId).maybeSingle();
+        if (st?.user_id) {
+          await supabase.from('business_applications').update({
+            advance_payment_paid: true,
+            advance_payment_completed: true,
+            application_status: 'PENDING_MARKET_SUPERVISOR_APPROVAL'
+          }).eq('user_id', st.user_id);
+        }
+      } catch (_) {}
+
       return { data: resData };
     }
 
@@ -585,6 +604,16 @@ const api = {
         .select()
         .single();
       if (error) throw error;
+
+      try {
+        if (updated?.user_id) {
+          await supabase.from('business_applications').update({
+            market_approval_status: 'APPROVED',
+            application_status: 'PENDING_BPLO_APPROVAL'
+          }).eq('user_id', updated.user_id);
+        }
+      } catch (_) {}
+
       return { data: normalizeRecord(updated) };
     }
 
@@ -594,6 +623,19 @@ const api = {
         body: { action: 'assign-stall', stakeholderId, ...(data || {}) }
       });
       if (error || resData?.error) throw new Error(error?.message || resData?.error || 'Stall assignment failed');
+
+      try {
+        const targetStallId = data?.stallId || data?.stall_id;
+        const { data: st } = await supabase.from('stakeholders').select('user_id').eq('id', stakeholderId).maybeSingle();
+        if (st?.user_id && targetStallId) {
+          await supabase.from('business_applications').update({
+            selected_stall_id: Number(targetStallId),
+            market_approval_status: 'APPROVED',
+            application_status: 'PENDING_BPLO_APPROVAL'
+          }).eq('user_id', st.user_id);
+        }
+      } catch (_) {}
+
       return { data: resData };
     }
 
@@ -718,6 +760,19 @@ const api = {
         body: { action: 'final-endorse', stakeholderId: id, ...(data || {}) }
       });
       if (error || res?.error) throw new Error(error?.message || res?.error || 'Endorsement failed');
+
+      try {
+        const { data: st } = await supabase.from('stakeholders').select('user_id').eq('id', id).maybeSingle();
+        if (st?.user_id) {
+          await supabase.from('business_applications').update({
+            endorsement_status: 'APPROVED',
+            endorsing_status: 'ENDORSED',
+            final_status: 'APPROVED',
+            application_status: 'PENDING_BUSINESS_PERMIT_PAYMENT'
+          }).eq('user_id', st.user_id);
+        }
+      } catch (_) {}
+
       return { data: res };
     }
 
@@ -734,6 +789,15 @@ const api = {
         .select()
         .single();
       if (error) throw error;
+
+      try {
+        if (updated?.user_id) {
+          await supabase.from('business_applications').update({
+            market_approval_status: 'APPROVED',
+            application_status: 'PENDING_BPLO_APPROVAL'
+          }).eq('user_id', updated.user_id);
+        }
+      } catch (_) {}
 
       try {
         const { data: { user } } = await supabase.auth.getUser();
