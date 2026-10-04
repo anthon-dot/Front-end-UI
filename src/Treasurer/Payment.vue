@@ -45,11 +45,15 @@
             <template #body="{ data }">
               <div class="flex items-center gap-3">
                 <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-xs">
-                  {{ initials(data.stakeholder?.firstName, data.stakeholder?.lastName) }}
+                  {{ initials(getStakeholder(data)?.firstName || getStakeholder(data)?.first_name, getStakeholder(data)?.lastName || getStakeholder(data)?.last_name) }}
                 </div>
                 <div>
-                  <div class="font-semibold text-slate-800">{{ data.stakeholder?.firstName }} {{ data.stakeholder?.lastName }}</div>
-                  <div class="text-xs text-slate-500">{{ data.stakeholder?.businessName }}</div>
+                  <div class="font-semibold text-slate-800">
+                    {{ getStakeholder(data)?.firstName || getStakeholder(data)?.first_name || 'Unknown' }} {{ getStakeholder(data)?.lastName || getStakeholder(data)?.last_name || '' }}
+                  </div>
+                  <div class="text-xs text-slate-500">
+                    {{ getStakeholder(data)?.businessName || getStakeholder(data)?.business_name || 'Stakeholder' }}
+                  </div>
                 </div>
               </div>
             </template>
@@ -61,15 +65,15 @@
             </template>
           </Column>
 
-          <Column field="paymentType" header="Type" sortable>
+          <Column header="Type" sortable sortField="paymentType">
             <template #body="{ data }">
-              <Tag :value="formatType(data.paymentType)" severity="info" rounded class="!bg-blue-50 !text-blue-600 !font-semibold border border-blue-100" />
+              <Tag :value="formatType(data.paymentType || data.payment_type)" severity="info" rounded class="!bg-blue-50 !text-blue-600 !font-semibold border border-blue-100" />
             </template>
           </Column>
 
-          <Column field="rentCycle" header="Rent Cycle" sortable>
+          <Column header="Rent Cycle" sortable sortField="rentCycle">
             <template #body="{ data }">
-              <span v-if="data.rentCycle">{{ formatType(data.rentCycle) }}</span>
+              <span v-if="data.rentCycle || data.rent_cycle">{{ formatType(data.rentCycle || data.rent_cycle) }}</span>
               <span v-else class="text-slate-400">—</span>
             </template>
           </Column>
@@ -80,18 +84,22 @@
             </template>
           </Column>
 
-          <Column field="receiptNo" header="Receipt" sortable></Column>
-          
-          <Column field="referenceNo" header="Reference">
+          <Column header="Receipt" sortable sortField="receiptNo">
             <template #body="{ data }">
-              <span v-if="data.referenceNo">{{ data.referenceNo }}</span>
+              <span class="font-mono text-xs font-bold text-slate-700">{{ data.receiptNo || data.receipt_no || '—' }}</span>
+            </template>
+          </Column>
+          
+          <Column header="Reference">
+            <template #body="{ data }">
+              <span v-if="data.referenceNo || data.reference_no">{{ data.referenceNo || data.reference_no }}</span>
               <span v-else class="text-slate-400">—</span>
             </template>
           </Column>
 
-          <Column field="paymentDate" header="Date" sortable>
+          <Column header="Date" sortable sortField="paymentDate">
             <template #body="{ data }">
-              {{ formatDate(data.paymentDate) }}
+              {{ formatDate(data.paymentDate || data.payment_date) }}
             </template>
           </Column>
         </DataTable>
@@ -518,7 +526,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useToast } from 'primevue/usetoast'
-import api from '../services/api'
+import api, { normalizeRecord } from '../services/api'
 import { fetchPayments, createPayment } from '../services/paymentService'
 import { fetchBillings } from '../services/billingService'
 import TreasurerMenu from '../components/TreasurerMenu.vue'
@@ -602,14 +610,21 @@ onUnmounted(() => {
 // =========================
 async function loadPayments() {
   try {
-    payments.value = await fetchPayments()
+    const raw = await fetchPayments()
+    payments.value = (raw || []).map(p => {
+      const norm = normalizeRecord(p)
+      if (p.stakeholder) {
+        norm.stakeholder = normalizeRecord(p.stakeholder)
+      }
+      return norm
+    })
   } catch (error) { console.error(error) }
 }
 
 async function loadStakeholders() {
   try {
     const response = await api.get('/stakeholders')
-    stakeholders.value = response.data.filter(s => !s.isArchived)
+    stakeholders.value = (response.data || []).map(normalizeRecord).filter(s => !s.isArchived)
   } catch (error) { console.error(error) }
 }
 
@@ -617,6 +632,19 @@ async function loadBillings() {
   try {
     billings.value = await fetchBillings()
   } catch (error) { console.error(error) }
+}
+
+// Helper to reliably resolve a stakeholder object for table display
+function getStakeholder(data) {
+  if (data?.stakeholder && (data.stakeholder.firstName || data.stakeholder.first_name || data.stakeholder.lastName || data.stakeholder.last_name)) {
+    return data.stakeholder
+  }
+  const sId = data?.stakeholderId || data?.stakeholder_id || data?.stakeholder?.id
+  if (sId && stakeholders.value && stakeholders.value.length > 0) {
+    const found = stakeholders.value.find(s => Number(s.id) === Number(sId))
+    if (found) return found
+  }
+  return data?.stakeholder || null
 }
 
 // =========================
@@ -710,12 +738,21 @@ const selectedStakeholderBillings = computed(() => {
 
 // Main Table filter
 const filteredPayments = computed(() => {
-  const search = tableSearch.value.toLowerCase()
+  const search = tableSearch.value.toLowerCase().trim()
+  if (!search) return payments.value
   return payments.value.filter(p => {
-    const name = `${p.stakeholder?.firstName || ''} ${p.stakeholder?.lastName || ''}`.toLowerCase()
+    const s = getStakeholder(p)
+    const name = `${s?.firstName || s?.first_name || ''} ${s?.lastName || s?.last_name || ''}`.toLowerCase()
+    const bName = (s?.businessName || s?.business_name || '').toLowerCase()
+    const pType = formatType(p.paymentType || p.payment_type).toLowerCase()
+    const receipt = (p.receiptNo || p.receipt_no || '').toLowerCase()
+    const ref = (p.referenceNo || p.reference_no || '').toLowerCase()
     return name.includes(search) || 
+           bName.includes(search) || 
+           pType.includes(search) || 
            String(p.id).includes(search) || 
-           (p.receiptNo || '').toLowerCase().includes(search)
+           receipt.includes(search) || 
+           ref.includes(search)
   })
 })
 

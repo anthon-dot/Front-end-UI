@@ -1,4 +1,5 @@
 import { supabase } from '../config/supabase'
+import { normalizeRecord } from './api'
 
 export async function fetchPayments() {
   const { data, error } = await supabase
@@ -7,7 +8,12 @@ export async function fetchPayments() {
     .order('id', { ascending: false })
 
   if (error) throw error
-  return data
+  return (data || []).map(item => {
+    const norm = normalizeRecord(item)
+    if (item.stakeholder) norm.stakeholder = normalizeRecord(item.stakeholder)
+    if (item.billing) norm.billing = normalizeRecord(item.billing)
+    return norm
+  })
 }
 
 export async function createPayment(payload) {
