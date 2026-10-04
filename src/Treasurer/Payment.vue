@@ -718,14 +718,15 @@ const appFormStakeholders = computed(() => {
 const rentPaymentStakeholders = computed(() => {
   const search = searchRent.value.toLowerCase().trim()
   return stakeholders.value.filter(s => {
-    if (!s.occupant || !s.occupant.stall) return false
+    const hasStallOrOccupant = Boolean(s.occupant?.stall || s.stall || s.selectedStall || s.verifiedTenant || s.verified_tenant)
+    if (!hasStallOrOccupant) return false
     if (!hasUnpaidBillings(s)) return false
     if (s.isArchived) return false
 
     if (!search) return true
     const name = `${s.firstName || ''} ${s.lastName || ''}`.toLowerCase()
     const bName = (s.businessName || '').toLowerCase()
-    const stall = (s.occupant?.stall?.stallNo || '').toLowerCase()
+    const stall = (s.occupant?.stall?.stallNo || s.selectedStall?.stallNo || s.stall?.stallNo || '').toLowerCase()
     return name.includes(search) || bName.includes(search) || stall.includes(search)
   })
 })

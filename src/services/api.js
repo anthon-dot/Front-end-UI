@@ -275,7 +275,7 @@ const api = {
     if (cleanUrl === 'billings') {
       const { data, error } = await supabase
         .from('billings')
-        .select('*, occupant:occupants(*, stakeholder:stakeholders(*)), contract:contracts(*)')
+        .select('*, occupant:occupants(*, stakeholder:stakeholders(*)), contract:contracts(*, stall:stalls(*))')
         .order('id', { ascending: false });
       if (error) throw error;
       return { data: normalizeRecord(data || []) };

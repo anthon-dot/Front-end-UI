@@ -55,10 +55,19 @@
                 {{ initials(slotProps.data.stakeholder) }}
               </div>
               <div class="flex-1">
-                <div class="font-bold text-slate-800 text-base">
-                  {{ slotProps.data.stakeholder }}
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="font-bold text-slate-800 text-base">
+                    {{ slotProps.data.stakeholder }}
+                  </span>
+                  <span v-if="slotProps.data.businessName && slotProps.data.businessName !== slotProps.data.stakeholder" class="text-xs text-slate-500 font-medium">
+                    ({{ slotProps.data.businessName }})
+                  </span>
+                  <Tag value="VERIFIED TENANT" severity="success" rounded class="!text-[10px] !py-0.5 !px-2 font-bold" />
+                  <span v-if="slotProps.data.stallNo" class="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                    Stall {{ slotProps.data.stallNo }}
+                  </span>
                 </div>
-                <div class="text-xs font-semibold text-slate-500 flex gap-4 mt-0.5">
+                <div class="text-xs font-semibold text-slate-500 flex gap-4 mt-1">
                   <span>Total: <span class="text-slate-700">₱{{ getGroupTotal(slotProps.data.stakeholder, 'total').toLocaleString() }}</span></span>
                   <span>Paid: <span class="text-emerald-600">₱{{ getGroupTotal(slotProps.data.stakeholder, 'paid').toLocaleString() }}</span></span>
                   <span>Balance: <span class="text-rose-600">₱{{ getGroupTotal(slotProps.data.stakeholder, 'balance').toLocaleString() }}</span></span>
@@ -141,16 +150,33 @@ async function fetchBillings() {
   try {
     const data = await getBillingsApi()
 
-    rows.value = data.map(b => ({
-      id: b.billingNo || 'N/A',
-      stakeholder: b.occupantName || 'Unknown',
-      period: b.billingPeriod || 'N/A',
-      total: Number(b.totalAmount ?? 0),
-      paid: Number(b.paidAmount ?? 0),
-      balance: Number(b.balance ?? 0),
-      due: b.dueDate || 'N/A',
-      status: b.status || 'UNKNOWN'
-    }))
+    rows.value = (data || []).map(b => {
+      const st = b.occupant?.stakeholder || b.stakeholder || {}
+      const stFirstName = st.firstName || st.first_name || ''
+      const stLastName = st.lastName || st.last_name || ''
+      const stFullName = `${stFirstName} ${stLastName}`.trim()
+      const businessName = st.businessName || st.business_name || ''
+      const stakeholderLabel = stFullName || businessName || b.occupantName || b.occupant_name || 'Verified Tenant'
+      const stallNo = b.contract?.stall?.stallNo || b.contract?.stall?.stall_no || b.stallNo || ''
+
+      const totalVal = Number(b.totalAmount ?? b.total_amount ?? 0)
+      const paidVal = Number(b.paidAmount ?? b.paid_amount ?? 0)
+      const balanceVal = Number(b.balance ?? Math.max(totalVal - paidVal, 0))
+
+      return {
+        ...b,
+        id: b.billingNo || b.billing_no || (b.id ? `INV-${b.id}` : 'N/A'),
+        stakeholder: stakeholderLabel,
+        businessName,
+        stallNo,
+        period: b.billingPeriod || b.billing_period || 'N/A',
+        total: totalVal,
+        paid: paidVal,
+        balance: balanceVal,
+        due: b.dueDate || b.due_date || 'N/A',
+        status: (b.status || (balanceVal <= 0 ? 'PAID' : 'UNPAID')).toUpperCase()
+      }
+    })
   } catch (err) {
     console.error('Error loading billings', err)
   } finally {
@@ -164,7 +190,10 @@ async function fetchBillings() {
 const filteredRows = computed(() =>
   rows.value.filter(r =>
     (r.stakeholder || '').toLowerCase().includes(search.value.toLowerCase()) ||
-    (r.id || '').toLowerCase().includes(search.value.toLowerCase())
+    (r.businessName || '').toLowerCase().includes(search.value.toLowerCase()) ||
+    (r.stallNo || '').toLowerCase().includes(search.value.toLowerCase()) ||
+    (r.id || '').toLowerCase().includes(search.value.toLowerCase()) ||
+    (r.period || '').toLowerCase().includes(search.value.toLowerCase())
   )
 )
 
