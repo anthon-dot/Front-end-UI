@@ -231,24 +231,20 @@
           <InputText v-model="stallDialog.form.stallType" />
         </label>
         <label>
-          Dimensions
-          <InputText v-model="stallDialog.form.dimensions" />
-        </label>
-        <label>
           Rental Rate
           <InputNumber v-model="stallDialog.form.monthlyRent" mode="currency" currency="PHP" locale="en-PH" />
         </label>
         <label>
-          Status
-          <Select v-model="stallDialog.form.status" :options="stallStatuses" class="w-full" />
-        </label>
-        <label>
           Latitude
-          <InputText v-model="stallDialog.form.latitude" placeholder="e.g. 8.399991" />
+          <InputText v-model="stallDialog.form.latitude" placeholder="e.g. 8.399773" />
         </label>
         <label>
           Longitude
           <InputText v-model="stallDialog.form.longitude" placeholder="e.g. 124.291353" />
+        </label>
+        <label>
+          Status
+          <Select v-model="stallDialog.form.status" :options="stallStatuses" class="w-full" />
         </label>
       </div>
 
@@ -409,7 +405,7 @@ const hasSearch = computed(() => !['AdminDashboard', 'AdminRoles', 'AdminSetting
 const showFilterBar = computed(() => ['AdminUsers', 'AdminAuditLogs', 'AdminLoginHistory', 'AdminNotifications'].includes(route.name))
 const isReportRoute = computed(() => String(route.name).includes('Report'))
 const roleOptions = ['ADMIN', 'TREASURER', 'MARKET_SUPERVISOR', 'BPLO_OFFICE', 'ENDORSING_OFFICE', 'STAKEHOLDER']
-const stallStatuses = ['VACANT', 'OCCUPIED', 'RESERVED', 'MAINTENANCE', 'INACTIVE']
+const stallStatuses = ['VACANT', 'OCCUPIED']
 const roleFilterOptions = computed(() => ['All', ...new Set([...roleOptions, ...state.users.map((user) => user.role)].filter(Boolean))])
 const statusFilterOptions = computed(() => {
   const source = route.name === 'AdminNotifications'
@@ -503,7 +499,7 @@ const monitoringColumns = computed(() => {
       ['billingNo', 'Billing No.'], ['stakeholder', 'Stakeholder'], ['period', 'Period'], ['amount', 'Amount'], ['dueDate', 'Due Date'], ['balance', 'Balance'], ['status', 'Status']
     ],
     AdminOccupancy: [
-      ['stallNo', 'Stall Number'], ['section', 'Section'], ['stallType', 'Type'], ['dimensions', 'Dimensions'], ['monthlyRent', 'Rental Rate'], ['status', 'Status']
+      ['stallNo', 'Stall Number'], ['section', 'Section'], ['stallType', 'Type'], ['monthlyRent', 'Rental Rate'], ['latitude', 'Latitude'], ['longitude', 'Longitude'], ['status', 'Status']
     ]
   }
 
@@ -520,7 +516,7 @@ function emptyUser() {
 }
 
 function emptyStall() {
-  return { id: null, stallNo: '', section: '', stallType: '', dimensions: '', monthlyRent: 0, status: 'VACANT', latitude: null, longitude: null }
+  return { id: null, stallNo: '', section: '', stallType: '', monthlyRent: 0, status: 'VACANT', latitude: null, longitude: null }
 }
 
 async function loadAdminData() {
@@ -620,9 +616,8 @@ function mapStall(stall) {
     stallNo: stall.stallNo || stall.stall_no || stall.number || stall.stallNumber || '',
     section: stall.section || stall.location || 'Public Market',
     stallType: stall.stallType || stall.stall_type || stall.type || '',
-    dimensions: stall.dimensions || stall.size || stall.info || '',
     monthlyRent: Number(stall.monthlyRent ?? stall.monthly_rent ?? stall.rentalRate ?? stall.rent ?? 0),
-    status: (stall.status || 'VACANT').toUpperCase(),
+    status: (stall.status || '').toUpperCase() === 'OCCUPIED' ? 'OCCUPIED' : 'VACANT',
     latitude: lat !== null && lat !== undefined && lat !== '' ? Number(lat) : null,
     longitude: lng !== null && lng !== undefined && lng !== '' ? Number(lng) : null,
     lat: lat !== null && lat !== undefined && lat !== '' ? Number(lat) : null,
@@ -925,7 +920,6 @@ async function saveStall() {
       stallNo: stallDialog.form.stallNo,
       section: stallDialog.form.section,
       stallType: stallDialog.form.stallType,
-      dimensions: stallDialog.form.dimensions,
       monthlyRent: stallDialog.form.monthlyRent,
       status: stallDialog.form.status,
       latitude: stallDialog.form.latitude !== undefined && stallDialog.form.latitude !== null && stallDialog.form.latitude !== '' ? Number(stallDialog.form.latitude) : null,
@@ -976,13 +970,13 @@ async function saveStallLocation({ stallId, latitude, longitude }) {
 }
 
 function confirmToggleStall(stall) {
-  const nextStatus = stall.status === 'INACTIVE' ? 'VACANT' : 'INACTIVE'
+  const nextStatus = stall.status === 'OCCUPIED' ? 'VACANT' : 'OCCUPIED'
   confirm.require({
     message: `Set stall ${stall.stallNo} status to ${nextStatus}?`,
     header: 'Update Stall Status',
     acceptLabel: 'Update',
     rejectLabel: 'Cancel',
-    severity: nextStatus === 'INACTIVE' ? 'danger' : 'success',
+    severity: nextStatus === 'OCCUPIED' ? 'warn' : 'success',
     accept: async () => {
       try {
         await api.put(`/stalls/${stall.id}`, { ...stall, status: nextStatus })
@@ -1276,12 +1270,13 @@ const StallsView = defineComponent({
         h(Column, { field: 'stallNo', header: 'Stall Number', sortable: true }),
         h(Column, { field: 'section', header: 'Section', sortable: true }),
         h(Column, { field: 'stallType', header: 'Type', sortable: true }),
-        h(Column, { field: 'dimensions', header: 'Dimensions' }),
-        h(Column, { field: 'monthlyRent', header: 'Rental Rate' }, { body: ({ data }) => money(data.monthlyRent) }),
-        h(Column, { field: 'status', header: 'Status' }, { body: ({ data }) => h(StatusTag, { value: data.status }) }),
+        h(Column, { field: 'monthlyRent', header: 'Rental Rate', sortable: true }, { body: ({ data }) => money(data.monthlyRent) }),
+        h(Column, { field: 'latitude', header: 'Latitude', sortable: true }, { body: ({ data }) => data.latitude !== null && data.latitude !== undefined ? data.latitude : '—' }),
+        h(Column, { field: 'longitude', header: 'Longitude', sortable: true }, { body: ({ data }) => data.longitude !== null && data.longitude !== undefined ? data.longitude : '—' }),
+        h(Column, { field: 'status', header: 'Status', sortable: true }, { body: ({ data }) => h(StatusTag, { value: data.status }) }),
         h(Column, { header: 'Actions' }, { body: ({ data }) => h('div', { class: 'table-actions' }, [
           h(Button, { icon: 'pi pi-pencil', text: true, rounded: true, onClick: () => emit('edit', data), ariaLabel: 'Edit' }),
-          h(Button, { icon: data.status === 'INACTIVE' ? 'pi pi-check' : 'pi pi-ban', text: true, rounded: true, severity: data.status === 'INACTIVE' ? 'success' : 'danger', onClick: () => emit('toggle', data), ariaLabel: 'Activate or deactivate' }),
+          h(Button, { icon: data.status === 'OCCUPIED' ? 'pi pi-times-circle' : 'pi pi-check-circle', text: true, rounded: true, severity: data.status === 'OCCUPIED' ? 'warn' : 'success', onClick: () => emit('toggle', data), ariaLabel: 'Toggle status' }),
           h(Button, { icon: 'pi pi-trash', text: true, rounded: true, severity: 'danger', onClick: () => emit('delete', data), ariaLabel: 'Delete Stall' })
         ]) })
       ]

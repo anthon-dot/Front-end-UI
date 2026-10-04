@@ -23,15 +23,6 @@
 
 					<div class="controls-actions">
 						<button
-							class="btn-primary"
-							@click="openCreate()"
-							title="Create a new stall rental contract"
-						>
-							<i class="pi pi-plus"></i>
-							Create Contract
-						</button>
-
-						<button
 							class="btn-outline"
 							@click="refresh"
 							title="Refresh data from server"
@@ -267,9 +258,10 @@
 											v-if="!q"
 											class="btn-primary"
 											style="margin-top: 14px;"
-											@click="openCreate()"
+											@click="goToStalls()"
 										>
-											＋ Create First Contract
+											<i class="pi pi-building"></i>
+											Go to Stall Management to Issue Contracts
 										</button>
 									</div>
 								</td>
@@ -361,15 +353,6 @@
 								<td class="actions">
 									<div class="action-row">
 										<button
-											class="btn-small btn-primary"
-											@click="openCreate(s)"
-											title="Issue a contract for this stakeholder"
-										>
-											<i class="pi pi-plus"></i>
-											Create Contract
-										</button>
-
-										<button
 											v-if="getStakeholderContractsList(s).length"
 											class="btn-small btn-secondary"
 											@click="viewStakeholderContracts(s)"
@@ -377,6 +360,16 @@
 										>
 											<i class="pi pi-file"></i>
 											View ({{ getStakeholderContractsList(s).length }})
+										</button>
+
+										<button
+											v-else
+											class="btn-small btn-outline"
+											@click="goToStalls(s)"
+											title="Assign stall and issue contract in Stall Management"
+										>
+											<i class="pi pi-building"></i>
+											Manage in Stalls
 										</button>
 									</div>
 								</td>
@@ -394,179 +387,6 @@
 							</tr>
 						</tbody>
 					</table>
-				</div>
-			</div>
-
-			<!-- ========================================== -->
-			<!-- CREATE CONTRACT MODAL                     -->
-			<!-- ========================================== -->
-			<div v-if="showModal" class="modal-backdrop" @click.self="close">
-				<div class="modal">
-					<div class="modal-header">
-						<div>
-							<h3 class="modal-title">Create Stall Rental Contract</h3>
-							<p class="modal-subtitle">
-								Draft an official lease agreement for municipal market premises
-							</p>
-						</div>
-						<button class="close-btn" @click="close">✕</button>
-					</div>
-
-					<!-- STAKEHOLDER SELECTION IF NONE SELECTED -->
-					<div v-if="!current?.id" class="stakeholder-picker-card">
-						<label class="picker-label">
-							<i class="pi pi-user"></i>
-							Select Stakeholder / Lessee:
-						</label>
-						<select
-							v-model="selectedStakeholderId"
-							class="picker-select"
-							@change="onStakeholderDropdownChange"
-						>
-							<option value="" disabled>-- Choose an approved stakeholder --</option>
-							<option
-								v-for="stk in stakeholders"
-								:key="stk.id"
-								:value="stk.id"
-							>
-								{{ stk.firstName }} {{ stk.lastName }} - {{ stk.businessName || 'Applicant' }} (Stall: {{ getStakeholderStallNo(stk) || 'Unassigned' }})
-							</option>
-						</select>
-					</div>
-
-					<!-- SELECTED STAKEHOLDER BANNER -->
-					<div v-if="current" class="selected-stakeholder-banner">
-						<div class="banner-left">
-							<div class="banner-avatar">
-								{{ getInitials(current.firstName, current.lastName) }}
-							</div>
-							<div>
-								<div class="banner-name">
-									{{ current.firstName }} {{ current.lastName }}
-								</div>
-								<div class="banner-sub">
-									{{ current.businessName || 'Business Applicant' }} • {{ current.contact || 'No phone' }}
-								</div>
-							</div>
-						</div>
-
-						<div class="banner-stall-box">
-							<div class="banner-stall-label">Assigned Stall</div>
-							<div class="banner-stall-val">
-								{{ getStakeholderStallNo(current) || 'None' }}
-							</div>
-						</div>
-					</div>
-
-					<!-- STALL PICKER IF STAKEHOLDER HAS NO STALL -->
-					<div v-if="current && !getStakeholderStallNo(current)" class="stakeholder-picker-card" style="border-color: #fca5a5; background: #fff5f5;">
-						<label class="picker-label" style="color: #991b1b;">
-							<i class="pi pi-exclamation-circle"></i>
-							Assign Stall for Contract:
-						</label>
-						<p style="font-size: 12px; color: #64748b; margin-bottom: 8px;">
-							This stakeholder does not have an active stall assigned. Select an available stall to include in this lease contract:
-						</p>
-						<select
-							v-model="form.stallId"
-							class="picker-select"
-							@change="onStallSelectChange"
-						>
-							<option value="" disabled>-- Select Available Stall --</option>
-							<option
-								v-for="stall in stalls"
-								:key="stall.id"
-								:value="stall.id"
-							>
-								Stall {{ stall.stallNo || stall.number }} - {{ stall.stallType || stall.type }} (₱{{ Number(stall.monthlyRent || stall.rent || 0).toLocaleString() }}/mo)
-							</option>
-						</select>
-					</div>
-
-					<!-- CONTRACT DETAILS FORM -->
-					<div class="form-grid">
-						<div class="form-group">
-							<label>Contract Number</label>
-							<input
-								type="text"
-								v-model="form.contractNo"
-								class="input-field"
-								placeholder="e.g. CON-2026-001"
-							/>
-						</div>
-
-						<div class="form-group">
-							<label>Monthly Rent (₱)</label>
-							<input
-								type="number"
-								v-model.number="form.monthlyRent"
-								class="input-field"
-								placeholder="0.00"
-							/>
-						</div>
-
-						<div class="form-group">
-							<label>Start Date (Effective)</label>
-							<input
-								type="date"
-								v-model="form.start"
-								class="input-field"
-							/>
-						</div>
-
-						<div class="form-group">
-							<label>End Date (Expiration)</label>
-							<input
-								type="date"
-								v-model="form.end"
-								class="input-field"
-							/>
-						</div>
-					</div>
-
-					<!-- BILLING FREQUENCY -->
-					<div class="form-group">
-						<label>Billing Frequency</label>
-						<select
-							v-model="form.billingFrequency"
-							class="input-field"
-						>
-							<option value="MONTHLY">MONTHLY (Every 30 Days)</option>
-							<option value="SEMI_MONTHLY">SEMI-MONTHLY (Every 15 Days)</option>
-							<option value="WEEKLY">WEEKLY (Every 7 Days)</option>
-							<option value="ANNUAL">ANNUAL (Per Annum)</option>
-						</select>
-					</div>
-
-					<!-- TERMS & CONDITIONS -->
-					<div class="form-group">
-						<label>Terms & Conditions</label>
-						<textarea
-							v-model="form.terms"
-							rows="5"
-							class="textarea-field"
-							placeholder="Enter standard municipal agreement terms..."
-						></textarea>
-					</div>
-
-					<div class="modal-actions">
-						<button
-							class="btn-secondary"
-							@click="close"
-							:disabled="isSubmitting"
-						>
-							Cancel
-						</button>
-
-						<button
-							class="btn-primary"
-							@click="createContract"
-							:disabled="isSubmitting"
-						>
-							<i class="pi pi-check"></i>
-							{{ isSubmitting ? 'Creating...' : 'Issue & Create Contract' }}
-						</button>
-					</div>
 				</div>
 			</div>
 
@@ -757,13 +577,14 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import api from '../services/api'
 import sampleContracts from '../data/contracts.js'
 import MarketSupervisorMenu from '../components/MarketSupervisorMenu.vue'
 import SearchField from '../components/SearchField.vue'
 
 const route = useRoute()
+const router = useRouter()
 
 // =============================
 // STATE
@@ -772,34 +593,15 @@ const q = ref('')
 const activeTab = ref('contracts') // 'contracts' | 'stakeholders'
 const statusFilter = ref('ALL')
 const isLoading = ref(false)
-const isSubmitting = ref(false)
 
 const stakeholders = ref([])
 const stalls = ref([])
 const contracts = ref([])
 
-const showModal = ref(false)
 const viewModal = ref(false)
 const current = ref(null)
 const selectedContract = ref(null)
-const selectedStakeholderId = ref('')
 const viewContractsList = ref([])
-
-const defaultTerms = `1. USE OF PREMISES: The LESSEE shall use the leased stall exclusively for the designated business classification and shall not change the nature of business without prior written approval from the Market Supervisor.
-2. RENTAL PAYMENTS: The LESSEE agrees to pay the stipulated rental on or before the due date as stated in the billing statement issued by the Municipal Treasurer's Office.
-3. SANITATION & MAINTENANCE: The LESSEE shall keep the leased stall and its immediate premises clean, sanitary, and compliant with municipal health and sanitation ordinances.
-4. NON-TRANSFERABILITY: Subleasing, selling, mortgaging, or otherwise transferring rights to the stall without approval of the Municipal Government is strictly prohibited and shall be valid grounds for immediate contract cancellation.
-5. REVOCATION & INSPECTION: The Municipal Government reserves the right to inspect premises during operational market hours and revoke this agreement in case of breach of terms or violation of municipal market ordinances.`
-
-const form = ref({
-	contractNo: '',
-	start: '',
-	end: '',
-	monthlyRent: 0,
-	billingFrequency: 'MONTHLY',
-	terms: defaultTerms,
-	stallId: ''
-})
 
 // =============================
 // HELPERS
@@ -1154,150 +956,11 @@ const filteredStakeholders = computed(() => {
 })
 
 // =============================
-// MODAL ACTIONS
+// NAVIGATION & ACTIONS
 // =============================
-function openCreate(stakeholder = null) {
-	current.value = stakeholder
-	selectedStakeholderId.value = stakeholder ? stakeholder.id : ''
-
-	const today = new Date()
-	const nextYear = new Date()
-	nextYear.setFullYear(today.getFullYear() + 1)
-
-	const startStr = today.toISOString().split('T')[0]
-	const endStr = nextYear.toISOString().split('T')[0]
-
-	let stallMonthlyRent = 0
-	let assignedStallId = ''
-
-	if (stakeholder) {
-		const stallObj = getStakeholderStallObj(stakeholder)
-		if (stallObj) {
-			stallMonthlyRent = Number(stallObj.monthlyRent || stallObj.monthly_rent || stallObj.rent || 0)
-			assignedStallId = stallObj.id
-		}
-	}
-
-	form.value = {
-		contractNo: `CON-${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}-${String(Math.floor(1000 + Math.random() * 9000))}`,
-		start: startStr,
-		end: endStr,
-		monthlyRent: stallMonthlyRent,
-		billingFrequency: 'MONTHLY',
-		terms: defaultTerms,
-		stallId: assignedStallId
-	}
-
-	showModal.value = true
-}
-
-function onStakeholderDropdownChange() {
-	if (!selectedStakeholderId.value) return
-	const found = stakeholders.value.find(s => String(s.id) === String(selectedStakeholderId.value))
-	if (found) {
-		current.value = found
-		const stallObj = getStakeholderStallObj(found)
-		if (stallObj) {
-			form.value.monthlyRent = Number(stallObj.monthlyRent || stallObj.monthly_rent || stallObj.rent || 0)
-			form.value.stallId = stallObj.id
-		}
-	}
-}
-
-function onStallSelectChange() {
-	if (!form.value.stallId) return
-	const foundStall = stalls.value.find(st => String(st.id) === String(form.value.stallId))
-	if (foundStall) {
-		form.value.monthlyRent = Number(foundStall.monthlyRent || foundStall.monthly_rent || foundStall.rent || 0)
-	}
-}
-
-function close() {
-	showModal.value = false
-	current.value = null
-	selectedStakeholderId.value = ''
-}
-
-async function createContract() {
-	if (!current.value) {
-		alert('Please select a stakeholder for this contract.')
-		return
-	}
-
-	const stallObj = getStakeholderStallObj(current.value)
-	const stallIdToUse = stallObj?.id || form.value.stallId
-	const stallNoToUse = stallObj?.stallNo || stallObj?.stall_no || stalls.value.find(s => String(s.id) === String(stallIdToUse))?.stallNo || 'General Stall'
-	const stallTypeToUse = stallObj?.stallType || stallObj?.stall_type || stalls.value.find(s => String(s.id) === String(stallIdToUse))?.stallType || 'Standard'
-
-	if (!stallIdToUse) {
-		alert('Please select or assign a stall for this stakeholder before creating the contract.')
-		return
-	}
-
-	if (!form.value.start || !form.value.end) {
-		alert('Please provide both Start Date and End Date for the contract period.')
-		return
-	}
-
-	if (new Date(form.value.end) <= new Date(form.value.start)) {
-		alert('End Date must be after Start Date.')
-		return
-	}
-
-	isSubmitting.value = true
-	try {
-		const payload = {
-			contractNo: form.value.contractNo,
-			ref: form.value.contractNo,
-			startDate: form.value.start,
-			endDate: form.value.end,
-			monthlyRent: Number(form.value.monthlyRent || 0),
-			billingFrequency: form.value.billingFrequency,
-			terms: form.value.terms,
-			status: 'ACTIVE',
-			stakeholderId: current.value.id,
-			stakeholderName: getStakeholderFullName(current.value),
-			businessName: current.value.businessName || '',
-			stallId: stallIdToUse,
-			stallNo: stallNoToUse,
-			stallType: stallTypeToUse,
-			occupantId: current.value.occupant?.id || null
-		}
-
-		let createdContract = null
-		try {
-			const res = await api.post('/contracts', payload)
-			createdContract = res.data
-		} catch (apiErr) {
-			console.warn('API post failed, using local payload:', apiErr)
-			createdContract = {
-				id: Date.now(),
-				...payload,
-				createdAt: new Date().toISOString()
-			}
-		}
-
-		// Update or prepend to contracts array
-		const newRecord = {
-			id: createdContract?.id || Date.now(),
-			...payload,
-			...createdContract
-		}
-		contracts.value.unshift(newRecord)
-		saveContractsToStorage()
-
-		// Update stakeholder status in local memory
-		current.value.onboardingStatus = 'CONTRACT_CREATED'
-
-		alert(`Contract ${payload.contractNo} created successfully for ${payload.stakeholderName}!`)
-		close()
-		activeTab.value = 'contracts'
-	} catch (error) {
-		console.error(error)
-		alert(error.message || 'Failed to create contract')
-	} finally {
-		isSubmitting.value = false
-	}
+function goToStalls(s = null) {
+	const qVal = s ? (getStakeholderStallNo(s) || s.businessName || s.firstName) : ''
+	router.push({ name: 'MSStalls', query: qVal ? { q: qVal } : {} })
 }
 
 // =============================

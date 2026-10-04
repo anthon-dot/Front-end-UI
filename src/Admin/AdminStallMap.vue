@@ -32,15 +32,6 @@
         </div>
       </div>
 
-      <div class="stat-card">
-        <div class="stat-icon-wrap stat-amber">
-          <i class="pi pi-clock"></i>
-        </div>
-        <div class="stat-info">
-          <span class="stat-label">Reserved</span>
-          <strong class="stat-value text-amber-600">{{ reservedCount }}</strong>
-        </div>
-      </div>
 
       <div class="stat-card">
         <div class="stat-icon-wrap stat-purple">
@@ -83,15 +74,6 @@
           >
             <span class="pill-dot dot-blue"></span>
             Vacant ({{ vacantCount }})
-          </button>
-          <button
-            type="button"
-            class="filter-pill pill-reserved"
-            :class="{ active: statusFilter === 'RESERVED' }"
-            @click="statusFilter = 'RESERVED'"
-          >
-            <span class="pill-dot dot-amber"></span>
-            Reserved ({{ reservedCount }})
           </button>
         </div>
 
@@ -151,6 +133,15 @@
           >
             <i class="pi pi-th-large"></i>
             Grid View
+          </button>
+          <button
+            type="button"
+            class="view-btn"
+            :class="{ active: viewMode === 'table' }"
+            @click="switchViewMode('table')"
+          >
+            <i class="pi pi-table"></i>
+            Table View
           </button>
         </div>
       </div>
@@ -221,10 +212,6 @@
               <img src="/icons/stall-pin-blue.svg" alt="Vacant" class="legend-icon" />
               <span>Vacant / Available</span>
             </div>
-            <div class="legend-item">
-              <img src="/icons/stall-pin-yellow.svg" alt="Reserved" class="legend-icon" />
-              <span>Reserved</span>
-            </div>
           </div>
         </div>
 
@@ -259,6 +246,89 @@
           <div v-else class="empty-state">
             <i class="pi pi-inbox"></i>
             <p>No stalls match the current filter.</p>
+          </div>
+        </div>
+
+        <!-- TABLE VIEW -->
+        <div v-show="viewMode === 'table'" class="stall-table-view-container">
+          <div class="table-card-inner">
+            <table class="stall-data-table">
+              <thead>
+                <tr>
+                  <th>Stall Number</th>
+                  <th>Section</th>
+                  <th>Type</th>
+                  <th>Rental Rate</th>
+                  <th>Latitude</th>
+                  <th>Longitude</th>
+                  <th>Status</th>
+                  <th style="text-align: right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="stall in filteredStalls"
+                  :key="stall.id"
+                  :class="{ selected: selectedStall?.id === stall.id }"
+                  @click="selectStall(stall)"
+                >
+                  <td>
+                    <span class="stall-num-cell">{{ stall.stallNo }}</span>
+                  </td>
+                  <td>{{ stall.section || 'Public Market' }}</td>
+                  <td>{{ stall.stallType || 'Standard' }}</td>
+                  <td>
+                    <strong class="text-emerald-600">{{ formatCurrency(stall.monthlyRent) }}</strong>
+                  </td>
+                  <td>
+                    <span class="coord-mono">{{ stall.latitude ?? stall.lat ?? '—' }}</span>
+                  </td>
+                  <td>
+                    <span class="coord-mono">{{ stall.longitude ?? stall.lng ?? '—' }}</span>
+                  </td>
+                  <td>
+                    <span :class="`sidebar-status-tag status-${normalizeStatus(stall.status)}`">
+                      {{ (stall.status || 'VACANT').toUpperCase() }}
+                    </span>
+                  </td>
+                  <td style="text-align: right;">
+                    <div class="table-actions-cell">
+                      <button
+                        v-if="hasCoordinates(stall)"
+                        type="button"
+                        class="tbl-action-btn"
+                        title="Locate on Map"
+                        @click.stop="focusStallFromTable(stall)"
+                      >
+                        <i class="pi pi-crosshairs"></i>
+                      </button>
+                      <button
+                        type="button"
+                        class="tbl-action-btn"
+                        title="Edit Stall"
+                        @click.stop="$emit('edit', stall)"
+                      >
+                        <i class="pi pi-pencil"></i>
+                      </button>
+                      <button
+                        type="button"
+                        class="tbl-action-btn btn-del"
+                        title="Delete Stall"
+                        @click.stop="$emit('delete', stall)"
+                      >
+                        <i class="pi pi-trash"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                <tr v-if="filteredStalls.length === 0">
+                  <td colspan="8" class="empty-table-cell">
+                    <i class="pi pi-inbox"></i>
+                    <div>No stalls match the current filter.</div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -299,8 +369,16 @@
               <strong class="detail-val">{{ selectedStall.stallType || 'Standard' }}</strong>
             </div>
             <div class="sidebar-detail-row">
-              <span class="detail-label">Dimensions</span>
-              <strong class="detail-val">{{ selectedStall.dimensions || 'N/A' }}</strong>
+              <span class="detail-label">Latitude</span>
+              <span class="detail-val font-mono text-xs">
+                {{ selectedStall.latitude ?? selectedStall.lat ?? 'N/A' }}
+              </span>
+            </div>
+            <div class="sidebar-detail-row">
+              <span class="detail-label">Longitude</span>
+              <span class="detail-val font-mono text-xs">
+                {{ selectedStall.longitude ?? selectedStall.lng ?? 'N/A' }}
+              </span>
             </div>
             <div class="sidebar-detail-row">
               <span class="detail-label">Monthly Rate</span>
@@ -395,7 +473,7 @@ const props = defineProps({
 
 const emit = defineEmits(['edit', 'add', 'add-with-location', 'delete', 'update-location'])
 
-const DEFAULT_CENTER = { lat: 8.399991, lng: 124.291353 }
+const DEFAULT_CENTER = { lat: 8.399773, lng: 124.291353 }
 const DEFAULT_MAP_ZOOM = 19
 const MIN_MAP_ZOOM = 15
 
@@ -433,9 +511,7 @@ const vacantCount = computed(() => {
   }).length
 })
 
-const reservedCount = computed(() => {
-  return props.rows.filter((s) => normalizeStatus(s.status) === 'reserved').length
-})
+const reservedCount = computed(() => 0)
 
 const occupancyRate = computed(() => {
   if (!totalCount.value) return 0
@@ -449,8 +525,7 @@ const filteredStalls = computed(() => {
 
     // Status filter
     if (statusFilter.value === 'OCCUPIED' && norm !== 'occupied') return false
-    if (statusFilter.value === 'VACANT' && norm !== 'vacant' && norm !== 'available') return false
-    if (statusFilter.value === 'RESERVED' && norm !== 'reserved') return false
+    if (statusFilter.value === 'VACANT' && norm !== 'vacant') return false
 
     // Search query
     if (searchQuery.value) {
@@ -471,8 +546,6 @@ const filteredStalls = computed(() => {
 function normalizeStatus(status) {
   const s = String(status || '').toLowerCase()
   if (s === 'occupied') return 'occupied'
-  if (s === 'reserved') return 'reserved'
-  if (s === 'vacant' || s === 'available') return 'vacant'
   return 'vacant'
 }
 
@@ -693,10 +766,17 @@ function buildPopupContent(stall) {
 
 function selectStall(stall) {
   selectedStall.value = stall
-  if (viewMode.value === 'grid') {
-    switchViewMode('map')
+  if (viewMode.value === 'map') {
+    focusStall(stall)
   }
-  focusStall(stall)
+}
+
+function focusStallFromTable(stall) {
+  selectedStall.value = stall
+  switchViewMode('map')
+  nextTick(() => {
+    focusStall(stall)
+  })
 }
 
 function focusStall(stall) {
@@ -1858,5 +1938,132 @@ onBeforeUnmount(() => {
 
 .btn-proceed-popup:hover {
   background: #1d4ed8;
+}
+
+/* Stall Table View */
+.stall-table-view-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+.table-card-inner {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.stall-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.86rem;
+}
+
+.stall-data-table thead {
+  position: sticky;
+  top: 0;
+  background: #f8fafc;
+  border-bottom: 2px solid #e2e8f0;
+  z-index: 2;
+}
+
+.stall-data-table th {
+  padding: 12px 16px;
+  font-weight: 700;
+  color: #475569;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.stall-data-table tbody tr {
+  border-bottom: 1px solid #f1f5f9;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.stall-data-table tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+.stall-data-table tbody tr.selected {
+  background-color: #eff6ff;
+  border-left: 3px solid #2563eb;
+}
+
+.stall-data-table td {
+  padding: 12px 16px;
+  color: #1e293b;
+  vertical-align: middle;
+}
+
+.stall-num-cell {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.coord-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.78rem;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.table-actions-cell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.tbl-action-btn {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tbl-action-btn:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.tbl-action-btn.btn-del {
+  color: #ef4444;
+  border-color: #fee2e2;
+  background: #fef2f2;
+}
+
+.tbl-action-btn.btn-del:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.empty-table-cell {
+  text-align: center;
+  padding: 48px 16px;
+  color: #94a3b8;
+}
+
+.empty-table-cell i {
+  font-size: 2rem;
+  display: block;
+  margin-bottom: 8px;
+  color: #cbd5e1;
 }
 </style>

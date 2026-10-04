@@ -138,10 +138,10 @@
                 <button
                   type="button"
                   class="btn-action btn-edit"
-                  title="Assign Stall / Manage Occupant"
+                  title="View Stall Details, Manage Occupant & Contracts"
                   @click="editStall(stall)"
                 >
-                  👤 Assign
+                  📋 Stall Details
                 </button>
               </div>
             </td>
@@ -159,159 +159,334 @@
       </table>
     </section>
 
-    <!-- SIDE PANEL ASSIGNMENT MODAL -->
+    <!-- SIDE PANEL STALL DETAILS & ASSIGNMENT MODAL -->
     <div v-if="showModal" class="gm-backdrop" @click.self="closeModal">
       <div class="gm-modal">
         <div class="gm-header">
-          <h2>Assign Stall {{ form.number ? '#' + form.number : '' }}</h2>
+          <h2>📋 Stall Details — Stall {{ form.number ? '#' + form.number : '' }}</h2>
           <button type="button" class="gm-close" @click="closeModal">✕</button>
         </div>
 
         <div class="gm-body" @click="onModalBodyClick">
-          <form @submit.prevent="saveStall">
-            <!-- Stall Info Summary Card (Read-only master data) -->
-            <div class="stall-summary-card">
-              <div class="summary-top">
-                <span class="summary-stall-no">Stall {{ form.number }}</span>
-                <span class="summary-type-tag">{{ form.type || 'Standard Stall' }}</span>
+          <!-- 1. Stall Info Summary Card (Read-only master data) -->
+          <div class="stall-summary-card">
+            <div class="summary-top">
+              <span class="summary-stall-no">Stall {{ form.number }}</span>
+              <span :class="['status-chip', getNormalizedStatus(form.status)]">
+                {{ form.status || 'VACANT' }}
+              </span>
+            </div>
+            <div class="summary-details">
+              <div class="summary-item">
+                <span class="summary-lbl">Section / Type:</span>
+                <strong>{{ form.type || 'Standard Stall' }}</strong>
               </div>
-              <div class="summary-details">
-                <div class="summary-item">
-                  <span class="summary-lbl">Section / Type:</span>
-                  <strong>{{ form.type || 'Standard' }}</strong>
-                </div>
-                <div class="summary-item">
-                  <span class="summary-lbl">Monthly Rent:</span>
-                  <strong class="text-emerald-600">{{ formatCurrency(form.rent) }}</strong>
-                </div>
-                <div v-if="form.info" class="summary-item full">
-                  <span class="summary-lbl">Description:</span>
-                  <span>{{ form.info }}</span>
-                </div>
+              <div class="summary-item">
+                <span class="summary-lbl">Monthly Rent:</span>
+                <strong class="text-emerald-600">{{ formatCurrency(form.rent) }}</strong>
+              </div>
+              <div v-if="form.info" class="summary-item full">
+                <span class="summary-lbl">Description / Notes:</span>
+                <span>{{ form.info }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. OCCUPANT ASSIGNMENT SECTION -->
+          <div class="occupant-section">
+            <div class="section-title">
+              <i class="pi pi-user" style="color: #2563eb;"></i>
+              <span>Occupant Assignment</span>
+            </div>
+
+            <!-- Current Occupant Display -->
+            <div v-if="currentOccupantName && !selectedStakeholder" class="current-occupant-card">
+              <div class="current-occupant-header">
+                <strong>Current Occupant:</strong>
+                <button type="button" class="btn-unassign" @click="unassignCurrentOccupant">
+                  ✕ Remove Occupant
+                </button>
+              </div>
+              <div class="current-occupant-name">
+                <i class="pi pi-user"></i>
+                {{ currentOccupantName }}
               </div>
             </div>
 
-            <!-- OCCUPANT MANAGEMENT -->
-            <div class="occupant-section">
-              <!-- Current Occupant Display -->
-              <div v-if="currentOccupantName && !selectedStakeholder" class="current-occupant-card">
-                <div class="current-occupant-header">
-                  <strong>Current Occupant:</strong>
-                  <button type="button" class="btn-unassign" @click="unassignCurrentOccupant">
-                    ✕ Remove Occupant
-                  </button>
-                </div>
-                <div class="current-occupant-name">
-                  <i class="pi pi-user"></i>
-                  {{ currentOccupantName }}
-                </div>
-              </div>
-
-              <!-- Search/Assign Stakeholder -->
-              <label>
-                {{ currentOccupantName ? 'Reassign to Approved Stakeholder' : 'Assign Approved Stakeholder' }}
-                <div class="search-input-wrap">
-                  <input
-                    v-model="stakeholderSearch"
-                    type="text"
-                    placeholder="Search approved stakeholder by name, business, or contact..."
-                    @focus="isSearchDropdownOpen = true"
-                    @input="onSearchInput"
-                  />
-                  <button
-                    v-if="stakeholderSearch"
-                    type="button"
-                    class="btn-clear-search"
-                    title="Clear search"
-                    @click="clearSearch"
-                  >
-                    ✕
-                  </button>
-                </div>
-              </label>
-
-              <!-- SELECTED STAKEHOLDER DISPLAY -->
-              <div v-if="selectedStakeholder" class="selected-occupant" style="margin-top: 12px;">
-                <div class="selected-occupant-info">
-                  <div class="selected-badge-row">
-                    <span class="selected-tag"><i class="pi pi-check-circle"></i> Ready to Assign & Lease</span>
-                    <span class="badge-approved">Approved Stakeholder</span>
-                  </div>
-                  <div class="selected-occupant-name">
-                    <i class="pi pi-user"></i> {{ getPersonName(selectedStakeholder) }}
-                  </div>
-                  <div class="selected-occupant-biz">
-                    <i class="pi pi-briefcase"></i> {{ selectedStakeholder.businessName || selectedStakeholder.business_name || 'Business Applicant' }}
-                    <span v-if="selectedStakeholder.contact || selectedStakeholder.email">• {{ selectedStakeholder.contact || selectedStakeholder.email }}</span>
-                  </div>
-                </div>
-                <button type="button" class="btn-clear-selection" title="Change stakeholder" @click="clearSearch">
+            <!-- Search/Assign Stakeholder -->
+            <label>
+              {{ currentOccupantName ? 'Reassign to Approved Stakeholder' : 'Assign Approved Stakeholder' }}
+              <div class="search-input-wrap">
+                <input
+                  v-model="stakeholderSearch"
+                  type="text"
+                  placeholder="Search approved stakeholder by name, business, or contact..."
+                  @focus="isSearchDropdownOpen = true"
+                  @input="onSearchInput"
+                />
+                <button
+                  v-if="stakeholderSearch"
+                  type="button"
+                  class="btn-clear-search"
+                  title="Clear search"
+                  @click="clearSearch"
+                >
                   ✕
                 </button>
               </div>
+            </label>
 
-              <!-- AUTOMATIC STALL LEASE CONTRACT NOTICE -->
-              <div v-if="selectedStakeholder" class="contract-generation-note" style="margin-top: 10px; background: #f0fdfa; border: 1px solid #99f6e4; padding: 10px 14px; border-radius: 10px; font-size: 12px; color: #0f766e; display: flex; align-items: flex-start; gap: 8px; line-height: 1.4;">
-                <i class="pi pi-file-edit" style="font-size: 16px; color: #0d9488; margin-top: 1px; flex-shrink: 0;"></i>
-                <div>
-                  <strong>Automatic Lease Contract:</strong> Updating assignment will automatically issue an active municipal lease contract for <strong>{{ getPersonName(selectedStakeholder) }}</strong> on <strong>Stall {{ form.number }}</strong> (<strong>{{ formatCurrency(form.rent) }}/mo</strong>), immediately viewable in <strong>Contracts</strong>.
+            <!-- SELECTED STAKEHOLDER DISPLAY -->
+            <div v-if="selectedStakeholder" class="selected-occupant">
+              <div class="selected-occupant-info">
+                <div class="selected-badge-row">
+                  <span class="selected-tag"><i class="pi pi-check-circle"></i> Ready to Assign</span>
+                  <span class="badge-approved">Approved Stakeholder</span>
+                </div>
+                <div class="selected-occupant-name">
+                  <i class="pi pi-user"></i> {{ getPersonName(selectedStakeholder) }}
+                </div>
+                <div class="selected-occupant-biz">
+                  <i class="pi pi-briefcase"></i> {{ selectedStakeholder.businessName || selectedStakeholder.business_name || 'Business Applicant' }}
+                  <span v-if="selectedStakeholder.contact || selectedStakeholder.email">• {{ selectedStakeholder.contact || selectedStakeholder.email }}</span>
                 </div>
               </div>
+              <button type="button" class="btn-clear-selection" title="Change stakeholder" @click="clearSearch">
+                ✕
+              </button>
+            </div>
 
-              <!-- RESULTS DROPDOWN -->
+            <!-- RESULTS DROPDOWN -->
+            <div
+              v-if="isSearchDropdownOpen"
+              class="stakeholder-results"
+            >
               <div
-                v-if="isSearchDropdownOpen"
-                class="stakeholder-results"
+                v-if="approvedStakeholders.length === 0"
+                class="stakeholder-empty-notice"
               >
-                <div
-                  v-if="approvedStakeholders.length === 0"
-                  class="stakeholder-empty-notice"
-                >
-                  <i class="pi pi-info-circle"></i>
-                  <span>No approved stakeholders found. Stakeholders will appear here once approved by the Market Supervisor under Applications for Approval.</span>
-                </div>
+                <i class="pi pi-info-circle"></i>
+                <span>No approved stakeholders found. Stakeholders will appear here once approved by the Market Supervisor under Applications for Approval.</span>
+              </div>
 
-                <div
-                  v-else-if="filteredStakeholders.length === 0"
-                  class="stakeholder-empty-notice"
-                >
-                  <i class="pi pi-search"></i>
-                  <span>No approved stakeholder matching "{{ stakeholderSearch }}"</span>
-                </div>
+              <div
+                v-else-if="filteredStakeholders.length === 0"
+                class="stakeholder-empty-notice"
+              >
+                <i class="pi pi-search"></i>
+                <span>No approved stakeholder matching "{{ stakeholderSearch }}"</span>
+              </div>
 
-                <div
-                  v-for="person in filteredStakeholders"
-                  v-else
-                  :key="person.id"
-                  class="stakeholder-item"
-                  @click="selectStakeholder(person)"
-                >
-                  <div class="stakeholder-item-top">
-                    <span class="stakeholder-name">{{ getPersonName(person) }}</span>
-                    <span class="badge-approved">Approved</span>
-                  </div>
-                  <div v-if="person.businessName || person.business_name" class="stakeholder-biz">
-                    <i class="pi pi-briefcase"></i> {{ person.businessName || person.business_name }}
-                  </div>
-                  <div v-if="person.contact || person.email" class="stakeholder-contact">
-                    <i class="pi pi-id-card"></i> {{ person.contact || person.email }}
-                  </div>
-                  <div v-if="person.selectedStall" class="stakeholder-pref">
-                    <i class="pi pi-bookmark"></i> Applied for Stall {{ person.selectedStall.stall_no || person.selectedStall.stallNo }}
-                  </div>
+              <div
+                v-for="person in filteredStakeholders"
+                v-else
+                :key="person.id"
+                class="stakeholder-item"
+                @click="selectStakeholder(person)"
+              >
+                <div class="stakeholder-item-top">
+                  <span class="stakeholder-name">{{ getPersonName(person) }}</span>
+                  <span class="badge-approved">Approved</span>
+                </div>
+                <div v-if="person.businessName || person.business_name" class="stakeholder-biz">
+                  <i class="pi pi-briefcase"></i> {{ person.businessName || person.business_name }}
+                </div>
+                <div v-if="person.contact || person.email" class="stakeholder-contact">
+                  <i class="pi pi-id-card"></i> {{ person.contact || person.email }}
+                </div>
+                <div v-if="person.selectedStall" class="stakeholder-pref">
+                  <i class="pi pi-bookmark"></i> Applied for Stall {{ person.selectedStall.stall_no || person.selectedStall.stallNo }}
                 </div>
               </div>
             </div>
 
-            <div class="gm-actions">
-              <button type="button" class="btn-secondary" @click="closeModal">
-                Cancel
-              </button>
-              <button type="submit" class="btn-primary" :disabled="isSaving">
-                {{ isSaving ? 'Saving...' : 'Update Assignment' }}
+            <!-- UPDATE ASSIGNMENT BUTTON -->
+            <div v-if="selectedStakeholder || (initialOccupantName && !currentOccupantName)" style="margin-top: 6px;">
+              <button
+                type="button"
+                class="btn-primary"
+                style="width: 100%; justify-content: center;"
+                :disabled="isSaving"
+                @click="saveStall"
+              >
+                <i class="pi pi-check" :class="{ 'pi-spin': isSaving }"></i>
+                {{ isSaving ? 'Saving Assignment...' : 'Save Occupant Assignment' }}
               </button>
             </div>
-          </form>
+          </div>
+
+          <!-- 3. CONTRACT MANAGEMENT SECTION (IF OCCUPIED) -->
+          <div v-if="isOccupiedStall" class="contract-section">
+            <div class="section-title">
+              <i class="pi pi-file-edit" style="color: #0d9488;"></i>
+              <span>Stall Lease Contract</span>
+            </div>
+
+            <!-- Active Contract Display -->
+            <div v-if="currentStallContract && !isCreatingContract" class="contract-active-card">
+              <div class="contract-card-header">
+                <div class="contract-ref-badge">
+                  <i class="pi pi-file"></i>
+                  <span>{{ currentStallContract.contractNo || currentStallContract.contract_no || 'Active Contract' }}</span>
+                </div>
+                <span class="status-chip active">ACTIVE</span>
+              </div>
+
+              <div class="contract-details-grid">
+                <div class="contract-detail-item">
+                  <span class="lbl">Lessee / Occupant:</span>
+                  <strong>{{ currentStallContract.stakeholderName || currentOccupantName || 'Occupant' }}</strong>
+                </div>
+                <div class="contract-detail-item">
+                  <span class="lbl">Monthly Rent:</span>
+                  <strong class="text-teal-700">{{ formatCurrency(currentStallContract.monthlyRent || currentStallContract.monthly_rent || form.rent) }}</strong>
+                </div>
+                <div class="contract-detail-item">
+                  <span class="lbl">Contract Period:</span>
+                  <span>{{ formatDate(currentStallContract.startDate || currentStallContract.start_date) }} - {{ formatDate(currentStallContract.endDate || currentStallContract.end_date) }}</span>
+                </div>
+                <div class="contract-detail-item">
+                  <span class="lbl">Billing Frequency:</span>
+                  <span>{{ currentStallContract.billingFrequency || currentStallContract.billing_frequency || 'MONTHLY' }}</span>
+                </div>
+              </div>
+
+              <div class="contract-card-actions">
+                <button
+                  type="button"
+                  class="btn-contract-view"
+                  title="Open Contracts Directory for this stall"
+                  @click="viewContractInContracts(form.number)"
+                >
+                  <i class="pi pi-external-link"></i>
+                  View in Contracts
+                </button>
+                <button
+                  type="button"
+                  class="btn-contract-renew"
+                  title="Issue a new or renewed contract for this stall"
+                  @click="openContractForm"
+                >
+                  <i class="pi pi-plus"></i>
+                  Renew / New Contract
+                </button>
+              </div>
+            </div>
+
+            <!-- No Contract Yet Notice & Create Contract Button -->
+            <div v-else-if="!currentStallContract && !isCreatingContract" class="no-contract-card">
+              <div class="no-contract-info">
+                <i class="pi pi-info-circle"></i>
+                <div>
+                  <strong>No Active Contract:</strong> This stall is occupied, but no municipal contract is registered yet.
+                </div>
+              </div>
+              <button
+                type="button"
+                class="btn-create-contract"
+                @click="openContractForm"
+              >
+                <i class="pi pi-plus-circle"></i>
+                📄 Create Contract
+              </button>
+            </div>
+
+            <!-- Inline Contract Creation Form -->
+            <div v-if="isCreatingContract" class="contract-form-card">
+              <div class="contract-form-header">
+                <strong>📄 Create Lease Contract</strong>
+                <button type="button" class="btn-cancel-contract" @click="isCreatingContract = false">✕</button>
+              </div>
+
+              <div class="contract-form-fields">
+                <label>
+                  Contract Reference #
+                  <input
+                    v-model="contractForm.contractNo"
+                    type="text"
+                    placeholder="CTR-XXXX-XXXX"
+                    required
+                  />
+                </label>
+
+                <div class="form-row-2">
+                  <label>
+                    Start Date
+                    <input
+                      v-model="contractForm.startDate"
+                      type="date"
+                      required
+                    />
+                  </label>
+                  <label>
+                    End Date
+                    <input
+                      v-model="contractForm.endDate"
+                      type="date"
+                      required
+                    />
+                  </label>
+                </div>
+
+                <div class="form-row-2">
+                  <label>
+                    Monthly Rent (₱)
+                    <input
+                      v-model.number="contractForm.monthlyRent"
+                      type="number"
+                      min="0"
+                      step="50"
+                      required
+                    />
+                  </label>
+                  <label>
+                    Billing Frequency
+                    <select v-model="contractForm.billingFrequency">
+                      <option value="MONTHLY">Monthly</option>
+                      <option value="QUARTERLY">Quarterly</option>
+                      <option value="SEMI-ANNUALLY">Semi-Annually</option>
+                      <option value="ANNUALLY">Annually</option>
+                    </select>
+                  </label>
+                </div>
+
+                <label>
+                  Terms & Conditions
+                  <textarea
+                    v-model="contractForm.terms"
+                    rows="4"
+                    placeholder="Enter terms and conditions of lease..."
+                  ></textarea>
+                </label>
+
+                <div class="contract-form-actions">
+                  <button
+                    type="button"
+                    class="btn-secondary"
+                    @click="isCreatingContract = false"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-primary"
+                    style="background: #0d9488;"
+                    :disabled="isSavingContract"
+                    @click="saveContractForStall"
+                  >
+                    <i class="pi pi-check" :class="{ 'pi-spin': isSavingContract }"></i>
+                    {{ isSavingContract ? 'Issuing...' : 'Save & Issue Contract' }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer-actions">
+            <button type="button" class="btn-secondary" style="width: 100%;" @click="closeModal">
+              Close
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -357,6 +532,45 @@ const selectedStakeholder = ref(null)
 const currentOccupantName = ref('')
 const initialOccupantName = ref('')
 const isSearchDropdownOpen = ref(false)
+
+// Contracts state in Stall Management
+const existingContracts = ref([])
+const isCreatingContract = ref(false)
+const isSavingContract = ref(false)
+
+const contractForm = ref({
+  contractNo: '',
+  startDate: '',
+  endDate: '',
+  monthlyRent: 0,
+  billingFrequency: 'MONTHLY',
+  terms: ''
+})
+
+const isOccupiedStall = computed(() => {
+  return (
+    !!currentOccupantName.value ||
+    !!selectedStakeholder.value ||
+    String(form.value.status).toUpperCase() === 'OCCUPIED'
+  )
+})
+
+const currentStallContract = computed(() => {
+  if (!form.value.number && !form.value.id) return null
+  const sId = String(form.value.id)
+  const sNo = String(form.value.number).trim().toLowerCase()
+  return (
+    (existingContracts.value || []).find((c) => {
+      const matchId =
+        (c.stallId && String(c.stallId) === sId) ||
+        (c.stall_id && String(c.stall_id) === sId)
+      const matchNo =
+        (c.stallNo && String(c.stallNo).trim().toLowerCase() === sNo) ||
+        (c.stall_no && String(c.stall_no).trim().toLowerCase() === sNo)
+      return (matchId || matchNo) && String(c.status).toUpperCase() !== 'TERMINATED'
+    }) || null
+  )
+})
 
 const form = ref({
   id: null,
@@ -627,8 +841,6 @@ function initializeMap() {
     'Google Satellite': googleSatellite
   }, null, { position: 'topright' }).addTo(map)
 
-
-
   // Global hooks for popup buttons
   window.__editStallById = (stallId) => {
     const target = stalls.value.find((s) => s.id === stallId)
@@ -710,8 +922,9 @@ function getStallInfoContent(stall, index, validStalls) {
       <button
         onclick="window.__editStallById(${stall.id})"
         class="gm-btn-manage"
+        title="View Stall Details, Manage Occupant & Contracts"
       >
-        👤 ${tenant ? 'Manage Occupant' : 'Assign Occupant'}
+        📋 Stall Details
       </button>
 
       ${tenant ? `
@@ -767,8 +980,6 @@ function focusStallOnMap(stall) {
   }
 }
 
-
-
 // Data Fetching
 async function loadStalls() {
   try {
@@ -802,6 +1013,36 @@ async function loadStakeholders() {
   }
 }
 
+async function loadContracts() {
+  try {
+    const response = await api.get('/contracts')
+    if (response && response.data) {
+      existingContracts.value = Array.isArray(response.data) ? response.data : []
+    }
+  } catch (err) {
+    console.warn('[StallManagement] Failed to fetch contracts from backend:', err)
+  }
+
+  // Also read from localStorage to ensure newly issued local contracts are included
+  try {
+    const raw = localStorage.getItem('contracts')
+    if (raw) {
+      const localList = JSON.parse(raw)
+      if (Array.isArray(localList)) {
+        const ids = new Set(
+          existingContracts.value.map((c) => String(c.id || c.contract_no || c.contractNo))
+        )
+        localList.forEach((c) => {
+          const key = String(c.id || c.contract_no || c.contractNo)
+          if (!ids.has(key)) {
+            existingContracts.value.unshift(c)
+          }
+        })
+      }
+    }
+  } catch (_) {}
+}
+
 function resetForm() {
   form.value = {
     id: null,
@@ -818,8 +1059,6 @@ function resetForm() {
   selectedStakeholder.value = null
   currentOccupantName.value = ''
 }
-
-
 
 function editStall(stall) {
   editing.value = stall.id
@@ -842,12 +1081,14 @@ function editStall(stall) {
   stakeholderSearch.value = ''
   selectedStakeholder.value = null
   isSearchDropdownOpen.value = false
+  isCreatingContract.value = false
 
   imagePreview.value = resolveImageUrl(stall.imageUrl)
   showModal.value = true
 
-  // Ensure latest approvals from Market Supervisor are loaded
+  // Ensure latest approvals from Market Supervisor and contracts are loaded
   loadStakeholders()
+  loadContracts()
 }
 
 function closeModal() {
@@ -857,6 +1098,148 @@ function closeModal() {
   currentOccupantName.value = ''
   initialOccupantName.value = ''
   isSearchDropdownOpen.value = false
+  isCreatingContract.value = false
+}
+
+function openContractForm() {
+  const today = new Date()
+  const nextYear = new Date()
+  nextYear.setFullYear(today.getFullYear() + 1)
+  const dateSuffix = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}`
+  const randSuffix = String(Math.floor(1000 + Math.random() * 9000))
+  const stallNo = form.value.number || '00'
+  const rentVal = Number(form.value.rent || 0)
+
+  contractForm.value = {
+    contractNo: `CTR-${stallNo}-${dateSuffix}-${randSuffix}`,
+    startDate: today.toISOString().split('T')[0],
+    endDate: nextYear.toISOString().split('T')[0],
+    monthlyRent: rentVal,
+    billingFrequency: 'MONTHLY',
+    terms: `1. USE OF PREMISES: The LESSEE shall use Stall ${stallNo} exclusively for designated municipal market retail and commercial trade.\n2. RENTAL PAYMENTS: The monthly rental of ₱${rentVal.toLocaleString()} shall be paid on or before the due date specified by the Municipal Treasurer.\n3. SANITATION & MAINTENANCE: The LESSEE shall maintain the stall and surrounding premises clean, sanitary, and compliant with municipal health ordinances.\n4. NON-TRANSFERABILITY: Subleasing, selling, or unauthorized transfer of lease rights is strictly prohibited.\n5. COMPLIANCE: The LESSEE agrees to abide by all market rules, municipal ordinances, and LGU policies.`
+  }
+  isCreatingContract.value = true
+}
+
+async function saveContractForStall() {
+  if (!contractForm.value.contractNo) {
+    alert('Please enter a contract number.')
+    return
+  }
+  if (!contractForm.value.startDate || !contractForm.value.endDate) {
+    alert('Please select contract start and end dates.')
+    return
+  }
+
+  isSavingContract.value = true
+  try {
+    const occupantName =
+      currentOccupantName.value ||
+      (selectedStakeholder.value ? getPersonName(selectedStakeholder.value) : 'Occupant')
+    const stakeholderId = selectedStakeholder.value ? selectedStakeholder.value.id : null
+    const businessName = selectedStakeholder.value
+      ? selectedStakeholder.value.businessName || selectedStakeholder.value.business_name || ''
+      : ''
+
+    const payload = {
+      contractNo: contractForm.value.contractNo,
+      ref: contractForm.value.contractNo,
+      startDate: contractForm.value.startDate,
+      endDate: contractForm.value.endDate,
+      monthlyRent: Number(contractForm.value.monthlyRent || 0),
+      billingFrequency: contractForm.value.billingFrequency || 'MONTHLY',
+      terms: contractForm.value.terms,
+      status: 'ACTIVE',
+      stallId: form.value.id,
+      stallNo: form.value.number,
+      stallType: form.value.type || 'Standard Stall',
+      stakeholderId: stakeholderId,
+      stakeholderName: occupantName,
+      businessName: businessName,
+      occupantId: null
+    }
+
+    try {
+      await api.post('/contracts', payload)
+    } catch (err) {
+      console.warn('[StallManagement] Backend contract post notice:', err)
+    }
+
+    // Update localStorage contracts
+    try {
+      const raw = localStorage.getItem('contracts')
+      let contractList = raw ? JSON.parse(raw) : []
+      if (!Array.isArray(contractList)) contractList = []
+
+      contractList = contractList.filter(
+        (c) =>
+          !(
+            (c.stallId && String(c.stallId) === String(form.value.id)) ||
+            (c.stallNo && String(c.stallNo) === String(form.value.number))
+          )
+      )
+
+      const newContract = {
+        id: Date.now(),
+        ...payload,
+        createdAt: new Date().toISOString()
+      }
+      contractList.unshift(newContract)
+      localStorage.setItem('contracts', JSON.stringify(contractList))
+
+      // Update in-memory existingContracts list
+      existingContracts.value = [
+        newContract,
+        ...existingContracts.value.filter(
+          (c) =>
+            !(
+              (c.stallId && String(c.stallId) === String(form.value.id)) ||
+              (c.stallNo && String(c.stallNo) === String(form.value.number))
+            )
+        )
+      ]
+    } catch (e) {
+      console.warn('[StallManagement] Local storage contract sync note:', e)
+    }
+
+    isCreatingContract.value = false
+
+    const viewNow = confirm(
+      `Lease Contract ${payload.contractNo} has been successfully created and issued for Stall ${form.value.number}!\n\n` +
+        `Lessee: ${occupantName}\n` +
+        `Monthly Rent: ₱${Number(payload.monthlyRent).toLocaleString()}/mo\n` +
+        `Status: ACTIVE\n\n` +
+        `Would you like to view this contract in the Contracts page now?`
+    )
+
+    if (viewNow) {
+      closeModal()
+      router.push({ name: 'MSContracts', query: { q: form.value.number } })
+    }
+  } catch (err) {
+    console.error(err)
+    alert(err.message || 'Failed to create lease contract')
+  } finally {
+    isSavingContract.value = false
+  }
+}
+
+function viewContractInContracts(stallNo) {
+  closeModal()
+  router.push({ name: 'MSContracts', query: { q: stallNo || form.value.number } })
+}
+
+function formatDate(d) {
+  if (!d) return '—'
+  try {
+    return new Date(d).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    })
+  } catch (_) {
+    return d
+  }
 }
 
 async function saveStall() {
@@ -885,75 +1268,74 @@ async function saveStall() {
       await allocateOccupant(targetStallId, stakeholderId)
       await updateStall(targetStallId, { status: 'OCCUPIED' })
 
-      // 2. Automatically generate stall lease contract
-      const today = new Date()
-      const nextYear = new Date()
-      nextYear.setFullYear(today.getFullYear() + 1)
-      const dateSuffix = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}`
-      const randSuffix = String(Math.floor(1000 + Math.random() * 9000))
-      const contractNo = `CON-${stallNo}-${dateSuffix}-${randSuffix}`
+      // 2. Automatically generate baseline stall lease contract if none exists
+      if (!currentStallContract.value) {
+        const today = new Date()
+        const nextYear = new Date()
+        nextYear.setFullYear(today.getFullYear() + 1)
+        const dateSuffix = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}`
+        const randSuffix = String(Math.floor(1000 + Math.random() * 9000))
+        const contractNo = `CON-${stallNo}-${dateSuffix}-${randSuffix}`
 
-      const contractPayload = {
-        contractNo: contractNo,
-        ref: contractNo,
-        startDate: today.toISOString().split('T')[0],
-        endDate: nextYear.toISOString().split('T')[0],
-        monthlyRent: stallRent,
-        billingFrequency: 'MONTHLY',
-        terms: `1. USE OF PREMISES: The LESSEE shall use Stall ${stallNo} exclusively for designated municipal market retail and commercial trade.\n2. RENTAL PAYMENTS: The monthly rental of ₱${stallRent.toLocaleString()} shall be paid on or before the due date specified by the Municipal Treasurer.\n3. SANITATION & MAINTENANCE: The LESSEE shall maintain the stall and surrounding premises clean, sanitary, and compliant with municipal health ordinances.\n4. NON-TRANSFERABILITY: Subleasing, selling, or unauthorized transfer of lease rights is strictly prohibited.\n5. COMPLIANCE: The LESSEE agrees to abide by all market rules, municipal ordinances, and LGU Manticao policies.`,
-        status: 'ACTIVE',
-        stakeholderId: stakeholderId,
-        stakeholderName: stakeholderName,
-        businessName: businessName,
-        stallId: targetStallId,
-        stallNo: stallNo,
-        stallType: stallType,
-        occupantId: null
-      }
+        const contractPayload = {
+          contractNo: contractNo,
+          ref: contractNo,
+          startDate: today.toISOString().split('T')[0],
+          endDate: nextYear.toISOString().split('T')[0],
+          monthlyRent: stallRent,
+          billingFrequency: 'MONTHLY',
+          terms: `1. USE OF PREMISES: The LESSEE shall use Stall ${stallNo} exclusively for designated municipal market retail and commercial trade.\n2. RENTAL PAYMENTS: The monthly rental of ₱${stallRent.toLocaleString()} shall be paid on or before the due date specified by the Municipal Treasurer.\n3. SANITATION & MAINTENANCE: The LESSEE shall maintain the stall and surrounding premises clean, sanitary, and compliant with municipal health ordinances.\n4. NON-TRANSFERABILITY: Subleasing, selling, or unauthorized transfer of lease rights is strictly prohibited.\n5. COMPLIANCE: The LESSEE agrees to abide by all market rules, municipal ordinances, and LGU Manticao policies.`,
+          status: 'ACTIVE',
+          stakeholderId: stakeholderId,
+          stakeholderName: stakeholderName,
+          businessName: businessName,
+          stallId: targetStallId,
+          stallNo: stallNo,
+          stallType: stallType,
+          occupantId: null
+        }
 
-      try {
-        await api.post('/contracts', contractPayload)
-      } catch (err) {
-        console.warn('[StallManagement] Backend contract post notice:', err)
-      }
+        try {
+          await api.post('/contracts', contractPayload)
+        } catch (err) {
+          console.warn('[StallManagement] Backend contract post notice:', err)
+        }
 
-      // Persist into localStorage 'contracts' so Contracts page immediately shows it
-      try {
-        const raw = localStorage.getItem('contracts')
-        let contractList = raw ? JSON.parse(raw) : []
-        if (!Array.isArray(contractList)) contractList = []
+        // Persist into localStorage 'contracts' so Contracts page immediately shows it
+        try {
+          const raw = localStorage.getItem('contracts')
+          let contractList = raw ? JSON.parse(raw) : []
+          if (!Array.isArray(contractList)) contractList = []
 
-        // Remove any outdated active contract for this stall
-        contractList = contractList.filter(c => !(
-          (c.stallId && String(c.stallId) === String(targetStallId)) ||
-          (c.stallNo && String(c.stallNo) === String(stallNo))
-        ))
+          // Remove any outdated active contract for this stall
+          contractList = contractList.filter(
+            (c) =>
+              !(
+                (c.stallId && String(c.stallId) === String(targetStallId)) ||
+                (c.stallNo && String(c.stallNo) === String(stallNo))
+              )
+          )
 
-        contractList.unshift({
-          id: Date.now(),
-          ...contractPayload,
-          createdAt: new Date().toISOString()
-        })
-        localStorage.setItem('contracts', JSON.stringify(contractList))
-      } catch (e) {
-        console.warn('[StallManagement] Local storage contract sync note:', e)
+          contractList.unshift({
+            id: Date.now(),
+            ...contractPayload,
+            createdAt: new Date().toISOString()
+          })
+          localStorage.setItem('contracts', JSON.stringify(contractList))
+        } catch (e) {
+          console.warn('[StallManagement] Local storage contract sync note:', e)
+        }
       }
 
       await loadStalls()
-      closeModal()
+      await loadContracts()
+      currentOccupantName.value = stakeholderName
+      initialOccupantName.value = stakeholderName
+      selectedStakeholder.value = null
+      stakeholderSearch.value = ''
+      form.value.status = 'OCCUPIED'
 
-      const viewNow = confirm(
-        `Stall ${stallNo} successfully assigned to ${stakeholderName}!\n\n` +
-        `Contract Reference: ${contractNo}\n` +
-        `Monthly Rent: ₱${stallRent.toLocaleString()}/month\n` +
-        `Status: ACTIVE\n\n` +
-        `The stall lease contract has been automatically generated and is now listed in Contracts.\n\n` +
-        `Would you like to view this contract in the Contracts page now?`
-      )
-
-      if (viewNow) {
-        router.push({ name: 'MSContracts', query: { q: stallNo } })
-      }
+      alert(`Stall ${stallNo} successfully assigned to ${stakeholderName}!`)
     } else if (initialOccupantName.value && !currentOccupantName.value) {
       // 2. Current occupant removed: unassign and update status as VACANT
       await unassignOccupant(targetStallId)
@@ -963,8 +1345,11 @@ async function saveStall() {
         const raw = localStorage.getItem('contracts')
         if (raw) {
           const list = JSON.parse(raw)
-          list.forEach(c => {
-            if ((c.stallId && String(c.stallId) === String(targetStallId)) || (c.stallNo && String(c.stallNo) === String(form.value.number))) {
+          list.forEach((c) => {
+            if (
+              (c.stallId && String(c.stallId) === String(targetStallId)) ||
+              (c.stallNo && String(c.stallNo) === String(form.value.number))
+            ) {
               c.status = 'TERMINATED'
             }
           })
@@ -973,8 +1358,11 @@ async function saveStall() {
       } catch (_) {}
 
       await loadStalls()
+      await loadContracts()
       closeModal()
-      alert(`Occupant removed from Stall ${form.value.number} and updated as VACANT. Associated contract marked as TERMINATED.`)
+      alert(
+        `Occupant removed from Stall ${form.value.number} and updated as VACANT. Associated contract marked as TERMINATED.`
+      )
     }
   } catch (error) {
     console.error(error)
@@ -1001,7 +1389,7 @@ onMounted(async () => {
   }
 
   // 3. Fetch data
-  await Promise.allSettled([loadStalls(), loadStakeholders()])
+  await Promise.allSettled([loadStalls(), loadStakeholders(), loadContracts()])
 })
 
 onBeforeUnmount(() => {
