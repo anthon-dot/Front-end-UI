@@ -207,7 +207,18 @@ const api = {
     }
 
     // 6. Stakeholders
-    if (cleanUrl === 'stakeholders/for-approval' || cleanUrl === 'stakeholders') {
+    if (cleanUrl === 'stakeholders/for-approval') {
+      const { data, error } = await supabase
+        .from('stakeholders')
+        .select('*, selectedStall:stalls(*), documents:stakeholder_documents(*), occupant:occupants(*, stall:stalls(*)), payments:payments(*)')
+        .or('treasurer_approved.is.null,treasurer_approved.eq.false')
+        .not('application_status', 'in', '("COMPLETED","REJECTED","CANCELLED","FULLY_APPROVED","PENDING_MARKET_SUPERVISOR_APPROVAL","PENDING_BPLO_APPROVAL")')
+        .order('id', { ascending: false });
+      if (error) throw error;
+      return { data: normalizeRecord(data || []) };
+    }
+
+    if (cleanUrl === 'stakeholders') {
       const { data, error } = await supabase
         .from('stakeholders')
         .select('*, selectedStall:stalls(*), documents:stakeholder_documents(*), occupant:occupants(*, stall:stalls(*)), payments:payments(*)')
@@ -283,12 +294,22 @@ const api = {
 
     // 8.1 Contracts
     if (cleanUrl === 'contracts') {
-      const { data, error } = await supabase
-        .from('contracts')
-        .select('*, occupant:occupants(*, stakeholder:stakeholders(*)), stall:stalls(*)')
-        .order('id', { ascending: false });
-      if (error) throw error;
-      return { data: normalizeRecord(data || []) };
+      try {
+        const { data, error } = await supabase
+          .from('contracts')
+          .select('*, occupant:occupants(*, stakeholder:stakeholders(*)), stall:stalls(*)')
+          .order('id', { ascending: false });
+        if (error) throw error;
+        const normalized = normalizeRecord(data || []);
+        if (normalized.length > 0) return { data: normalized };
+      } catch (err) {
+        console.warn('[api.get /contracts] error fetching from supabase:', err);
+      }
+      try {
+        const raw = localStorage.getItem('contracts');
+        if (raw) return { data: JSON.parse(raw) };
+      } catch (_) {}
+      return { data: [] };
     }
 
     if (cleanUrl.startsWith('contracts/')) {
@@ -684,14 +705,39 @@ const api = {
       const stallId = data.stallId || data.stall_id || data.stall?.id || null;
       const stakeholderId = data.stakeholderId || data.stakeholder_id || data.stakeholder?.id || data.occupant?.stakeholder?.id || null;
 
-      if (!occupantId && stallId && stakeholderId) {
+      // 1. Resolve occupant: occupants references stakeholder_id (unique) and stall references occupant_id
+      if (!occupantId && stallId) {
         try {
-          const { data: occ } = await supabase
+          const { data: stallData } = await supabase
+            .from('stalls')
+            .select('occupant_id')
+            .eq('id', Number(stallId))
+            .maybeSingle();
+          if (stallData?.occupant_id) occupantId = stallData.occupant_id;
+        } catch (_) {}
+      }
+
+      if (!occupantId && stakeholderId) {
+        try {
+          const { data: existingOcc } = await supabase
             .from('occupants')
-            .upsert({ stall_id: Number(stallId), stakeholder_id: Number(stakeholderId) }, { onConflict: 'stall_id' })
-            .select()
-            .single();
-          if (occ?.id) occupantId = occ.id;
+            .select('id')
+            .eq('stakeholder_id', Number(stakeholderId))
+            .maybeSingle();
+          if (existingOcc?.id) {
+            occupantId = existingOcc.id;
+          } else {
+            const { data: newOcc } = await supabase
+              .from('occupants')
+              .insert({
+                stakeholder_id: Number(stakeholderId),
+                status: 'ACTIVE',
+                advance_balance: 0
+              })
+              .select('id')
+              .single();
+            if (newOcc?.id) occupantId = newOcc.id;
+          }
         } catch (_) {}
       }
 
@@ -715,9 +761,19 @@ const api = {
           .single();
         if (error) throw error;
 
-        if (stallId) {
+        if (stallId && occupantId) {
+          try {
+            await supabase.from('stalls').update({ status: 'OCCUPIED', occupant_id: Number(occupantId) }).eq('id', Number(stallId));
+          } catch (_) {}
+        } else if (stallId) {
           try {
             await supabase.from('stalls').update({ status: 'OCCUPIED' }).eq('id', Number(stallId));
+          } catch (_) {}
+        }
+
+        if (occupantId && newContract?.id) {
+          try {
+            await supabase.from('occupants').update({ contract_id: newContract.id, status: 'ACTIVE' }).eq('id', Number(occupantId));
           } catch (_) {}
         }
 
@@ -727,15 +783,38 @@ const api = {
           } catch (_) {}
         }
 
-        return { data: normalizeRecord(newContract) };
+        const normalizedContract = normalizeRecord(newContract);
+
+        // Sync localStorage
+        try {
+          const raw = localStorage.getItem('contracts');
+          let localList = raw ? JSON.parse(raw) : [];
+          if (Array.isArray(localList)) {
+            localList = localList.filter(c => String(c.id) !== String(normalizedContract.id) && c.contractNo !== contractNo);
+            localList.unshift(normalizedContract);
+            localStorage.setItem('contracts', JSON.stringify(localList));
+          }
+        } catch (_) {}
+
+        return { data: normalizedContract };
       } catch (insertErr) {
         console.warn('[API] Contracts table insert notice (using fallback):', insertErr.message);
-        const fallbackContract = {
+        const fallbackContract = normalizeRecord({
           id: Date.now(),
           ...insertPayload,
           created_at: new Date().toISOString()
-        };
-        return { data: normalizeRecord(fallbackContract) };
+        });
+
+        try {
+          const raw = localStorage.getItem('contracts');
+          let localList = raw ? JSON.parse(raw) : [];
+          if (Array.isArray(localList)) {
+            localList.unshift(fallbackContract);
+            localStorage.setItem('contracts', JSON.stringify(localList));
+          }
+        } catch (_) {}
+
+        return { data: fallbackContract };
       }
     }
 
@@ -895,25 +974,65 @@ const api = {
     if (cleanUrl.startsWith('contracts/')) {
       const id = cleanUrl.replace('contracts/', '');
       const updatePayload = {};
+      if (data.contractNo !== undefined || data.contract_no !== undefined) updatePayload.contract_no = data.contractNo || data.contract_no;
       if (data.status !== undefined) updatePayload.status = data.status;
       if (data.terms !== undefined) updatePayload.terms = data.terms;
       if (data.startDate !== undefined || data.start_date !== undefined) updatePayload.start_date = data.startDate || data.start_date;
       if (data.endDate !== undefined || data.end_date !== undefined) updatePayload.end_date = data.endDate || data.end_date;
       if (data.monthlyRent !== undefined || data.monthly_rent !== undefined) updatePayload.monthly_rent = data.monthlyRent ?? data.monthly_rent;
       if (data.billingFrequency !== undefined || data.billing_frequency !== undefined) updatePayload.billing_frequency = data.billingFrequency || data.billing_frequency;
+      if (data.stallId !== undefined || data.stall_id !== undefined) updatePayload.stall_id = data.stallId ?? data.stall_id;
+      if (data.occupantId !== undefined || data.occupant_id !== undefined) updatePayload.occupant_id = data.occupantId ?? data.occupant_id;
 
       try {
+        const queryId = !isNaN(Number(id)) ? Number(id) : id;
         const { data: updated, error } = await supabase
           .from('contracts')
           .update(updatePayload)
-          .eq('id', id)
+          .eq('id', queryId)
           .select('*, occupant:occupants(*, stakeholder:stakeholders(*)), stall:stalls(*)')
           .single();
         if (error) throw error;
-        return { data: normalizeRecord(updated) };
+
+        const normalized = normalizeRecord(updated);
+
+        // Keep localStorage contracts in sync
+        try {
+          const raw = localStorage.getItem('contracts');
+          if (raw) {
+            let localContracts = JSON.parse(raw);
+            if (Array.isArray(localContracts)) {
+              const idx = localContracts.findIndex(c => String(c.id) === String(id) || (data.contractNo && (c.contractNo === data.contractNo || c.contract_no === data.contractNo)));
+              if (idx !== -1) {
+                localContracts[idx] = { ...localContracts[idx], ...normalized };
+              } else {
+                localContracts.unshift(normalized);
+              }
+              localStorage.setItem('contracts', JSON.stringify(localContracts));
+            }
+          }
+        } catch (_) {}
+
+        return { data: normalized };
       } catch (putErr) {
         console.warn('[API] Contracts update warning:', putErr.message);
-        return { data: normalizeRecord({ id, ...updatePayload }) };
+        const fallback = normalizeRecord({ id, ...updatePayload });
+
+        try {
+          const raw = localStorage.getItem('contracts');
+          if (raw) {
+            let localContracts = JSON.parse(raw);
+            if (Array.isArray(localContracts)) {
+              const idx = localContracts.findIndex(c => String(c.id) === String(id));
+              if (idx !== -1) {
+                localContracts[idx] = { ...localContracts[idx], ...fallback };
+                localStorage.setItem('contracts', JSON.stringify(localContracts));
+              }
+            }
+          }
+        } catch (_) {}
+
+        return { data: fallback };
       }
     }
 

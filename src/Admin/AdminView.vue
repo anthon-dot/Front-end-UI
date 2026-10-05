@@ -536,7 +536,8 @@ async function loadAdminData() {
       getNotifications(),
       getStallTypes(),
       getRentalRates(),
-      getSystemSettings()
+      getSystemSettings(),
+      getList('/contracts')
     ]);
 
     const getVal = (idx, fallback = []) => results[idx].status === 'fulfilled' ? results[idx].value : fallback;
@@ -552,10 +553,28 @@ async function loadAdminData() {
     const stallTypes = getVal(9, []);
     const rentalRates = getVal(10, []);
     const settings = getVal(11, {});
+    const contracts = getVal(12, []);
+
+    // Also load any contracts from localStorage for parity with MarketSupervisor
+    let localContracts = []
+    try {
+      const raw = localStorage.getItem('contracts')
+      if (raw) localContracts = JSON.parse(raw)
+    } catch (_) {}
+
+    const rawContracts = [...toArray(contracts)]
+    for (const loc of localContracts) {
+      const exists = rawContracts.some(c =>
+        (c.id && loc.id && String(c.id) === String(loc.id)) ||
+        (c.contractNo && loc.contractNo && c.contractNo === loc.contractNo) ||
+        (c.ref && loc.ref && c.ref === loc.ref)
+      )
+      if (!exists) rawContracts.push(loc)
+    }
 
     state.users = toArray(users).map(mapUser)
     state.stalls = toArray(stalls).map(mapStall)
-    state.stakeholders = toArray(stakeholders).map(mapStakeholder)
+    state.stakeholders = toArray(stakeholders).map((s) => mapStakeholder(s, rawContracts, state.stalls))
     state.applications = toArray(applications).map(mapApplication)
     state.payments = toArray(payments).map(mapPayment)
     state.billings = toArray(billings).map(mapBilling)
@@ -565,7 +584,21 @@ async function loadAdminData() {
     state.stallTypes = toArray(stallTypes).map(mapStallType)
     state.rentalRates = toArray(rentalRates).map(mapRentalRate)
     state.settings = settings || {}
-    state.contracts = state.stakeholders.filter((s) => s.contract && s.contract !== 'No contract').map(mapContractFromStakeholder)
+
+    // Combine contracts from backend/localStorage and any active contracts identified on stakeholders
+    const mappedContracts = rawContracts.map(mapContract)
+    for (const s of state.stakeholders) {
+      if (s.contract && s.contract !== 'No contract') {
+        const exists = mappedContracts.some(c =>
+          (c.contractNo && c.contractNo === s.contract) ||
+          (c.stakeholder && c.stakeholder === s.name)
+        )
+        if (!exists) {
+          mappedContracts.push(mapContractFromStakeholder(s))
+        }
+      }
+    }
+    state.contracts = mappedContracts
     settingsForm.value = normalizeSettings(state.settings)
   } catch (error) {
     loadError.value = error.message || 'Unable to load admin records.'
@@ -626,21 +659,121 @@ function mapStall(stall) {
   }
 }
 
-function mapStakeholder(item) {
+function mapStakeholder(item, contractsList = [], stallList = []) {
   const name = item.name || [item.firstName, item.lastName].filter(Boolean).join(' ') || 'Unnamed Stakeholder'
-  const stall = item.occupant?.stall?.stallNo || item.stall?.stallNo || item.stallNo || 'No stall'
-  const contract = item.contractNo || item.contract?.contractNo || item.occupant?.contract?.contractNo || 'No contract'
+  
+  // Resolve stall number
+  let stall = item.occupant?.stall?.stallNo || item.stall?.stallNo || item.stallNo || ''
+  if (!stall && (item.selectedStallId || item.selected_stall_id)) {
+    const sId = item.selectedStallId || item.selected_stall_id
+    const found = (stallList || []).find(st => String(st.id) === String(sId))
+    if (found) stall = found.stallNo || found.stall_no || found.number || ''
+  }
+  const displayStall = stall || 'No stall'
+  const hasStall = Boolean(stall && stall !== 'No stall')
+
+  // Find associated contract
+  const foundContract = (contractsList || []).find((c) => {
+    const cStakeholderId = c.occupant?.stakeholder?.id || c.occupant?.stakeholderId || c.stakeholderId
+    const cOccupantId = c.occupant_id || c.occupantId || c.occupant?.id
+    const cStallId = c.stall_id || c.stallId || c.stall?.id
+    const itemOccupantId = item.occupant?.id || (Array.isArray(item.occupants) ? item.occupants[0]?.id : null)
+    const itemStallId = item.occupant?.stall?.id || item.stall?.id || item.selectedStallId || item.selected_stall_id
+
+    if (cStakeholderId && String(cStakeholderId) === String(item.id)) return true
+    if (itemOccupantId && cOccupantId && String(cOccupantId) === String(itemOccupantId)) return true
+    if (itemStallId && cStallId && String(cStallId) === String(itemStallId)) return true
+    if (item.contractNo && (c.contractNo === item.contractNo || c.ref === item.contractNo)) return true
+    if (stall && (c.stallNo === stall || c.stall?.stallNo === stall)) return true
+    return false
+  })
+
+  let contract = foundContract?.contractNo || foundContract?.contract_no || foundContract?.ref ||
+    item.contractNo || item.contract_no || item.contract?.contractNo || item.occupant?.contract?.contractNo || ''
+
+  // If stakeholder has BPLO approval, is at business permit payment stage, or is a verified tenant with a stall,
+  // they have completed the contract storage stage (Step 5)
+  const hasCompletedContractStage = Boolean(
+    item.bploApproved ||
+    item.bplo_approved ||
+    item.bploStatus === 'APPROVED' ||
+    item.bplo_status === 'APPROVED' ||
+    item.finalEndorsed ||
+    item.final_endorsed ||
+    item.applicationStatus === 'PENDING_BUSINESS_PERMIT_PAYMENT' ||
+    item.application_status === 'PENDING_BUSINESS_PERMIT_PAYMENT' ||
+    item.applicationStatus === 'COMPLETED' ||
+    item.application_status === 'COMPLETED' ||
+    item.applicationStatus === 'FULLY_APPROVED' ||
+    item.application_status === 'FULLY_APPROVED' ||
+    item.verifiedTenant ||
+    item.verified_tenant ||
+    item.onboardingStatus === 'CONTRACT_CREATED' ||
+    item.onboarding_status === 'CONTRACT_CREATED'
+  )
+
+  if (!contract && hasCompletedContractStage && hasStall) {
+    const yr = new Date(item.createdAt || item.dateRegistered || Date.now()).getFullYear()
+    contract = `CON-${stall}-${yr}`
+  }
+
+  // Account Status: indicates whether the user/stakeholder account is active
+  const isExplicitlyDisabled = Boolean(
+    item.status === 'INACTIVE' ||
+    item.status === 'SUSPENDED' ||
+    item.status === 'DISABLED' ||
+    item.user?.status === 'INACTIVE' ||
+    item.user?.status === 'SUSPENDED' ||
+    item.user?.status === 'DISABLED'
+  )
+
+  const isAccountActive = !isExplicitlyDisabled && Boolean(
+    item.status === 'ACTIVE' ||
+    item.user?.status === 'ACTIVE' ||
+    item.verifiedTenant ||
+    item.verified_tenant ||
+    item.verifiedStakeholder ||
+    item.verified_stakeholder ||
+    item.bploApproved ||
+    item.bplo_approved ||
+    item.bploStatus === 'APPROVED' ||
+    item.bplo_status === 'APPROVED' ||
+    item.finalEndorsed ||
+    item.final_endorsed ||
+    item.applicationStatus === 'PENDING_BUSINESS_PERMIT_PAYMENT' ||
+    item.application_status === 'PENDING_BUSINESS_PERMIT_PAYMENT' ||
+    item.applicationStatus === 'APPROVED' ||
+    item.application_status === 'APPROVED' ||
+    item.applicationStatus === 'FULLY_APPROVED' ||
+    item.application_status === 'FULLY_APPROVED' ||
+    item.applicationStatus === 'COMPLETED' ||
+    item.application_status === 'COMPLETED' ||
+    item.treasurerApproved ||
+    item.treasurer_approved ||
+    item.marketSupervisorApproved ||
+    item.market_supervisor_approved
+  )
+
+  const accountStatus = isExplicitlyDisabled ? (item.status || 'INACTIVE') : (isAccountActive ? 'ACTIVE' : (item.status || 'PENDING'))
+
+  // Accurate verification status
+  const isVerified = Boolean(
+    (item.verifiedTenant || item.verified_tenant || item.verifiedStakeholder || item.verified_stakeholder || item.onboardingStatus === 'COMPLETED' || item.applicationStatus === 'FULLY_APPROVED' || item.applicationStatus === 'COMPLETED') ||
+    (Boolean(item.bploApproved || item.bplo_approved) && hasStall)
+  )
+  const isFeePaid = Boolean(item.applicantFeePaid || item.applicant_fee_paid || item.treasurerPaid || item.applicationFormPaid)
+  const verification = isVerified ? 'VERIFIED' : (isFeePaid ? 'FEE_PAID' : 'PENDING')
 
   return {
     ...item,
     name,
     business: item.businessName || item.business || '',
     contact: item.contact || item.contactNo || item.phone || item.mobileNo || '',
-    verification: item.verified || item.verifiedStakeholder || item.verifiedTenant || item.verified_tenant || item.applicantFeePaid || item.applicant_fee_paid || item.treasurerPaid ? 'VERIFIED' : 'PENDING',
-    stall,
-    contract,
+    verification,
+    stall: displayStall,
+    contract: contract || 'No contract',
     registrationDate: formatDate(item.createdAt || item.registrationDate || item.dateRegistered),
-    status: item.applicationStatus || item.status || 'PENDING'
+    status: accountStatus
   }
 }
 
@@ -683,16 +816,42 @@ function mapBilling(item) {
   }
 }
 
+function mapContract(item) {
+  const stakeholder = item.occupant?.stakeholder?.name ||
+    [item.occupant?.stakeholder?.firstName, item.occupant?.stakeholder?.lastName].filter(Boolean).join(' ') ||
+    item.stakeholderName || item.stakeholder || 'Assigned Stakeholder'
+  const business = item.occupant?.stakeholder?.businessName || item.businessName || item.business || ''
+  const stall = item.stall?.stallNo || item.stall?.stall_no || item.stallNo || item.stall || 'Assigned Stall'
+  const contractNo = item.contractNo || item.contract_no || item.ref || (item.id ? `CON-${item.id}` : 'Contract')
+  const startDate = formatDate(item.startDate || item.start_date || item.contractStart || item.createdAt)
+  const endDate = formatDate(item.endDate || item.end_date || item.contractEnd)
+  const rent = money(item.monthlyRent ?? item.monthly_rent ?? item.rent ?? item.occupant?.stall?.monthlyRent ?? 0)
+
+  return {
+    ...item,
+    id: item.id || contractNo,
+    contractNo,
+    stakeholder,
+    business,
+    stall,
+    dateRange: [startDate, endDate].filter(Boolean).join(' - ') || 'Active',
+    startDate: startDate || 'Active',
+    endDate: endDate || 'Ongoing',
+    rent,
+    status: (item.status || 'ACTIVE').toUpperCase()
+  }
+}
+
 function mapContractFromStakeholder(item) {
   return {
     contractNo: item.contract,
     stakeholder: item.name,
     business: item.business,
     stall: item.stall,
-    dateRange: [formatDate(item.contractStart || item.startDate), formatDate(item.contractEnd || item.endDate)].filter(Boolean).join(' - ') || 'Not specified',
-    startDate: formatDate(item.contractStart || item.startDate),
-    endDate: formatDate(item.contractEnd || item.endDate),
-    rent: money(item.monthlyRent || item.occupant?.stall?.monthlyRent),
+    dateRange: [formatDate(item.contractStart || item.startDate), formatDate(item.contractEnd || item.endDate)].filter(Boolean).join(' - ') || 'Active',
+    startDate: formatDate(item.contractStart || item.startDate || item.createdAt) || 'Active',
+    endDate: formatDate(item.contractEnd || item.endDate) || 'Ongoing',
+    rent: money(item.monthlyRent || item.occupant?.stall?.monthlyRent || 0),
     status: item.contractStatus || item.status || 'ACTIVE'
   }
 }
@@ -1064,7 +1223,7 @@ function severity(value) {
   if (['ACTIVE', 'APPROVED', 'PAID', 'SUCCESS', 'OCCUPIED', 'VERIFIED'].includes(normalized)) return 'success'
   if (['PENDING', 'WARNING', 'RESERVED', 'PARTIAL', 'UNPAID'].includes(normalized)) return 'warn'
   if (['REJECTED', 'FAILED', 'OVERDUE', 'DISABLED'].includes(normalized)) return 'danger'
-  if (['VACANT', 'INFO', 'INFORMATION', 'READ', 'UNREAD'].includes(normalized)) return 'info'
+  if (['VACANT', 'INFO', 'INFORMATION', 'READ', 'UNREAD', 'FEE_PAID'].includes(normalized)) return 'info'
   return 'secondary'
 }
 
@@ -1313,7 +1472,11 @@ const MonitoringView = defineComponent({
   setup(props) {
     return () => h(DataTable, { value: props.rows, paginator: true, rows: 10, responsiveLayout: 'scroll', class: 'surface-table readonly-table' }, {
       empty: () => h('div', { class: 'empty-state' }, 'No monitoring records found.'),
-      default: () => props.columns.map(([field, header]) => h(Column, { field, header, sortable: true }, field === 'status' ? { body: ({ data }) => h(StatusTag, { value: data.status }) } : undefined))
+      default: () => props.columns.map(([field, header]) => h(Column, { field, header, sortable: true }, 
+        field === 'status' ? { body: ({ data }) => h(StatusTag, { value: data.status }) } :
+        field === 'verification' ? { body: ({ data }) => h(StatusTag, { value: data.verification }) } :
+        undefined
+      ))
     })
   }
 })

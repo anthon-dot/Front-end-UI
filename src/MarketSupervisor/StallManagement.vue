@@ -299,12 +299,21 @@
                 </button>
                 <button
                   type="button"
+                  class="btn-contract-edit"
+                  title="Edit current lease contract details"
+                  @click="openEditContractForm(currentStallContract)"
+                >
+                  <i class="pi pi-file-edit"></i>
+                  Edit Contract
+                </button>
+                <button
+                  type="button"
                   class="btn-contract-renew"
                   title="Issue a new or renewed contract for this stall"
-                  @click="openContractForm"
+                  @click="openRenewContractForm(currentStallContract)"
                 >
-                  <i class="pi pi-plus"></i>
-                  Renew / New Contract
+                  <i class="pi pi-refresh"></i>
+                  Renew Contract
                 </button>
               </div>
             </div>
@@ -327,10 +336,10 @@
               </button>
             </div>
 
-            <!-- Inline Contract Creation Form -->
+            <!-- Inline Contract Creation / Edit Form -->
             <div v-if="isCreatingContract" class="contract-form-card">
               <div class="contract-form-header">
-                <strong>📄 Create Lease Contract</strong>
+                <strong>📄 {{ isEditingExistingContract ? 'Edit Lease Contract' : 'Create / Renew Lease Contract' }}</strong>
                 <button type="button" class="btn-cancel-contract" @click="isCreatingContract = false">✕</button>
               </div>
 
@@ -613,6 +622,8 @@ const isSearchDropdownOpen = ref(false)
 // Contracts state in Stall Management
 const existingContracts = ref([])
 const isCreatingContract = ref(false)
+const isEditingExistingContract = ref(false)
+const editingContractId = ref(null)
 const isSavingContract = ref(false)
 
 const contractForm = ref({
@@ -1197,6 +1208,8 @@ function closeModal() {
 }
 
 function openContractForm() {
+  isEditingExistingContract.value = false
+  editingContractId.value = null
   const today = new Date()
   const nextYear = new Date()
   nextYear.setFullYear(today.getFullYear() + 1)
@@ -1216,29 +1229,93 @@ function openContractForm() {
   isCreatingContract.value = true
 }
 
+function openEditContractForm(contract) {
+  if (!contract) return openContractForm()
+  isEditingExistingContract.value = true
+  editingContractId.value = contract.id || null
+  contractForm.value = {
+    contractNo: contract.contractNo || contract.contract_no || contract.ref || '',
+    startDate: contract.startDate || contract.start_date || contract.start || '',
+    endDate: contract.endDate || contract.end_date || contract.end || '',
+    monthlyRent: Number(contract.monthlyRent ?? contract.monthly_rent ?? form.value.rent ?? 0),
+    billingFrequency: contract.billingFrequency || contract.billing_frequency || 'MONTHLY',
+    terms: contract.terms || ''
+  }
+  isCreatingContract.value = true
+}
+
+function openRenewContractForm(contract) {
+  isEditingExistingContract.value = false
+  editingContractId.value = null
+  const stallNo = form.value.number || '00'
+  const rentVal = Number(contract?.monthlyRent ?? contract?.monthly_rent ?? form.value.rent ?? 0)
+
+  let startDateStr = ''
+  let endDateStr = ''
+  if (contract?.endDate || contract?.end_date) {
+    const prevEnd = new Date(contract.endDate || contract.end_date)
+    prevEnd.setDate(prevEnd.getDate() + 1)
+    startDateStr = prevEnd.toISOString().split('T')[0]
+    const nextEnd = new Date(prevEnd)
+    nextEnd.setFullYear(nextEnd.getFullYear() + 1)
+    endDateStr = nextEnd.toISOString().split('T')[0]
+  } else {
+    const today = new Date()
+    const nextYear = new Date()
+    nextYear.setFullYear(today.getFullYear() + 1)
+    startDateStr = today.toISOString().split('T')[0]
+    endDateStr = nextYear.toISOString().split('T')[0]
+  }
+
+  const dateSuffix = `${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}`
+  const randSuffix = String(Math.floor(1000 + Math.random() * 9000))
+
+  contractForm.value = {
+    contractNo: `CTR-${stallNo}-${dateSuffix}-${randSuffix}`,
+    startDate: startDateStr,
+    endDate: endDateStr,
+    monthlyRent: rentVal,
+    billingFrequency: contract?.billingFrequency || contract?.billing_frequency || 'MONTHLY',
+    terms: contract?.terms || ''
+  }
+  isCreatingContract.value = true
+}
+
 async function saveContractForStall() {
-  if (!contractForm.value.contractNo) {
-    alert('Please enter a contract number.')
+  if (!contractForm.value.contractNo || !contractForm.value.contractNo.trim()) {
+    alert('Please enter a valid contract reference number.')
     return
   }
   if (!contractForm.value.startDate || !contractForm.value.endDate) {
-    alert('Please select contract start and end dates.')
+    alert('Please select both contract start and end dates.')
+    return
+  }
+  if (new Date(contractForm.value.endDate) <= new Date(contractForm.value.startDate)) {
+    alert('Contract end date must be strictly after the start date.')
+    return
+  }
+  if (isNaN(contractForm.value.monthlyRent) || Number(contractForm.value.monthlyRent) < 0) {
+    alert('Monthly rent must be a valid non-negative amount.')
     return
   }
 
   isSavingContract.value = true
   try {
+    const currentContract = currentStallContract.value
     const occupantName =
       currentOccupantName.value ||
-      (selectedStakeholder.value ? getPersonName(selectedStakeholder.value) : 'Occupant')
-    const stakeholderId = selectedStakeholder.value ? selectedStakeholder.value.id : null
+      (selectedStakeholder.value ? getPersonName(selectedStakeholder.value) : (currentContract?.stakeholderName || 'Occupant'))
+    const stakeholderId = selectedStakeholder.value
+      ? selectedStakeholder.value.id
+      : (currentContract?.stakeholderId || currentContract?.occupant?.stakeholderId || null)
     const businessName = selectedStakeholder.value
-      ? selectedStakeholder.value.businessName || selectedStakeholder.value.business_name || ''
-      : ''
+      ? (selectedStakeholder.value.businessName || selectedStakeholder.value.business_name || '')
+      : (currentContract?.businessName || '')
+    const occupantId = currentContract?.occupantId || currentContract?.occupant_id || (currentContract?.occupant && currentContract.occupant.id) || null
 
     const payload = {
-      contractNo: contractForm.value.contractNo,
-      ref: contractForm.value.contractNo,
+      contractNo: contractForm.value.contractNo.trim(),
+      ref: contractForm.value.contractNo.trim(),
       startDate: contractForm.value.startDate,
       endDate: contractForm.value.endDate,
       monthlyRent: Number(contractForm.value.monthlyRent || 0),
@@ -1251,16 +1328,34 @@ async function saveContractForStall() {
       stakeholderId: stakeholderId,
       stakeholderName: occupantName,
       businessName: businessName,
-      occupantId: null
+      occupantId: occupantId
     }
 
-    try {
-      await api.post('/contracts', payload)
-    } catch (err) {
-      console.warn('[StallManagement] Backend contract post notice:', err)
+    let savedContract = null
+    if (isEditingExistingContract.value && editingContractId.value) {
+      try {
+        const res = await api.put(`/contracts/${editingContractId.value}`, payload)
+        savedContract = res?.data
+      } catch (putErr) {
+        console.warn('[StallManagement] Backend contract update warning:', putErr)
+      }
+    } else {
+      try {
+        const res = await api.post('/contracts', payload)
+        savedContract = res?.data
+      } catch (postErr) {
+        console.warn('[StallManagement] Backend contract post notice:', postErr)
+      }
     }
 
-    // Update localStorage contracts
+    // Synchronize local storage & in-memory contracts
+    const contractToStore = {
+      id: editingContractId.value || savedContract?.id || Date.now(),
+      ...payload,
+      ...(savedContract || {}),
+      updatedAt: new Date().toISOString()
+    }
+
     try {
       const raw = localStorage.getItem('contracts')
       let contractList = raw ? JSON.parse(raw) : []
@@ -1268,25 +1363,20 @@ async function saveContractForStall() {
 
       contractList = contractList.filter(
         (c) =>
+          String(c.id) !== String(contractToStore.id) &&
           !(
             (c.stallId && String(c.stallId) === String(form.value.id)) ||
             (c.stallNo && String(c.stallNo) === String(form.value.number))
           )
       )
-
-      const newContract = {
-        id: Date.now(),
-        ...payload,
-        createdAt: new Date().toISOString()
-      }
-      contractList.unshift(newContract)
+      contractList.unshift(contractToStore)
       localStorage.setItem('contracts', JSON.stringify(contractList))
 
-      // Update in-memory existingContracts list
       existingContracts.value = [
-        newContract,
+        contractToStore,
         ...existingContracts.value.filter(
           (c) =>
+            String(c.id) !== String(contractToStore.id) &&
             !(
               (c.stallId && String(c.stallId) === String(form.value.id)) ||
               (c.stallNo && String(c.stallNo) === String(form.value.number))
@@ -1298,19 +1388,8 @@ async function saveContractForStall() {
     }
 
     isCreatingContract.value = false
-
-    const viewNow = confirm(
-      `Lease Contract ${payload.contractNo} has been successfully created and issued for Stall ${form.value.number}!\n\n` +
-        `Lessee: ${occupantName}\n` +
-        `Monthly Rent: ₱${Number(payload.monthlyRent).toLocaleString()}/mo\n` +
-        `Status: ACTIVE\n\n` +
-        `Would you like to view this contract in the Contracts page now?`
-    )
-
-    if (viewNow) {
-      closeModal()
-      router.push({ name: 'MSContracts', query: { q: form.value.number } })
-    }
+    const actionLabel = isEditingExistingContract.value ? 'updated' : 'created and issued'
+    alert(`Lease Contract ${payload.contractNo} has been successfully ${actionLabel} for Stall ${form.value.number}!`)
   } catch (err) {
     console.error(err)
     alert(err.message || 'Failed to create lease contract')

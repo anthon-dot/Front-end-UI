@@ -347,7 +347,9 @@ async function fetchStakeholders() {
 
   try {
     const response = await api.get('/stakeholders/for-approval')
-    stakeholders.value = response.data
+    const rawList = Array.isArray(response.data) ? response.data : []
+    // Filter strictly to applicants who genuinely await Treasurer approval
+    stakeholders.value = rawList.filter(s => canApprove(s))
   } catch (error) {
     console.error('Failed to fetch stakeholders', error)
     errorMessage.value = error.message || 'Failed to load applicants for approval.'
@@ -366,7 +368,11 @@ function isAdvancePaid(item) {
 }
 
 function canApprove(item) {
-  return !item.treasurerApproved || item.applicationStatus === 'PENDING_TREASURER_APPROVAL' || item.onboardingStatus === 'FOR_APPROVAL'
+  if (!item) return false
+  if (item.treasurerApproved === true || item.treasurer_approved === true) return false
+  const appStatus = String(item.applicationStatus || '').toUpperCase()
+  if (['COMPLETED', 'FULLY_APPROVED', 'REJECTED', 'APPROVED', 'PENDING_MARKET_SUPERVISOR_APPROVAL', 'PENDING_BPLO_APPROVAL'].includes(appStatus)) return false
+  return true
 }
 
 // =========================
@@ -607,6 +613,10 @@ async function approveApplicant(item) {
         } else {
           await api.put(`/stakeholders/${item.id}/approve`)
         }
+        item.treasurerApproved = true
+        item.treasurer_approved = true
+        // Immediately remove approved applicant from current list
+        stakeholders.value = stakeholders.value.filter(s => s.id !== item.id)
         await fetchStakeholders()
         toast.add({
           severity: 'success',
@@ -640,6 +650,7 @@ async function rejectApplicant(item) {
     await api.put(`/stakeholders/${item.id}/reject`, null, {
       params: { remarks: reason }
     })
+    stakeholders.value = stakeholders.value.filter(s => s.id !== item.id)
     await fetchStakeholders()
     toast.add({
       severity: 'warn',

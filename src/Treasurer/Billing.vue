@@ -115,8 +115,9 @@
                     Stall {{ group.stallNo }}
                   </span>
 
-                  <!-- Verified Tenant Tag -->
-                  <Tag value="VERIFIED TENANT" severity="success" rounded class="!text-[10px] !py-0.5 !px-2 font-bold" />
+                  <!-- Verified Tenant Tag (Only for verified profiles with assigned stalls) -->
+                  <Tag v-if="group.stallNo" value="VERIFIED TENANT" severity="success" rounded class="!text-[10px] !py-0.5 !px-2 font-bold" />
+                  <Tag v-else value="APPLICANT" severity="info" rounded class="!text-[10px] !py-0.5 !px-2 font-bold" />
                 </div>
 
                 <p v-if="group.businessName && group.businessName !== group.stakeholder" class="text-xs text-slate-500 font-medium mt-0.5">

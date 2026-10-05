@@ -234,6 +234,15 @@
 										</button>
 
 										<button
+											class="btn-small btn-outline"
+											@click="openEditModal(c)"
+											title="Edit contract terms, rent, and dates"
+										>
+											<i class="pi pi-file-edit"></i>
+											Edit
+										</button>
+
+										<button
 											v-if="String(c.status).toUpperCase() === 'ACTIVE'"
 											class="btn-small btn-danger"
 											@click="terminateContract(c)"
@@ -571,6 +580,114 @@
 					</div>
 				</div>
 			</div>
+
+			<!-- ========================================== -->
+			<!-- EDIT CONTRACT MODAL                        -->
+			<!-- ========================================== -->
+			<div v-if="editModal" class="modal-backdrop" @click.self="closeEditModal">
+				<div class="modal">
+					<div class="modal-header">
+						<div>
+							<h3 class="modal-title">Edit Lease Contract</h3>
+							<p class="modal-subtitle">
+								{{ editForm.contractNo }} • {{ editForm.stakeholderName || 'Assigned Lessee' }}
+							</p>
+						</div>
+						<button class="close-btn" @click="closeEditModal">✕</button>
+					</div>
+
+					<form @submit.prevent="saveEditContract" style="display: flex; flex-direction: column; gap: 14px;">
+						<div>
+							<label style="display: block; font-size: 13px; font-weight: 700; color: #334155; margin-bottom: 5px;">Contract Reference #</label>
+							<input
+								v-model="editForm.contractNo"
+								type="text"
+								required
+								style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 14px;"
+							/>
+						</div>
+
+						<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+							<div>
+								<label style="display: block; font-size: 13px; font-weight: 700; color: #334155; margin-bottom: 5px;">Start Date</label>
+								<input
+									v-model="editForm.startDate"
+									type="date"
+									required
+									style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 14px;"
+								/>
+							</div>
+							<div>
+								<label style="display: block; font-size: 13px; font-weight: 700; color: #334155; margin-bottom: 5px;">End Date</label>
+								<input
+									v-model="editForm.endDate"
+									type="date"
+									required
+									style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 14px;"
+								/>
+							</div>
+						</div>
+
+						<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+							<div>
+								<label style="display: block; font-size: 13px; font-weight: 700; color: #334155; margin-bottom: 5px;">Monthly Rent (₱)</label>
+								<input
+									v-model.number="editForm.monthlyRent"
+									type="number"
+									min="0"
+									step="50"
+									required
+									style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 14px;"
+								/>
+							</div>
+							<div>
+								<label style="display: block; font-size: 13px; font-weight: 700; color: #334155; margin-bottom: 5px;">Billing Frequency</label>
+								<select
+									v-model="editForm.billingFrequency"
+									style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 14px; background: #fff;"
+								>
+									<option value="MONTHLY">Monthly</option>
+									<option value="QUARTERLY">Quarterly</option>
+									<option value="SEMI-ANNUALLY">Semi-Annually</option>
+									<option value="ANNUALLY">Annually</option>
+								</select>
+							</div>
+						</div>
+
+						<div>
+							<label style="display: block; font-size: 13px; font-weight: 700; color: #334155; margin-bottom: 5px;">Contract Status</label>
+							<select
+								v-model="editForm.status"
+								style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 14px; background: #fff;"
+							>
+								<option value="ACTIVE">ACTIVE</option>
+								<option value="EXPIRED">EXPIRED</option>
+								<option value="TERMINATED">TERMINATED</option>
+							</select>
+						</div>
+
+						<div>
+							<label style="display: block; font-size: 13px; font-weight: 700; color: #334155; margin-bottom: 5px;">Terms & Conditions</label>
+							<textarea
+								v-model="editForm.terms"
+								rows="5"
+								style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-family: inherit; line-height: 1.5;"
+								placeholder="Contract terms and conditions..."
+							></textarea>
+						</div>
+
+						<div class="modal-actions" style="margin-top: 10px;">
+							<button type="submit" class="btn-primary" :disabled="isSavingEdit">
+								<i class="pi pi-check" :class="{ 'pi-spin': isSavingEdit }"></i>
+								{{ isSavingEdit ? 'Saving...' : 'Save Changes' }}
+							</button>
+							<button type="button" class="btn-secondary" @click="closeEditModal">
+								Cancel
+							</button>
+						</div>
+					</form>
+				</div>
+			</div>
 		</main>
 	</div>
 </template>
@@ -597,6 +714,21 @@ const isLoading = ref(false)
 const stakeholders = ref([])
 const stalls = ref([])
 const contracts = ref([])
+
+// Edit Contract Modal State
+const editModal = ref(false)
+const editingContract = ref(null)
+const isSavingEdit = ref(false)
+const editForm = ref({
+	contractNo: '',
+	startDate: '',
+	endDate: '',
+	monthlyRent: 0,
+	billingFrequency: 'MONTHLY',
+	status: 'ACTIVE',
+	terms: '',
+	stakeholderName: ''
+})
 
 const viewModal = ref(false)
 const current = ref(null)
@@ -989,6 +1121,85 @@ function closeView() {
 	viewModal.value = false
 	selectedContract.value = null
 	viewContractsList.value = []
+}
+
+function openEditModal(contract) {
+	editingContract.value = contract
+	editForm.value = {
+		contractNo: contract.contractNo || contract.contract_no || contract.ref || '',
+		startDate: contract.startDate || contract.start_date || contract.start || '',
+		endDate: contract.endDate || contract.end_date || contract.end || '',
+		monthlyRent: Number(contract.monthlyRent ?? contract.monthly_rent ?? 0),
+		billingFrequency: contract.billingFrequency || contract.billing_frequency || 'MONTHLY',
+		status: (contract.status || 'ACTIVE').toUpperCase(),
+		terms: contract.terms || defaultTerms,
+		stakeholderName: contract.stakeholderName || getStakeholderFullName(getContractStakeholder(contract)) || ''
+	}
+	editModal.value = true
+}
+
+function closeEditModal() {
+	editModal.value = false
+	editingContract.value = null
+}
+
+async function saveEditContract() {
+	if (!editForm.value.contractNo || !editForm.value.contractNo.trim()) {
+		alert('Please enter a valid contract reference number.')
+		return
+	}
+	if (!editForm.value.startDate || !editForm.value.endDate) {
+		alert('Please select both contract start and end dates.')
+		return
+	}
+	if (new Date(editForm.value.endDate) <= new Date(editForm.value.startDate)) {
+		alert('Contract End Date must be after Start Date.')
+		return
+	}
+	if (isNaN(editForm.value.monthlyRent) || Number(editForm.value.monthlyRent) < 0) {
+		alert('Monthly rent must be a valid non-negative amount.')
+		return
+	}
+
+	isSavingEdit.value = true
+	try {
+		const c = editingContract.value
+		const payload = {
+			contractNo: editForm.value.contractNo.trim(),
+			ref: editForm.value.contractNo.trim(),
+			startDate: editForm.value.startDate,
+			endDate: editForm.value.endDate,
+			monthlyRent: Number(editForm.value.monthlyRent || 0),
+			billingFrequency: editForm.value.billingFrequency || 'MONTHLY',
+			status: editForm.value.status || 'ACTIVE',
+			terms: editForm.value.terms
+		}
+
+		if (c?.id) {
+			try {
+				await api.put(`/contracts/${c.id}`, payload)
+			} catch (err) {
+				console.warn('Backend contract update warning:', err)
+			}
+		}
+
+		// Update in-memory contract object
+		Object.assign(c, payload)
+		c.contract_no = payload.contractNo
+		c.start_date = payload.startDate
+		c.end_date = payload.endDate
+		c.monthly_rent = payload.monthlyRent
+		c.billing_frequency = payload.billingFrequency
+
+		saveContractsToStorage()
+		closeEditModal()
+		alert(`Contract ${payload.contractNo} updated successfully!`)
+	} catch (err) {
+		console.error(err)
+		alert(`Failed to update contract: ${err.message || err}`)
+	} finally {
+		isSavingEdit.value = false
+	}
 }
 
 async function terminateContract(contract) {

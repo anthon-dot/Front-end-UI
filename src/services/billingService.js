@@ -13,8 +13,8 @@ export async function ensureBillingsForVerifiedTenants() {
   try {
     const { data: verifiedStakeholders, error: stErr } = await supabase
       .from('stakeholders')
-      .select('*, occupant:occupants(*)')
-      .or('verified_tenant.eq.true,verified_stakeholder.eq.true,applicant_fee_paid.eq.true')
+      .select('*, occupant:occupants(*, stall:stalls(*))')
+      .eq('verified_tenant', true)
 
     if (stErr) {
       console.warn('[billingService] Error fetching verified stakeholders:', stErr)
@@ -240,20 +240,12 @@ export async function fetchBillings() {
 
   if (error) throw error
 
-  // 3. Filter to verified tenants only
+  // 3. Filter to valid tenant billings (must have occupant with stall or verified tenant profile)
   const verifiedBillings = (data || []).filter(b => {
     const s = b.occupant?.stakeholder
-    if (!s) return true
-    return Boolean(
-      s.verified_tenant ||
-      s.verifiedTenant ||
-      s.verified_stakeholder ||
-      s.verifiedStakeholder ||
-      s.applicant_fee_paid ||
-      s.applicantFeePaid ||
-      s.treasurer_paid ||
-      s.treasurerPaid
-    )
+    const hasStall = Boolean(b.occupant?.stall || b.contract?.stall || b.stallNo || b.stall_no)
+    if (!s) return hasStall
+    return Boolean((s.verified_tenant || s.verifiedTenant || s.onboarding_status === 'COMPLETED') && hasStall)
   })
 
   return verifiedBillings.map(normalizeRecord)

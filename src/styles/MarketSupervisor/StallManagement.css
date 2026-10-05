@@ -1259,6 +1259,25 @@ tr:hover td {
   background: #ccfbf1;
 }
 
+.btn-contract-edit {
+  background: #f8fafc;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s;
+}
+
+.btn-contract-edit:hover {
+  background: #e2e8f0;
+}
+
 .no-contract-card {
   background: #fffbeb;
   border: 1px solid #fef3c7;

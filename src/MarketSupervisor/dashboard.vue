@@ -463,11 +463,18 @@ async function loadApplications() {
 
 function canApprove(app) {
   if (!app) return false
-  const isPending = (app.marketApprovalStatus || 'PENDING') === 'PENDING'
+  // If already approved by Market Supervisor or forwarded downstream, not pending
+  if (app.marketSupervisorApproved === true || app.market_supervisor_approved === true) return false
+  if (String(app.marketApprovalStatus || '').toUpperCase() === 'APPROVED') return false
+  const appStatus = String(app.applicationStatus || '').toUpperCase()
+  if (['APPROVED', 'PENDING_BPLO_APPROVAL', 'COMPLETED', 'FULLY_APPROVED', 'REJECTED'].includes(appStatus)) return false
+
+  const isPending = String(app.marketApprovalStatus || 'PENDING').toUpperCase() === 'PENDING'
   const hasPaid = app.advancePayment === true || 
                   app.advancePaymentPaid === true || 
                   app.advancePaymentCompleted === true || 
                   app.treasurerApproved === true ||
+                  app.treasurer_approved === true ||
                   (Array.isArray(app.payments) && app.payments.some(p => p.paymentType === 'ADVANCE_PAYMENT' || p.payment_type === 'ADVANCE_PAYMENT'))
   return isPending && hasPaid
 }
@@ -483,24 +490,19 @@ const pendingApplicants = computed(() => {
 // =========================
 
 const totalCount = computed(() => {
-
   return applications.value.length
-
 })
 
 const pendingCount = computed(() => {
-
-  return applications.value.filter(app => {
-
-    return (app.marketApprovalStatus || 'PENDING') === 'PENDING'
-
-  }).length
-
+  return applications.value.filter(app => canApprove(app)).length
 })
 
 const approvedCount = computed(() => {
   return applications.value.filter(app => {
-    return (app.marketApprovalStatus || 'PENDING') === 'APPROVED'
+    return app.marketSupervisorApproved === true || 
+           app.market_supervisor_approved === true || 
+           String(app.marketApprovalStatus || '').toUpperCase() === 'APPROVED' ||
+           ['PENDING_BPLO_APPROVAL', 'APPROVED', 'COMPLETED', 'FULLY_APPROVED'].includes(String(app.applicationStatus || '').toUpperCase())
   }).length
 })
 
