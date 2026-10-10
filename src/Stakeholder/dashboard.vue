@@ -49,14 +49,14 @@
               <div class="hero-chips">
                 <span class="hero-chip success">
                   <i class="pi pi-verified"></i>
-                  {{ isVerified ? 'Verified Stakeholder' : (stakeholderProfile?.status || 'Active Renter') }}
+                  {{ isVerified ? 'Verified Stakeholder' : (formatDisplayStatus(stakeholderProfile?.status) || 'Active Renter') }}
                 </span>
 
                 <span class="hero-chip accent" v-if="assignedStallNo">
                   <i class="pi pi-shop"></i>
                   Stall {{ assignedStallNo }}
                 </span>
-                <span class="hero-chip" v-else>
+                <span class="hero-chip warning" v-else>
                   <i class="pi pi-clock"></i>
                   Awaiting Stall Assignment
                 </span>
@@ -64,6 +64,11 @@
                 <span class="hero-chip" v-if="stallSection">
                   <i class="pi pi-map-marker"></i>
                   {{ stallSection }}
+                </span>
+
+                <span class="hero-chip" :class="contractStatusSeverity === 'success' ? 'success' : (contractStatusSeverity === 'warn' ? 'warning' : 'info')" v-if="contractStatus">
+                  <i class="pi pi-file-check"></i>
+                  Contract: {{ contractStatus }}
                 </span>
               </div>
             </div>
@@ -146,7 +151,7 @@
           <div class="metric-caption">
             <Tag
               :value="contractStatus"
-              :severity="contractStatus === 'Active' ? 'success' : 'info'"
+              :severity="contractStatusSeverity"
               size="small"
             />
             <span v-if="contractEndDate">Expires {{ formatDate(contractEndDate) }}</span>
@@ -619,7 +624,7 @@
           <div class="detail-item">
             <span class="detail-label">Contract Status</span>
             <span class="detail-val">
-              <Tag :value="contractStatus" :severity="contractStatus === 'Active' ? 'success' : 'info'" size="small" />
+              <Tag :value="contractStatus" :severity="contractStatusSeverity" size="small" />
             </span>
           </div>
 
@@ -989,24 +994,97 @@ const isVerified = computed(() => {
   return !!(st?.verified_tenant || st?.verifiedTenant || st?.verified_stakeholder || st?.verifiedStakeholder || st?.status === 'VERIFIED' || st?.status === 'APPROVED')
 })
 
+// Safely extract a clean string for stall designation (prevents raw object stringification)
+function extractStallNumber(stall) {
+  if (!stall) return ''
+  if (typeof stall === 'string' || typeof stall === 'number') {
+    const s = String(stall).trim()
+    return s.replace(/^Stall\s*/i, '').trim()
+  }
+  if (typeof stall === 'object') {
+    if (Array.isArray(stall)) return extractStallNumber(stall[0])
+    const candidate = stall.stallNo ||
+      stall.stall_no ||
+      stall.stallNumber ||
+      stall.stall_number ||
+      stall.number ||
+      stall.stallCode ||
+      stall.stall_code ||
+      stall.code ||
+      stall.name ||
+      stall.stall
+    if (candidate && typeof candidate === 'object') {
+      return extractStallNumber(candidate)
+    }
+    if (candidate) {
+      return String(candidate).replace(/^Stall\s*/i, '').trim()
+    }
+    if (stall.id) {
+      return String(stall.id)
+    }
+  }
+  return ''
+}
+
+// Safely format status strings (prevents raw object stringification)
+function formatDisplayStatus(val) {
+  if (!val) return ''
+  if (typeof val === 'string') {
+    const trimmed = val.trim()
+    const upper = trimmed.toUpperCase()
+    if (upper === 'ACTIVE') return 'Active'
+    if (upper === 'PENDING') return 'Pending'
+    if (upper === 'EXPIRED') return 'Expired'
+    if (upper === 'TERMINATED') return 'Terminated'
+    if (upper === 'VERIFIED') return 'Verified'
+    if (upper === 'APPROVED') return 'Approved'
+    return trimmed
+  }
+  if (typeof val === 'object') {
+    if (Array.isArray(val)) return formatDisplayStatus(val[0])
+    const candidate = val.status || val.contractStatus || val.contract_status || val.name || val.label || val.value
+    if (candidate && typeof candidate === 'object') {
+      return formatDisplayStatus(candidate)
+    }
+    if (candidate) return formatDisplayStatus(candidate)
+  }
+  return ''
+}
+
 const assignedStallNo = computed(() => {
-  return assignedStall.value?.stallNo ||
-    assignedStall.value?.stall_no ||
-    assignedStall.value?.number ||
-    stakeholderProfile.value?.stallNo ||
-    stakeholderProfile.value?.stall ||
-    (isVerified.value ? 'A-12' : null)
+  const fromAssigned = extractStallNumber(assignedStall.value)
+  if (fromAssigned) return fromAssigned
+
+  const fromProfileStallNo = extractStallNumber(stakeholderProfile.value?.stallNo)
+  if (fromProfileStallNo) return fromProfileStallNo
+
+  const fromProfileStall = extractStallNumber(stakeholderProfile.value?.stall)
+  if (fromProfileStall) return fromProfileStall
+
+  const fromOccupant = extractStallNumber(assignedOccupant.value?.stall)
+  if (fromOccupant) return fromOccupant
+
+  const fromContract = extractStallNumber(activeContractRecord.value?.stall) ||
+    extractStallNumber(activeContractRecord.value?.stallNo) ||
+    extractStallNumber(activeContractRecord.value?.stall_no)
+  if (fromContract) return fromContract
+
+  return isVerified.value ? 'A-12' : null
 })
 
 const stallSection = computed(() => {
-  return assignedStall.value?.section ||
+  const sec = assignedStall.value?.section ||
     assignedStall.value?.info ||
-    assignedStall.value?.stallType ||
-    'Dry Goods & Commercial Zone'
+    assignedStall.value?.marketSection ||
+    assignedStall.value?.market_section
+  if (sec && typeof sec === 'string') return sec
+  return 'Dry Goods & Commercial Zone'
 })
 
 const stallType = computed(() => {
-  return assignedStall.value?.stallType || assignedStall.value?.stall_type || 'Standard Commercial Stall'
+  const typ = assignedStall.value?.stallType || assignedStall.value?.stall_type
+  if (typ && typeof typ === 'string') return typ
+  return 'Standard Commercial Stall'
 })
 
 const monthlyRentRate = computed(() => {
@@ -1049,8 +1127,29 @@ const formattedNextDueDate = computed(() => {
 })
 
 const contractStatus = computed(() => {
-  if (activeContractRecord.value?.status) return activeContractRecord.value.status
+  const fromActive = formatDisplayStatus(activeContractRecord.value?.status) ||
+    formatDisplayStatus(activeContractRecord.value?.contractStatus) ||
+    formatDisplayStatus(activeContractRecord.value?.contract_status)
+  if (fromActive) return fromActive
+
+  const fromContractsList = contractsList.value.length > 0
+    ? formatDisplayStatus(contractsList.value[0]?.status)
+    : ''
+  if (fromContractsList) return fromContractsList
+
+  const fromProfile = formatDisplayStatus(stakeholderProfile.value?.contractStatus) ||
+    formatDisplayStatus(stakeholderProfile.value?.contract_status)
+  if (fromProfile) return fromProfile
+
   return isVerified.value ? 'Active' : 'Pending'
+})
+
+const contractStatusSeverity = computed(() => {
+  const s = String(contractStatus.value || '').toUpperCase()
+  if (['ACTIVE', 'VERIFIED', 'APPROVED'].includes(s)) return 'success'
+  if (['PENDING', 'FOR_APPROVAL'].includes(s)) return 'warn'
+  if (['EXPIRED', 'TERMINATED', 'CANCELLED', 'REJECTED'].includes(s)) return 'danger'
+  return 'info'
 })
 
 const contractStartDate = computed(() => {
@@ -1150,9 +1249,11 @@ async function loadAllData(background = false) {
     const occ = Array.isArray(stData.occupant) ? stData.occupant[0] : stData.occupant
     if (occ) {
       assignedOccupant.value = occ
-      if (occ.stall) assignedStall.value = occ.stall
+      const rawStall = Array.isArray(occ.stall) ? occ.stall[0] : occ.stall
+      if (rawStall) assignedStall.value = typeof rawStall === 'object' ? normalizeRecord(rawStall) : rawStall
     } else if (stData.stall) {
-      assignedStall.value = stData.stall
+      const rawStall = Array.isArray(stData.stall) ? stData.stall[0] : stData.stall
+      assignedStall.value = typeof rawStall === 'object' ? normalizeRecord(rawStall) : rawStall
     } else {
       // Default sample stall for verified stakeholder
       assignedStall.value = {
@@ -1260,6 +1361,13 @@ async function loadAllData(background = false) {
         .from('contracts')
         .select('*')
         .eq('occupant_id', occ.id)
+      if (cData && cData.length > 0) contracts = cData.map(normalizeRecord)
+    }
+    if (contracts.length === 0 && stId) {
+      const { data: cData } = await supabase
+        .from('contracts')
+        .select('*')
+        .eq('stakeholder_id', stId)
       if (cData && cData.length > 0) contracts = cData.map(normalizeRecord)
     }
 

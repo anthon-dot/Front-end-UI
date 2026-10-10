@@ -34,17 +34,35 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+
 const props = defineProps({ notifications: { type: Array, default: () => [] } })
-const emits = defineEmits(['mark-read','mark-all'])
+const emits = defineEmits(['mark-read', 'mark-all'])
+
 const open = ref(false)
-function toggle(){ open.value = !open.value }
+function toggle() { open.value = !open.value }
+
+function closeOnClickOutside(e) {
+  if (open.value && !e.target.closest('.notification')) {
+    open.value = false
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('click', closeOnClickOutside)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('click', closeOnClickOutside)
+})
+
 const normalizedNotifications = computed(() => (props.notifications || []).map((n) => ({
   ...n,
   read: n.read ?? n.isRead ?? false,
   date: n.date || (n.createdAt ? new Date(n.createdAt).toLocaleString() : '')
 })))
-const unreadCount = computed(()=> normalizedNotifications.value.filter(n => !n.read).length)
+
+const unreadCount = computed(() => normalizedNotifications.value.filter(n => !n.read).length)
 </script>
 
 <style scoped src="../styles/components/Notification.css"></style>
