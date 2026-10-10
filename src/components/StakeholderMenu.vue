@@ -138,13 +138,51 @@ const items = [
     id: 'dashboard',
     label: 'Dashboard',
     icon: 'pi pi-home',
-    route: '/stakeholder'
+    route: '/stakeholder',
+    section: 'overview'
+  },
+  {
+    id: 'stall',
+    label: 'My Stall',
+    icon: 'pi pi-shop',
+    section: 'stall'
+  },
+  {
+    id: 'billing',
+    label: 'Billing & Statements',
+    icon: 'pi pi-receipt',
+    section: 'billing'
   },
   {
     id: 'payments',
     label: 'Payment History',
     icon: 'pi pi-wallet',
-    route: '/stakeholder/payments'
+    route: '/stakeholder/payments',
+    section: 'payments'
+  },
+  {
+    id: 'contract',
+    label: 'My Contract',
+    icon: 'pi pi-file-check',
+    section: 'contracts'
+  },
+  {
+    id: 'documents',
+    label: 'My Documents',
+    icon: 'pi pi-folder',
+    section: 'documents'
+  },
+  {
+    id: 'notifications',
+    label: 'Notifications',
+    icon: 'pi pi-bell',
+    section: 'notifications'
+  },
+  {
+    id: 'profile',
+    label: 'My Profile',
+    icon: 'pi pi-user',
+    section: 'profile'
   },
   {
     id: 'settings',
@@ -170,10 +208,27 @@ const navigate = (item) => {
   if (isMobile.value) {
     closeMobile()
   }
-  router.push(item.route)
+  if (item.section) {
+    if (route.path === '/stakeholder') {
+      router.replace({ path: '/stakeholder', query: { section: item.section } })
+    } else {
+      router.push({ path: '/stakeholder', query: { section: item.section } })
+    }
+  } else if (item.route) {
+    router.push(item.route)
+  }
 }
 
 const isActive = (item) => {
+  if (item.id === 'dashboard') {
+    return route.path === '/stakeholder' && (!route.query.section || route.query.section === 'overview')
+  }
+  if (item.section) {
+    return route.path === '/stakeholder' && route.query.section === item.section
+  }
+  if (item.id === 'payments') {
+    return route.path === '/stakeholder/payments' || (route.path === '/stakeholder' && route.query.section === 'payments')
+  }
   return route.path === item.route
 }
 
