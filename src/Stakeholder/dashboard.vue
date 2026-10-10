@@ -66,7 +66,14 @@
                   {{ stallSection }}
                 </span>
 
-                <span class="hero-chip" :class="contractStatusSeverity === 'success' ? 'success' : (contractStatusSeverity === 'warn' ? 'warning' : 'info')" v-if="contractStatus">
+                <!-- Occupant Status -->
+                <span class="hero-chip" :class="occupantStatusSeverity === 'success' ? 'success' : (occupantStatusSeverity === 'warn' ? 'warning' : 'info')">
+                  <i class="pi pi-user-check"></i>
+                  Occupant: {{ occupantStatus }}
+                </span>
+
+                <!-- Contract Status -->
+                <span class="hero-chip" :class="contractStatusSeverity === 'success' ? 'success' : (contractStatusSeverity === 'warn' ? 'warning' : 'secondary')">
                   <i class="pi pi-file-check"></i>
                   Contract: {{ contractStatus }}
                 </span>
@@ -141,7 +148,7 @@
         <div class="metric-card">
           <div class="metric-top">
             <span class="metric-label">Contract Status</span>
-            <div class="metric-icon-wrap icon-emerald">
+            <div class="metric-icon-wrap" :class="contractStatusSeverity === 'success' ? 'icon-emerald' : (contractStatusSeverity === 'warn' ? 'icon-amber' : 'icon-blue')">
               <i class="pi pi-file-check"></i>
             </div>
           </div>
@@ -154,7 +161,8 @@
               :severity="contractStatusSeverity"
               size="small"
             />
-            <span v-if="contractEndDate">Expires {{ formatDate(contractEndDate) }}</span>
+            <span v-if="hasContract && contractEndDate">Expires {{ formatDate(contractEndDate) }}</span>
+            <span v-else-if="!hasContract" style="color: #64748b;">No contract record</span>
           </div>
         </div>
 
@@ -290,9 +298,15 @@
                 <span class="detail-val">{{ stakeholderProfile?.contact || '0917-000-0000' }}</span>
               </div>
               <div class="detail-item">
-                <span class="detail-label">Account Status</span>
+                <span class="detail-label">Occupant Status</span>
                 <span class="detail-val">
-                  <Tag :value="isVerified ? 'VERIFIED' : 'ACTIVE'" severity="success" size="small" />
+                  <Tag :value="occupantStatus" :severity="occupantStatusSeverity" size="small" />
+                </span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Contract Status</span>
+                <span class="detail-val">
+                  <Tag :value="contractStatus" :severity="contractStatusSeverity" size="small" />
                 </span>
               </div>
             </div>
@@ -606,18 +620,28 @@
             <p class="panel-sub">Official contract with the Municipality of Manticao</p>
           </div>
           <Button
+            v-if="hasContract"
             label="View Full Contract Agreement"
             icon="pi pi-eye"
             size="small"
             @click="openContractModal(activeContractRecord)"
           />
+          <Tag v-else value="No Contract Created" severity="secondary" size="small" />
+        </div>
+
+        <div v-if="!hasContract" class="notice-callout warning" style="margin-bottom: 1.5rem;">
+          <i class="pi pi-info-circle"></i>
+          <div>
+            <strong>No Contract Generated Yet:</strong>
+            An official municipal lease contract has not been generated for this stall assignment yet. Once the Market Supervisor approves and drafts your agreement, the contract details and terms will appear here.
+          </div>
         </div>
 
         <div class="detail-grid" style="margin-bottom: 1.5rem;">
           <div class="detail-item">
             <span class="detail-label">Contract Reference</span>
             <span class="detail-val" style="color: #2563eb;">
-              {{ activeContractRecord?.contractNo || activeContractRecord?.ref || 'MC-2026-A12' }}
+              {{ activeContractRecord?.contractNo || activeContractRecord?.ref || (hasContract ? 'MC-RECORDED' : 'Not Generated') }}
             </span>
           </div>
 
@@ -629,13 +653,20 @@
           </div>
 
           <div class="detail-item">
+            <span class="detail-label">Occupant Status</span>
+            <span class="detail-val">
+              <Tag :value="occupantStatus" :severity="occupantStatusSeverity" size="small" />
+            </span>
+          </div>
+
+          <div class="detail-item">
             <span class="detail-label">Commencement Date</span>
-            <span class="detail-val">{{ formatDate(contractStartDate) || 'October 1, 2026' }}</span>
+            <span class="detail-val">{{ formatDate(contractStartDate) || (hasContract ? 'Not specified' : 'N/A') }}</span>
           </div>
 
           <div class="detail-item">
             <span class="detail-label">Expiration Date</span>
-            <span class="detail-val" style="color: #d97706;">{{ formatDate(contractEndDate) || 'September 30, 2027' }}</span>
+            <span class="detail-val" :style="hasContract ? 'color: #d97706;' : ''">{{ formatDate(contractEndDate) || (hasContract ? 'Not specified' : 'N/A') }}</span>
           </div>
 
           <div class="detail-item">
@@ -645,7 +676,7 @@
 
           <div class="detail-item">
             <span class="detail-label">Renewal Term</span>
-            <span class="detail-val">Renewable Annually</span>
+            <span class="detail-val">{{ hasContract ? 'Renewable Annually' : 'N/A' }}</span>
           </div>
         </div>
 
@@ -932,7 +963,7 @@ import StakeholderMenu from '../components/StakeholderMenu.vue'
 import Notification from '../components/Notification.vue'
 import { useAuthStore } from '../stores/auth'
 import { supabase } from '../config/supabase'
-import { normalizeRecord } from '../services/api'
+import api, { normalizeRecord } from '../services/api'
 import {
   getStakeholderNotifications,
   markAllNotificationsAsRead,
@@ -1026,7 +1057,32 @@ function extractStallNumber(stall) {
   return ''
 }
 
-// Safely format status strings (prevents raw object stringification)
+// Safely format status strings according to business rules
+function formatContractStatus(val, hasContractRecord = true) {
+  if (!hasContractRecord || !val) return 'Not Created'
+  const trimmed = String(val).trim()
+  const upper = trimmed.toUpperCase()
+  if (['NOT_CREATED', 'NOT CREATED', 'NONE'].includes(upper)) return 'Not Created'
+  if (upper === 'DRAFT') return 'Draft'
+  if (['PENDING', 'PENDING_APPROVAL', 'FOR_APPROVAL'].includes(upper)) return 'Pending'
+  if (upper === 'ACTIVE') return 'Active'
+  if (upper === 'EXPIRED') return 'Expired'
+  if (['CANCELLED', 'CANCELED', 'TERMINATED', 'REJECTED'].includes(upper)) return 'Cancelled'
+  return trimmed
+}
+
+function formatOccupantStatus(val) {
+  if (!val) return 'Pending'
+  const trimmed = String(val).trim()
+  const upper = trimmed.toUpperCase()
+  if (upper === 'ACTIVE') return 'Active'
+  if (upper === 'PENDING') return 'Pending'
+  if (upper === 'EXPIRED') return 'Expired'
+  if (upper === 'VACATED' || upper === 'TERMINATED') return 'Vacated'
+  if (upper === 'ARCHIVED') return 'Archived'
+  return trimmed
+}
+
 function formatDisplayStatus(val) {
   if (!val) return ''
   if (typeof val === 'string') {
@@ -1034,8 +1090,9 @@ function formatDisplayStatus(val) {
     const upper = trimmed.toUpperCase()
     if (upper === 'ACTIVE') return 'Active'
     if (upper === 'PENDING') return 'Pending'
+    if (upper === 'DRAFT') return 'Draft'
     if (upper === 'EXPIRED') return 'Expired'
-    if (upper === 'TERMINATED') return 'Terminated'
+    if (['CANCELLED', 'CANCELED', 'TERMINATED'].includes(upper)) return 'Cancelled'
     if (upper === 'VERIFIED') return 'Verified'
     if (upper === 'APPROVED') return 'Approved'
     return trimmed
@@ -1126,29 +1183,55 @@ const formattedNextDueDate = computed(() => {
   return 'Oct 15, 2026'
 })
 
+const hasContract = computed(() => {
+  return Boolean(
+    activeContractRecord.value?.id ||
+    activeContractRecord.value?.contractNo ||
+    activeContractRecord.value?.contract_no ||
+    activeContractRecord.value?.ref ||
+    (contractsList.value.length > 0 && (contractsList.value[0]?.id || contractsList.value[0]?.contractNo || contractsList.value[0]?.contract_no))
+  )
+})
+
 const contractStatus = computed(() => {
-  const fromActive = formatDisplayStatus(activeContractRecord.value?.status) ||
-    formatDisplayStatus(activeContractRecord.value?.contractStatus) ||
-    formatDisplayStatus(activeContractRecord.value?.contract_status)
-  if (fromActive) return fromActive
+  if (!hasContract.value) {
+    return 'Not Created'
+  }
+  const rawStatus =
+    activeContractRecord.value?.status ||
+    activeContractRecord.value?.contractStatus ||
+    activeContractRecord.value?.contract_status ||
+    (contractsList.value.length > 0
+      ? (contractsList.value[0]?.status || contractsList.value[0]?.contractStatus || contractsList.value[0]?.contract_status)
+      : null)
+  return formatContractStatus(rawStatus, true)
+})
 
-  const fromContractsList = contractsList.value.length > 0
-    ? formatDisplayStatus(contractsList.value[0]?.status)
-    : ''
-  if (fromContractsList) return fromContractsList
-
-  const fromProfile = formatDisplayStatus(stakeholderProfile.value?.contractStatus) ||
-    formatDisplayStatus(stakeholderProfile.value?.contract_status)
-  if (fromProfile) return fromProfile
-
-  return isVerified.value ? 'Active' : 'Pending'
+const occupantStatus = computed(() => {
+  const raw =
+    assignedOccupant.value?.status ||
+    assignedOccupant.value?.occupantStatus ||
+    assignedOccupant.value?.occupancyStatus ||
+    stakeholderProfile.value?.occupant?.status ||
+    stakeholderProfile.value?.occupantStatus ||
+    stakeholderProfile.value?.occupancyStatus
+  return formatOccupantStatus(raw)
 })
 
 const contractStatusSeverity = computed(() => {
   const s = String(contractStatus.value || '').toUpperCase()
-  if (['ACTIVE', 'VERIFIED', 'APPROVED'].includes(s)) return 'success'
-  if (['PENDING', 'FOR_APPROVAL'].includes(s)) return 'warn'
-  if (['EXPIRED', 'TERMINATED', 'CANCELLED', 'REJECTED'].includes(s)) return 'danger'
+  if (s === 'ACTIVE') return 'success'
+  if (s === 'PENDING') return 'warn'
+  if (s === 'DRAFT') return 'info'
+  if (['EXPIRED', 'CANCELLED'].includes(s)) return 'danger'
+  return 'secondary'
+})
+
+const occupantStatusSeverity = computed(() => {
+  const s = String(occupantStatus.value || '').toUpperCase()
+  if (s === 'ACTIVE') return 'success'
+  if (s === 'PENDING') return 'warn'
+  if (['ARCHIVED', 'VACATED', 'EXPIRED'].includes(s)) return 'danger'
   return 'info'
 })
 
@@ -1156,14 +1239,14 @@ const contractStartDate = computed(() => {
   return activeContractRecord.value?.startDate ||
     activeContractRecord.value?.start_date ||
     activeContractRecord.value?.start ||
-    '2026-10-01'
+    null
 })
 
 const contractEndDate = computed(() => {
   return activeContractRecord.value?.endDate ||
     activeContractRecord.value?.end_date ||
     activeContractRecord.value?.end ||
-    '2027-09-30'
+    null
 })
 
 const lastPaymentAmount = computed(() => {
@@ -1356,36 +1439,65 @@ async function loadAllData(background = false) {
 
     // 5. Fetch Contracts
     let contracts = []
+    // 5a. Query by occupant_id from Supabase
     if (occ?.id) {
-      const { data: cData } = await supabase
+      const { data: cData, error: cErr } = await supabase
         .from('contracts')
         .select('*')
         .eq('occupant_id', occ.id)
-      if (cData && cData.length > 0) contracts = cData.map(normalizeRecord)
-    }
-    if (contracts.length === 0 && stId) {
-      const { data: cData } = await supabase
-        .from('contracts')
-        .select('*')
-        .eq('stakeholder_id', stId)
-      if (cData && cData.length > 0) contracts = cData.map(normalizeRecord)
+        .order('id', { ascending: false })
+      if (!cErr && cData && cData.length > 0) {
+        contracts = cData.map(normalizeRecord)
+      }
     }
 
-    if (contracts.length === 0) {
-      contracts = [
-        {
-          id: 1,
-          contractNo: 'MC-2026-A12',
-          ref: 'MC-2026-A12',
-          startDate: '2026-10-01',
-          endDate: '2027-09-30',
-          monthlyRent: 1500,
-          status: 'Active'
-        }
-      ]
+    // 5b. Query by occupant.contract_id if not found yet
+    const occContractId = occ?.contractId || occ?.contract_id
+    if (contracts.length === 0 && occContractId) {
+      const { data: cById, error: cIdErr } = await supabase
+        .from('contracts')
+        .select('*')
+        .eq('id', occContractId)
+        .maybeSingle()
+      if (!cIdErr && cById) {
+        contracts = [normalizeRecord(cById)]
+      }
     }
+
+    // 5c. Query via API contracts if still empty
+    if (contracts.length === 0) {
+      try {
+        const { data: apiContracts } = await api.get('/contracts')
+        if (Array.isArray(apiContracts) && apiContracts.length > 0) {
+          const matched = apiContracts.filter(c => {
+            const cOccId = c.occupantId || c.occupant_id || c.occupant?.id
+            const cStallId = c.stallId || c.stall_id || c.stall?.id
+            const cStallNo = c.stallNo || c.stall_no || c.stall?.stallNo || c.stall?.stall_no
+            const curStallNo = assignedStallNo.value
+            if (occ?.id && cOccId && String(cOccId) === String(occ.id)) return true
+            if (occContractId && String(c.id) === String(occContractId)) return true
+            if (assignedStall.value?.id && cStallId && String(cStallId) === String(assignedStall.value.id)) return true
+            if (curStallNo && cStallNo && String(cStallNo).toLowerCase() === String(curStallNo).toLowerCase()) return true
+            return false
+          })
+          if (matched.length > 0) {
+            contracts = matched.map(normalizeRecord)
+          }
+        }
+      } catch (_) {}
+    }
+
+    // 5d. Do not invent fake contracts. If no contract exists, keep empty.
     contractsList.value = contracts
-    activeContractRecord.value = contracts[0]
+
+    // Contract selection rules: prefer currently valid or active contract
+    if (contracts.length > 0) {
+      const activeContract = contracts.find(c => String(c.status || '').toUpperCase() === 'ACTIVE')
+      const inProgressContract = contracts.find(c => ['PENDING', 'PENDING_APPROVAL', 'DRAFT'].includes(String(c.status || '').toUpperCase()))
+      activeContractRecord.value = activeContract || inProgressContract || contracts[0]
+    } else {
+      activeContractRecord.value = null
+    }
 
     // 6. Fetch Official Documents
     let docs = []
@@ -1527,7 +1639,12 @@ function getNotifIcon(msg) {
 // MODAL & PROFILE ACTIONS
 // ----------------------------------------------------
 function openContractModal(c) {
-  activeContractRecord.value = c || contractsList.value[0]
+  const target = c || contractsList.value[0] || activeContractRecord.value
+  if (!target) {
+    toast.add({ severity: 'info', summary: 'Contract Agreement', detail: 'No lease agreement has been generated yet for this stall.', life: 3000 })
+    return
+  }
+  activeContractRecord.value = target
   showContractModal.value = true
 }
 

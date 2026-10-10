@@ -329,6 +329,158 @@ const api = {
       return { data: normalizeRecord(data) };
     }
 
+    // 8.2 Occupants
+    if (cleanUrl === 'occupants') {
+      try {
+        const { data, error } = await supabase
+          .from('occupants')
+          .select('*, stakeholder:stakeholders(*), stall:stalls(*)')
+          .order('id', { ascending: false });
+        if (!error && data) {
+          // Fetch all contracts to resolve contractStatus without N+1
+          let contractsMap = {};
+          try {
+            const { data: cList } = await supabase.from('contracts').select('*');
+            if (cList) {
+              for (const c of cList) {
+                const occId = c.occupant_id || c.occupantId;
+                if (occId) {
+                  if (!contractsMap[occId]) contractsMap[occId] = [];
+                  contractsMap[occId].push(normalizeRecord(c));
+                }
+              }
+            }
+          } catch (_) {}
+
+          const enriched = data.map(occ => {
+            const item = normalizeRecord(occ);
+            const occContracts = contractsMap[occ.id] || [];
+            const activeContract = occContracts.find(c => String(c.status || '').toUpperCase() === 'ACTIVE');
+            const inProgressContract = occContracts.find(c => ['PENDING', 'PENDING_APPROVAL', 'DRAFT'].includes(String(c.status || '').toUpperCase()));
+            const resolvedContract = (occ.contract_id && occContracts.find(c => String(c.id) === String(occ.contract_id))) ||
+              activeContract || inProgressContract || occContracts[0] || null;
+
+            item.occupantId = occ.id;
+            item.occupantStatus = occ.status || 'PENDING';
+            if (resolvedContract) {
+              item.contractId = resolvedContract.id;
+              item.contractNo = resolvedContract.contractNo || resolvedContract.contract_no;
+              item.contractStatus = resolvedContract.status || 'ACTIVE';
+              item.contractStartDate = resolvedContract.startDate || resolvedContract.start_date;
+              item.contractEndDate = resolvedContract.endDate || resolvedContract.end_date;
+            } else {
+              item.contractId = null;
+              item.contractNo = null;
+              item.contractStatus = 'NOT_CREATED';
+              item.contractStartDate = null;
+              item.contractEndDate = null;
+            }
+            return item;
+          });
+          return { data: enriched };
+        }
+      } catch (err) {
+        console.warn('[api.get /occupants] Supabase query failed, falling back:', err);
+      }
+      return rawAxios.get(url, config);
+    }
+
+    if (cleanUrl.startsWith('occupants/stakeholder/')) {
+      const stakeholderId = cleanUrl.replace('occupants/stakeholder/', '');
+      try {
+        const { data: occ, error } = await supabase
+          .from('occupants')
+          .select('*, stakeholder:stakeholders(*), stall:stalls(*)')
+          .eq('stakeholder_id', stakeholderId)
+          .maybeSingle();
+        if (!error && occ) {
+          const item = normalizeRecord(occ);
+          let resolvedContract = null;
+          try {
+            const { data: cList } = await supabase
+              .from('contracts')
+              .select('*')
+              .eq('occupant_id', occ.id)
+              .order('id', { ascending: false });
+            if (cList && cList.length > 0) {
+              const normList = cList.map(normalizeRecord);
+              resolvedContract = normList.find(c => String(c.status || '').toUpperCase() === 'ACTIVE') ||
+                normList.find(c => ['PENDING', 'PENDING_APPROVAL', 'DRAFT'].includes(String(c.status || '').toUpperCase())) ||
+                normList[0];
+            }
+          } catch (_) {}
+
+          item.occupantId = occ.id;
+          item.occupantStatus = occ.status || 'PENDING';
+          if (resolvedContract) {
+            item.contractId = resolvedContract.id;
+            item.contractNo = resolvedContract.contractNo || resolvedContract.contract_no;
+            item.contractStatus = resolvedContract.status || 'ACTIVE';
+            item.contractStartDate = resolvedContract.startDate || resolvedContract.start_date;
+            item.contractEndDate = resolvedContract.endDate || resolvedContract.end_date;
+          } else {
+            item.contractId = null;
+            item.contractNo = null;
+            item.contractStatus = 'NOT_CREATED';
+            item.contractStartDate = null;
+            item.contractEndDate = null;
+          }
+          return { data: item };
+        }
+      } catch (err) {
+        console.warn('[api.get /occupants/stakeholder] failed, falling back:', err);
+      }
+      return rawAxios.get(url, config);
+    }
+
+    if (cleanUrl.startsWith('occupants/')) {
+      const occId = cleanUrl.replace('occupants/', '');
+      try {
+        const { data: occ, error } = await supabase
+          .from('occupants')
+          .select('*, stakeholder:stakeholders(*), stall:stalls(*)')
+          .eq('id', occId)
+          .maybeSingle();
+        if (!error && occ) {
+          const item = normalizeRecord(occ);
+          let resolvedContract = null;
+          try {
+            const { data: cList } = await supabase
+              .from('contracts')
+              .select('*')
+              .eq('occupant_id', occ.id)
+              .order('id', { ascending: false });
+            if (cList && cList.length > 0) {
+              const normList = cList.map(normalizeRecord);
+              resolvedContract = normList.find(c => String(c.status || '').toUpperCase() === 'ACTIVE') ||
+                normList.find(c => ['PENDING', 'PENDING_APPROVAL', 'DRAFT'].includes(String(c.status || '').toUpperCase())) ||
+                normList[0];
+            }
+          } catch (_) {}
+
+          item.occupantId = occ.id;
+          item.occupantStatus = occ.status || 'PENDING';
+          if (resolvedContract) {
+            item.contractId = resolvedContract.id;
+            item.contractNo = resolvedContract.contractNo || resolvedContract.contract_no;
+            item.contractStatus = resolvedContract.status || 'ACTIVE';
+            item.contractStartDate = resolvedContract.startDate || resolvedContract.start_date;
+            item.contractEndDate = resolvedContract.endDate || resolvedContract.end_date;
+          } else {
+            item.contractId = null;
+            item.contractNo = null;
+            item.contractStatus = 'NOT_CREATED';
+            item.contractStartDate = null;
+            item.contractEndDate = null;
+          }
+          return { data: item };
+        }
+      } catch (err) {
+        console.warn('[api.get /occupants/:id] failed, falling back:', err);
+      }
+      return rawAxios.get(url, config);
+    }
+
     // 9. Payments
     if (cleanUrl === 'payments') {
       const { data, error } = await supabase
