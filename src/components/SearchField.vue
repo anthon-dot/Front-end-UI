@@ -1,11 +1,7 @@
 <template>
   <div :class="['search-field', { focused }]" role="search" @click="focusInput">
     <span class="icon-wrap" aria-hidden="true">
-      <!-- inline search SVG matching 2nd image -->
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="11" cy="11" r="7"/>
-        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-      </svg>
+      <i :class="[icon || 'pi pi-search', 'search-icon']"></i>
     </span>
     <input
       ref="input"
@@ -18,10 +14,7 @@
       :aria-label="ariaLabel || placeholder"
     />
     <button v-if="clearable && internalValue" class="clear-btn" type="button" @click.stop="clear" :aria-label="clearLabel" title="Clear">
-      <!-- inline clear (X) SVG -->
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M18 6L6 18M6 6l12 12"/>
-      </svg>
+      <i class="pi pi-times clear-icon"></i>
     </button>
     <span v-if="loading" class="loader" aria-hidden="true"></span>
     <span v-if="showShortcut && !internalValue" class="shortcut-badge" aria-hidden="true">

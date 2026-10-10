@@ -580,3 +580,354 @@ html.app-dark body,
 .layout-main .portal-topbar {
     display: none !important;
 }
+
+/* ==========================================================================
+   SAKAI VUE INTERACTIVE ICON SYSTEM
+   Responsive & tactile across all devices (Mobile & PC)
+   ========================================================================== */
+
+/* Universal PrimeIcon base transition */
+.pi {
+    display: inline-block;
+    vertical-align: middle;
+    transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.18s ease;
+}
+
+/* Interactive Button & Link Hover Icon Reactions */
+@media (hover: hover) {
+    .p-button:hover .pi-plus,
+    button:hover .pi-plus {
+        transform: rotate(90deg) scale(1.12);
+    }
+
+    .p-button:hover .pi-refresh,
+    button:hover .pi-refresh {
+        transform: rotate(180deg);
+    }
+
+    .p-button:hover .pi-download,
+    button:hover .pi-download {
+        transform: translateY(2px) scale(1.1);
+    }
+
+    .p-button:hover .pi-upload,
+    button:hover .pi-upload {
+        transform: translateY(-2px) scale(1.1);
+    }
+
+    .p-button:hover .pi-trash,
+    button:hover .pi-trash {
+        transform: rotate(-12deg) scale(1.14);
+    }
+
+    .p-button:hover .pi-pencil,
+    button:hover .pi-pencil {
+        transform: rotate(15deg) scale(1.14);
+    }
+
+    .p-button:hover .pi-eye,
+    button:hover .pi-eye {
+        transform: scale(1.18);
+    }
+
+    .p-button:hover .pi-check,
+    button:hover .pi-check {
+        transform: scale(1.18);
+    }
+
+    .p-button:hover .pi-times,
+    button:hover .pi-times {
+        transform: rotate(90deg) scale(1.1);
+    }
+
+    .p-button:hover .pi-search,
+    button:hover .pi-search {
+        transform: scale(1.14);
+    }
+
+    .p-button:hover .pi-arrow-right,
+    .p-button:hover .pi-chevron-right,
+    .p-button:hover .pi-angle-right,
+    button:hover .pi-arrow-right,
+    button:hover .pi-chevron-right,
+    button:hover .pi-angle-right {
+        transform: translateX(3px);
+    }
+
+    .p-button:hover .pi-arrow-left,
+    .p-button:hover .pi-chevron-left,
+    .p-button:hover .pi-angle-left,
+    button:hover .pi-arrow-left,
+    button:hover .pi-chevron-left,
+    button:hover .pi-angle-left {
+        transform: translateX(-3px);
+    }
+
+    .p-button:hover .pi-cog,
+    button:hover .pi-cog {
+        transform: rotate(45deg);
+    }
+
+    .p-button:hover .pi-filter,
+    button:hover .pi-filter {
+        transform: rotate(10deg) scale(1.1);
+    }
+
+    .p-button:hover .pi-bell,
+    button:hover .pi-bell {
+        animation: sakai-bell-ring 0.65s ease;
+    }
+}
+
+@keyframes sakai-bell-ring {
+    0%, 100% { transform: rotate(0); }
+    20%, 60% { transform: rotate(14deg); }
+    40%, 80% { transform: rotate(-14deg); }
+}
+
+/* Universal Tactile Touch Feedback on Mobile & PC */
+.p-button:active,
+button:active,
+.layout-topbar-action:active,
+.p-button-icon-only:active,
+.layout-menu li a:active,
+.metric-card:active {
+    transform: scale(0.96) !important;
+    transition: transform 0.08s ease !important;
+}
+
+/* Sakai Icon Badges (Stats, Cards, Titles) */
+.sakai-icon-badge,
+.metric-icon-wrap,
+.metric-icon,
+.title-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    width: 44px;
+    height: 44px;
+    font-size: 1.25rem;
+    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    flex-shrink: 0;
+}
+
+@media (hover: hover) {
+    .sakai-icon-badge:hover,
+    .metric-card:hover .metric-icon-wrap,
+    .card:hover .metric-icon,
+    .title-icon:hover {
+        transform: translateY(-2px) scale(1.08);
+        box-shadow: 0 8px 18px -4px rgba(0, 0, 0, 0.12);
+    }
+}
+
+/* Color Presets for Sakai Icon Badges */
+.sakai-icon-badge.blue,
+.metric-icon-wrap.icon-blue,
+.title-icon {
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+.sakai-icon-badge.emerald,
+.metric-icon-wrap.icon-emerald {
+    background: #ecfdf5;
+    color: #059669;
+}
+
+.sakai-icon-badge.amber,
+.metric-icon-wrap.icon-amber {
+    background: #fffbeb;
+    color: #d97706;
+}
+
+.sakai-icon-badge.purple,
+.metric-icon-wrap.icon-purple {
+    background: #f5f3ff;
+    color: #7c3aed;
+}
+
+.sakai-icon-badge.rose,
+.metric-icon-wrap.icon-rose {
+    background: #fff1f2;
+    color: #e11d48;
+}
+
+.sakai-icon-badge.teal,
+.metric-icon-wrap.icon-teal {
+    background: #f0fdfa;
+    color: #0d9488;
+}
+
+/* Dark Mode Icon Badges */
+.app-dark .sakai-icon-badge.blue,
+.app-dark .metric-icon-wrap.icon-blue,
+.app-dark .title-icon {
+    background: rgba(37, 99, 235, 0.18) !important;
+    color: #60a5fa !important;
+}
+
+.app-dark .sakai-icon-badge.emerald,
+.app-dark .metric-icon-wrap.icon-emerald {
+    background: rgba(16, 185, 129, 0.18) !important;
+    color: #34d399 !important;
+}
+
+.app-dark .sakai-icon-badge.amber,
+.app-dark .metric-icon-wrap.icon-amber {
+    background: rgba(245, 158, 11, 0.18) !important;
+    color: #fbbf24 !important;
+}
+
+.app-dark .sakai-icon-badge.purple,
+.app-dark .metric-icon-wrap.icon-purple {
+    background: rgba(124, 58, 237, 0.18) !important;
+    color: #a78bfa !important;
+}
+
+.app-dark .sakai-icon-badge.rose,
+.app-dark .metric-icon-wrap.icon-rose {
+    background: rgba(225, 29, 72, 0.18) !important;
+    color: #fb7185 !important;
+}
+
+.app-dark .sakai-icon-badge.teal,
+.app-dark .metric-icon-wrap.icon-teal {
+    background: rgba(13, 148, 136, 0.18) !important;
+    color: #2dd4bf !important;
+}
+
+/* Interactive Sidebar Menu Item Icons */
+.layout-menu li a {
+    position: relative;
+    overflow: hidden;
+}
+
+.layout-menu li a .layout-menuitem-icon {
+    transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.18s ease;
+}
+
+@media (hover: hover) {
+    .layout-menu li a:hover .layout-menuitem-icon {
+        transform: scale(1.2);
+    }
+}
+
+.layout-menu li a.active-route .layout-menuitem-icon {
+    transform: scale(1.12);
+}
+
+/* Interactive Topbar Actions */
+.layout-topbar-action {
+    position: relative;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+@media (hover: hover) {
+    .layout-topbar-action:hover {
+        transform: scale(1.08);
+    }
+
+    .layout-topbar-action:hover .pi-sun {
+        transform: rotate(45deg) scale(1.15);
+    }
+
+    .layout-topbar-action:hover .pi-moon {
+        transform: rotate(-20deg) scale(1.15);
+    }
+
+    .layout-topbar-action:hover .pi-bars {
+        transform: scale(1.12);
+    }
+
+    .layout-topbar-action:hover .pi-sign-out {
+        transform: translateX(2px) scale(1.1);
+    }
+}
+
+/* Topbar Brand Logo Interactive Tilt */
+.layout-topbar-logo {
+    user-select: none;
+}
+
+.topbar-logo-badge {
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease;
+}
+
+@media (hover: hover) {
+    .layout-topbar-logo:hover .topbar-logo-badge {
+        transform: scale(1.08) rotate(-4deg);
+        box-shadow: 0 6px 18px rgba(16, 185, 129, 0.4);
+    }
+}
+
+/* ==========================================================================
+   CROSS-DEVICE TOUCH & RESPONSIVENESS (MOBILE / TABLET / PC)
+   ========================================================================== */
+
+/* Touch Target Sizes & Frictionless Tap Handling */
+@media (pointer: coarse), (max-width: 768px) {
+    .layout-topbar-action,
+    .p-button-icon-only,
+    .clear-btn,
+    .bell {
+        min-width: 44px !important;
+        min-height: 44px !important;
+    }
+
+    .layout-menu li a {
+        padding: 0.75rem 0.95rem;
+        font-size: 0.92rem;
+    }
+
+    .p-button {
+        min-height: 40px;
+    }
+
+    .card {
+        padding: 1.15rem;
+        border-radius: 12px;
+    }
+
+    /* Responsive horizontal scrolling for tables */
+    .p-datatable-wrapper,
+    .sakai-table-wrap,
+    .table-container {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+
+    /* Responsive filter bars */
+    .admin-filter-bar,
+    .header-actions {
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch !important;
+        gap: 0.6rem;
+    }
+
+    .search-wrap,
+    .search-field {
+        width: 100% !important;
+        min-width: 100% !important;
+    }
+
+    /* Metrics responsive grid on phones */
+    .metric-grid,
+    .metrics-grid,
+    .report-grid {
+        grid-template-columns: 1fr !important;
+        gap: 0.75rem !important;
+    }
+}
+
+@media (min-width: 640px) and (max-width: 1024px) {
+    .metric-grid,
+    .metrics-grid,
+    .report-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+}
+

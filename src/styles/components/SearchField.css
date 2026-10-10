@@ -31,6 +31,23 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+}
+
+.search-icon {
+  font-size: 1rem;
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.18s ease;
+}
+
+.search-field:hover .search-icon {
+  color: #0f766e;
+  transform: scale(1.12);
+}
+
+.search-field.focused .search-icon {
+  color: #0f766e;
+  transform: scale(1.18);
 }
 
 .search-input {
@@ -55,18 +72,43 @@
   border: 0;
   cursor: pointer;
   color: #9ca3af;
-  padding: 4px;
+  padding: 6px;
   border-radius: 6px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
   flex-shrink: 0;
+  min-width: 28px;
+  min-height: 28px;
+}
+
+.clear-icon {
+  font-size: 0.82rem;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .clear-btn:hover {
-  color: #4b5563;
-  background: #f3f4f6;
+  color: #ef4444;
+  background: #fef2f2;
+  transform: scale(1.08);
+}
+
+.clear-btn:hover .clear-icon {
+  transform: rotate(90deg) scale(1.15);
+}
+
+.clear-btn:active {
+  transform: scale(0.92);
+}
+
+@media (max-width: 640px) {
+  .shortcut-badge {
+    display: none !important;
+  }
+  .search-field {
+    height: 44px;
+  }
 }
 
 .shortcut-badge {

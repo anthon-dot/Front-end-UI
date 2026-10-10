@@ -1,7 +1,7 @@
 <template>
   <div class="notification">
     <button class="bell" @click="toggle" aria-label="Notifications">
-      <svg class="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15 17H9l-1 1v1h8v-1l-1-1z" fill="currentColor"/><path d="M12 3a4 4 0 00-4 4v2.1c0 .8-.4 1.6-1.1 2.1L5 13h14l-0.9-1.8c-.7-.5-1.1-1.3-1.1-2.1V7a4 4 0 00-4-4z" fill="currentColor"/></svg>
+      <i class="pi pi-bell text-lg bell-icon"></i>
       <span v-if="unreadCount" class="badge">{{ unreadCount }}</span>
     </button>
 

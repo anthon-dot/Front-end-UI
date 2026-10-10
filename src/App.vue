@@ -7,16 +7,9 @@
         <div class="confirm-icon-halo" :class="getHaloClass(message)">
           <div class="confirm-icon-inner" :class="getInnerClass(message)">
             <!-- Success icon (Approve / Activate / Verify) -->
-            <svg v-if="isSuccess(message)" class="confirm-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"></circle>
-              <polyline points="9 12 11 14 15 10"></polyline>
-            </svg>
-            <!-- Exclamation icon (Delete / Reject / Warn / Default matching UI screenshot) -->
-            <svg v-else class="confirm-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="12" y1="8" x2="12" y2="12"></line>
-              <line x1="12" y1="16" x2="12.01" y2="16"></line>
-            </svg>
+            <i v-if="isSuccess(message)" class="pi pi-check text-2xl confirm-icon-pi"></i>
+            <!-- Exclamation icon (Delete / Reject / Warn / Default) -->
+            <i v-else class="pi pi-exclamation-triangle text-2xl confirm-icon-pi"></i>
           </div>
         </div>
 
