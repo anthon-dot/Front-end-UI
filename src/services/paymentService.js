@@ -21,9 +21,10 @@ export async function createPayment(payload) {
   const stakeholderId = payload.stakeholderId || payload.stakeholder?.id
   const billingId = payload.billingId || payload.billing?.id || null
 
-  const canonicalType = ['APPLICATION_FORM', 'APPLICATION_FEE', 'BUSINESS_PERMIT_PAYMENT'].includes(payload.paymentType)
-    ? 'BUSINESS_PERMIT_PAYMENT'
-    : (payload.paymentType || 'RENT_PAYMENT')
+  let canonicalType = payload.paymentType || 'RENT_PAYMENT'
+  if (['APPLICATION_FEE', 'BUSINESS_PERMIT_PAYMENT'].includes(canonicalType)) {
+    canonicalType = 'APPLICATION_FEE'
+  }
 
   const { data, error } = await supabase
     .from('payments')
@@ -93,9 +94,9 @@ export async function createPayment(payload) {
     }
   }
 
-  // 3. If BUSINESS_PERMIT_PAYMENT or APPLICATION_FORM / APPLICATION_FEE, update stakeholder permit & fee status
+  // 3. If APPLICATION_FEE, BUSINESS_PERMIT_PAYMENT or APPLICATION_FORM, update stakeholder permit & fee status
   const isPermitOrAppPayment = ['APPLICATION_FORM', 'APPLICATION_FEE', 'BUSINESS_PERMIT_PAYMENT'].includes(payload.paymentType)
-  const isBusinessPermitPayment = payload.paymentType === 'BUSINESS_PERMIT_PAYMENT'
+  const isBusinessPermitPayment = payload.paymentType === 'BUSINESS_PERMIT_PAYMENT' || payload.paymentType === 'APPLICATION_FEE'
 
   if (isPermitOrAppPayment && stakeholderId) {
     try {

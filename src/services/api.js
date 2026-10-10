@@ -87,6 +87,12 @@ export function normalizeRecord(item) {
   if (result.verifiedStakeholder !== undefined && result.verified_stakeholder === undefined) result.verified_stakeholder = result.verifiedStakeholder;
   if (result.applicant_fee_paid !== undefined && result.applicantFeePaid === undefined) result.applicantFeePaid = result.applicant_fee_paid;
   if (result.applicantFeePaid !== undefined && result.applicant_fee_paid === undefined) result.applicant_fee_paid = result.applicantFeePaid;
+  if (result.applicant_fee_amount !== undefined && result.applicantFeeAmount === undefined) result.applicantFeeAmount = result.applicant_fee_amount;
+  if (result.applicantFeeAmount !== undefined && result.applicant_fee_amount === undefined) result.applicant_fee_amount = result.applicantFeeAmount;
+  if (result.applicant_fee_date !== undefined && result.applicantFeeDate === undefined) result.applicantFeeDate = result.applicant_fee_date;
+  if (result.applicantFeeDate !== undefined && result.applicant_fee_date === undefined) result.applicant_fee_date = result.applicantFeeDate;
+  if (result.verified_application !== undefined && result.verifiedApplication === undefined) result.verifiedApplication = result.verified_application;
+  if (result.verifiedApplication !== undefined && result.verified_application === undefined) result.verified_application = result.verifiedApplication;
   if (result.application_form_paid !== undefined && result.applicationFormPaid === undefined) result.applicationFormPaid = result.application_form_paid;
   if (result.applicationFormPaid !== undefined && result.application_form_paid === undefined) result.application_form_paid = result.applicationFormPaid;
   if (result.treasurer_paid !== undefined && result.treasurerPaid === undefined) result.treasurerPaid = result.treasurer_paid;

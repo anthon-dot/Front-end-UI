@@ -350,7 +350,7 @@
 
                   <!-- Card 02: Business permit / Application payment -->
                   <div
-                    @click="setCategory('BUSINESS_PERMIT_PAYMENT')"
+                    @click="setCategory('APPLICATION_FEE')"
                     class="group border rounded-xl sm:rounded-2xl p-3 sm:p-4 flex flex-col justify-between min-h-[120px] sm:min-h-[135px] cursor-pointer transition-all duration-200 select-none relative overflow-hidden active:scale-[0.98]"
                     :class="isPermitOrApp(activeCategory)
                       ? 'border-2 border-emerald-600 bg-emerald-50/50 shadow-md ring-2 ring-emerald-500/20'
@@ -1384,7 +1384,7 @@ async function recordPayment() {
       amount: Number(form.value.amount),
       referenceNo: form.value.referenceNo,
       receiptNo: form.value.receiptNo || generateReceiptNo(activeCategory.value),
-      paymentType: isPermitOrApp(activeCategory.value) ? 'BUSINESS_PERMIT_PAYMENT' : activeCategory.value,
+      paymentType: isPermitOrApp(activeCategory.value) ? 'APPLICATION_FEE' : activeCategory.value,
       paymentDate: form.value.dateReceived ? new Date(form.value.dateReceived).toISOString() : new Date().toISOString()
     }
 
