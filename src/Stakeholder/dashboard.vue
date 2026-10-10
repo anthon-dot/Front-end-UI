@@ -1,634 +1,1081 @@
 <template>
-	<div class="stakeholder-layout">
-		<StakeholderMenu />
-		<main class="stakeholder-dashboard">
-		<div class="header">
-			<div class="header-left">
-				<h1>{{ stakeholder?.name || 'Stakeholder' }}</h1>
-				<div class="meta">{{ stakeholder?.business || '-' }}</div>
-			</div>
-			<div class="header-right">
-				<Notification :notifications="notificationsForStakeholder" @mark-read="markRead" @mark-all="markAllRead" />
-			</div>
-		</div>
+  <div class="stakeholder-layout">
+    <StakeholderMenu />
 
-		<div class="grid">
-			<section class="card profile">
-				<div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">
-					<div class="avatar">
-						<img v-if="applicationsForThis?.avatar" :src="applicationsForThis.avatar" alt="avatar" />
-						<span v-else class="avatar-initials">{{ (stakeholder?.name||'').split(' ').map(n=>n[0]).slice(0,2).join('').toUpperCase() }}</span>
-					</div>
-					<div style="flex:1">
-						<div style="display:flex;gap:8px;align-items:center">
-							<label class="btn-secondary" style="cursor:pointer">
-								<input id="profileUploadInput" type="file" accept="image/*" @change="handleProfileUpload" style="display:none" />
-								Upload Profile
-							</label>
-							<button v-if="applicationsForThis?.avatar" class="btn-secondary" @click="removeProfile">Remove</button>
-						</div>
-						<div class="meta" style="margin-top:8px">Uploaded: <span v-if="applicationsForThis?.avatarFileName">{{ applicationsForThis.avatarFileName }}</span><span v-else>—</span></div>
-					</div>
-				</div>
-				<div class="row">
-					<div>
-						<div class="label">Status</div>
-						<div class="value"><span :class="['chip', (stakeholder?.status||'').toLowerCase()]">{{ stakeholder?.status || 'N/A' }}</span></div>
-					</div>
-					<div>
-						<div class="label">Contact</div>
-						<div class="value">{{ stakeholder?.contact || '-' }}</div>
-					</div>
-					<div>
-						<div class="label">Stall</div>
-						<div class="value">{{ assignedStall?.number || stakeholder?.stall || stakeholder?.stallRequested || '-' }}</div>
-					</div>
-				</div>
+    <main class="stakeholder-dashboard">
+      <!-- TOPBAR -->
+      <div class="dash-topbar">
+        <div class="search-box">
+          <i class="pi pi-search search-icon" />
+          <input
+            ref="searchInputRef"
+            v-model="searchQuery"
+            type="text"
+            placeholder="Search vendors, stalls, leases..."
+            class="search-input"
+            aria-label="Search vendors, stalls, leases"
+          />
+          <kbd class="search-kbd">⌘ K</kbd>
+        </div>
 
-				<div class="actions">
-					<button class="btn-primary" @click="openEdit">Edit Profile</button>
-					<button class="btn-secondary" @click="viewContracts">View Contracts</button>
-				</div>
-			</section>
+        <div class="topbar-actions">
+          <button
+            class="notif-btn"
+            @click="toggleNotifications"
+            title="Notifications"
+            aria-label="Notifications"
+          >
+            <i class="pi pi-bell" />
+            <span v-if="unreadCount > 0" class="notif-dot" />
+          </button>
 
-			<section class="card contracts" id="contracts-section">
-				<h3>Contracts</h3>
-				<div v-if="contractsForStakeholder.length">
-					<ul class="contracts-list">
-						<li v-for="(c, idx) in contractsForStakeholder" :key="idx" class="contract-item">
-								<div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
-									<div>
-										<div class="contract-ref" v-if="c.ref">{{ c.ref }}</div>
-										<div class="contract-dates">Start: <strong>{{ formatDate(c.start) || '-' }}</strong> — End: <strong>{{ formatDate(c.end) || '-' }}</strong></div>
-									</div>
-									<div>
-										<button v-if="c.contractUrl || c.url" class="btn-secondary" @click.prevent="openContract(c)">View</button>
-										<button v-else class="btn-secondary" @click.prevent="openContract(c)">Details</button>
-									</div>
-								</div>
-						</li>
-					</ul>
-				</div>
-				<div v-else class="empty">No contract records for this stakeholder.</div>
-			</section>
+          <button
+            class="btn-new-contract"
+            @click="openNewContractModal"
+            aria-label="New contract"
+          >
+            New contract
+            <span class="plus-icon">+</span>
+          </button>
+        </div>
+      </div>
 
-			<section class="card uploads">
-				<h3>Uploaded Files</h3>
-				<table class="uploads-table">
-					<thead>
-						<tr><th>Type</th><th>File</th><th>Action</th></tr>
-					</thead>
-					<tbody>
-						<tr v-for="f in uploadedFiles" :key="f.key">
-							<td>{{ f.label }}</td>
-							<td>{{ f.name }}</td>
-							<td><button class="btn-secondary" @click="removeUploadedFile(f.key)">Remove</button></td>
-						</tr>
-						<tr v-if="uploadedFiles.length === 0"><td colspan="3" class="empty">No uploaded files.</td></tr>
-					</tbody>
-				</table>
-			</section>
+      <!-- WELCOME BANNER -->
+      <section class="dash-welcome">
+        <div class="welcome-info">
+          <span class="date-label">{{ currentDateFormatted }}</span>
+          <h1 class="welcome-title">Good morning, {{ displayName }}.</h1>
+          <p class="welcome-sub">Here's what's happening across Marlowe Central today.</p>
+        </div>
 
-			<section class="card payments">
-				<h3>Payments</h3>
-				<table>
-					<thead>
-						<tr><th>Date</th><th>Type</th><th>Amount</th></tr>
-					</thead>
-					<tbody>
-						<tr v-for="p in paymentsForStakeholder" :key="p.id">
-							<td>{{ p.date }}</td>
-							<td>{{ p.type }}</td>
-							<td>{{ formatCurrency(p.amount) }}</td>
-						</tr>
-						<tr v-if="paymentsForStakeholder.length === 0"><td colspan="3" class="empty">No payments found.</td></tr>
-					</tbody>
-				</table>
-			</section>
+        <div class="period-toggle" role="tablist" aria-label="Time period selection">
+          <button
+            class="period-btn"
+            :class="{ active: selectedPeriod === 'month' }"
+            @click="selectedPeriod = 'month'"
+            role="tab"
+            :aria-selected="selectedPeriod === 'month'"
+          >
+            This month
+          </button>
+          <button
+            class="period-btn"
+            :class="{ active: selectedPeriod === 'quarter' }"
+            @click="selectedPeriod = 'quarter'"
+            role="tab"
+            :aria-selected="selectedPeriod === 'quarter'"
+          >
+            Quarter
+          </button>
+          <button
+            class="period-btn"
+            :class="{ active: selectedPeriod === 'year' }"
+            @click="selectedPeriod = 'year'"
+            role="tab"
+            :aria-selected="selectedPeriod === 'year'"
+          >
+            Year
+          </button>
+        </div>
+      </section>
 
-			<section class="card progress">
-				<h3>Application Progress</h3>
-				<div class="stepper-wrap">
-					<div class="stepper">
-						<div v-for="(s, idx) in stepDefs" :key="s.key" class="step" :class="{done: isDone(s.key), active: isActive(s.key)}">
-							<div class="circle"> 
-								<span v-if="isDone(s.key)">✔</span>
-								<span v-else>{{ idx + 1 }}</span>
-							</div>
-							<div class="label">{{ s.label }}</div>
-							<div class="filearea">
-								<!-- special UI for treasurer payment step -->
-								<div v-if="s.key === 'treasurerPaid'">
-									<span v-if="isDone('treasurerPaid')" class="meta">Completed</span>
-									<button v-else-if="isActive('treasurerPaid')" class="btn-primary" @click.prevent="markTreasurerPaid">Mark Paid</button>
-									<div v-else class="meta muted">Locked</div>
-								</div>
-								<span v-else-if="getFileName(s.key)" class="meta">{{ getFileName(s.key) }}</span>
-								<div v-else-if="canUpload(s.key)" style="display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap">
-									<label class="btn-secondary" style="cursor:pointer;font-size:0.78rem;padding:4px 8px;display:inline-flex;align-items:center;gap:4px">
-										<input type="file" accept="image/*" capture="environment" @change="handleFileChange(s.key, $event)" style="display:none" />
-										📷 Photo
-									</label>
-									<label class="btn-secondary" style="cursor:pointer;font-size:0.78rem;padding:4px 8px;display:inline-flex;align-items:center;gap:4px">
-										<input type="file" accept="image/*,application/pdf" @change="handleFileChange(s.key, $event)" style="display:none" />
-										📁 File
-									</label>
-								</div>
-								<div v-else class="meta muted">Locked</div>
-							</div>
-							<div v-if="idx < stepDefs.length - 1" class="connector" :class="{done: isDone(s.key) && isDone(stepDefs[idx+1].key)}"></div>
-						</div>
-					</div>
-				</div>
-			</section>
-		</div>
+      <!-- 4 METRIC CARDS -->
+      <section class="metrics-grid">
+        <!-- 1. Monthly revenue (Dark Green Card) -->
+        <div class="metric-card card-revenue">
+          <div class="card-top">
+            <span class="card-label">Monthly revenue</span>
+            <div class="card-icon-wrap">
+              <i class="pi pi-chart-bar" />
+            </div>
+          </div>
+          <div>
+            <div class="card-value">{{ currentMetrics.revenue }}</div>
+            <div class="card-trend">
+              <span class="trend-val">↗ {{ currentMetrics.revenueTrend }}</span> from last {{ selectedPeriod }}
+            </div>
+          </div>
+          <!-- Wavy SVG sparkline along the bottom -->
+          <svg class="revenue-sparkline" viewBox="0 0 320 54" preserveAspectRatio="none" aria-hidden="true">
+            <path
+              d="M0,45 C45,43 75,32 110,38 C145,44 175,26 215,34 C255,42 285,18 320,24"
+              fill="none"
+              stroke="#e2d89b"
+              stroke-width="2.6"
+              stroke-linecap="round"
+            />
+          </svg>
+        </div>
 
-		<div v-if="showEdit" class="modal-backdrop" @click.self="closeEdit">
-			<div class="modal">
-				<h3>Edit Profile</h3>
-				<label>Name<input v-model="form.name" /></label>
-				<label>Business<input v-model="form.business" /></label>
-				<label>Contact<input v-model="form.contact" /></label>
-				<div class="modal-actions">
-					<button @click="closeEdit">Cancel</button>
-					<button class="btn-primary" @click="saveProfile">Save</button>
-				</div>
-			</div>
-		</div>
+        <!-- 2. Occupancy (White Card) -->
+        <div class="metric-card card-occupancy">
+          <div class="card-top">
+            <span class="card-label">Occupancy</span>
+            <div class="card-icon-wrap">
+              <i class="pi pi-shop" />
+            </div>
+          </div>
+          <div>
+            <div class="card-value">{{ currentMetrics.occupancy }}</div>
+            <div class="card-trend">
+              <span class="trend-val">↗ {{ currentMetrics.occupancyTrend }}</span>
+              <span>{{ currentMetrics.stallsInfo }}</span>
+            </div>
+            <div class="card-progress-track">
+              <div
+                class="card-progress-fill fill-occupancy"
+                :style="{ width: currentMetrics.occupancyWidth }"
+              />
+            </div>
+          </div>
+        </div>
 
-		<!-- Contract viewer modal (shows details and file when available) -->
-		<div v-if="showContractModal" class="modal-backdrop" @click.self="closeContractModal">
-			<div class="modal modal-large">
-				<div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
-					<h3>Contract Details</h3>
-					<div class="contract-actions">
-						<button v-if="selectedContract && (selectedContract.contractUrl || selectedContract.url)" class="btn-secondary" @click="openInNewTab(selectedContract)">Open in new tab</button>
-						<button @click="closeContractModal">Close</button>
-					</div>
-				</div>
-				<div v-if="selectedContract" style="margin-top:10px">
-					<div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap">
-						<div>
-							<div class="label">Reference</div>
-							<div class="value">{{ selectedContract.ref || selectedContract.id || '-' }}</div>
-						</div>
-						<div>
-							<div class="label">Start Date</div>
-							<div class="value">{{ formatDate(selectedContract.start) || '-' }}</div>
-						</div>
-						<div>
-							<div class="label">End Date</div>
-							<div class="value">{{ formatDate(selectedContract.end) || '-' }}</div>
-						</div>
-					</div>
-					<div style="margin-top:12px">
-						<div v-if="selectedContract.contractUrl || selectedContract.url" class="contract-viewer">
-							<iframe v-if="isUrl(selectedContract.contractUrl || selectedContract.url)" :src="selectedContract.contractUrl || selectedContract.url" frameborder="0"></iframe>
-							<div v-else class="no-file">Contract reference: <strong>{{ selectedContract.ref || selectedContract.id }}</strong></div>
-						</div>
-						<div v-else class="no-file">No contract file available for this record.</div>
-					</div>
-				</div>
-			</div>
-		</div>
-		</main>
-	</div>
+        <!-- 3. Active vendors (White Card) -->
+        <div class="metric-card card-vendors">
+          <div class="card-top">
+            <span class="card-label">Active vendors</span>
+            <div class="card-icon-wrap">
+              <i class="pi pi-users" />
+            </div>
+          </div>
+          <div>
+            <div class="card-value">{{ currentMetrics.activeVendors }}</div>
+            <div class="card-trend">
+              <span class="trend-val">+{{ currentMetrics.vendorsTrend }}</span> this {{ selectedPeriod }}
+            </div>
+            <div class="vendor-avatars">
+              <span
+                v-for="badge in vendorBadges"
+                :key="badge.text"
+                class="avatar-badge"
+                :style="{ backgroundColor: badge.bg, color: badge.color }"
+              >
+                {{ badge.text }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. Rent collected (White Card) -->
+        <div class="metric-card card-rent">
+          <div class="card-top">
+            <span class="card-label">Rent collected</span>
+            <div class="card-icon-wrap">
+              <i class="pi pi-calendar" />
+            </div>
+          </div>
+          <div>
+            <div class="card-value">{{ currentMetrics.rentCollected }}</div>
+            <div class="card-trend">
+              <strong style="color: #b45309; font-weight: 700;">{{ currentMetrics.outstandingCount }} payments</strong>
+              <span>still outstanding</span>
+            </div>
+            <div class="card-progress-track">
+              <div
+                class="card-progress-fill fill-rent"
+                :style="{ width: currentMetrics.rentWidth }"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- LOWER SECTION: 2 COLUMNS -->
+      <div class="dash-lower-grid">
+        <!-- LEFT: Recent rent activity -->
+        <section class="dash-panel rent-activity-card">
+          <div class="panel-header">
+            <div class="panel-title-group">
+              <h2 class="panel-title">Recent rent activity</h2>
+              <span class="panel-subtitle">October payment status</span>
+            </div>
+            <button class="view-all-btn" @click="openViewAllModal">
+              View all
+              <i class="pi pi-arrow-right" />
+            </button>
+          </div>
+
+          <div class="rent-table-wrap">
+            <table class="rent-table">
+              <thead>
+                <tr>
+                  <th>VENDOR</th>
+                  <th>STALL</th>
+                  <th>RENT</th>
+                  <th>STATUS</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in filteredRentActivity" :key="item.id">
+                  <td>
+                    <div class="vendor-cell">
+                      <div
+                        class="vendor-avatar"
+                        :style="{ backgroundColor: item.avatarBg, color: item.avatarColor }"
+                      >
+                        {{ item.avatar }}
+                      </div>
+                      <span class="vendor-name">{{ item.vendor }}</span>
+                    </div>
+                  </td>
+                  <td class="stall-cell">{{ item.stall }}</td>
+                  <td class="rent-cell">{{ formatCurrency(item.rent) }}</td>
+                  <td>
+                    <span :class="['status-pill', item.statusClass]">
+                      {{ item.status }}
+                    </span>
+                  </td>
+                  <td style="position: relative; text-align: right;">
+                    <button
+                      class="row-action-btn"
+                      @click="toggleRowMenu(item.id)"
+                      :title="'Actions for ' + item.vendor"
+                      aria-label="Row actions"
+                    >
+                      ···
+                    </button>
+                    <!-- Row Action Dropdown -->
+                    <div v-if="activeMenuId === item.id" class="action-dropdown" @click.stop>
+                      <button @click="viewVendorDetails(item)">
+                        <i class="pi pi-eye" /> View details
+                      </button>
+                      <button @click="sendPaymentReminder(item)">
+                        <i class="pi pi-send" /> Send reminder
+                      </button>
+                      <button @click="openContractByStall(item.stall)">
+                        <i class="pi pi-file-pdf" /> View lease contract
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                <tr v-if="filteredRentActivity.length === 0">
+                  <td colspan="5" style="text-align: center; color: #9ca3af; padding: 2rem;">
+                    No rent records matching "{{ searchQuery }}".
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- RIGHT: Needs attention -->
+        <section class="dash-panel needs-attention-card">
+          <div class="panel-header">
+            <div class="panel-title-group">
+              <div class="panel-title-row">
+                <h2 class="panel-title">Needs attention</h2>
+                <span class="panel-badge">{{ attentionItems.length }}</span>
+              </div>
+              <span class="panel-subtitle">Priority tasks for today</span>
+            </div>
+          </div>
+
+          <div class="attention-list">
+            <div
+              v-for="task in attentionItems"
+              :key="task.id"
+              class="attention-item"
+              @click="handleAttentionClick(task)"
+              role="button"
+              tabindex="0"
+            >
+              <div class="attention-left">
+                <div :class="['attention-icon-box', task.iconClass]">
+                  <i :class="task.icon" />
+                </div>
+                <div class="attention-content">
+                  <span class="attention-title">{{ task.title }}</span>
+                  <span class="attention-sub">{{ task.sub }}</span>
+                </div>
+              </div>
+              <i class="pi pi-chevron-right attention-chevron" />
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- ONBOARDING & DOCUMENTS QUICK ACCESS -->
+      <section class="portal-extra-bar">
+        <div class="portal-extra-left">
+          <i class="pi pi-folder-open" />
+          <div>
+            <div class="portal-extra-title">Stakeholder Application & Documents Hub</div>
+            <div class="portal-extra-sub">
+              Access your application verification progress, uploaded business permits, and profile settings.
+            </div>
+          </div>
+        </div>
+        <button class="btn-open-drawer" @click="showDocumentsModal = true">
+          View Documents & Progress
+        </button>
+      </section>
+
+      <!-- MODAL: NEW CONTRACT -->
+      <div
+        v-if="showNewContractModal"
+        class="modal-backdrop"
+        @click.self="showNewContractModal = false"
+      >
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>New Stall Lease Contract</h3>
+            <button class="modal-close-btn" @click="showNewContractModal = false">✕</button>
+          </div>
+          <div class="modal-body">
+            <form @submit.prevent="submitNewContract">
+              <div class="form-group">
+                <label>Vendor / Business Name</label>
+                <input
+                  v-model="newContractForm.vendor"
+                  type="text"
+                  placeholder="e.g. Green Valley Produce"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label>Assigned Stall</label>
+                <input
+                  v-model="newContractForm.stall"
+                  type="text"
+                  placeholder="e.g. A-15 or S-08"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label>Monthly Rent Amount ($)</label>
+                <input
+                  v-model.number="newContractForm.rent"
+                  type="number"
+                  placeholder="1200"
+                  required
+                />
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div class="form-group">
+                  <label>Start Date</label>
+                  <input v-model="newContractForm.startDate" type="date" required />
+                </div>
+                <div class="form-group">
+                  <label>End Date</label>
+                  <input v-model="newContractForm.endDate" type="date" required />
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Notes / Terms</label>
+                <textarea
+                  v-model="newContractForm.notes"
+                  rows="2"
+                  placeholder="Additional contract terms or conditions..."
+                />
+              </div>
+              <div class="modal-actions">
+                <button
+                  type="button"
+                  class="btn-modal-cancel"
+                  @click="showNewContractModal = false"
+                >
+                  Cancel
+                </button>
+                <button type="submit" class="btn-modal-submit">Create Contract</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL: VIEW ALL RENT ACTIVITY -->
+      <div
+        v-if="showViewAllModal"
+        class="modal-backdrop"
+        @click.self="showViewAllModal = false"
+      >
+        <div class="modal-content modal-large">
+          <div class="modal-header">
+            <h3>All Rent & Payment Activity</h3>
+            <button class="modal-close-btn" @click="showViewAllModal = false">✕</button>
+          </div>
+          <div class="modal-body">
+            <div style="margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 0.88rem; color: #6b7280;">
+                Showing <strong>{{ rentActivityList.length }}</strong> recorded transactions
+              </span>
+              <div style="display: flex; gap: 8px;">
+                <button
+                  class="btn-modal-cancel"
+                  style="padding: 6px 12px; font-size: 0.8rem;"
+                  @click="filterStatus = 'all'"
+                >
+                  All
+                </button>
+                <button
+                  class="btn-modal-cancel"
+                  style="padding: 6px 12px; font-size: 0.8rem;"
+                  @click="filterStatus = 'Paid'"
+                >
+                  Paid
+                </button>
+                <button
+                  class="btn-modal-cancel"
+                  style="padding: 6px 12px; font-size: 0.8rem;"
+                  @click="filterStatus = 'Overdue'"
+                >
+                  Overdue
+                </button>
+              </div>
+            </div>
+            <table class="rent-table">
+              <thead>
+                <tr>
+                  <th>VENDOR</th>
+                  <th>STALL</th>
+                  <th>RENT</th>
+                  <th>DUE DATE</th>
+                  <th>STATUS</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="item in displayedAllRentList"
+                  :key="item.id"
+                >
+                  <td>
+                    <div class="vendor-cell">
+                      <div
+                        class="vendor-avatar"
+                        :style="{ backgroundColor: item.avatarBg, color: item.avatarColor }"
+                      >
+                        {{ item.avatar }}
+                      </div>
+                      <span class="vendor-name">{{ item.vendor }}</span>
+                    </div>
+                  </td>
+                  <td class="stall-cell">{{ item.stall }}</td>
+                  <td class="rent-cell">{{ formatCurrency(item.rent) }}</td>
+                  <td style="font-size: 0.82rem; color: #6b7280;">{{ item.dueDate || '2026-10-15' }}</td>
+                  <td>
+                    <span :class="['status-pill', item.statusClass]">
+                      {{ item.status }}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL: ATTENTION TASK DETAILS -->
+      <div
+        v-if="selectedAttentionTask"
+        class="modal-backdrop"
+        @click.self="selectedAttentionTask = null"
+      >
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>{{ selectedAttentionTask.title }}</h3>
+            <button class="modal-close-btn" @click="selectedAttentionTask = null">✕</button>
+          </div>
+          <div class="modal-body">
+            <p style="color: #6b7280; font-size: 0.88rem; margin-bottom: 16px;">
+              {{ selectedAttentionTask.description }}
+            </p>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <div
+                v-for="(detail, i) in selectedAttentionTask.items"
+                :key="i"
+                style="background: #f9fafb; border: 1px solid #f3f4f6; border-radius: 10px; padding: 12px; display: flex; justify-content: space-between; align-items: center;"
+              >
+                <div>
+                  <div style="font-weight: 700; color: #111827; font-size: 0.9rem;">
+                    {{ detail.name }}
+                  </div>
+                  <div style="font-size: 0.8rem; color: #6b7280;">
+                    {{ detail.info }}
+                  </div>
+                </div>
+                <button
+                  class="btn-modal-submit"
+                  style="padding: 6px 12px; font-size: 0.8rem;"
+                  @click="handleAttentionAction(detail)"
+                >
+                  {{ detail.actionLabel }}
+                </button>
+              </div>
+            </div>
+            <div class="modal-actions" style="margin-top: 20px;">
+              <button class="btn-modal-cancel" @click="selectedAttentionTask = null">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL: NOTIFICATIONS -->
+      <div
+        v-if="showNotificationsModal"
+        class="modal-backdrop"
+        @click.self="showNotificationsModal = false"
+      >
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>Notifications</h3>
+            <button class="modal-close-btn" @click="showNotificationsModal = false">✕</button>
+          </div>
+          <div class="modal-body">
+            <div style="display: flex; justify-content: flex-end; margin-bottom: 12px;">
+              <button
+                class="btn-modal-cancel"
+                style="padding: 4px 8px; font-size: 0.78rem;"
+                @click="markAllNotificationsRead"
+              >
+                Mark all as read
+              </button>
+            </div>
+            <div v-if="notificationsList.length === 0" style="text-align: center; color: #9ca3af; padding: 2rem;">
+              No notifications at this time.
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div
+                v-for="n in notificationsList"
+                :key="n.id"
+                style="padding: 12px; border-radius: 10px; background: #fafaf9; border-left: 3px solid #144733;"
+              >
+                <div style="font-size: 0.88rem; color: #111827;">{{ n.message }}</div>
+                <div style="font-size: 0.75rem; color: #9ca3af; margin-top: 4px;">{{ n.date }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL: DOCUMENTS & PROGRESS DRAWER -->
+      <div
+        v-if="showDocumentsModal"
+        class="modal-backdrop"
+        @click.self="showDocumentsModal = false"
+      >
+        <div class="modal-content modal-large">
+          <div class="modal-header">
+            <h3>Stakeholder Application & Verification</h3>
+            <button class="modal-close-btn" @click="showDocumentsModal = false">✕</button>
+          </div>
+          <div class="modal-body">
+            <!-- Stakeholder Profile Summary -->
+            <div style="background: #f9fafb; padding: 16px; border-radius: 12px; margin-bottom: 20px;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                  <h4 style="margin: 0; font-size: 1.1rem; color: #111827;">
+                    {{ currentStakeholder?.name || 'Ana Garcia' }}
+                  </h4>
+                  <p style="margin: 4px 0 0; font-size: 0.85rem; color: #6b7280;">
+                    Business: {{ currentStakeholder?.business || 'Garcia Organic Produce' }} | Contact: {{ currentStakeholder?.contact || '0917-882-9912' }}
+                  </p>
+                </div>
+                <span class="status-pill status-paid">Active Stakeholder</span>
+              </div>
+            </div>
+
+            <!-- Documents & Contracts List -->
+            <h4 style="margin-bottom: 10px; font-size: 0.95rem;">Registered Contracts</h4>
+            <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;">
+              <div
+                v-for="c in contracts"
+                :key="c.id"
+                style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px;"
+              >
+                <div>
+                  <strong style="color: #111827; font-size: 0.88rem;">{{ c.ref }}</strong>
+                  <div style="font-size: 0.78rem; color: #6b7280;">
+                    Period: {{ c.start }} — {{ c.end }}
+                  </div>
+                </div>
+                <button
+                  class="btn-modal-cancel"
+                  style="padding: 6px 12px; font-size: 0.8rem;"
+                  @click="openContract(c)"
+                >
+                  View Details
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL: CONTRACT VIEWER -->
+      <div
+        v-if="showContractModal"
+        class="modal-backdrop"
+        @click.self="showContractModal = false"
+      >
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>Contract Details</h3>
+            <button class="modal-close-btn" @click="showContractModal = false">✕</button>
+          </div>
+          <div class="modal-body">
+            <div v-if="selectedContract" style="display: flex; flex-direction: column; gap: 12px;">
+              <div>
+                <span style="font-size: 0.8rem; color: #6b7280; display: block;">Reference</span>
+                <strong style="font-size: 1rem; color: #111827;">{{ selectedContract.ref }}</strong>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div>
+                  <span style="font-size: 0.8rem; color: #6b7280; display: block;">Start Date</span>
+                  <span style="font-weight: 600;">{{ selectedContract.start }}</span>
+                </div>
+                <div>
+                  <span style="font-size: 0.8rem; color: #6b7280; display: block;">End Date</span>
+                  <span style="font-weight: 600;">{{ selectedContract.end }}</span>
+                </div>
+              </div>
+              <div style="margin-top: 14px; padding: 14px; background: #f9fafb; border-radius: 10px; text-align: center;">
+                <i class="pi pi-file-pdf" style="font-size: 2rem; color: #144733; margin-bottom: 8px; display: inline-block;" />
+                <div style="font-size: 0.88rem; color: #374151;">Lease Agreement Document</div>
+                <button
+                  class="btn-modal-submit"
+                  style="margin-top: 10px; font-size: 0.82rem; padding: 6px 14px;"
+                  @click="alert('Contract document downloaded successfully')"
+                >
+                  Download PDF
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useConfirm } from 'primevue/useconfirm'
-import { useRoute, useRouter } from 'vue-router'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRoute } from 'vue-router'
+import StakeholderMenu from '../components/StakeholderMenu.vue'
 import sampleApplicants from '../data/applicants.js'
 import sampleContracts from '../data/contracts.js'
-import StakeholderMenu from '../components/StakeholderMenu.vue'
-import Notification from '../components/Notification.vue'
 import {
-	getStakeholderNotifications,
-	markAllNotificationsAsRead,
-	markNotificationAsRead
+  getStakeholderNotifications,
+  markAllNotificationsAsRead,
+  markNotificationAsRead
 } from '../services/notificationService'
 
-const confirm = useConfirm()
 const route = useRoute()
-const router = useRouter()
 const stakeholderId =
-	route.query.id ||
-	route.params.id ||
-	localStorage.getItem('stakeholderId') ||
-	null
+  route.query.id ||
+  route.params.id ||
+  localStorage.getItem('stakeholderId') ||
+  null
 
-const showEdit = ref(false)
-const form = ref({ name: '', business: '', contact: '' })
+// SEARCH & PERIOD FILTER
+const searchQuery = ref('')
+const searchInputRef = ref(null)
+const selectedPeriod = ref('month')
 
-function loadApplications() {
-	try { const raw = localStorage.getItem('ms_applications'); if (raw) return JSON.parse(raw) } catch (e) {}
-	return sampleApplicants.map(x => ({ ...x }))
-}
-
-const applications = ref(loadApplications())
-
-function saveApplications() { try { localStorage.setItem('ms_applications', JSON.stringify(applications.value)) } catch (e) {} }
-
-const stakeholder = computed(() => {
-	if (!stakeholderId) return applications.value[0] || null
-	return applications.value.find(a => String(a.id) === String(stakeholderId)) || null
+// USER GREETING & DATE
+const displayName = computed(() => {
+  const current = currentStakeholder.value
+  if (current?.name) {
+    const first = current.name.split(' ')[0]
+    return first || 'Ana'
+  }
+  return 'Ana'
 })
 
-function loadStalls() {
-	try { const raw = localStorage.getItem('ms_stalls'); if (raw) return JSON.parse(raw) } catch (e) {}
-	return []
-}
-
-const stalls = ref(loadStalls())
-
-const assignedStall = computed(() => {
-	if (!stakeholder.value) return null
-	return stalls.value.find(s => (s.occupant && s.occupant === stakeholder.value.name) || s.number === stakeholder.value.stall) || null
+const currentDateFormatted = computed(() => {
+  // Format matching screenshot: TUESDAY, OCTOBER 22
+  const now = new Date()
+  const days = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY']
+  const months = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER']
+  return `${days[now.getDay()]}, ${months[now.getMonth()]} ${now.getDate()}`
 })
 
-function loadPayments() {
-	try { const raw = localStorage.getItem('payments'); if (raw) return JSON.parse(raw) } catch (e) {}
-	return []
-}
-
-function loadContracts(){ try{ const raw = localStorage.getItem('contracts'); if (raw) return JSON.parse(raw) }catch(e){} return sampleContracts.map(x=>({ ...x })) }
-
-const payments = ref(loadPayments())
-const contracts = ref(loadContracts())
-
-function saveContracts(){ try{ localStorage.setItem('contracts', JSON.stringify(contracts.value)) }catch(e){} }
-
-function loadNotifications(){ try { const raw = localStorage.getItem('ms_notifications'); if (raw) return JSON.parse(raw) } catch(e){} return [] }
-
-function saveNotifications(){ try { localStorage.setItem('ms_notifications', JSON.stringify(notifications.value)) } catch(e){} }
-
-const notifications = ref(loadNotifications())
-
-const notificationsForStakeholder = computed(()=>{
-	if (!stakeholder.value) return []
-	return notifications.value.filter(n => String(n.stakeholderId) === String(stakeholder.value.id))
-})
-
-function addNotification(message){
-	const id = 'N' + Date.now()
-	const item = { id, stakeholderId: stakeholder.value ? stakeholder.value.id : null, message, date: new Date().toLocaleString(), read:false }
-	notifications.value.unshift(item)
-	saveNotifications()
-}
-
-async function loadBackendNotifications(){
-	if (!stakeholderId) return
-
-	try {
-		const response = await getStakeholderNotifications(stakeholderId)
-		notifications.value = response.data
-	} catch (error) {
-		console.warn('Unable to load backend notifications', error)
-	}
-}
-
-async function markRead(id){
-	try {
-		await markNotificationAsRead(id)
-		await loadBackendNotifications()
-		return
-	} catch (error) {
-		console.warn('Unable to mark backend notification as read', error)
-	}
-
-	const idx = notifications.value.findIndex(n=>n.id===id)
-	if (idx!==-1){ notifications.value[idx].read = true; saveNotifications() }
-}
-
-async function markAllRead(){
-	if (stakeholderId) {
-		try {
-			await markAllNotificationsAsRead(stakeholderId)
-			await loadBackendNotifications()
-			return
-		} catch (error) {
-			console.warn('Unable to mark backend notifications as read', error)
-		}
-	}
-
-	let changed = false
-	for (const n of notifications.value){ if (String(n.stakeholderId) === String(stakeholder.value?.id) && !n.read){ n.read = true; changed = true } }
-	if (changed) saveNotifications()
-}
-
-const paymentsForStakeholder = computed(() => {
-	if (!stakeholder.value) return []
-	return payments.value.filter(p => (p.stakeholderId && String(p.stakeholderId) === String(stakeholder.value.id)) || (p.stakeholder && p.stakeholder === stakeholder.value.name))
-})
-
-const contractsForStakeholder = computed(() => {
-	if (!stakeholder.value) return []
-	const list = []
-	// include contracts stored globally
-	for (const c of contracts.value){ if (String(c.stakeholderId) === String(stakeholder.value.id)) list.push(c) }
-	const app = applicationsForThis.value || {}
-	// application-level contract fields
-	if (Array.isArray(app.contracts)){
-		for (const c of app.contracts) list.push({ start: c.start, end: c.end, ref: c.ref })
-	}
-	if (app.contractStart || app.contractEnd) list.push({ start: app.contractStart, end: app.contractEnd, ref: app.contractRef })
-	// stall assignment based contract info
-	if (assignedStall && assignedStall.value){
-		const s = assignedStall.value
-		const start = s.assignedOn || s.assignedAt || app.approvedOn || stakeholder.value.approvedOn || app.appliedOn
-		const end = s.leaseEnd || s.assignedUntil || app.contractEnd || null
-		if (start || end) list.push({ start, end, ref: s.number || s.name })
-	}
-	return list
-})
-
-const showContractModal = ref(false)
-const selectedContract = ref(null)
-
-function openContract(c){
-	if (!c) return
-	selectedContract.value = c
-	showContractModal.value = true
-}
-
-function closeContractModal(){ selectedContract.value = null; showContractModal.value = false }
-
-function openInNewTab(c){ const url = c.contractUrl || c.url; if (!url) return alert('No contract file available'); try{ window.open(url,'_blank') }catch(e){ alert('Unable to open contract') } }
-
-function isUrl(v){ if(!v) return false; try{ return /^https?:\/\//i.test(v) || /^data:/i.test(v) }catch(e){ return false } }
-
-const stepState = computed(() => {
-  const s = stakeholder.value || {}
+// METRIC VALUES PER PERIOD
+const currentMetrics = computed(() => {
+  if (selectedPeriod.value === 'quarter') {
+    return {
+      revenue: '$254,180',
+      revenueTrend: '11.2%',
+      occupancy: '92.4%',
+      occupancyTrend: '3.5%',
+      stallsInfo: '78 of 84 stalls',
+      occupancyWidth: '92.4%',
+      activeVendors: '68',
+      vendorsTrend: '6',
+      rentCollected: '96.1%',
+      outstandingCount: '3',
+      rentWidth: '96.1%'
+    }
+  }
+  if (selectedPeriod.value === 'year') {
+    return {
+      revenue: '$982,500',
+      revenueTrend: '14.6%',
+      occupancy: '93.0%',
+      occupancyTrend: '4.2%',
+      stallsInfo: '79 of 84 stalls',
+      occupancyWidth: '93.0%',
+      activeVendors: '68',
+      vendorsTrend: '12',
+      rentCollected: '97.8%',
+      outstandingCount: '2',
+      rentWidth: '97.8%'
+    }
+  }
+  // Default: 'month' (exact numbers from design mockup)
   return {
-    letterOfIntent: !!s.letterOfIntent,
-    validID: !!s.validID,
-    advancePaid: !!s.advancePaid,
-		contractUnlocked: !!s.contractUnlocked,
-    postUpload1: !!s.postUpload1,
-    postUpload2: !!s.postUpload2,
-    applicationFormUnlocked: !!s.applicationFormUnlocked
-		,treasurerPaid: !!s.treasurerPaid
-	}
+    revenue: '$86,420',
+    revenueTrend: '8.4%',
+    occupancy: '91.7%',
+    occupancyTrend: '2.1%',
+    stallsInfo: '77 of 84 stalls',
+    occupancyWidth: '91.7%',
+    activeVendors: '68',
+    vendorsTrend: '4',
+    rentCollected: '94.2%',
+    outstandingCount: '5',
+    rentWidth: '94.2%'
+  }
 })
 
-function setStep(key, value){
-	if (!stakeholder.value) return
-	const idx = applications.value.findIndex(a => String(a.id) === String(stakeholder.value.id))
-	if (idx === -1) return
-	applications.value[idx][key] = value
-	saveApplications()
-}
-
-const stepDefs = [
-	{ key: 'letterOfIntent', label: 'Letter of Intent' },
-	{ key: 'validID', label: 'Valid ID' },
-	{ key: 'advancePaid', label: 'Advance payment' },
-	{ key: 'contractUnlocked', label: 'Contract' },
-	{ key: 'postUpload1', label: 'Post-contract upload 1' },
-	{ key: 'postUpload2', label: 'Post-contract upload 2' },
-	{ key: 'applicationFormUnlocked', label: 'Application form' },
-	{ key: 'treasurerPaid', label: 'Payment to Treasurer' }
+// VENDOR AVATAR STACK
+const vendorBadges = [
+  { text: 'GV', bg: '#d1fae5', color: '#065f46' },
+  { text: 'BF', bg: '#fef3c7', color: '#92400e' },
+  { text: 'CH', bg: '#e0f2fe', color: '#0369a1' },
+  { text: '+65', bg: '#f1f5f9', color: '#64748b' }
 ]
 
-function isDone(key){ return !!stepState.value[key] }
+// RECENT RENT ACTIVITY DATA (Matching Screenshot Rows)
+const rentActivityList = ref([
+  {
+    id: 'act-1',
+    vendor: 'Green Valley Produce',
+    avatar: 'GV',
+    avatarBg: '#d1fae5',
+    avatarColor: '#065f46',
+    stall: 'A-12',
+    rent: 1280,
+    status: 'Paid',
+    statusClass: 'status-paid',
+    dueDate: '2026-10-15',
+    paymentMethod: 'Bank Transfer'
+  },
+  {
+    id: 'act-2',
+    vendor: 'Bread & Fold',
+    avatar: 'BF',
+    avatarBg: '#fef3c7',
+    avatarColor: '#92400e',
+    stall: 'B-04',
+    rent: 1150,
+    status: 'Due soon',
+    statusClass: 'status-due',
+    dueDate: '2026-10-25',
+    paymentMethod: 'GCash'
+  },
+  {
+    id: 'act-3',
+    vendor: 'Coastal Harvest',
+    avatar: 'CH',
+    avatarBg: '#e0f2fe',
+    avatarColor: '#0369a1',
+    stall: 'C-18',
+    rent: 980,
+    status: 'Paid',
+    statusClass: 'status-paid',
+    dueDate: '2026-10-12',
+    paymentMethod: 'Cash'
+  },
+  {
+    id: 'act-4',
+    vendor: 'Mora Family Flowers',
+    avatar: 'MF',
+    avatarBg: '#fee2e2',
+    avatarColor: '#991b1b',
+    stall: 'A-03',
+    rent: 1320,
+    status: 'Overdue',
+    statusClass: 'status-overdue',
+    dueDate: '2026-10-05',
+    paymentMethod: 'Overdue'
+  }
+])
 
-function isActive(key){
-	// active if previous steps are done and this one is not done
-	const keys = stepDefs.map(s=>s.key)
-	const idx = keys.indexOf(key)
-	if (idx === -1) return false
-	for (let i = 0; i < idx; i++){ if (!stepState.value[keys[i]]) return false }
-	return !stepState.value[key]
-}
-
-function getFileName(key){
-	const a = applicationsForThis.value || {}
-	const v = a[key + 'FileName'] || a[key + 'File'] || a[key]
-	// avoid returning boolean true (happens when we set a[key]=true)
-	if (typeof v === 'string' && v.trim() !== '') return v
-	return null
-}
-
-function canUpload(key){
-	// allow upload when the relevant unlock is present or when it's an earlier step
-	if (key === 'postUpload1' || key === 'postUpload2') return !!stepState.value.contractUnlocked
-	if (key === 'applicationFormUnlocked') return !!(stepState.value.postUpload1 && stepState.value.postUpload2)
-	return true
-}
-
-const uploadedFiles = computed(()=>{
-	const a = applicationsForThis.value || {}
-	const list = []
-	// profile photo
-	if (a.avatarFileName) list.push({ key: 'avatar', label: 'Profile Photo', name: a.avatarFileName })
-	for (const s of stepDefs){
-		const name = getFileName(s.key)
-		if (name) list.push({ key: s.key, label: s.label, name })
-	}
-	return list
+const filteredRentActivity = computed(() => {
+  const query = (searchQuery.value || '').toLowerCase().trim()
+  if (!query) return rentActivityList.value
+  return rentActivityList.value.filter(item =>
+    item.vendor.toLowerCase().includes(query) ||
+    item.stall.toLowerCase().includes(query) ||
+    item.status.toLowerCase().includes(query) ||
+    String(item.rent).includes(query)
+  )
 })
 
-function removeUploadedFile(key){
-	if (!stakeholder.value) return
-	confirm.require({
-		header: 'Remove File',
-		message: `Are you sure you want to remove the uploaded file for "${key}"? This action cannot be undone.`,
-		acceptLabel: 'Remove',
-		rejectLabel: 'Cancel',
-		severity: 'danger',
-		accept: () => {
-			const idx = applications.value.findIndex(a => String(a.id) === String(stakeholder.value.id))
-			if (idx === -1) return
-			const a = applications.value[idx]
-			if (key === 'avatar'){
-				delete a.avatar
-				delete a.avatarFileName
-			} else {
-				delete a[key]
-				delete a[key + 'File']
-				delete a[key + 'FileName']
-				// legacy keys
-				if (key === 'letterOfIntent') delete a.letterOfIntentFile
-				if (key === 'validID') delete a.validIDFile
-				if (key === 'postUpload1') delete a.postUpload1File
-				if (key === 'postUpload2') delete a.postUpload2File
-			}
-			saveApplications()
-		}
-	})
-}
+// NEEDS ATTENTION LIST (Matching Screenshot Rows)
+const attentionItems = ref([
+  {
+    id: 'task-1',
+    type: 'overdue',
+    title: '3 overdue payments',
+    sub: 'More than 7 days past due',
+    iconClass: 'icon-red',
+    icon: 'pi pi-exclamation-circle',
+    description: 'The following stall vendors have overdue rent balances exceeding 7 days:',
+    items: [
+      { name: 'Mora Family Flowers', info: 'Stall A-03 • $1,320 overdue (9 days)', actionLabel: 'Send Notice' },
+      { name: 'Sunrise Bakery', info: 'Stall B-11 • $1,050 overdue (11 days)', actionLabel: 'Send Notice' },
+      { name: 'Island Spices Co.', info: 'Stall C-02 • $890 overdue (8 days)', actionLabel: 'Send Notice' }
+    ]
+  },
+  {
+    id: 'task-2',
+    type: 'expiring',
+    title: '2 contracts expiring',
+    sub: 'Within the next 30 days',
+    iconClass: 'icon-green',
+    icon: 'pi pi-file',
+    description: 'Lease contracts expiring in the next 30 calendar days requiring renewal:',
+    items: [
+      { name: 'Green Valley Produce', info: 'Stall A-12 • Expires in 18 days (Nov 15)', actionLabel: 'Renew Lease' },
+      { name: 'Artisan Pottery & Crafts', info: 'Stall D-05 • Expires in 27 days (Nov 24)', actionLabel: 'Renew Lease' }
+    ]
+  },
+  {
+    id: 'task-3',
+    type: 'signature',
+    title: '1 contract awaiting signature',
+    sub: 'Sent yesterday',
+    iconClass: 'icon-teal',
+    icon: 'pi pi-user',
+    description: 'Contract documents generated and sent to vendor, pending signature:',
+    items: [
+      { name: 'Luna Artisan Bakeshop', info: 'Stall B-14 • 12-month standard lease agreement', actionLabel: 'Review & Sign' }
+    ]
+  }
+])
 
-const contractUrl = '/contract.pdf'
-const applicationFormUrl = '/application-form.pdf'
+// MODALS AND INTERACTIONS
+const showNewContractModal = ref(false)
+const showViewAllModal = ref(false)
+const showNotificationsModal = ref(false)
+const showDocumentsModal = ref(false)
+const showContractModal = ref(false)
+const selectedContract = ref(null)
+const selectedAttentionTask = ref(null)
+const activeMenuId = ref(null)
+const filterStatus = ref('all')
 
-const applicationsForThis = computed(() => {
-	if (!stakeholder.value) return null
-	return applications.value.find(a => String(a.id) === String(stakeholder.value.id)) || null
+const newContractForm = ref({
+  vendor: '',
+  stall: '',
+  rent: '',
+  startDate: '',
+  endDate: '',
+  notes: ''
 })
 
-const progressPercent = computed(() => {
-	const s = stepState.value
-	const keys = ['letterOfIntent','validID','advancePaid','contractUnlocked','postUpload1','postUpload2','applicationFormUnlocked','treasurerPaid']
-	const total = keys.length
-	const done = keys.reduce((acc,k)=> acc + (s[k] ? 1 : 0), 0)
-	return (done / total) * 100
+const displayedAllRentList = computed(() => {
+  if (filterStatus.value === 'all') return rentActivityList.value
+  return rentActivityList.value.filter(i => i.status.toLowerCase() === filterStatus.value.toLowerCase())
 })
 
-function savePayments(){ try{ localStorage.setItem('payments', JSON.stringify(payments.value)) }catch(e){} }
-
-function markTreasurerPaid(){
-	if (!stakeholder.value) return
-	confirm.require({
-		header: 'Confirm Payment',
-		message: 'Are you sure you want to mark payment to treasurer as completed for this stakeholder?',
-		acceptLabel: 'Confirm',
-		rejectLabel: 'Cancel',
-		severity: 'success',
-		accept: () => {
-			const id = 'P' + Date.now()
-			const item = { id, stakeholderId: stakeholder.value.id, stakeholder: stakeholder.value.name, date: new Date().toLocaleDateString(), type: 'To Treasurer', amount: 0 }
-			payments.value.unshift(item)
-			savePayments()
-			const idx = applications.value.findIndex(a => String(a.id) === String(stakeholder.value.id))
-			if (idx !== -1){
-				applications.value[idx].treasurerPaid = true
-				applications.value[idx].status = 'VERIFIED'
-				saveApplications()
-			}
-			addNotification('Payment to treasurer recorded. Stakeholder verified.')
-			alert('Payment recorded and stakeholder verified')
-		}
-	})
+function openNewContractModal() {
+  newContractForm.value = {
+    vendor: '',
+    stall: '',
+    rent: '',
+    startDate: '',
+    endDate: '',
+    notes: ''
+  }
+  showNewContractModal.value = true
 }
 
-function reconcileTreasurerFromPayments(){
-	if (!stakeholder.value) return
-	const found = payments.value.find(p => (String(p.stakeholderId) === String(stakeholder.value.id) || p.stakeholder === stakeholder.value.name) && p.type === 'To Treasurer')
-	if (found){
-		const idx = applications.value.findIndex(a => String(a.id) === String(stakeholder.value.id))
-		if (idx !== -1 && !applications.value[idx].treasurerPaid){
-			applications.value[idx].treasurerPaid = true
-			applications.value[idx].status = 'VERIFIED'
-			saveApplications()
-		}
-	}
+function submitNewContract() {
+  const form = newContractForm.value
+  if (!form.vendor || !form.stall || !form.rent) return
+
+  const initials = form.vendor
+    .split(' ')
+    .map(w => w[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
+
+  const newRecord = {
+    id: 'act-' + Date.now(),
+    vendor: form.vendor,
+    avatar: initials || 'VN',
+    avatarBg: '#dcfce7',
+    avatarColor: '#166534',
+    stall: form.stall,
+    rent: Number(form.rent),
+    status: 'Paid',
+    statusClass: 'status-paid',
+    dueDate: form.endDate || '2026-11-30',
+    paymentMethod: 'New Lease'
+  }
+
+  rentActivityList.value.unshift(newRecord)
+
+  // Save to sample contracts if start & end provided
+  contracts.value.unshift({
+    id: 'C-' + Date.now(),
+    ref: `CONTRACT-${form.stall}-${new Date().getFullYear()}`,
+    start: form.startDate,
+    end: form.endDate,
+    contractUrl: ''
+  })
+  try {
+    localStorage.setItem('contracts', JSON.stringify(contracts.value))
+  } catch (e) {}
+
+  addNotification(`New lease contract registered for ${form.vendor} (${form.stall}).`)
+  showNewContractModal.value = false
+  alert(`Contract for ${form.vendor} created successfully!`)
 }
 
-function handleFileChange(stepKey, ev){
-	const file = ev.target.files && ev.target.files[0]
-	if (!file) return
-	if (!stakeholder.value) return
-	const idx = applications.value.findIndex(a => String(a.id) === String(stakeholder.value.id))
-	if (idx === -1) return
-	// store filename locally (avoid storing boolean 'true' so filename shows correctly)
-	applications.value[idx][stepKey] = file.name
-	applications.value[idx][stepKey + 'File'] = file.name
-	applications.value[idx][stepKey + 'FileName'] = file.name
-	// legacy-friendly keys
-	if (stepKey === 'postUpload1') applications.value[idx].postUpload1File = file.name
-	if (stepKey === 'postUpload2') applications.value[idx].postUpload2File = file.name
-	if (stepKey === 'letterOfIntent') applications.value[idx].letterOfIntentFile = file.name
-	if (stepKey === 'validID') applications.value[idx].validIDFile = file.name
-	saveApplications()
+function openViewAllModal() {
+  showViewAllModal.value = true
 }
 
-function handleProfileUpload(ev){
-	const file = ev.target.files && ev.target.files[0]
-	if (!file) return
-	if (!stakeholder.value) return
-	const idx = applications.value.findIndex(a => String(a.id) === String(stakeholder.value.id))
-	if (idx === -1) return
-	const reader = new FileReader()
-	reader.onload = function(e){
-		const data = e.target.result
-		applications.value[idx].avatar = data
-		applications.value[idx].avatarFileName = file.name
-		saveApplications()
-	}
-	reader.readAsDataURL(file)
+function toggleNotifications() {
+  showNotificationsModal.value = !showNotificationsModal.value
 }
 
-function removeProfile(){
-	if (!stakeholder.value) return
-	const idx = applications.value.findIndex(a => String(a.id) === String(stakeholder.value.id))
-	if (idx === -1) return
-	delete applications.value[idx].avatar
-	delete applications.value[idx].avatarFileName
-	saveApplications()
+function toggleRowMenu(id) {
+  activeMenuId.value = activeMenuId.value === id ? null : id
 }
 
-function scanUnlockContract(){
-	if (!stepState.value.advancePaid){ alert('Advance payment not detected. Contract cannot be unlocked.'); return }
-	setStep('contractUnlocked', true)
-	addNotification('Your contract has been unlocked and is ready to download.')
-	alert('Contract unlocked and available for download')
+function viewVendorDetails(item) {
+  activeMenuId.value = null
+  alert(`Vendor: ${item.vendor}\nStall: ${item.stall}\nRent: $${item.rent}\nStatus: ${item.status}\nDue Date: ${item.dueDate}`)
 }
 
-function scanUnlockApplication(){
-	if (!stepState.value.postUpload1 || !stepState.value.postUpload2){ alert('Required post-contract uploads not found.'); return }
-	setStep('applicationFormUnlocked', true)
-	addNotification('Your application form has been unlocked and is ready to download.')
-	alert('Application form unlocked and available for download')
+function sendPaymentReminder(item) {
+  activeMenuId.value = null
+  addNotification(`Payment reminder notice dispatched to ${item.vendor}.`)
+  alert(`Payment reminder sent to ${item.vendor}!`)
 }
 
-function formatCurrency(n){ return new Intl.NumberFormat('en-PH',{style:'currency',currency:'PHP',maximumFractionDigits:0}).format(n||0) }
-
-function formatDate(d){
-	if(!d) return ''
-	try{ const dt = new Date(d); if (isNaN(dt)) return d; return dt.toLocaleDateString() }catch(e){ return String(d) }
+function openContractByStall(stallNumber) {
+  activeMenuId.value = null
+  const found = contracts.value.find(c => c.ref.includes(stallNumber)) || contracts.value[0]
+  openContract(found)
 }
 
-const stallDetails = computed(()=>{
-	if(assignedStall && assignedStall.value){
-		const s = assignedStall.value
-		const parts = [s.number || s.name || '', s.zone || s.location || s.section || '', s.assignedOn || s.assignedAt || '']
-		return parts.filter(Boolean).join(' — ') || JSON.stringify(s)
-	}
-	return stakeholder.value?.stall || stakeholder.value?.stallRequested || '-'
+function openContract(c) {
+  selectedContract.value = c
+  showContractModal.value = true
+}
+
+function handleAttentionClick(task) {
+  selectedAttentionTask.value = task
+}
+
+function handleAttentionAction(detail) {
+  alert(`Action "${detail.actionLabel}" executed for ${detail.name}. Notification queued.`)
+  addNotification(`Task processed: ${detail.actionLabel} for ${detail.name}`)
+  selectedAttentionTask.value = null
+}
+
+// FORMATTING UTILITIES
+function formatCurrency(n) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0
+  }).format(n || 0)
+}
+
+// DATA SOURCES & NOTIFICATIONS
+function loadContracts() {
+  try {
+    const raw = localStorage.getItem('contracts')
+    if (raw) return JSON.parse(raw)
+  } catch (e) {}
+  return sampleContracts.map(x => ({ ...x }))
+}
+
+function loadApplications() {
+  try {
+    const raw = localStorage.getItem('ms_applications')
+    if (raw) return JSON.parse(raw)
+  } catch (e) {}
+  return sampleApplicants.map(x => ({ ...x }))
+}
+
+function loadNotifications() {
+  try {
+    const raw = localStorage.getItem('ms_notifications')
+    if (raw) return JSON.parse(raw)
+  } catch (e) {}
+  return [
+    { id: 'N1', message: 'October monthly rent statement published.', date: 'Today at 09:15 AM', read: false },
+    { id: 'N2', message: 'Stall inspection scheduled for Section A this Thursday.', date: 'Yesterday at 04:30 PM', read: false }
+  ]
+}
+
+const contracts = ref(loadContracts())
+const applications = ref(loadApplications())
+const notificationsList = ref(loadNotifications())
+
+const currentStakeholder = computed(() => {
+  if (!stakeholderId) return applications.value[0] || null
+  return applications.value.find(a => String(a.id) === String(stakeholderId)) || applications.value[0] || null
 })
 
-function openEdit(){ if (!stakeholder.value) return; form.value = { name: stakeholder.value.name||'', business: stakeholder.value.business||'', contact: stakeholder.value.contact||'' }; showEdit.value = true }
-function closeEdit(){ showEdit.value = false }
-function saveProfile(){ if (!stakeholder.value) return; const idx = applications.value.findIndex(a=>String(a.id)===String(stakeholder.value.id)); if (idx!==-1){ applications.value[idx].name = form.value.name; applications.value[idx].business = form.value.business; applications.value[idx].contact = form.value.contact; saveApplications(); showEdit.value = false; alert('Profile saved') } }
+const unreadCount = computed(() => {
+  return notificationsList.value.filter(n => !n.read).length
+})
 
-function archiveAccount(){
-	if (!stakeholder.value) return;
-	confirm.require({
-		header: 'Archive Account',
-		message: 'Are you sure you want to archive this account? This action cannot be undone.',
-		acceptLabel: 'Archive',
-		rejectLabel: 'Cancel',
-		severity: 'danger',
-		accept: () => {
-			const idx = applications.value.findIndex(a=>String(a.id)===String(stakeholder.value.id));
-			if (idx!==-1){
-				applications.value[idx].status = 'ARCHIVED';
-				applications.value[idx].archivedOn = new Date().toISOString().slice(0,10);
-				saveApplications();
-				alert('Archived');
-				router.push({ name: 'Landing' }).catch(()=>{});
-			}
-		}
-	});
+function addNotification(message) {
+  const item = {
+    id: 'N' + Date.now(),
+    message,
+    date: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    read: false
+  }
+  notificationsList.value.unshift(item)
+  try {
+    localStorage.setItem('ms_notifications', JSON.stringify(notificationsList.value))
+  } catch (e) {}
 }
 
-function viewPayments(){ /* could navigate to payments view or open modal; for now scroll */ window.scrollTo({ top: document.body.scrollHeight, behavior:'smooth' }) }
+function markAllNotificationsRead() {
+  notificationsList.value.forEach(n => (n.read = true))
+  try {
+    localStorage.setItem('ms_notifications', JSON.stringify(notificationsList.value))
+  } catch (e) {}
+}
 
-function viewContracts(){ const el = document.getElementById('contracts-section'); if (el) el.scrollIntoView({ behavior: 'smooth' }); else window.scrollTo({ top: document.body.scrollHeight, behavior:'smooth' }) }
+// KEYBOARD SHORTCUT: CMD/CTRL + K TO FOCUS SEARCH
+function handleKeyDown(e) {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+    e.preventDefault()
+    searchInputRef.value?.focus()
+  }
+  if (e.key === 'Escape') {
+    activeMenuId.value = null
+  }
+}
 
-onMounted(()=>{
-	// ensure we have latest data
-	applications.value = loadApplications()
-	stalls.value = loadStalls()
-	payments.value = loadPayments()
-	contracts.value = loadContracts()
-	// persist sample contracts into localStorage on first run
-	try{ if (!localStorage.getItem('contracts')) saveContracts() }catch(e){}
-	// reconcile any existing treasurer payments and update application state
-	reconcileTreasurerFromPayments()
-	loadBackendNotifications()
-	window.setInterval(loadBackendNotifications, 30000)
+function handleGlobalClick() {
+  activeMenuId.value = null
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeyDown)
+  window.addEventListener('click', handleGlobalClick)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown)
+  window.removeEventListener('click', handleGlobalClick)
 })
 </script>
 
