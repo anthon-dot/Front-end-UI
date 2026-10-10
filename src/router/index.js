@@ -20,15 +20,29 @@ const routes = [
     component: () => import("../views/Login.vue")
   },
   {
-    path: "/admin",
-    redirect: { name: "AdminDashboard" }
+    path: "/create-account",
+    name: "CreateAccount",
+    component: () => import("../views/CreateAccount.vue")
   },
   {
-    path: "/admin/dashboard",
-    name: "AdminDashboard",
-    component: () => import("../Admin/AdminView.vue"),
-    meta: { roles: ['ADMIN'] }
+    path: "/unauthorized",
+    name: "Unauthorized",
+    component: () => import("../views/Unauthorized.vue")
   },
+  {
+    path: "/",
+    component: () => import("../layout/AppLayout.vue"),
+    children: [
+      {
+        path: "/admin",
+        redirect: { name: "AdminDashboard" }
+      },
+      {
+        path: "/admin/dashboard",
+        name: "AdminDashboard",
+        component: () => import("../Admin/AdminView.vue"),
+        meta: { roles: ['ADMIN'] }
+      },
   {
     path: "/admin/users",
     name: "AdminUsers",
@@ -331,16 +345,7 @@ const routes = [
     component: () => import("../Treasurer/AuditLog.vue"),
     meta: { roles: ['ADMIN', 'TREASURER'] }
   }
-  ,
-  {
-    path: "/create-account",
-    name: "CreateAccount",
-    component: () => import("../views/CreateAccount.vue")
-  },
-  {
-    path: "/unauthorized",
-    name: "Unauthorized",
-    component: () => import("../views/Unauthorized.vue")
+    ]
   }
 ]
 

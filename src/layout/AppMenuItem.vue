@@ -40,7 +40,7 @@ onBeforeMount(() => {
 watch(
     () => layoutState.activeMenuItem,
     (newVal) => {
-        isActiveMenu.value = newVal === itemKey.value || newVal.startsWith(itemKey.value + '-');
+        isActiveMenu.value = newVal === itemKey.value || Boolean(newVal && typeof newVal === 'string' && newVal.startsWith(itemKey.value + '-'));
     }
 );
 

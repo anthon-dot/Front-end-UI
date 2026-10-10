@@ -3,6 +3,7 @@ import { createPinia } from 'pinia';
 import App from './App.vue';
 import router from './router';
 import './styles/style.css';
+import './styles/layout/sakai.css';
 
 
 import Aura from '@primeuix/themes/aura';

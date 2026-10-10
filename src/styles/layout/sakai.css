@@ -1,0 +1,582 @@
+/* ==========================================================================
+   SAKAI VUE DESIGN SYSTEM & LAYOUT
+   PrimeVue 4 Official Sakai Admin Template
+   ========================================================================== */
+
+:root {
+    --topbar-height: 4.25rem;
+    --sidebar-width: 18.5rem;
+    --layout-section-transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Base Wrapper */
+.layout-wrapper {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background-color: #f8fafc;
+    color: #1e293b;
+    position: relative;
+    transition: background-color var(--layout-section-transition);
+}
+
+/* ==========================================================================
+   TOPBAR
+   ========================================================================== */
+.layout-topbar {
+    position: fixed;
+    height: var(--topbar-height);
+    z-index: 997;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 0 1.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.03);
+    transition: background-color var(--layout-section-transition), border-color var(--layout-section-transition);
+}
+
+.layout-topbar-logo-container {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.layout-menu-button {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 10px;
+    border: none;
+    background: transparent;
+    color: #475467;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.layout-menu-button:hover {
+    background-color: #f1f5f9;
+    color: #0f172a;
+}
+
+.layout-topbar-logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-decoration: none;
+    color: inherit;
+    border-radius: 8px;
+    padding: 0.25rem 0.5rem;
+    transition: opacity 0.18s ease;
+}
+
+.layout-topbar-logo:hover {
+    opacity: 0.9;
+}
+
+.topbar-logo-badge {
+    width: 2.35rem;
+    height: 2.35rem;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.15rem;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+}
+
+.topbar-brand-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.1;
+}
+
+.brand-title {
+    font-weight: 800;
+    font-size: 1.05rem;
+    letter-spacing: 0.04em;
+    color: #0f172a;
+}
+
+.brand-subtitle {
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: #64748b;
+}
+
+.layout-topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.layout-topbar-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: #64748b;
+    cursor: pointer;
+    font-size: 1.1rem;
+    transition: all 0.18s ease;
+}
+
+.layout-topbar-action:hover {
+    background-color: #f1f5f9;
+    color: #0f172a;
+}
+
+.user-profile-btn {
+    width: auto;
+    height: 2.5rem;
+    padding: 0.25rem 0.65rem 0.25rem 0.35rem;
+    border-radius: 9999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background-color: #f8fafc;
+    border: 1px solid rgba(226, 232, 240, 0.9);
+}
+
+.user-profile-btn:hover {
+    background-color: #f1f5f9;
+}
+
+.user-avatar-pill {
+    width: 1.95rem;
+    height: 1.95rem;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+    color: #ffffff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.user-name-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #334155;
+}
+
+.user-dropdown-panel {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 0.5rem);
+    width: 14rem;
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+    padding: 0.5rem;
+    z-index: 1050;
+}
+
+.dropdown-header {
+    padding: 0.65rem 0.75rem 0.5rem;
+}
+
+.role-badge {
+    display: inline-block;
+    margin-top: 0.3rem;
+    padding: 0.15rem 0.5rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    border-radius: 9999px;
+    background: #ecfdf5;
+    color: #059669;
+    letter-spacing: 0.03em;
+}
+
+.dropdown-divider {
+    height: 1px;
+    background-color: #e2e8f0;
+    margin: 0.35rem 0;
+}
+
+.dropdown-items {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.55rem 0.75rem;
+    border-radius: 8px;
+    color: #475467;
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-decoration: none;
+    border: none;
+    background: transparent;
+    width: 100%;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s ease;
+}
+
+.dropdown-item:hover {
+    background-color: #f1f5f9;
+    color: #0f172a;
+}
+
+.dropdown-item.logout {
+    color: #ef4444;
+}
+
+.dropdown-item.logout:hover {
+    background-color: #fef2f2;
+    color: #dc2626;
+}
+
+/* ==========================================================================
+   SIDEBAR
+   ========================================================================== */
+.layout-sidebar {
+    position: fixed;
+    width: var(--sidebar-width);
+    height: calc(100vh - var(--topbar-height));
+    z-index: 996;
+    left: 0;
+    top: var(--topbar-height);
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-right: 1px solid rgba(226, 232, 240, 0.85);
+    overflow-y: auto;
+    padding: 1rem 0.85rem 3rem;
+    transition: transform var(--layout-section-transition), left var(--layout-section-transition);
+    user-select: none;
+}
+
+.layout-sidebar::-webkit-scrollbar {
+    width: 5px;
+}
+
+.layout-sidebar::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.3);
+    border-radius: 10px;
+}
+
+/* ==========================================================================
+   MENU & ITEMS
+   ========================================================================== */
+.layout-menu {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.layout-root-menuitem {
+    list-style: none;
+    margin-bottom: 0.5rem;
+}
+
+.layout-menuitem-root-text {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #94a3b8;
+    padding: 1rem 0.75rem 0.4rem;
+}
+
+.layout-menu li a {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.65rem 0.85rem;
+    border-radius: 9px;
+    color: #334155;
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    margin-bottom: 2px;
+}
+
+.layout-menu li a:hover {
+    background-color: #f1f5f9;
+    color: #0f172a;
+}
+
+.layout-menu li a.active-route {
+    background-color: #ecfdf5;
+    color: #059669;
+    font-weight: 600;
+    box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.25);
+}
+
+.layout-menuitem-icon {
+    font-size: 1.1rem;
+    width: 1.25rem;
+    text-align: center;
+    color: inherit;
+}
+
+.layout-menuitem-text {
+    flex: 1 1 auto;
+}
+
+.layout-submenu-toggler {
+    font-size: 0.75rem;
+    margin-left: auto;
+    transition: transform 0.2s ease;
+}
+
+.layout-submenu {
+    list-style: none;
+    padding: 0 0 0 1rem;
+    margin: 0;
+}
+
+/* ==========================================================================
+   MAIN CONTAINER & CONTENT
+   ========================================================================== */
+.layout-main-container {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    justify-content: space-between;
+    padding: calc(var(--topbar-height) + 1.5rem) 2rem 2rem;
+    margin-left: var(--sidebar-width);
+    transition: margin-left var(--layout-section-transition);
+}
+
+.layout-main {
+    flex: 1 1 auto;
+    width: 100%;
+}
+
+.layout-footer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem 0 0;
+    margin-top: 2.5rem;
+    border-top: 1px solid rgba(226, 232, 240, 0.7);
+}
+
+/* ==========================================================================
+   COLLAPSED / INACTIVE STATES (DESKTOP)
+   ========================================================================== */
+.layout-wrapper.layout-static-inactive .layout-sidebar {
+    transform: translateX(-100%);
+}
+
+.layout-wrapper.layout-static-inactive .layout-main-container {
+    margin-left: 0;
+}
+
+/* ==========================================================================
+   MOBILE & RESPONSIVE BEHAVIOR (< 992px)
+   ========================================================================== */
+.layout-mask {
+    position: fixed;
+    inset: 0;
+    z-index: 998;
+    background-color: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(4px);
+    display: none;
+    opacity: 0;
+    transition: opacity var(--layout-section-transition);
+}
+
+@media (max-width: 991px) {
+    .layout-topbar {
+        padding: 0 1rem;
+    }
+
+    .brand-title {
+        font-size: 0.95rem;
+    }
+
+    .layout-sidebar {
+        top: 0;
+        height: 100vh;
+        z-index: 1000;
+        transform: translateX(-100%);
+        box-shadow: none;
+        padding-top: 1.5rem;
+    }
+
+    .layout-main-container {
+        margin-left: 0;
+        padding: calc(var(--topbar-height) + 1rem) 1rem 1.5rem;
+    }
+
+    .layout-wrapper.layout-mobile-active .layout-sidebar {
+        transform: translateX(0);
+        box-shadow: 0 20px 45px rgba(0, 0, 0, 0.25);
+    }
+
+    .layout-wrapper.layout-mobile-active .layout-mask {
+        display: block;
+        opacity: 1;
+        pointer-events: auto;
+    }
+}
+
+/* ==========================================================================
+   SAKAI CARD COMPONENT
+   ========================================================================== */
+.card {
+    background: #ffffff;
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    border-radius: 14px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.02);
+    transition: all 0.2s ease;
+}
+
+/* ==========================================================================
+   DARK MODE THEME (.app-dark)
+   ========================================================================== */
+html.app-dark,
+html.app-dark body,
+.app-dark .layout-wrapper {
+    background: #09090b !important;
+    color: #f4f4f5;
+}
+
+.app-dark .layout-topbar {
+    background: rgba(24, 24, 27, 0.88);
+    border-bottom-color: #27272a;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3);
+}
+
+.app-dark .brand-title {
+    color: #f4f4f5;
+}
+
+.app-dark .brand-subtitle {
+    color: #a1a1aa;
+}
+
+.app-dark .layout-menu-button,
+.app-dark .layout-topbar-action {
+    color: #a1a1aa;
+}
+
+.app-dark .layout-menu-button:hover,
+.app-dark .layout-topbar-action:hover {
+    background-color: #27272a;
+    color: #fafafa;
+}
+
+.app-dark .user-profile-btn {
+    background-color: #18181b;
+    border-color: #27272a;
+}
+
+.app-dark .user-name-label {
+    color: #e4e4e7;
+}
+
+.app-dark .user-dropdown-panel {
+    background: #18181b;
+    border-color: #27272a;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+}
+
+.app-dark .dropdown-divider {
+    background-color: #27272a;
+}
+
+.app-dark .dropdown-item {
+    color: #a1a1aa;
+}
+
+.app-dark .dropdown-item:hover {
+    background-color: #27272a;
+    color: #fafafa;
+}
+
+.app-dark .layout-sidebar {
+    background: rgba(24, 24, 27, 0.95);
+    border-right-color: #27272a;
+}
+
+.app-dark .layout-menuitem-root-text {
+    color: #71717a;
+}
+
+.app-dark .layout-menu li a {
+    color: #d4d4d8;
+}
+
+.app-dark .layout-menu li a:hover {
+    background-color: #27272a;
+    color: #fafafa;
+}
+
+.app-dark .layout-menu li a.active-route {
+    background-color: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    box-shadow: inset 0 0 0 1px rgba(52, 211, 153, 0.3);
+}
+
+.app-dark .card {
+    background: #18181b;
+    border-color: #27272a;
+    color: #f4f4f5;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3);
+}
+
+.app-dark .layout-footer {
+    border-top-color: #27272a;
+}
+
+/* ==========================================================================
+   RESET & BRIDGE FOR EXISTING VIEW CONTAINERS
+   Ensures old hardcoded menus and custom container margins gracefully yield
+   to Sakai AppLayout without breaking any view internals.
+   ========================================================================== */
+.layout-main .admin-page,
+.layout-main .page-container,
+.layout-main .stakeholder-dashboard,
+.layout-main .dashboard-container,
+.layout-main .office-main {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    padding: 0 !important;
+    transition: none !important;
+}
+
+.layout-main .admin-layout,
+.layout-main .dashboard,
+.layout-main .stakeholder-layout,
+.layout-main .office-shell {
+    min-height: auto !important;
+    background: transparent !important;
+}
+
+.layout-main .sidebar,
+.layout-main .mobile-topbar,
+.layout-main .sidebar-backdrop,
+.layout-main .portal-topbar {
+    display: none !important;
+}
