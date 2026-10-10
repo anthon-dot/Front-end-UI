@@ -49,14 +49,6 @@ export const useStakeholderStore = defineStore('stakeholder', () => {
     }
 
     stakeholder.value = await getStakeholderByUserId(normalizedUserId)
-    if (!stakeholder.value) {
-      try {
-        const raw = localStorage.getItem('currentStakeholder')
-        if (raw) {
-          stakeholder.value = JSON.parse(raw)
-        }
-      } catch (e) {}
-    }
     loadedForUserId.value = normalizedUserId
     stakeholderFetchedAt.value = Date.now()
 
