@@ -222,7 +222,7 @@
                   <span v-if="selectedStakeholder" class="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">Selected</span>
                 </div>
                 
-                <div class="relative z-50 stakeholder-input-wrapper" style="position: relative; z-index: 50;">
+                <div class="payment-input-wrap stakeholder-input-wrapper" style="position: relative; z-index: 50; width: 100%;">
                   <input
                     type="text"
                     v-model="stakeholderSearch"
@@ -230,18 +230,18 @@
                     @input="isStakeholderDropdownOpen = true; if(selectedStakeholder) selectedStakeholder = null"
                     @blur="onStakeholderBlur"
                     placeholder="Search stakeholder by name, business, or stall..."
-                    class="w-full h-12 px-4 pr-10 border border-slate-200 rounded-xl text-sm sm:text-base text-slate-800 bg-[#fafafa] focus:bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#133e35]/20 focus:border-[#133e35] transition-all"
+                    class="payment-modal-input"
                   />
                   <button
                     v-if="stakeholderSearch"
                     type="button"
                     @click="resetSelection"
-                    class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 text-xs cursor-pointer z-10"
+                    class="payment-input-icon-btn"
                     title="Clear"
                   >
                     <i class="pi pi-times"></i>
                   </button>
-                  <i v-else class="pi pi-search absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none z-10"></i>
+                  <i v-else class="pi pi-search payment-input-icon"></i>
 
                   <!-- Floating Dropdown list of matching stakeholders (RENDERED IN FRONT OF ALL ELEMENTS) -->
                   <div
@@ -508,25 +508,27 @@
                 <!-- Date received * -->
                 <div class="flex flex-col gap-2">
                   <label class="text-sm font-bold text-slate-800">Date received <span class="text-rose-500">*</span></label>
-                  <div class="relative">
+                  <div class="payment-input-wrap">
                     <input
                       type="date"
                       v-model="form.dateReceived"
-                      class="w-full h-12 px-4 pr-10 border border-slate-200 rounded-xl text-sm sm:text-base text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#133e35]/20 focus:border-[#133e35]"
+                      class="payment-modal-input"
                     />
-                    <i class="pi pi-calendar absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
+                    <i class="pi pi-calendar payment-input-icon"></i>
                   </div>
                 </div>
 
                 <!-- Reference number -->
                 <div class="flex flex-col gap-2">
                   <label class="text-sm font-bold text-slate-800">Reference number</label>
-                  <input
-                    type="text"
-                    v-model="form.referenceNo"
-                    placeholder="e.g. CHQ-1048"
-                    class="w-full h-12 px-4 border border-slate-200 rounded-xl text-sm sm:text-base text-slate-800 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#133e35]/20 focus:border-[#133e35]"
-                  />
+                  <div class="payment-input-wrap">
+                    <input
+                      type="text"
+                      v-model="form.referenceNo"
+                      placeholder="e.g. CHQ-1048"
+                      class="payment-modal-input"
+                    />
+                  </div>
                   <span class="text-xs text-slate-400">Cheque, transfer, or receipt number (optional)</span>
                 </div>
 
@@ -538,14 +540,14 @@
                       <i class="pi pi-refresh text-[10px]"></i> Auto-generate
                     </button>
                   </div>
-                  <div class="relative">
+                  <div class="payment-input-wrap">
                     <input
                       type="text"
                       v-model="form.receiptNo"
                       placeholder="Receipt #"
-                      class="w-full h-12 px-4 pl-10 font-mono text-xs sm:text-sm font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#133e35]/20 focus:border-[#133e35]"
+                      class="payment-modal-input font-mono"
                     />
-                    <i class="pi pi-receipt absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                    <i class="pi pi-receipt payment-input-icon"></i>
                   </div>
                 </div>
 

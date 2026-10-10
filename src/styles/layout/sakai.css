@@ -931,3 +931,22 @@ button:active,
     }
 }
 
+/* ==========================================================================
+   POSITIONING & INPUT UTILITIES
+   Ensures icon-in-input patterns & relative/absolute wrappers work universally
+   ========================================================================== */
+.relative { position: relative !important; }
+.absolute { position: absolute !important; }
+.static { position: static !important; }
+.w-full { width: 100% !important; }
+.h-full { height: 100% !important; }
+.top-1\/2 { top: 50% !important; }
+.-translate-y-1\/2 { transform: translateY(-50%) !important; }
+.right-3 { right: 0.75rem !important; }
+.right-4 { right: 1rem !important; }
+.left-3 { left: 0.75rem !important; }
+.left-3\.5 { left: 0.875rem !important; }
+.left-4 { left: 1rem !important; }
+.pointer-events-none { pointer-events: none !important; }
+
+
