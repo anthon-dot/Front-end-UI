@@ -26,6 +26,27 @@ export async function createPayment(payload) {
     canonicalType = 'APPLICATION_FEE'
   }
 
+  // 1. Prioritize Spring Boot backend API to ensure authoritative transaction, activation, and billing generation
+  try {
+    const backendPayload = {
+      stakeholder: { id: Number(stakeholderId) },
+      billing: billingId ? { id: Number(billingId) } : null,
+      amount: Number(payload.amount),
+      receiptNo: receiptNo,
+      referenceNo: payload.referenceNo || '',
+      paymentType: canonicalType,
+      rentCycle: payload.rentCycle || null,
+      totalAdvanceAmount: payload.totalAdvanceAmount ? Number(payload.totalAdvanceAmount) : null
+    }
+    const backendRes = await api.post('/payments', backendPayload)
+    if (backendRes?.data) {
+      return normalizeRecord(backendRes.data)
+    }
+  } catch (apiErr) {
+    console.warn('[paymentService] Backend API /payments call unavailable or returned error, evaluating via Supabase fallback:', apiErr)
+  }
+
+  // 2. Supabase fallback
   const { data, error } = await supabase
     .from('payments')
     .insert({
@@ -42,7 +63,7 @@ export async function createPayment(payload) {
 
   if (error) throw error
 
-  // 1. If RENT_PAYMENT with billing, update billing status and balance
+  // 2a. If RENT_PAYMENT with billing, update billing status and balance
   if (billingId) {
     try {
       const { data: bData } = await supabase.from('billings').select('*').eq('id', billingId).single()
@@ -61,7 +82,7 @@ export async function createPayment(payload) {
     }
   }
 
-  // 2. If ADVANCE_PAYMENT, update stakeholder advance balance
+  // 2b. If ADVANCE_PAYMENT, update stakeholder advance balance
   if (payload.paymentType === 'ADVANCE_PAYMENT' && stakeholderId) {
     try {
       const { data: sData, error: sFetchErr } = await supabase.from('stakeholders').select('*').eq('id', stakeholderId).single()
@@ -94,10 +115,8 @@ export async function createPayment(payload) {
     }
   }
 
-  // 3. If APPLICATION_FEE, BUSINESS_PERMIT_PAYMENT or APPLICATION_FORM, update stakeholder permit & fee status
+  // 2c. If APPLICATION_FEE, record payment details without premature client-side activation
   const isPermitOrAppPayment = ['APPLICATION_FORM', 'APPLICATION_FEE', 'BUSINESS_PERMIT_PAYMENT'].includes(payload.paymentType)
-  const isBusinessPermitPayment = payload.paymentType === 'BUSINESS_PERMIT_PAYMENT' || payload.paymentType === 'APPLICATION_FEE'
-
   if (isPermitOrAppPayment && stakeholderId) {
     try {
       const nowIso = new Date().toISOString()
@@ -109,78 +128,29 @@ export async function createPayment(payload) {
         applicant_fee_paid: true,
         treasurer_paid: true,
         applicant_fee_amount: amountVal,
-        applicant_fee_date: todayDate,
-        verified_stakeholder: true,
-        verification_date: nowIso
+        applicant_fee_date: todayDate
       }
-
-      if (isBusinessPermitPayment) {
-        updateData.verified_tenant = true
-        updateData.verified = true
-        updateData.application_status = 'COMPLETED'
-        updateData.onboarding_status = 'COMPLETED'
-        updateData.final_status = 'APPROVED'
-      }
-
-      const { data: sData } = await supabase.from('stakeholders').select('*').eq('id', stakeholderId).maybeSingle()
-
-      const { error: feeErr } = await supabase.from('stakeholders').update(updateData).eq('id', stakeholderId)
-      if (feeErr) {
-        console.warn('[paymentService] Primary permit update failed, trying fallback:', feeErr)
-        const fallbackData = {
-          application_form_paid: true,
-          applicant_fee_paid: true,
-          treasurer_paid: true
-        }
-        if (isBusinessPermitPayment) {
-          fallbackData.verified_tenant = true
-          fallbackData.verified_stakeholder = true
-          fallbackData.verified = true
-          fallbackData.application_status = 'COMPLETED'
-        }
-        await supabase.from('stakeholders').update(fallbackData).eq('id', stakeholderId)
-      }
+      await supabase.from('stakeholders').update(updateData).eq('id', stakeholderId)
 
       // Sync business_applications table if user_id exists
-      const targetUserId = sData?.user_id || payload.userId || payload.user_id
+      const targetUserId = payload.userId || payload.user_id
       if (targetUserId) {
         try {
-          const appUpdateData = {
+          await supabase.from('business_applications').update({
             applicant_fee_paid: true,
             application_form_paid: true,
             applicant_fee_amount: amountVal,
-            applicant_fee_date: todayDate,
-            verified_stakeholder: true
-          }
-          if (isBusinessPermitPayment) {
-            appUpdateData.application_status = 'COMPLETED'
-            appUpdateData.final_status = 'APPROVED'
-            appUpdateData.verified_tenant = true
-          }
-          await supabase.from('business_applications').update(appUpdateData).eq('user_id', targetUserId)
+            applicant_fee_date: todayDate
+          }).eq('user_id', targetUserId)
         } catch (appErr) {
           console.warn('[paymentService] Could not update business_applications:', appErr)
         }
       }
 
-      // Only activate occupant & contract on final business permit payment
-      if (isBusinessPermitPayment) {
-        try {
-          const { data: occ } = await supabase.from('occupants').select('*').eq('stakeholder_id', stakeholderId).maybeSingle()
-          if (occ) {
-            await supabase.from('occupants').update({
-              status: 'ACTIVE',
-              occupancy_date: occ.occupancy_date || todayDate
-            }).eq('id', occ.id)
-
-            if (occ.contract_id) {
-              await supabase.from('contracts').update({ status: 'ACTIVE' }).eq('id', occ.contract_id)
-            }
-          }
-        } catch (occErr) {
-          console.warn('[paymentService] Could not activate occupant/contract:', occErr)
-        }
-      }
+      // Trigger backend activation evaluation if API is available
+      try {
+        await api.post(`/contracts/stakeholder/${stakeholderId}/activate-if-eligible`)
+      } catch (_) {}
 
       // Record in approval_history
       try {
@@ -188,7 +158,7 @@ export async function createPayment(payload) {
           stakeholder_id: Number(stakeholderId),
           stage: 'PERMIT_PAYMENT',
           status: 'COMPLETED',
-          remarks: `Business permit / application fee recorded (₱${amountVal}). Tenant directly verified.`
+          remarks: `Application fee / business permit recorded (₱${amountVal}).`
         })
       } catch (_) {}
 
@@ -196,8 +166,8 @@ export async function createPayment(payload) {
       try {
         await supabase.from('notifications').insert({
           stakeholder_id: Number(stakeholderId),
-          title: 'Tenant Verified',
-          message: 'Your business permit / application fee has been recorded. Your stakeholder account is now verified!'
+          title: 'Payment Recorded',
+          message: `Your payment of ₱${amountVal} has been recorded. Contract activation will finalize once all required approvals are completed.`
         })
       } catch (_) {}
     } catch (sErr) {
@@ -205,7 +175,7 @@ export async function createPayment(payload) {
     }
   }
 
-  return data
+  return normalizeRecord(data)
 }
 
 export default {

@@ -298,6 +298,18 @@ const api = {
       return { data: normalizeRecord(data || []) };
     }
 
+    if (cleanUrl.startsWith('billings/')) {
+      const bId = cleanUrl.replace('billings/', '');
+      const queryId = !isNaN(Number(bId)) ? Number(bId) : bId;
+      const { data, error } = await supabase
+        .from('billings')
+        .select('*, occupant:occupants(*, stakeholder:stakeholders(*)), contract:contracts(*, stall:stalls(*))')
+        .or(`id.eq.${queryId},billing_no.eq.${queryId}`)
+        .maybeSingle();
+      if (error) throw error;
+      return { data: normalizeRecord(data) };
+    }
+
     // 8.1 Contracts
     if (cleanUrl === 'contracts') {
       try {
@@ -760,6 +772,35 @@ const api = {
       return { data: normalizeRecord(newPayment) };
     }
 
+    // 6.1 Billings create
+    if (cleanUrl === 'billings') {
+      const billingNo = data.billingNo || data.billing_no || `BILL-${Date.now().toString().slice(-8)}`;
+      const totalAmount = Number(data.totalAmount ?? data.total_amount ?? data.amount ?? 0);
+      const paidAmount = Number(data.paidAmount ?? data.paid_amount ?? 0);
+      const balance = Number(data.balance ?? Math.max(totalAmount - paidAmount, 0));
+      const status = data.status || (balance <= 0 ? 'PAID' : (paidAmount > 0 ? 'PARTIAL' : 'UNPAID'));
+
+      const insertPayload = {
+        occupant_id: data.occupantId || data.occupant_id || null,
+        contract_id: data.contractId || data.contract_id || null,
+        billing_no: billingNo,
+        billing_period: data.billingPeriod || data.billing_period || `MONTHLY-${new Date().getMonth() + 1}-${new Date().getFullYear()}`,
+        total_amount: totalAmount,
+        paid_amount: paidAmount,
+        balance: balance,
+        due_date: data.dueDate || data.due_date || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        status: status
+      };
+
+      const { data: newBill, error } = await supabase
+        .from('billings')
+        .insert(insertPayload)
+        .select('*, occupant:occupants(*, stakeholder:stakeholders(*)), contract:contracts(*, stall:stalls(*))')
+        .single();
+      if (error) throw error;
+      return { data: normalizeRecord(newBill) };
+    }
+
     // 7. Stakeholder Approval Actions in POST
     if (cleanUrl.startsWith('stakeholders/') && cleanUrl.includes('treasurer-approve')) {
       const stakeholderId = cleanUrl.split('/')[1];
@@ -1194,6 +1235,29 @@ const api = {
       }
     }
 
+    // 7. Billings update
+    if (cleanUrl.startsWith('billings/')) {
+      const id = cleanUrl.replace('billings/', '');
+      const queryId = !isNaN(Number(id)) ? Number(id) : id;
+      const updatePayload = {};
+      if (data.status !== undefined) updatePayload.status = data.status;
+      if (data.totalAmount !== undefined || data.total_amount !== undefined) updatePayload.total_amount = Number(data.totalAmount ?? data.total_amount);
+      if (data.paidAmount !== undefined || data.paid_amount !== undefined) updatePayload.paid_amount = Number(data.paidAmount ?? data.paid_amount);
+      if (data.balance !== undefined) updatePayload.balance = Number(data.balance);
+      if (data.dueDate !== undefined || data.due_date !== undefined) updatePayload.due_date = data.dueDate || data.due_date;
+      if (data.billingPeriod !== undefined || data.billing_period !== undefined) updatePayload.billing_period = data.billingPeriod || data.billing_period;
+      if (data.billingNo !== undefined || data.billing_no !== undefined) updatePayload.billing_no = data.billingNo || data.billing_no;
+
+      const { data: updated, error } = await supabase
+        .from('billings')
+        .update(updatePayload)
+        .eq('id', queryId)
+        .select('*, occupant:occupants(*, stakeholder:stakeholders(*)), contract:contracts(*, stall:stalls(*))')
+        .single();
+      if (error) throw error;
+      return { data: normalizeRecord(updated) };
+    }
+
     return rawAxios.put(url, data, config);
   },
 
@@ -1224,6 +1288,14 @@ const api = {
     if (cleanUrl.startsWith('contracts/')) {
       const id = cleanUrl.replace('contracts/', '');
       const { data, error } = await supabase.from('contracts').delete().eq('id', id);
+      if (error) throw error;
+      return { data };
+    }
+
+    if (cleanUrl.startsWith('billings/')) {
+      const id = cleanUrl.replace('billings/', '');
+      const queryId = !isNaN(Number(id)) ? Number(id) : id;
+      const { data, error } = await supabase.from('billings').delete().eq('id', queryId);
       if (error) throw error;
       return { data };
     }

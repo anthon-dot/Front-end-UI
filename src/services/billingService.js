@@ -2,33 +2,57 @@ import { supabase } from '../config/supabase'
 import { normalizeRecord } from './api'
 
 /**
- * Ensures that every verified tenant has their billing cycle started.
- * Mirrors the exact backend logic from BillingService.java:
+ * Ensures that every eligible tenant has their billing cycle started.
  * 1. Ensures an active occupant record exists
  * 2. Ensures an active contract record exists with stall monthly rent
  * 3. Checks advance_balance (deducts advance balance if available)
- * 4. Generates initial billing statement in billings table
+ * 4. Generates billing statements in billings table
  */
 export async function ensureBillingsForVerifiedTenants() {
   try {
+    // 1. Fetch eligible stakeholders (verified tenants, verified stakeholders, or completed onboarding)
     const { data: verifiedStakeholders, error: stErr } = await supabase
       .from('stakeholders')
       .select('*, occupant:occupants(*, stall:stalls(*))')
-      .eq('verified_tenant', true)
+      .or('verified_tenant.eq.true,verified_stakeholder.eq.true,verified.eq.true,onboarding_status.eq.COMPLETED,final_status.eq.APPROVED')
 
     if (stErr) {
       console.warn('[billingService] Error fetching verified stakeholders:', stErr)
-      return
     }
-    if (!verifiedStakeholders || verifiedStakeholders.length === 0) return
+
+    // Also fetch any active occupants who might not have been captured above
+    const { data: activeOccupants, error: occErr } = await supabase
+      .from('occupants')
+      .select('*, stakeholder:stakeholders(*), stall:stalls(*)')
+      .eq('status', 'ACTIVE')
+
+    if (occErr) {
+      console.warn('[billingService] Error fetching active occupants:', occErr)
+    }
+
+    // Build consolidated map of stakeholders
+    const stakeholderMap = new Map()
+    for (const s of (verifiedStakeholders || [])) {
+      if (s.id) stakeholderMap.set(Number(s.id), s)
+    }
+
+    for (const occ of (activeOccupants || [])) {
+      if (occ.stakeholder && !stakeholderMap.has(Number(occ.stakeholder.id))) {
+        stakeholderMap.set(Number(occ.stakeholder.id), {
+          ...occ.stakeholder,
+          occupant: occ
+        })
+      }
+    }
+
+    const eligibleList = Array.from(stakeholderMap.values())
+    if (eligibleList.length === 0) return
 
     const todayDate = new Date().toISOString().split('T')[0]
     const currentMonth = new Date().getMonth() + 1
     const currentYear = new Date().getFullYear()
-    const billingPeriod = `MONTHLY-${currentMonth}-${currentYear}`
-    const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
-    for (const s of verifiedStakeholders) {
+    for (const s of eligibleList) {
       try {
         let occ = Array.isArray(s.occupant) ? s.occupant[0] : s.occupant
         if (!occ) {
@@ -70,7 +94,7 @@ export async function ensureBillingsForVerifiedTenants() {
         if (existingCon) {
           contract = existingCon
         } else {
-          let stallId = s.selected_stall_id || s.stall_id
+          let stallId = s.selected_stall_id || s.stall_id || occ.stall_id
           if (!stallId && s.user_id) {
             try {
               const { data: appData } = await supabase
@@ -85,13 +109,14 @@ export async function ensureBillingsForVerifiedTenants() {
               console.warn('[billingService] Could not lookup business application stall:', appLookupErr)
             }
           }
+
           let stallRent = 1500
 
           if (stallId) {
             const { data: stallData } = await supabase
               .from('stalls')
               .select('*')
-              .eq('id', stallId)
+              .eq('id', Number(stallId))
               .maybeSingle()
 
             if (stallData?.monthly_rent) stallRent = Number(stallData.monthly_rent)
@@ -202,7 +227,7 @@ export async function ensureBillingsForVerifiedTenants() {
               status: status
             })
 
-            console.log(`[billingService] Started billing invoice ${billingNo} (${billingPeriod}) for verified stakeholder ${s.id} (Status: ${status})`)
+            console.log(`[billingService] Generated billing invoice ${billingNo} (${billingPeriod}) for stakeholder ${s.id} (Status: ${status})`)
           }
 
           iterMonth++
@@ -217,8 +242,6 @@ export async function ensureBillingsForVerifiedTenants() {
           await supabase.from('occupants').update({ advance_balance: curAdvance }).eq('id', occ.id)
           await supabase.from('stakeholders').update({ advance_balance: curAdvance }).eq('id', s.id)
         }
-
-        console.log(`[billingService] Started billing invoice ${billingNo} for verified stakeholder ${s.id} (Status: ${status}, Balance: ${balance})`)
       } catch (innerErr) {
         console.warn('[billingService] Could not start billing for stakeholder', s.id, innerErr)
       }
@@ -229,32 +252,81 @@ export async function ensureBillingsForVerifiedTenants() {
 }
 
 export async function fetchBillings() {
-  // 1. Ensure all verified tenants have their billing started
-  await ensureBillingsForVerifiedTenants()
+  // 1. Ensure all eligible tenants have their billing statements generated
+  try {
+    await ensureBillingsForVerifiedTenants()
+  } catch (ensureErr) {
+    console.warn('[billingService] Error in ensureBillingsForVerifiedTenants:', ensureErr)
+  }
 
-  // 2. Query all billings with occupant, stakeholder, and stall relations
-  const { data, error } = await supabase
+  // 2. Query all billings with occupant, stakeholder, and contract relations
+  const { data: billingsData, error } = await supabase
     .from('billings')
     .select('*, occupant:occupants(*, stakeholder:stakeholders(*)), contract:contracts(*, stall:stalls(*))')
     .order('id', { ascending: false })
 
-  if (error) throw error
+  if (error) {
+    console.error('[billingService] Error fetching billings:', error)
+    throw error
+  }
 
-  // 3. Filter to valid tenant billings (must have occupant with stall or verified tenant profile)
-  const verifiedBillings = (data || []).filter(b => {
-    const s = b.occupant?.stakeholder
-    const hasStall = Boolean(b.occupant?.stall || b.contract?.stall || b.stallNo || b.stall_no)
-    if (!s) return hasStall
-    return Boolean((s.verified_tenant || s.verifiedTenant || s.onboarding_status === 'COMPLETED') && hasStall)
+  // 3. Fetch all stalls to accurately link stallNo for occupants without direct contract.stall
+  let stallsByOccupantId = new Map()
+  let stallsById = new Map()
+  try {
+    const { data: stallsData } = await supabase.from('stalls').select('id, stall_no, occupant_id, monthly_rent, info, section')
+    if (stallsData) {
+      for (const st of stallsData) {
+        stallsById.set(Number(st.id), st)
+        if (st.occupant_id) stallsByOccupantId.set(Number(st.occupant_id), st)
+      }
+    }
+  } catch (stallErr) {
+    console.warn('[billingService] Could not fetch stalls map:', stallErr)
+  }
+
+  // 4. Enrich every billing record
+  const enrichedBillings = (billingsData || []).map(b => {
+    const occupant = b.occupant || b.contract?.occupant || {}
+    const stakeholder = occupant.stakeholder || b.stakeholder || {}
+
+    // Resolve stall number from contract.stall, occupantId map, or stakeholder's selected_stall_id
+    let stallObj = b.contract?.stall || (occupant.id ? stallsByOccupantId.get(Number(occupant.id)) : null)
+    if (!stallObj && stakeholder.selected_stall_id) {
+      stallObj = stallsById.get(Number(stakeholder.selected_stall_id))
+    }
+    const stallNo = stallObj?.stall_no || stallObj?.stallNo || b.stall_no || b.stallNo || ''
+
+    const totalVal = Number(b.total_amount ?? b.totalAmount ?? 0)
+    const paidVal = Number(b.paid_amount ?? b.paidAmount ?? 0)
+    const balanceVal = Number(b.balance ?? Math.max(totalVal - paidVal, 0))
+
+    const stakeholderId = stakeholder.id || occupant.stakeholder_id || occupant.stakeholderId || b.stakeholder_id || b.stakeholderId
+
+    const enriched = {
+      ...b,
+      rawId: b.id,
+      occupant,
+      stakeholder,
+      stakeholderId,
+      stall: stallObj,
+      stallNo,
+      totalAmount: totalVal,
+      paidAmount: paidVal,
+      balance: balanceVal,
+      status: (b.status || (balanceVal <= 0 ? 'PAID' : 'UNPAID')).toUpperCase()
+    }
+
+    return normalizeRecord(enriched)
   })
 
-  return verifiedBillings.map(normalizeRecord)
+  return enrichedBillings
 }
 
 export async function sendBillingNotification(billingIdentifier) {
   let query = supabase
     .from('billings')
-    .select('*, occupant:occupants(stakeholder_id)')
+    .select('*, occupant:occupants(id, stakeholder_id)')
 
   if (typeof billingIdentifier === 'number' || /^\d+$/.test(String(billingIdentifier))) {
     query = query.eq('id', Number(billingIdentifier))
@@ -266,22 +338,39 @@ export async function sendBillingNotification(billingIdentifier) {
 
   if (billErr) throw billErr
 
-  if (bill?.occupant?.stakeholder_id) {
+  let stakeholderId = bill?.occupant?.stakeholder_id
+  if (!stakeholderId && bill?.occupant_id) {
+    const { data: occ } = await supabase.from('occupants').select('stakeholder_id').eq('id', bill.occupant_id).maybeSingle()
+    stakeholderId = occ?.stakeholder_id
+  }
+
+  if (stakeholderId) {
+    const invoiceLabel = bill.billing_no || `BILL-${bill.id}`
+    const dueFormatted = bill.due_date ? new Date(bill.due_date).toLocaleDateString() : 'the due date'
+    const balFormatted = Number(bill.balance || 0).toLocaleString()
+
     const { error: notifErr } = await supabase
       .from('notifications')
       .insert({
-        stakeholder_id: bill.occupant.stakeholder_id,
-        title: 'Billing Statement Ready',
-        message: `Your billing invoice ${bill.billing_no || bill.id} has a balance of PHP ${bill.balance} due on ${bill.due_date}.`,
+        stakeholder_id: Number(stakeholderId),
+        title: 'Billing Statement Notice',
+        message: `Your billing statement ${invoiceLabel} has an outstanding balance of ₱${balFormatted} due on ${dueFormatted}. Please settle on or before the due date.`,
         priority: 'MEDIUM',
         notification_type: 'BILLING_REMINDER',
         related_record_type: 'BILLING',
         related_record_id: bill.id
       })
-    if (notifErr) throw notifErr
+    if (notifErr) console.warn('[billingService] Could not insert notification:', notifErr)
+
+    try {
+      await supabase.from('audit_logs').insert({
+        action: 'SEND_BILLING_REMINDER',
+        details: `Sent billing reminder for invoice ${invoiceLabel} to stakeholder #${stakeholderId}`
+      })
+    } catch (_) {}
   }
 
-  return { success: true }
+  return { success: true, stakeholderId }
 }
 
 export default {

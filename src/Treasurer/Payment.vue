@@ -766,6 +766,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import api, { normalizeRecord } from '../services/api'
 import { fetchPayments, createPayment } from '../services/paymentService'
@@ -783,6 +784,7 @@ import Tag from 'primevue/tag'
 // =========================
 // STATE
 // =========================
+const route = useRoute()
 const toast = useToast()
 const loading = ref(true)
 const isSubmitting = ref(false)
@@ -868,6 +870,29 @@ onMounted(async () => {
     const app = document.getElementById('app')
     if (app) app.classList.add('full-bleed')
   } catch (e) {}
+
+  // Pre-select if redirected from Billing Records
+  if (route.query.stakeholderId || route.query.billingId) {
+    const targetStakeholderId = route.query.stakeholderId
+    const targetBillingId = route.query.billingId
+    const targetCategory = route.query.category || 'RENT_PAYMENT'
+
+    activeCategory.value = targetCategory
+    showModal.value = true
+
+    if (targetStakeholderId && stakeholders.value.length) {
+      const found = stakeholders.value.find(s => Number(s.id) === Number(targetStakeholderId))
+      if (found) {
+        selectStakeholder(found)
+      }
+    }
+    if (targetBillingId && billings.value.length) {
+      const foundBill = billings.value.find(b => Number(b.id) === Number(targetBillingId) || b.billingNo === targetBillingId || b.rawId === Number(targetBillingId))
+      if (foundBill) {
+        selectBilling(foundBill)
+      }
+    }
+  }
 })
 
 onUnmounted(() => {
@@ -933,7 +958,7 @@ function isAdvanceFinished(s) {
 function getUnpaidBillingsForStakeholder(stakeholderId) {
   if (!stakeholderId) return []
   return billings.value.filter(b => {
-    const bid = b.stakeholderId || b.stakeholder?.id
+    const bid = b.stakeholderId || b.stakeholder?.id || b.occupant?.stakeholderId || b.occupant?.stakeholder_id || b.occupant?.stakeholder?.id
     return b.status !== 'PAID' && Number(bid) === Number(stakeholderId) && Number(b.balance || 0) > 0
   }).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
 }
@@ -1348,7 +1373,8 @@ async function recordPayment() {
         })
         return
       }
-      if (!selectedStakeholder.value?.occupant?.stall) {
+      const hasStall = Boolean(selectedStakeholder.value?.occupant?.stall || selectedStakeholder.value?.stall || selectedStakeholder.value?.selectedStall || selectedStakeholder.value?.occupant?.contract?.stall)
+      if (!hasStall) {
         toast.add({
           severity: 'error',
           summary: 'No Occupied Stall',
@@ -1420,12 +1446,35 @@ async function recordPayment() {
     await Promise.all([loadPayments(), loadBillings(), loadStakeholders()])
     
     closeModal()
-    toast.add({
-      severity: 'success',
-      summary: 'Payment Recorded',
-      detail: `Successfully recorded ${typeLabel} of ₱${recordedAmount} for ${stakeholderFullName}.`,
-      life: 4500
-    })
+
+    const updatedStakeholder = stakeholders.value.find(s => Number(s.id) === Number(payload.stakeholderId))
+    const isAppFee = isPermitOrApp(activeCategory.value)
+
+    if (isAppFee) {
+      const isContractActive = updatedStakeholder?.occupant?.contract?.status === 'ACTIVE' || updatedStakeholder?.verifiedTenant
+      if (isContractActive) {
+        toast.add({
+          severity: 'success',
+          summary: 'Contract Activated & Billed',
+          detail: `Application fee payment recorded (₱${recordedAmount}). Contract is now ACTIVE and initial billing has been generated for ${stakeholderFullName}.`,
+          life: 5500
+        })
+      } else {
+        toast.add({
+          severity: 'info',
+          summary: 'Payment Recorded - Pending Approvals',
+          detail: `Payment of ₱${recordedAmount} recorded for ${stakeholderFullName}. Contract will activate automatically once required approvals are completed.`,
+          life: 5500
+        })
+      }
+    } else {
+      toast.add({
+        severity: 'success',
+        summary: 'Payment Recorded',
+        detail: `Successfully recorded ${typeLabel} of ₱${recordedAmount} for ${stakeholderFullName}.`,
+        life: 4500
+      })
+    }
   } catch (error) {
     console.error(error)
     toast.add({

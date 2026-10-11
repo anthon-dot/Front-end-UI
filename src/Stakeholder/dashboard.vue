@@ -1358,40 +1358,27 @@ async function loadAllData(background = false) {
       if (bData && bData.length > 0) bills = bData.map(normalizeRecord)
     }
 
-    if (bills.length === 0) {
-      // Populate standard municipal statements
-      bills = [
-        {
-          id: 101,
-          billingNo: 'BILL-2026-10',
-          billingPeriod: 'October 2026',
-          dueDate: '2026-10-15',
-          totalAmount: 1500,
-          paidAmount: 0,
-          balance: 1500,
-          status: 'UNPAID'
-        },
-        {
-          id: 102,
-          billingNo: 'BILL-2026-09',
-          billingPeriod: 'September 2026',
-          dueDate: '2026-09-15',
-          totalAmount: 1500,
-          paidAmount: 500,
-          balance: 1000,
-          status: 'PARTIAL'
-        },
-        {
-          id: 103,
-          billingNo: 'BILL-2026-08',
-          billingPeriod: 'August 2026',
-          dueDate: '2026-08-15',
-          totalAmount: 1500,
-          paidAmount: 1500,
-          balance: 0,
-          status: 'PAID'
+    if (bills.length === 0 && (occ?.contractId || occ?.contract_id)) {
+      const cId = occ.contractId || occ.contract_id
+      const { data: bData } = await supabase
+        .from('billings')
+        .select('*')
+        .eq('contract_id', cId)
+        .order('due_date', { ascending: false })
+      if (bData && bData.length > 0) bills = bData.map(normalizeRecord)
+    }
+
+    if (bills.length === 0 && (occ?.id || occ?.contractId)) {
+      try {
+        const { data: apiBills } = await api.get('/billings')
+        if (Array.isArray(apiBills)) {
+          const matched = apiBills.filter(b => 
+            (occ?.id && (b.occupantId === occ.id || b.occupant?.id === occ.id)) ||
+            (occ?.contractId && (b.contractId === occ.contractId || b.contract?.id === occ.contractId))
+          )
+          if (matched.length > 0) bills = matched.map(normalizeRecord)
         }
-      ]
+      } catch (_) {}
     }
     billingsList.value = bills
 
@@ -1407,33 +1394,16 @@ async function loadAllData(background = false) {
       if (pData && pData.length > 0) payments = pData.map(normalizeRecord)
     }
 
-    if (payments.length === 0) {
-      payments = [
-        {
-          id: 501,
-          receiptNo: 'OR-892104',
-          paymentDate: '2026-09-15',
-          paymentType: 'RENT_PAYMENT',
-          amount: 1250,
-          referenceNo: 'Cashier Window 2'
-        },
-        {
-          id: 502,
-          receiptNo: 'OR-890432',
-          paymentDate: '2026-08-14',
-          paymentType: 'RENT_PAYMENT',
-          amount: 1500,
-          referenceNo: 'Cashier Window 1'
-        },
-        {
-          id: 503,
-          receiptNo: 'OR-886109',
-          paymentDate: '2026-07-28',
-          paymentType: 'ADVANCE_DEPOSIT',
-          amount: 3000,
-          referenceNo: 'Advance Payment Slip'
+    if (payments.length === 0 && stId) {
+      try {
+        const { data: apiPayments } = await api.get('/payments')
+        if (Array.isArray(apiPayments)) {
+          const matched = apiPayments.filter(p => 
+            (p.stakeholderId === stId || p.stakeholder?.id === stId)
+          )
+          if (matched.length > 0) payments = matched.map(normalizeRecord)
         }
-      ]
+      } catch (_) {}
     }
     allPayments.value = payments
 
