@@ -1,6 +1,13 @@
+import api from './api'
 import { supabase } from '../config/supabase'
 
 export async function fetchStalls() {
+  try {
+    const res = await api.get('/stalls')
+    if (res && res.data) return res.data
+  } catch (err) {
+    console.warn('[stallService.fetchStalls] api fallback:', err)
+  }
   const { data, error } = await supabase
     .from('stalls')
     .select('*, occupant:occupants(*, stakeholder:stakeholders(*))')
@@ -11,17 +18,23 @@ export async function fetchStalls() {
 }
 
 export async function createStall(payload) {
+  try {
+    const res = await api.post('/stalls', payload)
+    if (res && res.data) return res.data
+  } catch (err) {
+    console.warn('[stallService.createStall] api fallback:', err)
+  }
   const { data, error } = await supabase
     .from('stalls')
     .insert({
-      stall_no: payload.stallNo,
-      stall_type: payload.stallType,
-      monthly_rent: payload.monthlyRent,
+      stall_no: payload.stallNo || payload.stall_no || payload.number,
+      stall_type: payload.stallType || payload.stall_type || payload.type,
+      monthly_rent: payload.monthlyRent || payload.monthly_rent || payload.rent,
       status: payload.status || 'AVAILABLE',
-      image_url: payload.imageUrl || null,
-      info: payload.info || null,
-      latitude: payload.latitude || null,
-      longitude: payload.longitude || null
+      image_url: payload.imageUrl || payload.image_url || null,
+      info: payload.info || payload.section || null,
+      latitude: payload.latitude ?? payload.lat ?? null,
+      longitude: payload.longitude ?? payload.lng ?? null
     })
     .select()
     .single()
@@ -31,15 +44,21 @@ export async function createStall(payload) {
 }
 
 export async function updateStall(id, payload) {
+  try {
+    const res = await api.put(`/stalls/${id}`, payload)
+    if (res && res.data) return res.data
+  } catch (err) {
+    console.warn('[stallService.updateStall] api fallback:', err)
+  }
   const updateBody = {}
-  if (payload.stallNo !== undefined) updateBody.stall_no = payload.stallNo
-  if (payload.stallType !== undefined) updateBody.stall_type = payload.stallType
-  if (payload.monthlyRent !== undefined) updateBody.monthly_rent = payload.monthlyRent
+  if (payload.stallNo !== undefined || payload.number !== undefined) updateBody.stall_no = payload.stallNo || payload.number
+  if (payload.stallType !== undefined || payload.type !== undefined) updateBody.stall_type = payload.stallType || payload.type
+  if (payload.monthlyRent !== undefined || payload.rent !== undefined) updateBody.monthly_rent = payload.monthlyRent || payload.rent
   if (payload.status !== undefined) updateBody.status = payload.status
-  if (payload.imageUrl !== undefined) updateBody.image_url = payload.imageUrl
+  if (payload.imageUrl !== undefined || payload.image_url !== undefined) updateBody.image_url = payload.imageUrl || payload.image_url
   if (payload.info !== undefined) updateBody.info = payload.info
-  if (payload.latitude !== undefined) updateBody.latitude = payload.latitude
-  if (payload.longitude !== undefined) updateBody.longitude = payload.longitude
+  if (payload.latitude !== undefined || payload.lat !== undefined) updateBody.latitude = payload.latitude ?? payload.lat
+  if (payload.longitude !== undefined || payload.lng !== undefined) updateBody.longitude = payload.longitude ?? payload.lng
 
   const { data, error } = await supabase
     .from('stalls')
@@ -53,6 +72,14 @@ export async function updateStall(id, payload) {
 }
 
 export async function uploadStallImage(formData) {
+  try {
+    const res = await api.post('/stalls/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    if (res && res.data) return res.data
+  } catch (err) {
+    console.warn('[stallService.uploadStallImage] api upload notice:', err)
+  }
   const file = formData.get('file') || formData.get('image')
   if (!file) throw new Error('No image file provided')
 
@@ -71,6 +98,13 @@ export async function uploadStallImage(formData) {
 }
 
 export async function allocateOccupant(stallId, stakeholderId) {
+  try {
+    const res = await api.post(`/occupants/allocate/${stallId}`, { stakeholderId })
+    if (res && res.data) return res.data
+  } catch (err) {
+    console.warn('[stallService.allocateOccupant] api endpoint notice:', err)
+  }
+
   try {
     const { data, error } = await supabase.functions.invoke('approval-workflow', {
       body: { action: 'assign-stall', stallId, stakeholderId }
@@ -112,6 +146,13 @@ export async function allocateOccupant(stallId, stakeholderId) {
 
 export async function unassignOccupant(stallId) {
   try {
+    const res = await api.put(`/occupants/vacate/${stallId}`)
+    if (res && res.data) return res.data
+  } catch (err) {
+    console.warn('[stallService.unassignOccupant] api endpoint notice:', err)
+  }
+
+  try {
     await supabase.from('occupants').delete().eq('stall_id', stallId)
   } catch (e) {
     console.warn('Direct occupants delete note:', e)
@@ -119,7 +160,7 @@ export async function unassignOccupant(stallId) {
 
   const { data, error } = await supabase
     .from('stalls')
-    .update({ status: 'VACANT' })
+    .update({ status: 'VACANT', occupant_id: null })
     .eq('id', stallId)
     .select()
     .single()
@@ -129,6 +170,12 @@ export async function unassignOccupant(stallId) {
 }
 
 export async function deleteStall(stallId) {
+  try {
+    const res = await api.delete(`/stalls/${stallId}`)
+    if (res && res.data) return res.data
+  } catch (err) {
+    console.warn('[stallService.deleteStall] api endpoint notice:', err)
+  }
   const { data, error } = await supabase
     .from('stalls')
     .delete()
@@ -147,4 +194,3 @@ export default {
   unassignOccupant,
   deleteStall
 }
-

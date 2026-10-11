@@ -130,6 +130,7 @@
 						<select id="statusFilter" v-model="statusFilter" class="filter-select">
 							<option value="ALL">All Statuses</option>
 							<option value="ACTIVE">Active</option>
+							<option value="DRAFT">Draft / Pending</option>
 							<option value="EXPIRED">Expired</option>
 							<option value="TERMINATED">Terminated</option>
 						</select>
@@ -161,12 +162,17 @@
 								</td>
 
 								<td>
-									<div class="stakeholder-cell">
+									<div
+										class="stakeholder-cell"
+										style="cursor: pointer;"
+										title="View stakeholder in Dashboard"
+										@click="navigateToStakeholder(c)"
+									>
 										<div class="avatar-circle">
 											{{ getInitials(c.stakeholderName || getContractStakeholder(c)?.firstName, getContractStakeholder(c)?.lastName) }}
 										</div>
 										<div>
-											<div class="name">
+											<div class="name hover:underline">
 												{{ c.stakeholderName || getStakeholderFullName(getContractStakeholder(c)) || 'Assigned Lessee' }}
 											</div>
 											<div class="sub">
@@ -186,7 +192,12 @@
 								</td>
 
 								<td>
-									<span class="stall-badge">
+									<span
+										class="stall-badge"
+										style="cursor: pointer;"
+										title="Locate stall in Stall Management"
+										@click="navigateToStall(getContractStallNo(c))"
+									>
 										<i class="pi pi-building" style="font-size: 10px;"></i>
 										Stall {{ getContractStallNo(c) }}
 									</span>
@@ -1093,6 +1104,17 @@ const filteredStakeholders = computed(() => {
 function goToStalls(s = null) {
 	const qVal = s ? (getStakeholderStallNo(s) || s.businessName || s.firstName) : ''
 	router.push({ name: 'MSStalls', query: qVal ? { q: qVal } : {} })
+}
+
+function navigateToStall(stallNo) {
+	if (!stallNo || stallNo === '-') return
+	router.push({ name: 'MSStalls', query: { q: stallNo } })
+}
+
+function navigateToStakeholder(c) {
+	const name = c.stakeholderName || getContractStakeholderName(c)
+	if (!name || name === 'Lessee') return
+	router.push({ name: 'MarketSupervisor', query: { q: name } })
 }
 
 // =============================

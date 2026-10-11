@@ -849,6 +849,109 @@ const api = {
       return { data: normalizeRecord(updated) };
     }
 
+    // 7. Occupants Allocate
+    if (cleanUrl.startsWith('occupants/allocate/')) {
+      const stallId = cleanUrl.replace('occupants/allocate/', '');
+      const stakeholderId = data?.stakeholderId || data?.stakeholder_id;
+      if (!stakeholderId) throw new Error('Stakeholder ID is required for stall allocation');
+
+      try {
+        // Check stakeholder approval & advance payment
+        const { data: sh, error: shErr } = await supabase
+          .from('stakeholders')
+          .select('*')
+          .eq('id', stakeholderId)
+          .maybeSingle();
+
+        if (shErr) throw shErr;
+        if (!sh) throw new Error('Stakeholder not found');
+
+        const isApproved = String(sh.market_approval_status || '').toUpperCase() === 'APPROVED' ||
+          sh.market_supervisor_approved === true;
+        const isPaid = sh.advance_payment_paid === true || sh.advance_payment_completed === true;
+
+        if (!isApproved || !isPaid) {
+          throw new Error('Stakeholder must have paid advance payment and be approved by the Market Supervisor');
+        }
+
+        // Check if stall is already occupied
+        const { data: st, error: stErr } = await supabase
+          .from('stalls')
+          .select('*')
+          .eq('id', stallId)
+          .single();
+
+        if (stErr) throw stErr;
+        if (String(st.status || '').toUpperCase() === 'OCCUPIED' && st.occupant_id) {
+          throw new Error('Stall is already occupied');
+        }
+
+        // Check or create occupant
+        let occupantId = null;
+        const { data: existingOcc } = await supabase
+          .from('occupants')
+          .select('id')
+          .eq('stakeholder_id', stakeholderId)
+          .eq('is_archived', false)
+          .maybeSingle();
+
+        if (existingOcc?.id) {
+          occupantId = existingOcc.id;
+          await supabase
+            .from('occupants')
+            .update({
+              stall_id: Number(stallId),
+              status: 'PENDING',
+              occupancy_date: new Date().toISOString().split('T')[0]
+            })
+            .eq('id', occupantId);
+        } else {
+          const { data: newOcc, error: newOccErr } = await supabase
+            .from('occupants')
+            .insert({
+              stakeholder_id: Number(stakeholderId),
+              stall_id: Number(stallId),
+              status: 'PENDING',
+              occupancy_date: new Date().toISOString().split('T')[0],
+              is_archived: false,
+              advance_balance: sh.advance_balance || 0
+            })
+            .select('id')
+            .single();
+
+          if (newOccErr) throw newOccErr;
+          occupantId = newOcc?.id;
+        }
+
+        // Assign to stall
+        const { data: updatedStall, error: updStallErr } = await supabase
+          .from('stalls')
+          .update({
+            status: 'OCCUPIED',
+            occupant_id: occupantId
+          })
+          .eq('id', stallId)
+          .select('*, occupant:occupants(*, stakeholder:stakeholders(*))')
+          .single();
+
+        if (updStallErr) throw updStallErr;
+
+        // Update stakeholder onboarding
+        await supabase
+          .from('stakeholders')
+          .update({
+            onboarding_status: 'STALL_ASSIGNED',
+            selected_stall_id: Number(stallId)
+          })
+          .eq('id', stakeholderId);
+
+        return { data: normalizeRecord(updatedStall) };
+      } catch (err) {
+        console.warn('[api.post /occupants/allocate] Supabase error, falling back:', err);
+        return rawAxios.post(url, data, config);
+      }
+    }
+
     if (cleanUrl.startsWith('stakeholders/') && cleanUrl.includes('assign-stall')) {
       const stakeholderId = cleanUrl.split('/')[1];
       const { data: resData, error } = await supabase.functions.invoke('approval-workflow', {
@@ -1128,6 +1231,48 @@ const api = {
       });
       if (error || res?.error) throw new Error(error?.message || res?.error || 'Stall assignment failed');
       return { data: res };
+    }
+
+    // 1.1 Occupants Vacate
+    if (cleanUrl.startsWith('occupants/vacate/')) {
+      const stallId = cleanUrl.replace('occupants/vacate/', '');
+      try {
+        const { data: st, error: stErr } = await supabase
+          .from('stalls')
+          .select('*, occupant:occupants(*)')
+          .eq('id', stallId)
+          .single();
+
+        if (stErr) throw stErr;
+
+        if (st?.occupant_id) {
+          await supabase
+            .from('occupants')
+            .update({ is_archived: true, status: 'VACATED' })
+            .eq('id', st.occupant_id);
+        } else {
+          await supabase
+            .from('occupants')
+            .update({ is_archived: true, status: 'VACATED' })
+            .eq('stall_id', stallId);
+        }
+
+        const { data: updatedStall, error: updStallErr } = await supabase
+          .from('stalls')
+          .update({
+            status: 'AVAILABLE',
+            occupant_id: null
+          })
+          .eq('id', stallId)
+          .select('*, occupant:occupants(*, stakeholder:stakeholders(*))')
+          .single();
+
+        if (updStallErr) throw updStallErr;
+        return { data: normalizeRecord(updatedStall) };
+      } catch (err) {
+        console.warn('[api.put /occupants/vacate] Supabase error, falling back:', err);
+        return rawAxios.put(url, data, config);
+      }
     }
 
     // 2. Update stalls
