@@ -746,6 +746,11 @@ const current = ref(null)
 const selectedContract = ref(null)
 const viewContractsList = ref([])
 
+const defaultTerms = `1. The LESSEE shall pay the monthly rental on or before the fifth (5th) day of each month.
+2. The stall shall be used exclusively for the designated commercial category and shall not be subleased or assigned without prior written approval.
+3. The LESSEE shall keep the stall and surrounding premises clean, sanitary, and compliant with municipal market ordinances.
+4. Failure to pay rent for two consecutive billing cycles or violation of market rules shall be grounds for contract termination.`
+
 // =============================
 // HELPERS
 // =============================
@@ -851,7 +856,7 @@ function getContractStall(c) {
 		if (found) return found
 	}
 	if (c.stallNo) {
-		const found = stalls.value.find(s => (s.stallNo || s.stall_no) === c.stallNo)
+		const found = stalls.value.find(s => (s.stallNo || s.stall_no || s.number) === c.stallNo)
 		if (found) return found
 	}
 	return null
@@ -862,8 +867,9 @@ function getContractStallNo(c) {
 	if (c.stallNo) return c.stallNo
 	if (c.stall?.stallNo) return c.stall.stallNo
 	if (c.stall?.stall_no) return c.stall.stall_no
+	if (c.stall?.number) return c.stall.number
 	const st = getContractStall(c)
-	if (st) return st.stallNo || st.stall_no
+	if (st) return st.stallNo || st.stall_no || st.number || '-'
 	return '-'
 }
 

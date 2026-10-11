@@ -98,6 +98,15 @@
             <i :class="isGoogleMapsActive ? 'pi pi-google' : 'pi pi-map'"></i>
             {{ isGoogleMapsActive ? 'Official Google Maps JS API' : 'Authorized OpenStreetMap' }}
           </span>
+          <button
+            type="button"
+            class="btn-switch-provider"
+            :title="isGoogleMapsActive ? 'Switch to authorized OpenStreetMap tiles' : 'Attempt loading Google Maps JS API'"
+            @click="toggleMapProvider"
+          >
+            <i class="pi pi-sync"></i>
+            {{ isGoogleMapsActive ? 'Use OpenStreetMap' : 'Use Google Maps' }}
+          </button>
         </div>
 
         <!-- Map Controls & Toolbar -->
@@ -811,6 +820,7 @@ const form = ref({
 const mapType = ref('roadmap') // 'roadmap' | 'satellite'
 const isGoogleMapsActive = ref(false)
 const mapNotice = ref('')
+let googleMapsAuthFailed = false
 let googleMap = null
 let googleMarkers = []
 let googlePickerMarker = null
@@ -822,9 +832,14 @@ let leafletMarkers = []
 let leafletPickerMarker = null
 let leafletTileLayer = null
 
-// ===================================
-// MAP INITIALIZATION (DUAL ENGINE)
-// ===================================
+function toggleMapProvider() {
+  if (isGoogleMapsActive.value) {
+    initLeafletFallback('Operating with authorized OpenStreetMap standard tiles.')
+  } else {
+    googleMapsAuthFailed = false
+    loadGoogleMapsApi()
+  }
+}
 
 /**
  * Loads the official Google Maps JavaScript API via dynamic script injection.
@@ -832,10 +847,16 @@ let leafletTileLayer = null
  */
 function loadGoogleMapsApi() {
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
-  if (!apiKey || apiKey === 'YOUR_GOOGLE_MAPS_API_KEY') {
-    mapNotice.value = 'Notice: Google Maps API key is not configured. Operating with authorized OpenStreetMap standard tiles.'
-    initLeafletFallback()
+  if (!apiKey || apiKey === 'YOUR_GOOGLE_MAPS_API_KEY' || googleMapsAuthFailed) {
+    initLeafletFallback('Notice: Google Maps API key is unavailable or unauthorized. Operating with authorized OpenStreetMap standard tiles.')
     return
+  }
+
+  // Define error handler for auth failure
+  window.gm_authFailure = () => {
+    console.warn('[Google Maps] Authentication failure: invalid API key, restrictions, or quota exceeded.')
+    googleMapsAuthFailed = true
+    initLeafletFallback('Notice: Google Maps API key is not authorized for Maps JavaScript API. Operating with authorized OpenStreetMap standard tiles.')
   }
 
   if (window.google && window.google.maps) {
@@ -843,19 +864,11 @@ function loadGoogleMapsApi() {
     return
   }
 
-  // Define error handler for auth failure
-  window.gm_authFailure = () => {
-    console.warn('[Google Maps] Authentication failure: invalid API key or quota exceeded.')
-    mapNotice.value = 'Notice: Google Maps authentication failed. Operating with authorized OpenStreetMap standard tiles.'
-    initLeafletFallback()
-  }
-
   const existingScript = document.getElementById('google-maps-script')
   if (existingScript) {
     existingScript.addEventListener('load', () => initGoogleMap())
     existingScript.addEventListener('error', () => {
-      mapNotice.value = 'Notice: Failed to load Google Maps script. Operating with authorized OpenStreetMap standard tiles.'
-      initLeafletFallback()
+      initLeafletFallback('Notice: Failed to load Google Maps script. Operating with authorized OpenStreetMap standard tiles.')
     })
     return
   }
@@ -870,20 +883,32 @@ function loadGoogleMapsApi() {
   }
   script.onerror = () => {
     console.warn('[Google Maps] Script network error. Falling back to OpenStreetMap.')
-    mapNotice.value = 'Notice: Google Maps API unavailable. Operating with authorized OpenStreetMap standard tiles.'
-    initLeafletFallback()
+    initLeafletFallback('Notice: Google Maps API unavailable. Operating with authorized OpenStreetMap standard tiles.')
   }
   document.head.appendChild(script)
 }
 
 function initGoogleMap() {
+  if (googleMapsAuthFailed) {
+    initLeafletFallback('Notice: Operating with authorized OpenStreetMap standard tiles.')
+    return
+  }
+
   const container = document.getElementById('map')
   if (!container || !window.google || !window.google.maps) {
-    initLeafletFallback()
+    initLeafletFallback('Notice: Google Maps library unavailable. Operating with authorized OpenStreetMap standard tiles.')
     return
   }
 
   try {
+    // If a leaflet map was present, clean it up first
+    if (leafletMap) {
+      try { leafletMap.remove() } catch (_) {}
+      leafletMap = null
+    }
+    container.innerHTML = ''
+    delete container._leaflet_id
+
     googleMap = new window.google.maps.Map(container, {
       center: DEFAULT_CENTER,
       zoom: DEFAULT_MAP_ZOOM,
@@ -912,14 +937,48 @@ function initGoogleMap() {
     renderMarkers()
   } catch (err) {
     console.warn('[Google Maps] Initialization error, falling back to Leaflet:', err)
-    mapNotice.value = 'Notice: Google Maps error. Operating with authorized OpenStreetMap standard tiles.'
-    initLeafletFallback()
+    initLeafletFallback('Notice: Google Maps error. Operating with authorized OpenStreetMap standard tiles.')
   }
 }
 
-function initLeafletFallback() {
+function initLeafletFallback(reasonMessage = '') {
+  isGoogleMapsActive.value = false
+  if (reasonMessage) {
+    mapNotice.value = reasonMessage
+  }
+
+  // 1. Clean up Google Map markers & state
+  if (googleMarkers.length) {
+    googleMarkers.forEach((m) => {
+      try { m.setMap(null) } catch (_) {}
+    })
+    googleMarkers = []
+  }
+  if (googlePickerMarker) {
+    try { googlePickerMarker.setMap(null) } catch (_) {}
+    googlePickerMarker = null
+  }
+  googleMap = null
+
+  // 2. Remove existing Leaflet map if present
+  if (leafletMap) {
+    try {
+      leafletMap.remove()
+    } catch (_) {}
+    leafletMap = null
+  }
+
   const container = document.getElementById('map')
-  if (!container || leafletMap) return
+  if (!container) return
+
+  // 3. Clear container DOM to erase any Google Maps error overlays or elements
+  container.innerHTML = ''
+  delete container._leaflet_id
+
+  // Remove any detached Google error alerts
+  try {
+    document.querySelectorAll('.gm-err-container, .gm-err-autocomplete').forEach((el) => el.remove())
+  } catch (_) {}
 
   try {
     leafletMap = L.map('map', {
@@ -930,11 +989,18 @@ function initLeafletFallback() {
       zoomControl: true
     })
 
-    // Authorized OpenStreetMap Standard Tile Layer
-    leafletTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-    }).addTo(leafletMap)
+    // Attach tile layer based on active mapType
+    if (mapType.value === 'satellite') {
+      leafletTileLayer = L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        { attribution: 'Tiles &copy; Esri &mdash; Source: Esri, USGS, NOAA', maxZoom: 19 }
+      ).addTo(leafletMap)
+    } else {
+      leafletTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      }).addTo(leafletMap)
+    }
 
     leafletMap.on('click', (e) => {
       if (isPickingCoordinates.value && e.latlng) {
@@ -942,8 +1008,14 @@ function initLeafletFallback() {
       }
     })
 
-    isGoogleMapsActive.value = false
     renderMarkers()
+
+    // Recalculate dimensions to avoid gray/unrendered tiles
+    setTimeout(() => {
+      if (leafletMap) {
+        leafletMap.invalidateSize()
+      }
+    }, 200)
   } catch (err) {
     console.error('[Leaflet Fallback] Map init failed:', err)
   }
