@@ -190,11 +190,31 @@ li.unread {
 
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transition: opacity 0.18s ease, transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
-  transform: translateY(-6px);
+  transform: translateY(-8px) scale(0.96);
+}
+
+/* Mobile responsive notification panel */
+@media (max-width: 640px) {
+  .dropdown {
+    position: fixed;
+    top: calc(var(--layout-topbar-height, 4.25rem) + 8px);
+    left: 0.75rem;
+    right: 0.75rem;
+    width: auto;
+    max-width: none;
+    max-height: calc(82vh - var(--layout-topbar-height, 4.25rem));
+    border-radius: 16px;
+    box-shadow: 0 20px 45px -10px rgba(15, 23, 42, 0.35), 0 0 0 1px rgba(15, 23, 42, 0.12);
+  }
+
+  .bell {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
 }
