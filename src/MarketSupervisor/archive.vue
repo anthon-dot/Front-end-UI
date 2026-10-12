@@ -174,6 +174,7 @@
 										<th>Lessee</th>
 										<th>Duration</th>
 										<th>Contract Status</th>
+										<th style="text-align: right;">Actions</th>
 									</tr>
 								</thead>
 								<tbody>
@@ -187,9 +188,16 @@
 												{{ c.status || 'CONCLUDED' }}
 											</span>
 										</td>
+										<td style="text-align: right;">
+											<div class="actions" style="justify-content: flex-end;">
+												<button class="btn btn-primary" title="Restore contract to active" @click="restoreContract(c)">
+													<i class="pi pi-replay"></i> Restore
+												</button>
+											</div>
+										</td>
 									</tr>
 									<tr v-if="filteredContracts.length === 0">
-										<td colspan="5" class="p-6 text-center text-gray-500">
+										<td colspan="6" class="p-6 text-center text-gray-500">
 											No concluded or terminated lease contracts found.
 										</td>
 									</tr>
@@ -321,16 +329,28 @@ async function loadData() {
 	stalls.value = storedStalls
 
 	// 3. Load contracts
+	let storedContracts = []
+	try {
+		const raw = localStorage.getItem('contracts')
+		if (raw) storedContracts = JSON.parse(raw)
+	} catch (_) {}
+
 	try {
 		const res = await api.get('/contracts')
 		const allContracts = Array.isArray(res.data) ? res.data : []
-		contracts.value = allContracts.filter((c) => {
-			const st = String(c.status || '').toUpperCase()
-			return st === 'TERMINATED' || st === 'EXPIRED' || st === 'CANCELLED'
-		})
+		for (const ac of allContracts) {
+			if (!storedContracts.some((c) => String(c.id) === String(ac.id))) {
+				storedContracts.push(ac)
+			}
+		}
 	} catch (err) {
 		console.warn('[Archive] API contracts notice:', err)
 	}
+
+	contracts.value = storedContracts.filter((c) => {
+		const st = String(c.status || '').toUpperCase()
+		return st === 'TERMINATED' || st === 'EXPIRED' || st === 'CANCELLED' || st === 'ARCHIVED' || c.isArchived
+	})
 }
 
 function saveApplications() {
@@ -403,14 +423,49 @@ function restore(app) {
 	alert('Record restored: ' + (applications.value[idx].name || app.id))
 }
 
-function restoreStall(st) {
+async function restoreStall(st) {
 	if (!st) return
+	try {
+		if (st.id) {
+			await api.put(`/stalls/${st.id}`, { status: 'AVAILABLE', isArchived: false })
+		}
+	} catch (e) {
+		console.warn('API restore stall warning:', e)
+	}
 	const idx = stalls.value.findIndex((x) => x.id === st.id)
-	if (idx === -1) return
-	stalls.value[idx].status = 'Vacant'
-	if (stalls.value[idx].archivedOn) delete stalls.value[idx].archivedOn
+	if (idx !== -1) {
+		stalls.value.splice(idx, 1)
+	}
 	saveStalls(stalls.value)
-	alert('Stall restored: ' + stalls.value[idx].number)
+	alert('Stall restored to active registry: ' + st.number)
+}
+
+async function restoreContract(c) {
+	if (!c) return
+	try {
+		if (c.id) {
+			await api.put(`/contracts/${c.id}`, { status: 'ACTIVE', isArchived: false })
+		}
+	} catch (e) {
+		console.warn('API restore contract warning:', e)
+	}
+	const idx = contracts.value.findIndex((x) => x.id === c.id)
+	if (idx !== -1) {
+		contracts.value.splice(idx, 1)
+	}
+	try {
+		const raw = localStorage.getItem('contracts')
+		if (raw) {
+			const list = JSON.parse(raw)
+			const cIdx = list.findIndex((item) => String(item.id) === String(c.id) || item.contractNo === c.contractNo)
+			if (cIdx !== -1) {
+				list[cIdx].status = 'ACTIVE'
+				list[cIdx].isArchived = false
+				localStorage.setItem('contracts', JSON.stringify(list))
+			}
+		}
+	} catch (_) {}
+	alert('Contract restored to active contracts: ' + (c.contractNo || c.ref))
 }
 
 onMounted(() => {

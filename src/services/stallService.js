@@ -185,6 +185,42 @@ export async function deleteStall(stallId) {
   return data
 }
 
+export async function archiveStall(stallId) {
+  try {
+    const res = await api.put(`/stalls/${stallId}`, { status: 'ARCHIVED', isArchived: true })
+    if (res && res.data) return res.data
+  } catch (err) {
+    console.warn('[stallService.archiveStall] api fallback:', err)
+  }
+  const { data, error } = await supabase
+    .from('stalls')
+    .update({ status: 'ARCHIVED' })
+    .eq('id', stallId)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function restoreStall(stallId) {
+  try {
+    const res = await api.put(`/stalls/${stallId}`, { status: 'AVAILABLE', isArchived: false })
+    if (res && res.data) return res.data
+  } catch (err) {
+    console.warn('[stallService.restoreStall] api fallback:', err)
+  }
+  const { data, error } = await supabase
+    .from('stalls')
+    .update({ status: 'AVAILABLE' })
+    .eq('id', stallId)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
 export default {
   fetchStalls,
   createStall,
@@ -192,5 +228,7 @@ export default {
   uploadStallImage,
   allocateOccupant,
   unassignOccupant,
-  deleteStall
+  deleteStall,
+  archiveStall,
+  restoreStall
 }

@@ -182,7 +182,7 @@ const items = computed(() => {
       return true
     }
 
-    return role === 'ADMIN' || role === 'TREASURER'
+    return ['ADMIN', 'TREASURER', 'SUPERVISOR', 'MARKET_SUPERVISOR', 'MARKETSUPERVISOR'].includes(role)
   })
 })
 

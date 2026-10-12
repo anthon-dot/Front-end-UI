@@ -133,6 +133,7 @@
 							<option value="DRAFT">Draft / Pending</option>
 							<option value="EXPIRED">Expired</option>
 							<option value="TERMINATED">Terminated</option>
+							<option value="ARCHIVED">Archived</option>
 						</select>
 					</div>
 				</div>
@@ -260,6 +261,27 @@
 											title="Terminate contract"
 										>
 											Terminate
+										</button>
+
+										<button
+											v-if="String(c.status).toUpperCase() !== 'ARCHIVED'"
+											class="btn-small btn-archive"
+											style="background: #fff1f2; color: #e11d48; border: 1px solid #fecdd3;"
+											@click="archiveContract(c)"
+											title="Archive contract record (moves to Archive Records)"
+										>
+											<i class="pi pi-inbox"></i>
+											Archive
+										</button>
+										<button
+											v-else
+											class="btn-small btn-restore"
+											style="background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0;"
+											@click="restoreContract(c)"
+											title="Restore contract from archive"
+										>
+											<i class="pi pi-replay"></i>
+											Restore
 										</button>
 									</div>
 								</td>
@@ -1247,6 +1269,42 @@ async function terminateContract(contract) {
 	contract.status = 'TERMINATED'
 	saveContractsToStorage()
 	alert(`${refName} has been marked as TERMINATED.`)
+}
+
+async function archiveContract(contract) {
+	const refName = contract.contractNo || contract.ref || 'this contract'
+	if (!confirm(`Are you sure you want to ARCHIVE ${refName}? This contract will be moved to Archive Records.`)) {
+		return
+	}
+
+	try {
+		if (contract.id) {
+			await api.put(`/contracts/${contract.id}`, { status: 'ARCHIVED', isArchived: true })
+		}
+	} catch (err) {
+		console.warn('Backend archive error (updating local state):', err)
+	}
+
+	contract.status = 'ARCHIVED'
+	contract.isArchived = true
+	saveContractsToStorage()
+	alert(`${refName} has been archived successfully! You can view or restore it in Archive Records.`)
+}
+
+async function restoreContract(contract) {
+	const refName = contract.contractNo || contract.ref || 'this contract'
+	try {
+		if (contract.id) {
+			await api.put(`/contracts/${contract.id}`, { status: 'ACTIVE', isArchived: false })
+		}
+	} catch (err) {
+		console.warn('Backend restore contract error:', err)
+	}
+
+	contract.status = 'ACTIVE'
+	contract.isArchived = false
+	saveContractsToStorage()
+	alert(`${refName} has been restored to active contracts!`)
 }
 
 function printContract() {

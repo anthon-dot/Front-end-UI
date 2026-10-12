@@ -1,4 +1,4 @@
-﻿import { computed, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { supabase } from '../config/supabase'
 
@@ -25,6 +25,7 @@ export function normalizeWorkflowRole(role) {
   const normalized = normalizeRole(role)
 
   const aliases = {
+    SUPERVISOR: 'MARKET_SUPERVISOR',
     MARKETSUPERVISOR: 'MARKET_SUPERVISOR',
     BPLO: 'BPLO_OFFICE',
     BPLOOFFICE: 'BPLO_OFFICE',

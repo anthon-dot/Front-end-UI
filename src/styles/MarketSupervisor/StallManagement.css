@@ -144,18 +144,19 @@ select:focus {
 }
 
 .occupied-icon {
-  background: #dcfce7;
-  color: #16a34a;
-}
-
-.vacant-icon {
   background: #dbeafe;
   color: #2563eb;
 }
 
+.vacant-icon {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.unavailable-icon,
 .reserved-icon {
-  background: #fef3c7;
-  color: #d97706;
+  background: #ffedd5;
+  color: #ea580c;
 }
 
 .stat-info {
@@ -183,12 +184,13 @@ select:focus {
   color: #64748b;
 }
 
-/* ================= MAP CARD ================= */
-.map-card {
+/* ================= MODERN MAP CARD ================= */
+.modern-map-card {
   background: #ffffff;
   border-radius: 20px;
-  padding: 18px 20px;
-  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);
+  padding: 20px 24px;
+  box-shadow: 0 4px 25px rgba(15, 23, 42, 0.06);
+  border: 1px solid #e2e8f0;
   margin-bottom: 24px;
   position: relative;
 }
@@ -197,78 +199,391 @@ select:focus {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
-.map-title {
+.map-title-wrap {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 16px;
+  gap: 14px;
+}
+
+.map-title-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+  flex-shrink: 0;
+}
+
+.map-title-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 17px;
+  font-weight: 700;
   color: #0f172a;
 }
 
-.map-legend {
-  display: flex;
-  gap: 16px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #475569;
-}
-
-.legend-item {
+.modern-live-badge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
 }
 
-.dot {
-  width: 10px;
-  height: 10px;
+.live-pulse-dot {
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  display: inline-block;
+  background: #10b981;
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  animation: livePulse 2s infinite;
 }
 
-.dot-occupied {
-  background: #16a34a;
+@keyframes livePulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
 }
 
-.dot-vacant {
-  background: #2563eb;
+.map-title-sub {
+  color: #64748b;
+  font-size: 13px;
+  margin-top: 2px;
 }
 
-.dot-reserved {
-  background: #d97706;
+.map-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Modern Segmented Control */
+.modern-segmented-control {
+  display: flex;
+  background: #f1f5f9;
+  padding: 3px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.seg-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.seg-btn i {
+  font-size: 13px;
+}
+
+.seg-btn:hover {
+  color: #1e293b;
+}
+
+.seg-btn.active {
+  background: #ffffff;
+  color: #4f46e5;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Recenter Button */
+.btn-modern-recenter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.btn-modern-recenter:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  color: #0f172a;
+  transform: translateY(-1px);
+}
+
+/* Viewport Wrapper */
+.map-viewport-wrapper {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.03);
 }
 
 .map-viewport {
-  height: 500px;
+  height: 520px;
   width: 100%;
-  border-radius: 14px;
-  overflow: hidden;
-  border: 1px solid #e2e8f0;
   position: relative;
   z-index: 1;
+  background: #f8fafc;
 }
 
-.btn-switch-provider {
-  background: #f1f5f9;
-  border: 1px solid #cbd5e1;
-  color: #334155;
-  border-radius: 8px;
-  padding: 4px 10px;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
+/* Floating Legend Chips */
+.map-floating-legend {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 500;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  pointer-events: none;
+}
+
+.legend-chip {
+  pointer-events: auto;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  transition: all 0.15s;
+  gap: 7px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.1);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+  transition: transform 0.15s;
 }
 
-.btn-switch-provider:hover {
-  background: #e2e8f0;
+.legend-chip:hover {
+  transform: translateY(-2px);
+}
+
+.chip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.chip-occupied .chip-dot {
+  background: #2563eb;
+}
+
+.chip-vacant .chip-dot {
+  background: #16a34a;
+}
+
+.chip-unavailable .chip-dot,
+.chip-reserved .chip-dot {
+  background: #ea580c;
+}
+
+.chip-count {
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
   color: #0f172a;
+}
+
+/* ================= MODERN STALL PINS (DIVICON) ================= */
+.modern-stall-divicon {
+  background: transparent !important;
+  border: none !important;
+}
+
+.modern-stall-marker {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.22));
+}
+
+.modern-stall-marker:hover {
+  transform: translateY(-5px) scale(1.08);
+  z-index: 1000 !important;
+}
+
+.stall-marker-card {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  color: #ffffff;
+  font-weight: 750;
+  font-size: 11px;
+  letter-spacing: 0.2px;
+  border: 1.5px solid rgba(255, 255, 255, 0.9);
+}
+
+.pin-occupied .stall-marker-card {
+  background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.pin-vacant .stall-marker-card {
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+}
+
+.pin-reserved .stall-marker-card {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.marker-status-icon {
+  font-size: 10px;
+}
+
+.marker-stall-num {
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.marker-stem {
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  margin-top: -1px;
+}
+
+.pin-occupied .marker-stem {
+  border-top: 8px solid #059669;
+}
+
+.pin-vacant .marker-stem {
+  border-top: 8px solid #1d4ed8;
+}
+
+.pin-reserved .marker-stem {
+  border-top: 8px solid #d97706;
+}
+
+/* ================= MODERN PICKER MARKER ================= */
+.modern-picker-divicon {
+  background: transparent !important;
+  border: none !important;
+}
+
+.modern-picker-marker {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: grab;
+}
+
+.modern-picker-marker:active {
+  cursor: grabbing;
+}
+
+.picker-marker-badge {
+  background: #ea580c;
+  color: #ffffff;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  box-shadow: 0 4px 10px rgba(234, 88, 12, 0.4);
+  border: 1px solid #ffedd5;
+  margin-bottom: 2px;
+}
+
+.picker-marker-disc {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #ea580c;
+  border: 3px solid #ffffff;
+  box-shadow: 0 4px 12px rgba(234, 88, 12, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.picker-center-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ffffff;
+}
+
+.picker-arrow-down {
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 7px solid #ea580c;
+  margin-top: -2px;
+}
+
+.picker-pulse-wave {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid #ea580c;
+  animation: pickerRadar 1.8s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes pickerRadar {
+  0% {
+    width: 24px;
+    height: 24px;
+    opacity: 1;
+    transform: translateX(-50%) scale(0.6);
+  }
+  100% {
+    width: 60px;
+    height: 60px;
+    opacity: 0;
+    transform: translateX(-50%) scale(1.6);
+  }
 }
 
 .location-picker-banner {
@@ -415,18 +730,19 @@ tr:hover td {
 }
 
 .status.vacant {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.status.occupied {
   background: #dbeafe;
   color: #1d4ed8;
 }
 
-.status.occupied {
-  background: #dcfce7;
-  color: #166534;
-}
-
+.status.unavailable,
 .status.reserved {
-  background: #fef3c7;
-  color: #92400e;
+  background: #ffedd5;
+  color: #c2410c;
 }
 
 .actions {
@@ -465,6 +781,28 @@ tr:hover td {
 
 .btn-edit:hover {
   background: #e2e8f0;
+}
+
+.btn-archive {
+  background: #fff1f2;
+  color: #e11d48;
+  border: 1px solid #fecdd3;
+}
+
+.btn-archive:hover {
+  background: #ffe4e6;
+  border-color: #fda4af;
+}
+
+.btn-restore {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.btn-restore:hover {
+  background: #d1fae5;
+  border-color: #6ee7b7;
 }
 
 .empty-state {
@@ -1156,21 +1494,22 @@ tr:hover td {
 
 .status-chip.occupied,
 .status-chip.active {
-  background: #dcfce7;
-  color: #166534;
-  border: 1px solid #bbf7d0;
-}
-
-.status-chip.vacant {
   background: #dbeafe;
   color: #1e40af;
   border: 1px solid #bfdbfe;
 }
 
+.status-chip.vacant {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.status-chip.unavailable,
 .status-chip.reserved {
-  background: #fef3c7;
-  color: #92400e;
-  border: 1px solid #fde68a;
+  background: #ffedd5;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
 }
 
 .contract-section {

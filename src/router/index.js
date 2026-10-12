@@ -277,7 +277,7 @@ const routes = [
     path: "/supervisor/reports",
     name: "MSReports",
     component: () => import("../MarketSupervisor/ReportPage.vue"),
-    meta: { roles: ['ADMIN', 'TREASURER'] }
+    meta: { roles: ['ADMIN', 'TREASURER', 'SUPERVISOR', 'MARKET_SUPERVISOR', 'MARKETSUPERVISOR'] }
   }
   ,
   {

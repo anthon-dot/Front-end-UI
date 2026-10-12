@@ -14,10 +14,11 @@
 
         <!-- Status Filter -->
         <select v-model="filterStatus" class="filter" aria-label="Filter by status">
-          <option value="All">All Status ({{ stalls.length }})</option>
+          <option value="All">All Active ({{ activeStallsCount }})</option>
           <option value="VACANT">Vacant ({{ vacantCount }})</option>
           <option value="OCCUPIED">Occupied ({{ occupiedCount }})</option>
-          <option value="RESERVED">Reserved ({{ reservedCount }})</option>
+          <option value="UNAVAILABLE">Unavailable ({{ unavailableCount }})</option>
+          <option value="ARCHIVED">Archived ({{ archivedCount }})</option>
         </select>
 
         <!-- Stall Type / Section Filter -->
@@ -52,16 +53,6 @@
       </div>
 
       <div class="stat-card">
-        <div class="stat-icon occupied-icon">
-          <i class="pi pi-check-circle"></i>
-        </div>
-        <div class="stat-info">
-          <span class="stat-label">Occupied</span>
-          <span class="stat-value">{{ occupiedCount }} <small>({{ occupancyRate }}%)</small></span>
-        </div>
-      </div>
-
-      <div class="stat-card">
         <div class="stat-icon vacant-icon">
           <i class="pi pi-inbox"></i>
         </div>
@@ -72,89 +63,107 @@
       </div>
 
       <div class="stat-card">
-        <div class="stat-icon reserved-icon">
-          <i class="pi pi-clock"></i>
+        <div class="stat-icon occupied-icon">
+          <i class="pi pi-check-circle"></i>
         </div>
         <div class="stat-info">
-          <span class="stat-label">Reserved</span>
-          <span class="stat-value">{{ reservedCount }}</span>
+          <span class="stat-label">Occupied</span>
+          <span class="stat-value">{{ occupiedCount }} <small>({{ occupancyRate }}%)</small></span>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon unavailable-icon">
+          <i class="pi pi-ban"></i>
+        </div>
+        <div class="stat-info">
+          <span class="stat-label">Unavailable</span>
+          <span class="stat-value">{{ unavailableCount }}</span>
         </div>
       </div>
     </section>
 
     <!-- MAP CONTAINER -->
-    <section class="map-card">
-      <!-- Fallback / Configuration Warning Banner if Google Maps is unavailable -->
-      <div v-if="mapNotice" class="map-notice-banner">
-        <i class="pi pi-info-circle text-amber-600 text-lg"></i>
-        <span>{{ mapNotice }}</span>
-      </div>
-
+    <section class="map-card modern-map-card">
       <div class="map-card-header">
-        <div class="map-title">
-          <i class="pi pi-map-marker text-indigo-600"></i>
-          <strong>Manticao Public Market Interactive Map</strong>
-          <span :class="['map-provider-badge', isGoogleMapsActive ? 'provider-google' : 'provider-fallback']">
-            <i :class="isGoogleMapsActive ? 'pi pi-google' : 'pi pi-map'"></i>
-            {{ isGoogleMapsActive ? 'Official Google Maps JS API' : 'Authorized OpenStreetMap' }}
-          </span>
-          <button
-            type="button"
-            class="btn-switch-provider"
-            :title="isGoogleMapsActive ? 'Switch to authorized OpenStreetMap tiles' : 'Attempt loading Google Maps JS API'"
-            @click="toggleMapProvider"
-          >
-            <i class="pi pi-sync"></i>
-            {{ isGoogleMapsActive ? 'Use OpenStreetMap' : 'Use Google Maps' }}
-          </button>
+        <div class="map-title-wrap">
+          <div class="map-title-icon">
+            <i class="pi pi-map"></i>
+          </div>
+          <div>
+            <div class="map-title-heading">
+              <strong>Manticao Public Market GPS Map</strong>
+              <span class="modern-live-badge">
+                <span class="live-pulse-dot"></span>
+                Interactive GPS
+              </span>
+            </div>
+            <div class="map-title-sub">
+              Live market stall layout &bull; Select a pin to inspect stall details or assign occupants
+            </div>
+          </div>
         </div>
 
         <!-- Map Controls & Toolbar -->
         <div class="map-toolbar">
           <!-- Road vs Satellite Toggle -->
-          <div class="map-type-toggle">
+          <div class="modern-segmented-control">
             <button
               type="button"
-              class="map-toggle-btn"
+              class="seg-btn"
               :class="{ active: mapType === 'roadmap' }"
               @click="setMapType('roadmap')"
             >
               <i class="pi pi-map"></i>
-              Road
+              <span>Street</span>
             </button>
             <button
               type="button"
-              class="map-toggle-btn"
+              class="seg-btn"
               :class="{ active: mapType === 'satellite' }"
               @click="setMapType('satellite')"
             >
               <i class="pi pi-image"></i>
-              Satellite
+              <span>Satellite</span>
             </button>
           </div>
 
           <!-- Recenter Map -->
           <button
             type="button"
-            class="btn-map-ctrl"
+            class="btn-modern-recenter"
             title="Recenter map on Manticao Public Market"
             @click="recenterMap"
           >
             <i class="pi pi-compass"></i>
-            Recenter
+            <span>Recenter</span>
           </button>
-
-          <!-- Map Legend -->
-          <div class="map-legend">
-            <span class="legend-item"><span class="dot dot-occupied"></span> Occupied ({{ occupiedCount }})</span>
-            <span class="legend-item"><span class="dot dot-vacant"></span> Vacant ({{ vacantCount }})</span>
-            <span class="legend-item"><span class="dot dot-reserved"></span> Reserved ({{ reservedCount }})</span>
-          </div>
         </div>
       </div>
 
       <!-- Map Viewport Container -->
-      <div id="map" class="map-viewport"></div>
+      <div class="map-viewport-wrapper">
+        <div id="map" class="map-viewport"></div>
+
+        <!-- Floating Legend Chips Overlay -->
+        <div class="map-floating-legend">
+          <div class="legend-chip chip-vacant" title="Vacant / Available Stalls (Green)">
+            <span class="chip-dot dot-vacant"></span>
+            <span class="chip-text">Vacant</span>
+            <span class="chip-count">{{ vacantCount }}</span>
+          </div>
+          <div class="legend-chip chip-occupied" title="Occupied Stalls (Blue)">
+            <span class="chip-dot dot-occupied"></span>
+            <span class="chip-text">Occupied</span>
+            <span class="chip-count">{{ occupiedCount }}</span>
+          </div>
+          <div class="legend-chip chip-unavailable" title="Unavailable Stalls (Orange)">
+            <span class="chip-dot dot-unavailable"></span>
+            <span class="chip-text">Unavailable</span>
+            <span class="chip-count">{{ unavailableCount }}</span>
+          </div>
+        </div>
+      </div>
 
       <!-- Interactive Map-Position Picker Overlay Banner -->
       <div v-if="isPickingCoordinates" class="picker-mode-banner">
@@ -240,7 +249,7 @@
             <!-- Status Badge -->
             <td>
               <span :class="['status', getNormalizedStatus(stall.status)]">
-                {{ stall.status }}
+                {{ getStatusLabel(stall.status) }}
               </span>
             </td>
 
@@ -287,6 +296,28 @@
                   @click="openStallDetailsModal(stall)"
                 >
                   📋 Details
+                </button>
+
+                <!-- Archive / Restore Stall -->
+                <button
+                  v-if="String(stall.status).toUpperCase() !== 'ARCHIVED'"
+                  type="button"
+                  class="btn-action btn-archive"
+                  title="Archive this stall (moves to Archive Records)"
+                  @click="archiveStallAction(stall)"
+                >
+                  <i class="pi pi-inbox"></i>
+                  Archive
+                </button>
+                <button
+                  v-else
+                  type="button"
+                  class="btn-action btn-restore"
+                  title="Restore this stall to active registry"
+                  @click="restoreStallAction(stall)"
+                >
+                  <i class="pi pi-replay"></i>
+                  Restore
                 </button>
               </div>
             </td>
@@ -366,7 +397,7 @@
             <select id="stallStatusSelect" v-model="stallForm.status">
               <option value="AVAILABLE">AVAILABLE / VACANT</option>
               <option value="OCCUPIED">OCCUPIED</option>
-              <option value="RESERVED">RESERVED</option>
+              <option value="UNAVAILABLE">UNAVAILABLE</option>
             </select>
             <span class="field-hint">Current rental availability</span>
           </div>
@@ -434,7 +465,7 @@
             <div class="summary-top">
               <span class="summary-stall-no">Stall {{ form.number }}</span>
               <span :class="['status-chip', getNormalizedStatus(form.status)]">
-                {{ form.status || 'VACANT' }}
+                {{ getStatusLabel(form.status) }}
               </span>
             </div>
             <div class="summary-details">
@@ -577,15 +608,37 @@
             </div>
           </div>
 
-          <div class="modal-footer-actions flex justify-between gap-3 mt-6 pt-4 border-t border-slate-200">
-            <button
-              type="button"
-              class="btn-secondary"
-              @click="openEditFromDetails"
-            >
-              <i class="pi pi-file-edit"></i>
-              Edit Stall Master Data
-            </button>
+          <div class="modal-footer-actions flex justify-between items-center gap-3 mt-6 pt-4 border-t border-slate-200">
+            <div class="flex gap-2">
+              <button
+                type="button"
+                class="btn-secondary"
+                @click="openEditFromDetails"
+              >
+                <i class="pi pi-file-edit"></i>
+                Edit Master Data
+              </button>
+              <button
+                v-if="String(form.status).toUpperCase() !== 'ARCHIVED'"
+                type="button"
+                class="btn-archive-danger"
+                style="padding: 7px 14px; border-radius: 9px; background: #fff1f2; color: #e11d48; border: 1px solid #fecdd3; font-weight: 700; font-size: 13px; cursor: pointer;"
+                @click="archiveCurrentStall"
+              >
+                <i class="pi pi-inbox"></i>
+                Archive Stall
+              </button>
+              <button
+                v-else
+                type="button"
+                class="btn-restore-success"
+                style="padding: 7px 14px; border-radius: 9px; background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; font-weight: 700; font-size: 13px; cursor: pointer;"
+                @click="restoreCurrentStall"
+              >
+                <i class="pi pi-replay"></i>
+                Restore Stall
+              </button>
+            </div>
             <button type="button" class="btn-secondary" @click="closeModal">
               Close
             </button>
@@ -752,7 +805,9 @@ import {
   createStall,
   updateStall,
   allocateOccupant,
-  unassignOccupant
+  unassignOccupant,
+  archiveStall,
+  restoreStall
 } from '../services/stallService'
 
 const router = useRouter()
@@ -816,238 +871,105 @@ const form = ref({
   imageUrl: ''
 })
 
+// Basemap Tile Configurations (Authorized high-performance tiles via Leaflet)
+const BASEMAP_TILES = {
+  roadmap: {
+    url: 'https://{s}.google.com/vt/lyrs=m&apistyle=s.t:33|p.v:off,s.t:37|p.v:off,s.e:l.i|p.v:off&x={x}&y={y}&z={z}',
+    options: {
+      maxZoom: 20,
+      subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+      attribution: '&copy; Google Maps'
+    }
+  },
+  satellite: {
+    url: 'https://{s}.google.com/vt/lyrs=y&apistyle=s.t:33|p.v:off,s.t:37|p.v:off,s.e:l.i|p.v:off&x={x}&y={y}&z={z}',
+    options: {
+      maxZoom: 20,
+      subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+      attribution: '&copy; Google Maps Satellite'
+    }
+  }
+}
+
 // Map Engine State
 const mapType = ref('roadmap') // 'roadmap' | 'satellite'
-const isGoogleMapsActive = ref(false)
-const mapNotice = ref('')
-let googleMapsAuthFailed = false
-let googleMap = null
-let googleMarkers = []
-let googlePickerMarker = null
-let googleInfoWindow = null
-
-// Leaflet fallback instances
 let leafletMap = null
 let leafletMarkers = []
 let leafletPickerMarker = null
 let leafletTileLayer = null
 
-function toggleMapProvider() {
-  if (isGoogleMapsActive.value) {
-    initLeafletFallback('Operating with authorized OpenStreetMap standard tiles.')
-  } else {
-    googleMapsAuthFailed = false
-    loadGoogleMapsApi()
-  }
+// Expose global callback handlers for Leaflet HTML popups
+window.__smOpenStallDetails = (stallId) => {
+  const stall = stalls.value.find((s) => s.id === stallId)
+  if (stall) openStallDetailsModal(stall)
+}
+window.__smAssignStall = (stallId) => {
+  const stall = stalls.value.find((s) => s.id === stallId)
+  if (stall) openAssignForStall(stall)
+}
+window.__smRelocateStall = (stallId) => {
+  const stall = stalls.value.find((s) => s.id === stallId)
+  if (stall) startLocationPickerForStall(stall)
 }
 
-/**
- * Loads the official Google Maps JavaScript API via dynamic script injection.
- * If key is missing or load fails, falls back gracefully to Leaflet OpenStreetMap.
- */
-function loadGoogleMapsApi() {
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
-  if (!apiKey || apiKey === 'YOUR_GOOGLE_MAPS_API_KEY' || googleMapsAuthFailed) {
-    initLeafletFallback('Notice: Google Maps API key is unavailable or unauthorized. Operating with authorized OpenStreetMap standard tiles.')
-    return
-  }
-
-  // Define error handler for auth failure
-  window.gm_authFailure = () => {
-    console.warn('[Google Maps] Authentication failure: invalid API key, restrictions, or quota exceeded.')
-    googleMapsAuthFailed = true
-    initLeafletFallback('Notice: Google Maps API key is not authorized for Maps JavaScript API. Operating with authorized OpenStreetMap standard tiles.')
-  }
-
-  if (window.google && window.google.maps) {
-    initGoogleMap()
-    return
-  }
-
-  const existingScript = document.getElementById('google-maps-script')
-  if (existingScript) {
-    existingScript.addEventListener('load', () => initGoogleMap())
-    existingScript.addEventListener('error', () => {
-      initLeafletFallback('Notice: Failed to load Google Maps script. Operating with authorized OpenStreetMap standard tiles.')
-    })
-    return
-  }
-
-  const script = document.createElement('script')
-  script.id = 'google-maps-script'
-  script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,geometry&v=weekly`
-  script.async = true
-  script.defer = true
-  script.onload = () => {
-    initGoogleMap()
-  }
-  script.onerror = () => {
-    console.warn('[Google Maps] Script network error. Falling back to OpenStreetMap.')
-    initLeafletFallback('Notice: Google Maps API unavailable. Operating with authorized OpenStreetMap standard tiles.')
-  }
-  document.head.appendChild(script)
-}
-
-function initGoogleMap() {
-  if (googleMapsAuthFailed) {
-    initLeafletFallback('Notice: Operating with authorized OpenStreetMap standard tiles.')
-    return
-  }
-
-  const container = document.getElementById('map')
-  if (!container || !window.google || !window.google.maps) {
-    initLeafletFallback('Notice: Google Maps library unavailable. Operating with authorized OpenStreetMap standard tiles.')
-    return
-  }
-
-  try {
-    // If a leaflet map was present, clean it up first
-    if (leafletMap) {
-      try { leafletMap.remove() } catch (_) {}
-      leafletMap = null
-    }
-    container.innerHTML = ''
-    delete container._leaflet_id
-
-    googleMap = new window.google.maps.Map(container, {
-      center: DEFAULT_CENTER,
-      zoom: DEFAULT_MAP_ZOOM,
-      minZoom: MIN_MAP_ZOOM,
-      maxZoom: 21,
-      mapTypeId: mapType.value === 'satellite' ? window.google.maps.MapTypeId.HYBRID : window.google.maps.MapTypeId.ROADMAP,
-      mapTypeControl: false,
-      streetViewControl: false,
-      fullscreenControl: false,
-      zoomControl: true
-    })
-
-    googleInfoWindow = new window.google.maps.InfoWindow()
-
-    // Map click listener for coordinate picking
-    googleMap.addListener('click', (e) => {
-      if (isPickingCoordinates.value && e.latLng) {
-        const lat = e.latLng.lat()
-        const lng = e.latLng.lng()
-        updatePickerPosition(lat, lng)
-      }
-    })
-
-    isGoogleMapsActive.value = true
-    mapNotice.value = ''
-    renderMarkers()
-  } catch (err) {
-    console.warn('[Google Maps] Initialization error, falling back to Leaflet:', err)
-    initLeafletFallback('Notice: Google Maps error. Operating with authorized OpenStreetMap standard tiles.')
-  }
-}
-
-function initLeafletFallback(reasonMessage = '') {
-  isGoogleMapsActive.value = false
-  if (reasonMessage) {
-    mapNotice.value = reasonMessage
-  }
-
-  // 1. Clean up Google Map markers & state
-  if (googleMarkers.length) {
-    googleMarkers.forEach((m) => {
-      try { m.setMap(null) } catch (_) {}
-    })
-    googleMarkers = []
-  }
-  if (googlePickerMarker) {
-    try { googlePickerMarker.setMap(null) } catch (_) {}
-    googlePickerMarker = null
-  }
-  googleMap = null
-
-  // 2. Remove existing Leaflet map if present
-  if (leafletMap) {
-    try {
-      leafletMap.remove()
-    } catch (_) {}
-    leafletMap = null
-  }
-
+function initModernLeafletMap() {
   const container = document.getElementById('map')
   if (!container) return
 
-  // 3. Clear container DOM to erase any Google Maps error overlays or elements
+  if (leafletMap) {
+    try { leafletMap.remove() } catch (_) {}
+    leafletMap = null
+  }
+
   container.innerHTML = ''
   delete container._leaflet_id
 
-  // Remove any detached Google error alerts
-  try {
-    document.querySelectorAll('.gm-err-container, .gm-err-autocomplete').forEach((el) => el.remove())
-  } catch (_) {}
+  leafletMap = L.map('map', {
+    center: [DEFAULT_CENTER.lat, DEFAULT_CENTER.lng],
+    zoom: DEFAULT_MAP_ZOOM,
+    minZoom: MIN_MAP_ZOOM,
+    maxZoom: 20,
+    zoomControl: false
+  })
 
-  try {
-    leafletMap = L.map('map', {
-      center: [DEFAULT_CENTER.lat, DEFAULT_CENTER.lng],
-      zoom: DEFAULT_MAP_ZOOM,
-      minZoom: MIN_MAP_ZOOM,
-      maxZoom: 19,
-      zoomControl: true
-    })
+  // Position modern zoom control in bottom-right
+  L.control.zoom({ position: 'bottomright' }).addTo(leafletMap)
 
-    // Attach tile layer based on active mapType
-    if (mapType.value === 'satellite') {
-      leafletTileLayer = L.tileLayer(
-        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        { attribution: 'Tiles &copy; Esri &mdash; Source: Esri, USGS, NOAA', maxZoom: 19 }
-      ).addTo(leafletMap)
-    } else {
-      leafletTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-      }).addTo(leafletMap)
+  updateTileLayer()
+
+  leafletMap.on('click', (e) => {
+    if (isPickingCoordinates.value && e.latlng) {
+      updatePickerPosition(e.latlng.lat, e.latlng.lng)
     }
+  })
 
-    leafletMap.on('click', (e) => {
-      if (isPickingCoordinates.value && e.latlng) {
-        updatePickerPosition(e.latlng.lat, e.latlng.lng)
-      }
-    })
+  renderMarkers()
 
-    renderMarkers()
+  setTimeout(() => {
+    if (leafletMap) leafletMap.invalidateSize()
+  }, 200)
+}
 
-    // Recalculate dimensions to avoid gray/unrendered tiles
-    setTimeout(() => {
-      if (leafletMap) {
-        leafletMap.invalidateSize()
-      }
-    }, 200)
-  } catch (err) {
-    console.error('[Leaflet Fallback] Map init failed:', err)
+function updateTileLayer() {
+  if (!leafletMap) return
+  if (leafletTileLayer) {
+    leafletMap.removeLayer(leafletTileLayer)
+    leafletTileLayer = null
   }
+
+  const isSat = mapType.value === 'satellite'
+  const config = isSat ? BASEMAP_TILES.satellite : BASEMAP_TILES.roadmap
+
+  leafletTileLayer = L.tileLayer(config.url, config.options).addTo(leafletMap)
 }
 
 function setMapType(type) {
   mapType.value = type
-  if (isGoogleMapsActive.value && googleMap && window.google) {
-    const targetType = type === 'satellite' ? window.google.maps.MapTypeId.HYBRID : window.google.maps.MapTypeId.ROADMAP
-    googleMap.setMapTypeId(targetType)
-  } else if (leafletMap) {
-    if (leafletTileLayer) leafletMap.removeLayer(leafletTileLayer)
-    if (type === 'satellite') {
-      // Authorized Esri World Imagery
-      leafletTileLayer = L.tileLayer(
-        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        { attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community', maxZoom: 19 }
-      ).addTo(leafletMap)
-    } else {
-      leafletTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap contributors'
-      }).addTo(leafletMap)
-    }
-  }
+  updateTileLayer()
 }
 
 function recenterMap() {
-  if (isGoogleMapsActive.value && googleMap) {
-    googleMap.panTo(DEFAULT_CENTER)
-    googleMap.setZoom(DEFAULT_MAP_ZOOM)
-  } else if (leafletMap) {
+  if (leafletMap) {
     leafletMap.setView([DEFAULT_CENTER.lat, DEFAULT_CENTER.lng], DEFAULT_MAP_ZOOM)
   }
 }
@@ -1056,70 +978,129 @@ function recenterMap() {
 // MARKER RENDERING & DETAILS HOOKS
 // ===================================
 function clearAllMarkers() {
-  if (googleMarkers.length) {
-    googleMarkers.forEach((m) => m.setMap(null))
-    googleMarkers = []
-  }
   if (leafletMarkers.length && leafletMap) {
     leafletMarkers.forEach((m) => leafletMap.removeLayer(m))
     leafletMarkers = []
   }
 }
 
+function createModernMarkerIcon(stall) {
+  const norm = getNormalizedStatus(stall.status)
+  const stallNo = String(stall.number || stall.stallNo || '—')
+  const isOccupied = norm === 'occupied'
+  const isUnavailable = norm === 'unavailable'
+
+  // Blue for Occupied, Green for Vacant, Orange for Unavailable
+  const iconUrl = isOccupied
+    ? '/icons/stall-pin-blue.svg'
+    : isUnavailable
+    ? '/icons/stall-pin-orange.svg'
+    : '/icons/stall-pin-green.svg'
+
+  const statusLabel = isOccupied ? 'Occupied' : isUnavailable ? 'Unavailable' : 'Vacant'
+  const badgeClass = isOccupied ? 'badge-occupied' : isUnavailable ? 'badge-unavailable' : 'badge-vacant'
+
+  const html = `
+    <div class="stall-svg-pin pin-${norm}" title="Stall #${stallNo} (${statusLabel})">
+      <span class="stall-pin-pill ${badgeClass}">#${stallNo}</span>
+      <img src="${iconUrl}" class="stall-pin-svg-icon" alt="Stall #${stallNo} (${statusLabel})" />
+    </div>
+  `
+
+  return L.divIcon({
+    className: 'stall-leaflet-divicon',
+    html,
+    iconSize: [44, 58],
+    iconAnchor: [22, 58],
+    popupAnchor: [0, -54]
+  })
+}
+
+function buildLeafletPopupContent(stall) {
+  const norm = getNormalizedStatus(stall.status)
+  const statusLabel = getStatusLabel(stall.status)
+  const occupant = getOccupantName(stall)
+  const business = getOccupantBusiness(stall)
+  const rent = formatCurrency(stall.rent)
+  const imgUrl = stall.imageUrl ? (stall.imageUrl.startsWith('http') ? stall.imageUrl : `${API_ORIGIN}${stall.imageUrl}`) : ''
+  const stallNo = String(stall.number || stall.stallNo || '—')
+  const stallType = stall.type || 'Standard Stall'
+
+  return `
+    <div class="sm-leaflet-popup">
+      ${imgUrl ? `<img src="${imgUrl}" class="sm-popup-img" alt="Stall ${stallNo}" />` : ''}
+      <div class="sm-popup-top">
+        <div class="sm-popup-stall">Stall #${stallNo}</div>
+        <span class="sm-popup-badge status-${norm}">${statusLabel}</span>
+      </div>
+      <div class="sm-popup-type">${stallType}</div>
+
+      <div class="sm-popup-meta">
+        <div class="sm-popup-row">
+          <span class="sm-lbl">Monthly Rent:</span>
+          <span class="sm-val font-bold" style="color: #10b981;">${rent}</span>
+        </div>
+        <div class="sm-popup-row">
+          <span class="sm-lbl">Occupant:</span>
+          <span class="sm-val">${occupant ? `<strong>${occupant}</strong>` : '<em style="color:#94a3b8">Vacant</em>'}</span>
+        </div>
+        ${business ? `
+        <div class="sm-popup-row">
+          <span class="sm-lbl">Business:</span>
+          <span class="sm-val text-xs text-slate-600">${business}</span>
+        </div>` : ''}
+      </div>
+
+      <div class="sm-popup-actions">
+        <button type="button" onclick="window.__smOpenStallDetails(${stall.id})" class="sm-popup-btn sm-btn-details">
+          <i class="pi pi-info-circle"></i> Details
+        </button>
+        ${norm === 'vacant' ? `
+        <button type="button" onclick="window.__smAssignStall(${stall.id})" class="sm-popup-btn sm-btn-assign">
+          <i class="pi pi-user-plus"></i> Assign
+        </button>` : ''}
+        <button type="button" onclick="window.__smRelocateStall(${stall.id})" class="sm-popup-btn sm-btn-relocate" title="Adjust GPS Pin">
+          <i class="pi pi-map-marker"></i> Relocate
+        </button>
+      </div>
+    </div>
+  `
+}
+
 function renderMarkers() {
   clearAllMarkers()
+  if (!leafletMap) return
 
-  const validStalls = stalls.value.filter((s) => s.lat != null && s.lng != null && !isNaN(Number(s.lat)) && !isNaN(Number(s.lng)))
+  const validStalls = stalls.value.filter(
+    (s) => s.lat != null && s.lng != null && !isNaN(Number(s.lat)) && !isNaN(Number(s.lng))
+  )
 
-  if (isGoogleMapsActive.value && googleMap && window.google) {
-    validStalls.forEach((stall) => {
-      const norm = getNormalizedStatus(stall.status)
-      const iconUrl = norm === 'occupied' ? '/icons/stall-pin-green.svg' : norm === 'reserved' ? '/icons/stall-pin-yellow.svg' : '/icons/stall-pin-blue.svg'
+  validStalls.forEach((stall) => {
+    const customIcon = createModernMarkerIcon(stall)
+    const norm = getNormalizedStatus(stall.status)
+    const statusLabel = getStatusLabel(stall.status)
+    const stallNo = String(stall.number || stall.stallNo || '—')
 
-      const marker = new window.google.maps.Marker({
-        position: { lat: Number(stall.lat), lng: Number(stall.lng) },
-        map: googleMap,
-        title: `Stall ${stall.number}`,
-        icon: {
-          url: iconUrl,
-          scaledSize: new window.google.maps.Size(42, 42),
-          origin: new window.google.maps.Point(0, 0),
-          anchor: new window.google.maps.Point(21, 40)
-        }
-      })
+    const marker = L.marker([Number(stall.lat), Number(stall.lng)], {
+      icon: customIcon,
+      title: `Stall #${stallNo} (${statusLabel})`
+    }).addTo(leafletMap)
 
-      marker.addListener('click', () => {
-        openStallDetailsModal(stall)
-      })
-
-      marker.stallId = stall.id
-      googleMarkers.push(marker)
+    marker.bindTooltip(`Stall #${stallNo} &bull; ${statusLabel}`, {
+      direction: 'top',
+      offset: [0, -48],
+      className: 'sm-leaflet-tooltip'
     })
-  } else if (leafletMap) {
-    validStalls.forEach((stall) => {
-      const norm = getNormalizedStatus(stall.status)
-      const iconUrl = norm === 'occupied' ? '/icons/stall-pin-green.svg' : norm === 'reserved' ? '/icons/stall-pin-yellow.svg' : '/icons/stall-pin-blue.svg'
 
-      const customIcon = L.icon({
-        iconUrl,
-        iconSize: [42, 42],
-        iconAnchor: [21, 40],
-        popupAnchor: [0, -36]
-      })
-
-      const marker = L.marker([Number(stall.lat), Number(stall.lng)], {
-        icon: customIcon,
-        title: `Stall ${stall.number}`
-      }).addTo(leafletMap)
-
-      marker.on('click', () => {
-        openStallDetailsModal(stall)
-      })
-
-      marker.stallId = stall.id
-      leafletMarkers.push(marker)
+    marker.bindPopup(buildLeafletPopupContent(stall), {
+      className: 'sm-leaflet-popup-wrapper',
+      maxWidth: 290,
+      minWidth: 260
     })
-  }
+
+    marker.stallId = stall.id
+    leafletMarkers.push(marker)
+  })
 }
 
 function focusStallOnMap(stall) {
@@ -1131,11 +1112,13 @@ function focusStallOnMap(stall) {
   const lat = Number(stall.lat)
   const lng = Number(stall.lng)
 
-  if (isGoogleMapsActive.value && googleMap) {
-    googleMap.panTo({ lat, lng })
-    googleMap.setZoom(19)
-  } else if (leafletMap) {
+  if (leafletMap) {
     leafletMap.setView([lat, lng], 19)
+  }
+
+  const targetMarker = leafletMarkers.find((m) => m.stallId === stall.id)
+  if (targetMarker) {
+    targetMarker.openPopup()
   }
 
   const mapElem = document.getElementById('map')
@@ -1147,60 +1130,44 @@ function focusStallOnMap(stall) {
 // ===================================
 // INTERACTIVE POSITION PICKER
 // ===================================
+function createPickerIcon() {
+  const html = `
+    <div class="picker-svg-pin">
+      <span class="picker-pin-pill">Target Pin</span>
+      <img src="/icons/stall-pin-orange.svg" class="picker-pin-svg-icon" alt="Target Location" />
+      <div class="picker-pulse-wave"></div>
+    </div>
+  `
+  return L.divIcon({
+    className: 'picker-leaflet-divicon',
+    html,
+    iconSize: [48, 64],
+    iconAnchor: [24, 64]
+  })
+}
+
 function updatePickerPosition(lat, lng) {
   pickerCoords.value = { lat, lng }
+  if (!leafletMap) return
 
-  if (isGoogleMapsActive.value && googleMap && window.google) {
-    if (!googlePickerMarker) {
-      googlePickerMarker = new window.google.maps.Marker({
-        position: { lat, lng },
-        map: googleMap,
-        draggable: true,
-        title: 'Adjust stall location',
-        icon: {
-          url: '/icons/stall-pin-orange.svg',
-          scaledSize: new window.google.maps.Size(46, 46),
-          origin: new window.google.maps.Point(0, 0),
-          anchor: new window.google.maps.Point(23, 44)
-        }
-      })
+  if (!leafletPickerMarker) {
+    const pickerIcon = createPickerIcon()
+    leafletPickerMarker = L.marker([lat, lng], {
+      icon: pickerIcon,
+      draggable: true,
+      zIndexOffset: 3000
+    }).addTo(leafletMap)
 
-      googlePickerMarker.addListener('dragend', (e) => {
-        if (e.latLng) {
-          pickerCoords.value = { lat: e.latLng.lat(), lng: e.latLng.lng() }
-        }
-      })
-    } else {
-      googlePickerMarker.setPosition({ lat, lng })
-    }
-  } else if (leafletMap) {
-    if (!leafletPickerMarker) {
-      const pickerIcon = L.icon({
-        iconUrl: '/icons/stall-pin-orange.svg',
-        iconSize: [46, 46],
-        iconAnchor: [23, 44]
-      })
-
-      leafletPickerMarker = L.marker([lat, lng], {
-        icon: pickerIcon,
-        draggable: true
-      }).addTo(leafletMap)
-
-      leafletPickerMarker.on('dragend', (e) => {
-        const pos = e.target.getLatLng()
-        pickerCoords.value = { lat: pos.lat, lng: pos.lng }
-      })
-    } else {
-      leafletPickerMarker.setLatLng([lat, lng])
-    }
+    leafletPickerMarker.on('dragend', (e) => {
+      const pos = e.target.getLatLng()
+      pickerCoords.value = { lat: pos.lat, lng: pos.lng }
+    })
+  } else {
+    leafletPickerMarker.setLatLng([lat, lng])
   }
 }
 
 function clearPickerMarker() {
-  if (googlePickerMarker) {
-    googlePickerMarker.setMap(null)
-    googlePickerMarker = null
-  }
   if (leafletPickerMarker && leafletMap) {
     leafletMap.removeLayer(leafletPickerMarker)
     leafletPickerMarker = null
@@ -1563,8 +1530,17 @@ function getPersonName(person) {
 function getNormalizedStatus(status) {
   const s = String(status || '').toUpperCase()
   if (s === 'OCCUPIED') return 'occupied'
-  if (s === 'RESERVED') return 'reserved'
+  if (s === 'UNAVAILABLE' || s === 'RESERVED') return 'unavailable'
+  if (s === 'ARCHIVED') return 'archived'
   return 'vacant'
+}
+
+function getStatusLabel(status) {
+  const norm = getNormalizedStatus(status)
+  if (norm === 'occupied') return 'OCCUPIED'
+  if (norm === 'unavailable') return 'UNAVAILABLE'
+  if (norm === 'archived') return 'ARCHIVED'
+  return 'VACANT'
 }
 
 function formatCurrency(val) {
@@ -1578,6 +1554,48 @@ function formatDate(d) {
   } catch (_) {
     return d
   }
+}
+
+async function archiveStallAction(stall) {
+  const stallNum = stall.number || stall.stallNo || 'this stall'
+  if (!confirm(`Are you sure you want to ARCHIVE Stall ${stallNum}? It will be moved to Archive Records.`)) {
+    return
+  }
+
+  try {
+    await archiveStall(stall.id)
+    await loadStalls()
+    renderMarkers()
+    alert(`Stall ${stallNum} has been archived successfully.`)
+  } catch (err) {
+    console.error(err)
+    alert(`Failed to archive stall: ${err.message || err}`)
+  }
+}
+
+async function restoreStallAction(stall) {
+  const stallNum = stall.number || stall.stallNo || 'this stall'
+  try {
+    await restoreStall(stall.id)
+    await loadStalls()
+    renderMarkers()
+    alert(`Stall ${stallNum} has been restored to active registry!`)
+  } catch (err) {
+    console.error(err)
+    alert(`Failed to restore stall: ${err.message || err}`)
+  }
+}
+
+async function archiveCurrentStall() {
+  if (!form.value.id) return
+  await archiveStallAction(form.value)
+  closeModal()
+}
+
+async function restoreCurrentStall() {
+  if (!form.value.id) return
+  await restoreStallAction(form.value)
+  closeModal()
 }
 
 // Eligibility Rule: Market supervisor approved + advance payment paid
@@ -1623,8 +1641,13 @@ const vacantCount = computed(() => stalls.value.filter((s) => {
   const st = String(s.status).toUpperCase()
   return st === 'VACANT' || st === 'AVAILABLE'
 }).length)
-const reservedCount = computed(() => stalls.value.filter((s) => String(s.status).toUpperCase() === 'RESERVED').length)
-const occupancyRate = computed(() => stalls.value.length ? Math.round((occupiedCount.value / stalls.value.length) * 100) : 0)
+const unavailableCount = computed(() => stalls.value.filter((s) => {
+  const st = String(s.status).toUpperCase()
+  return st === 'UNAVAILABLE' || st === 'RESERVED'
+}).length)
+const archivedCount = computed(() => stalls.value.filter((s) => String(s.status).toUpperCase() === 'ARCHIVED' || s.isArchived).length)
+const activeStallsCount = computed(() => stalls.value.filter((s) => String(s.status).toUpperCase() !== 'ARCHIVED' && !s.isArchived).length)
+const occupancyRate = computed(() => activeStallsCount.value ? Math.round((occupiedCount.value / activeStallsCount.value) * 100) : 0)
 
 const filteredStalls = computed(() => {
   return stalls.value.filter((stall) => {
@@ -1639,10 +1662,17 @@ const filteredStalls = computed(() => {
     const normStatus = getNormalizedStatus(stall.status).toUpperCase()
     const filterNorm = getNormalizedStatus(filterStatus.value).toUpperCase()
 
-    const matchesStatus =
-      filterStatus.value === 'All' ||
-      normStatus === filterNorm ||
-      String(stall.status).toUpperCase() === filterStatus.value
+    let matchesStatus = false
+    if (filterStatus.value === 'All') {
+      matchesStatus = normStatus !== 'ARCHIVED'
+    } else if (filterStatus.value === 'ARCHIVED') {
+      matchesStatus = normStatus === 'ARCHIVED'
+    } else {
+      matchesStatus =
+        normStatus === filterNorm ||
+        String(stall.status).toUpperCase() === filterStatus.value ||
+        (filterStatus.value === 'UNAVAILABLE' && String(stall.status).toUpperCase() === 'RESERVED')
+    }
 
     const matchesType = filterType.value === 'All' || stall.type === filterType.value
 
@@ -1674,10 +1704,13 @@ const currentStallContract = computed(() => {
 // ===================================
 onMounted(async () => {
   await Promise.all([loadStalls(), loadStakeholders(), loadContracts()])
-  loadGoogleMapsApi()
+  initModernLeafletMap()
 })
 
 onBeforeUnmount(() => {
+  delete window.__smOpenStallDetails
+  delete window.__smAssignStall
+  delete window.__smRelocateStall
   clearAllMarkers()
   clearPickerMarker()
   if (leafletMap) {
@@ -1688,3 +1721,301 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped src="../styles/MarketSupervisor/StallManagement.css"></style>
+
+<!-- Global Styles for Leaflet Dynamically Injected DOM Elements (divIcon, Popups, Tooltips) -->
+<style>
+/* DivIcon Containers */
+.stall-leaflet-divicon,
+.picker-leaflet-divicon,
+.modern-stall-divicon,
+.modern-picker-divicon {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* SVG Stall Marker Pin with Public Icons */
+.stall-svg-pin {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.stall-svg-pin:hover {
+  transform: translateY(-5px) scale(1.12);
+  z-index: 1000 !important;
+}
+
+.stall-pin-pill {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 1px 7px;
+  border-radius: 9999px;
+  color: #ffffff;
+  letter-spacing: 0.3px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  margin-bottom: -6px;
+  z-index: 2;
+  position: relative;
+  border: 1.5px solid #ffffff;
+  white-space: nowrap;
+}
+
+.badge-occupied,
+.pill-occupied {
+  background: #2563eb; /* Blue for Occupied */
+}
+
+.badge-vacant,
+.pill-vacant {
+  background: #16a34a; /* Green for Vacant */
+}
+
+.badge-unavailable,
+.pill-unavailable {
+  background: #ea580c; /* Orange for Unavailable */
+}
+
+.stall-pin-svg-icon {
+  width: 44px;
+  height: 44px;
+  display: block;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.28));
+}
+
+/* Position Picker Pin with Orange SVG Icon */
+.picker-svg-pin {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: grab;
+  user-select: none;
+}
+
+.picker-svg-pin:active {
+  cursor: grabbing;
+}
+
+.picker-pin-pill {
+  background: #ea580c;
+  color: #ffffff;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 10px;
+  font-weight: 800;
+  border: 1.5px solid #ffffff;
+  box-shadow: 0 3px 8px rgba(234, 88, 12, 0.45);
+  margin-bottom: -5px;
+  z-index: 2;
+  white-space: nowrap;
+}
+
+.picker-pin-svg-icon {
+  width: 48px;
+  height: 48px;
+  display: block;
+  filter: drop-shadow(0 4px 10px rgba(234, 88, 12, 0.5));
+}
+
+.picker-pulse-wave {
+  position: absolute;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid #ea580c;
+  animation: pickerRadar 1.8s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes pickerRadar {
+  0% {
+    width: 24px;
+    height: 24px;
+    opacity: 1;
+    transform: translateX(-50%) scale(0.6);
+  }
+  100% {
+    width: 60px;
+    height: 60px;
+    opacity: 0;
+    transform: translateX(-50%) scale(1.6);
+  }
+}
+
+/* Leaflet Popup Styling */
+.sm-leaflet-popup-wrapper .leaflet-popup-content-wrapper {
+  padding: 0;
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.16);
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+.sm-leaflet-popup-wrapper .leaflet-popup-content {
+  margin: 0;
+  padding: 12px 14px;
+  font-family: inherit;
+  color: #0f172a;
+  line-height: 1.4;
+}
+
+.sm-leaflet-popup-wrapper .leaflet-popup-tip {
+  background: #ffffff;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
+}
+
+.sm-popup-img {
+  width: 100%;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  border: 1px solid #f1f5f9;
+}
+
+.sm-popup-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sm-popup-stall {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.sm-popup-badge {
+  font-size: 10px;
+  font-weight: 750;
+  padding: 2px 7px;
+  border-radius: 999px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.sm-popup-badge.status-occupied {
+  background: #dbeafe;
+  color: #1d4ed8; /* Blue for Occupied */
+}
+
+.sm-popup-badge.status-vacant {
+  background: #dcfce7;
+  color: #15803d; /* Green for Vacant */
+}
+
+.sm-popup-badge.status-unavailable,
+.sm-popup-badge.status-reserved {
+  background: #ffedd5;
+  color: #c2410c; /* Orange for Unavailable */
+}
+
+.sm-popup-type {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 2px;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.sm-popup-meta {
+  background: #f8fafc;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #f1f5f9;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  margin-bottom: 10px;
+}
+
+.sm-popup-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+}
+
+.sm-lbl {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.sm-val {
+  color: #1e293b;
+}
+
+.sm-popup-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.sm-popup-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s;
+}
+
+.sm-btn-details {
+  background: #4f46e5;
+  color: #ffffff;
+}
+
+.sm-btn-details:hover {
+  background: #4338ca;
+}
+
+.sm-btn-assign {
+  background: #10b981;
+  color: #ffffff;
+}
+
+.sm-btn-assign:hover {
+  background: #059669;
+}
+
+.sm-btn-relocate {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+.sm-btn-relocate:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+/* Tooltip */
+.sm-leaflet-tooltip {
+  background: rgba(15, 23, 42, 0.9) !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 6px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  padding: 4px 8px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25) !important;
+}
+
+.sm-leaflet-tooltip::before {
+  border-top-color: rgba(15, 23, 42, 0.9) !important;
+}
+</style>

@@ -4,9 +4,15 @@
    ========================================================================== */
 
 :root {
-    --topbar-height: 4.25rem;
-    --sidebar-width: 18.5rem;
-    --layout-section-transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    /* Shell tokens use dedicated names so legacy menus that write
+       --sidebar-width / --header-height onto <html> cannot shift the layout. */
+    --layout-topbar-height: 4.25rem;
+    --layout-sidebar-width: 17.5rem;
+    --layout-gutter: 2rem;
+    --layout-content-gap: 1.5rem;
+    --nav-ease: cubic-bezier(0.22, 1, 0.36, 1);
+    --nav-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --layout-section-transition: 0.38s var(--nav-ease);
 }
 
 /* Base Wrapper */
@@ -25,7 +31,7 @@
    ========================================================================== */
 .layout-topbar {
     position: fixed;
-    height: var(--topbar-height);
+    height: var(--layout-topbar-height);
     z-index: 997;
     left: 0;
     top: 0;
@@ -39,7 +45,12 @@
     -webkit-backdrop-filter: blur(14px);
     border-bottom: 1px solid rgba(226, 232, 240, 0.8);
     box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.03);
-    transition: background-color var(--layout-section-transition), border-color var(--layout-section-transition);
+    transition: background-color var(--layout-section-transition), border-color var(--layout-section-transition), box-shadow 0.3s ease;
+}
+
+.layout-topbar.is-scrolled {
+    box-shadow: 0 10px 28px -14px rgba(15, 23, 42, 0.22);
+    border-bottom-color: rgba(226, 232, 240, 0.95);
 }
 
 .layout-topbar-logo-container {
@@ -51,7 +62,7 @@
 .layout-menu-button {
     width: 2.5rem;
     height: 2.5rem;
-    border-radius: 10px;
+    border-radius: 12px;
     border: none;
     background: transparent;
     color: #475467;
@@ -59,12 +70,57 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: background-color 0.18s ease, color 0.18s ease;
+    transition: background-color 0.2s ease, color 0.2s ease, transform 0.3s var(--nav-spring);
 }
 
 .layout-menu-button:hover {
     background-color: #f1f5f9;
     color: #0f172a;
+}
+
+/* Animated hamburger: morphs to an X (mobile open) or a staggered
+   "collapsed" glyph (desktop sidebar hidden). */
+.hamburger {
+    position: relative;
+    display: inline-block;
+    width: 18px;
+    height: 14px;
+}
+
+.hamburger span {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    border-radius: 2px;
+    background: currentColor;
+    transition: transform 0.45s var(--nav-spring), top 0.3s var(--nav-ease), width 0.35s var(--nav-ease), opacity 0.2s ease;
+}
+
+.hamburger span:nth-child(1) { top: 0; }
+.hamburger span:nth-child(2) { top: 6px; width: 70%; }
+.hamburger span:nth-child(3) { top: 12px; }
+
+.layout-menu-button:hover .hamburger span:nth-child(2) { width: 100%; }
+
+.layout-menu-button.menu-collapsed .hamburger span:nth-child(1) { width: 55%; }
+.layout-menu-button.menu-collapsed .hamburger span:nth-child(3) { width: 80%; }
+
+.layout-menu-button.menu-open .hamburger span:nth-child(1) {
+    top: 6px;
+    width: 100%;
+    transform: rotate(45deg);
+}
+
+.layout-menu-button.menu-open .hamburger span:nth-child(2) {
+    opacity: 0;
+    transform: translateX(-8px);
+}
+
+.layout-menu-button.menu-open .hamburger span:nth-child(3) {
+    top: 6px;
+    width: 100%;
+    transform: rotate(-45deg);
 }
 
 .layout-topbar-logo {
@@ -113,6 +169,92 @@
     font-weight: 600;
     letter-spacing: 0.08em;
     color: #64748b;
+}
+
+.topbar-breadcrumb-wrap {
+    margin-left: 1.25rem;
+    padding-left: 1.25rem;
+    border-left: 1px solid rgba(226, 232, 240, 0.8);
+    height: 1.85rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.breadcrumb-sep {
+    color: #cbd5e1;
+    font-size: 0.85rem;
+    font-weight: 400;
+}
+
+.breadcrumb-portal-chip {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #059669;
+    background: #ecfdf5;
+    padding: 0.2rem 0.6rem;
+    border-radius: 9999px;
+    letter-spacing: 0.02em;
+    display: inline-flex;
+    align-items: center;
+    box-shadow: 0 1px 2px rgba(16, 185, 129, 0.08);
+}
+
+.breadcrumb-page-name {
+    display: inline-block;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #334155;
+    letter-spacing: -0.01em;
+}
+
+.breadcrumb-portal-chip {
+    will-change: transform;
+}
+
+/* Breadcrumb swap animation on route change */
+.crumb-enter-active,
+.crumb-leave-active {
+    transition: opacity 0.22s ease, transform 0.35s var(--nav-ease), filter 0.22s ease;
+}
+
+.crumb-enter-from {
+    opacity: 0;
+    transform: translateY(8px);
+    filter: blur(3px);
+}
+
+.crumb-leave-to {
+    opacity: 0;
+    transform: translateY(-8px);
+    filter: blur(3px);
+}
+
+.app-dark .topbar-breadcrumb-wrap {
+    border-left-color: #27272a;
+}
+
+.app-dark .breadcrumb-portal-chip {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+}
+
+.app-dark .breadcrumb-page-name {
+    color: #e4e4e7;
+}
+
+.app-dark .breadcrumb-sep {
+    color: #52525b;
+}
+
+.layout-menu-button.menu-collapsed {
+    background-color: #ecfdf5;
+    color: #059669;
+}
+
+.app-dark .layout-menu-button.menu-collapsed {
+    background-color: rgba(16, 185, 129, 0.15);
+    color: #34d399;
 }
 
 .layout-topbar-actions {
@@ -181,12 +323,26 @@
     right: 0;
     top: calc(100% + 0.5rem);
     width: 14rem;
+    max-width: calc(100vw - 1.5rem);
     background: #ffffff;
     border-radius: 12px;
     border: 1px solid rgba(226, 232, 240, 0.9);
     box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
     padding: 0.5rem;
     z-index: 1050;
+}
+
+/* User menu & popover transition */
+.fade-scale-enter-active,
+.fade-scale-leave-active {
+    transition: opacity 0.22s var(--nav-ease), transform 0.25s var(--nav-spring);
+    transform-origin: top right;
+}
+
+.fade-scale-enter-from,
+.fade-scale-leave-to {
+    opacity: 0;
+    transform: scale(0.92) translateY(-6px);
 }
 
 .dropdown-header {
@@ -254,19 +410,23 @@
    ========================================================================== */
 .layout-sidebar {
     position: fixed;
-    width: var(--sidebar-width);
-    height: calc(100vh - var(--topbar-height));
+    width: var(--layout-sidebar-width);
+    height: calc(100vh - var(--layout-topbar-height));
     z-index: 996;
     left: 0;
-    top: var(--topbar-height);
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
+    top: var(--layout-topbar-height);
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     border-right: 1px solid rgba(226, 232, 240, 0.85);
     overflow-y: auto;
-    padding: 1rem 0.85rem 3rem;
-    transition: transform var(--layout-section-transition), left var(--layout-section-transition);
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    padding: 0.5rem 0.85rem 2.5rem;
+    transition: transform var(--layout-section-transition), box-shadow var(--layout-section-transition);
     user-select: none;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
 }
 
 .layout-sidebar::-webkit-scrollbar {
@@ -282,6 +442,7 @@
    MENU & ITEMS
    ========================================================================== */
 .layout-menu {
+    position: relative;
     list-style: none;
     margin: 0;
     padding: 0;
@@ -289,54 +450,105 @@
 
 .layout-root-menuitem {
     list-style: none;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.35rem;
 }
 
 .layout-menuitem-root-text {
-    font-size: 0.72rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.68rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
     color: #94a3b8;
-    padding: 1rem 0.75rem 0.4rem;
+    padding: 1rem 0.85rem 0.45rem;
+}
+
+.layout-menuitem-root-text::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, rgba(148, 163, 184, 0.35), transparent);
 }
 
 .layout-menu li a {
+    position: relative;
+    z-index: 1;
+    isolation: isolate;
+    overflow: hidden;
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    padding: 0.65rem 0.85rem;
-    border-radius: 9px;
-    color: #334155;
+    gap: 0.8rem;
+    padding: 0.62rem 0.85rem;
+    margin-bottom: 2px;
+    border-radius: 10px;
+    color: #475569;
     font-size: 0.875rem;
     font-weight: 500;
     text-decoration: none;
     cursor: pointer;
-    transition: all 0.18s ease;
-    margin-bottom: 2px;
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: color 0.25s ease, background-color 0.25s ease, transform 0.35s var(--nav-spring);
 }
 
 .layout-menu li a:hover {
-    background-color: #f1f5f9;
+    background-color: rgba(241, 245, 249, 0.95);
     color: #0f172a;
+    transform: translateX(3px);
 }
 
-.layout-menu li a.active-route {
-    background-color: #ecfdf5;
-    color: #059669;
+.layout-menu li a:focus-visible {
+    box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px rgba(16, 185, 129, 0.55);
+}
+
+.layout-menu li a:active {
+    transform: scale(0.98);
+    transition-duration: 0.08s;
+}
+
+/* The sliding indicator paints the active background; the link stays clear. */
+.layout-menu li a.active-route,
+.layout-menu li a.active-route:hover {
+    background-color: transparent;
+    color: #047857;
     font-weight: 600;
+    transform: none;
+}
+
+/* Fallback if the indicator could not be measured */
+.layout-menu:not(.has-indicator) li a.active-route {
+    background-color: #ecfdf5;
     box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.25);
 }
 
+/* Active dot */
+.layout-menu li a.active-route::after {
+    content: '';
+    flex-shrink: 0;
+    width: 6px;
+    height: 6px;
+    margin-left: auto;
+    border-radius: 50%;
+    background: #10b981;
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.16);
+    animation: nav-dot-in 0.45s var(--nav-spring) both;
+}
+
 .layout-menuitem-icon {
-    font-size: 1.1rem;
+    font-size: 1.05rem;
     width: 1.25rem;
     text-align: center;
-    color: inherit;
+    color: #94a3b8;
 }
 
 .layout-menuitem-text {
     flex: 1 1 auto;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .layout-submenu-toggler {
@@ -347,8 +559,89 @@
 
 .layout-submenu {
     list-style: none;
-    padding: 0 0 0 1rem;
+    padding: 0;
     margin: 0;
+}
+
+/* Sliding active pill */
+.layout-menu-indicator {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 0;
+    z-index: 0;
+    list-style: none;
+    pointer-events: none;
+    border-radius: 10px;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(20, 184, 166, 0.07) 100%);
+    box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.22), 0 8px 18px -10px rgba(16, 185, 129, 0.5);
+    opacity: 0;
+    will-change: transform, height;
+    transition: transform 0.55s var(--nav-spring), height 0.35s var(--nav-ease), opacity 0.25s ease;
+}
+
+.layout-menu-indicator::before {
+    content: '';
+    position: absolute;
+    left: -0.85rem;
+    top: 22%;
+    bottom: 22%;
+    width: 3px;
+    border-radius: 0 4px 4px 0;
+    background: linear-gradient(180deg, #34d399, #059669);
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.6);
+}
+
+.layout-menu-indicator.is-visible { opacity: 1; }
+.layout-menu-indicator.no-anim { transition: none; }
+
+.layout-menu-indicator.is-moving {
+    animation: nav-indicator-squash 0.55s var(--nav-ease);
+}
+
+/* Click ripple (spawned from AppMenuItem) */
+.menu-ripple {
+    position: absolute;
+    z-index: -1;
+    border-radius: 50%;
+    pointer-events: none;
+    background: radial-gradient(circle, rgba(16, 185, 129, 0.38) 0%, rgba(16, 185, 129, 0) 70%);
+    transform: scale(0);
+    animation: nav-ripple 0.65s var(--nav-ease) forwards;
+}
+
+/* Staggered entrance */
+.layout-menu > li > .layout-menuitem-root-text,
+.layout-submenu > li {
+    animation: nav-item-in 0.5s var(--nav-ease) both;
+    animation-delay: calc(var(--i, 0) * 28ms + 40ms);
+}
+
+@keyframes nav-item-in {
+    from { opacity: 0; transform: translateX(-12px); }
+    to { opacity: 1; transform: none; }
+}
+
+@keyframes nav-ripple {
+    to { transform: scale(2.8); opacity: 0; }
+}
+
+@keyframes nav-dot-in {
+    from { opacity: 0; transform: scale(0); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes nav-indicator-squash {
+    0% { scale: 1 1; }
+    35% { scale: 0.96 1.08; }
+    100% { scale: 1 1; }
+}
+
+@keyframes nav-icon-pop {
+    0% { transform: scale(0.6) rotate(-18deg); }
+    55% { transform: scale(1.28) rotate(6deg); }
+    100% { transform: scale(1.1) rotate(0); }
 }
 
 /* ==========================================================================
@@ -358,15 +651,17 @@
     display: flex;
     flex-direction: column;
     min-height: 100vh;
+    min-width: 0;
     justify-content: space-between;
-    padding: calc(var(--topbar-height) + 1.5rem) 2rem 2rem;
-    margin-left: var(--sidebar-width);
+    padding: calc(var(--layout-topbar-height) + var(--layout-content-gap)) var(--layout-gutter) var(--layout-content-gap);
+    margin-left: var(--layout-sidebar-width);
     transition: margin-left var(--layout-section-transition);
 }
 
 .layout-main {
     flex: 1 1 auto;
     width: 100%;
+    min-width: 0;
 }
 
 .layout-footer {
@@ -381,12 +676,14 @@
 /* ==========================================================================
    COLLAPSED / INACTIVE STATES (DESKTOP)
    ========================================================================== */
-.layout-wrapper.layout-static-inactive .layout-sidebar {
-    transform: translateX(-100%);
-}
+@media (min-width: 992px) {
+    .layout-wrapper.layout-static-inactive .layout-sidebar {
+        transform: translateX(-100%);
+    }
 
-.layout-wrapper.layout-static-inactive .layout-main-container {
-    margin-left: 0;
+    .layout-wrapper.layout-static-inactive .layout-main-container {
+        margin-left: 0;
+    }
 }
 
 /* ==========================================================================
@@ -398,43 +695,56 @@
     z-index: 998;
     background-color: rgba(15, 23, 42, 0.45);
     backdrop-filter: blur(4px);
-    display: none;
+    -webkit-backdrop-filter: blur(4px);
     opacity: 0;
-    transition: opacity var(--layout-section-transition);
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.3s ease, visibility 0s linear 0.3s;
 }
 
 @media (max-width: 991px) {
+    :root {
+        --layout-gutter: 1rem;
+        --layout-content-gap: 1rem;
+    }
+
     .layout-topbar {
         padding: 0 1rem;
+        z-index: 1001;
     }
 
     .brand-title {
         font-size: 0.95rem;
     }
 
+    /* Drawer sits below the topbar so the morphing X stays reachable */
     .layout-sidebar {
-        top: 0;
-        height: 100vh;
+        width: min(var(--layout-sidebar-width), 86vw);
+        height: calc(100dvh - var(--layout-topbar-height));
         z-index: 1000;
-        transform: translateX(-100%);
+        transform: translateX(-105%);
         box-shadow: none;
-        padding-top: 1.5rem;
+        border-radius: 0 18px 18px 0;
     }
 
     .layout-main-container {
         margin-left: 0;
-        padding: calc(var(--topbar-height) + 1rem) 1rem 1.5rem;
+    }
+
+    .layout-mask {
+        top: var(--layout-topbar-height);
     }
 
     .layout-wrapper.layout-mobile-active .layout-sidebar {
         transform: translateX(0);
-        box-shadow: 0 20px 45px rgba(0, 0, 0, 0.25);
+        box-shadow: 0 24px 50px rgba(15, 23, 42, 0.28);
     }
 
     .layout-wrapper.layout-mobile-active .layout-mask {
-        display: block;
         opacity: 1;
+        visibility: visible;
         pointer-events: auto;
+        transition: opacity 0.3s ease, visibility 0s;
     }
 }
 
@@ -523,8 +833,12 @@ html.app-dark body,
     color: #71717a;
 }
 
+.app-dark .layout-menuitem-root-text::after {
+    background: linear-gradient(90deg, rgba(113, 113, 122, 0.45), transparent);
+}
+
 .app-dark .layout-menu li a {
-    color: #d4d4d8;
+    color: #a1a1aa;
 }
 
 .app-dark .layout-menu li a:hover {
@@ -532,10 +846,36 @@ html.app-dark body,
     color: #fafafa;
 }
 
-.app-dark .layout-menu li a.active-route {
+.app-dark .layout-menu li a:focus-visible {
+    box-shadow: 0 0 0 2px #18181b, 0 0 0 4px rgba(52, 211, 153, 0.6);
+}
+
+.app-dark .layout-menu li a.active-route,
+.app-dark .layout-menu li a.active-route:hover {
+    background-color: transparent;
+    color: #6ee7b7;
+}
+
+.app-dark .layout-menu:not(.has-indicator) li a.active-route {
     background-color: rgba(16, 185, 129, 0.15);
-    color: #34d399;
     box-shadow: inset 0 0 0 1px rgba(52, 211, 153, 0.3);
+}
+
+.app-dark .layout-menuitem-icon {
+    color: #71717a;
+}
+
+.app-dark .layout-menu-indicator {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.22) 0%, rgba(20, 184, 166, 0.08) 100%);
+    box-shadow: inset 0 0 0 1px rgba(52, 211, 153, 0.28), 0 10px 22px -12px rgba(16, 185, 129, 0.65);
+}
+
+.app-dark .menu-ripple {
+    background: radial-gradient(circle, rgba(52, 211, 153, 0.35) 0%, rgba(52, 211, 153, 0) 70%);
+}
+
+.app-dark .layout-topbar.is-scrolled {
+    box-shadow: 0 10px 28px -14px rgba(0, 0, 0, 0.7);
 }
 
 .app-dark .card {
@@ -554,28 +894,123 @@ html.app-dark body,
    Ensures old hardcoded menus and custom container margins gracefully yield
    to Sakai AppLayout without breaking any view internals.
    ========================================================================== */
-.layout-main .admin-page,
-.layout-main .page-container,
-.layout-main .stakeholder-dashboard,
-.layout-main .dashboard-container,
-.layout-main .office-main {
-    width: 100% !important;
-    max-width: 100% !important;
-    margin-left: 0 !important;
-    padding: 0 !important;
-    transition: none !important;
+
+/* Legacy view styles offset themselves with var(--sidebar-width) and
+   var(--header-height) (and the hidden legacy menus keep rewriting those on
+   <html>). Inside the shell the sidebar/topbar are already accounted for, so
+   zero the tokens for every routed page. */
+.layout-main {
+    --sidebar-width: 0px;
+    --sidebar-collapsed-width: 0px;
+    --header-height: 0px;
 }
 
-.layout-main .admin-layout,
-.layout-main .dashboard,
-.layout-main .stakeholder-layout,
-.layout-main .office-shell {
+/* Uniform page spacing: .layout-main-container owns the gutter and the gap
+   below the topbar, so page roots/content containers add no offsets.
+   The 4-class prefix outranks scoped view rules that use !important. */
+.layout-wrapper .layout-main-container .layout-main > .admin-layout,
+.layout-wrapper .layout-main-container .layout-main > .dashboard,
+.layout-wrapper .layout-main-container .layout-main > .layout,
+.layout-wrapper .layout-main-container .layout-main > .stakeholder-layout,
+.layout-wrapper .layout-main-container .layout-main > .office-shell,
+.layout-wrapper .layout-main-container .layout-main > .reports-page,
+.layout-wrapper .layout-main-container .layout-main > .contracts-page,
+.layout-wrapper .layout-main-container .layout-main > .ai-shell,
+.layout-wrapper .layout-main-container .layout-main > .notify-shell,
+.layout-wrapper .layout-main-container .layout-main > .archive-page,
+.layout-wrapper .layout-main-container .layout-main > .stall-management,
+.layout-wrapper .layout-main-container .layout-main > .container,
+.layout-wrapper .layout-main-container .layout-main .stall-list.container,
+.layout-wrapper .layout-main-container .layout-main > * > .admin-page,
+.layout-wrapper .layout-main-container .layout-main > * > .page-container,
+.layout-wrapper .layout-main-container .layout-main > * > .stakeholder-dashboard,
+.layout-wrapper .layout-main-container .layout-main > * > .dashboard-container,
+.layout-wrapper .layout-main-container .layout-main > * > .dashboard-content,
+.layout-wrapper .layout-main-container .layout-main > * > .office-main,
+.layout-wrapper .layout-main-container .layout-main > * > .page-content,
+.layout-wrapper .layout-main-container .layout-main > * > .stall-management,
+.layout-wrapper .layout-main-container .layout-main > * > .payments-page,
+.layout-wrapper .layout-main-container .layout-main > * > .settings-page,
+.layout-wrapper .layout-main-container .layout-main > * > .ai-page,
+.layout-wrapper .layout-main-container .layout-main > * > .notify-page,
+.layout-wrapper .layout-main-container .layout-main .admin-page,
+.layout-wrapper .layout-main-container .layout-main .page-container,
+.layout-wrapper .layout-main-container .layout-main .stakeholder-dashboard,
+.layout-wrapper .layout-main-container .layout-main .dashboard-container,
+.layout-wrapper .layout-main-container .layout-main .dashboard-content,
+.layout-wrapper .layout-main-container .layout-main .office-main,
+.layout-wrapper .layout-main-container .layout-main .page-content,
+.layout-wrapper .layout-main-container .layout-main .stall-management,
+.layout-wrapper .layout-main-container .layout-main .payments-page,
+.layout-wrapper .layout-main-container .layout-main .settings-page,
+.layout-wrapper .layout-main-container .layout-main .ai-page,
+.layout-wrapper .layout-main-container .layout-main .notify-page,
+.layout-wrapper .layout-main-container .layout-main > .reports-page > .content,
+.layout-wrapper .layout-main-container .layout-main > .contracts-page > .content {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding: 0 !important;
     min-height: auto !important;
+    transition: none !important;
+    box-sizing: border-box !important;
+}
+
+/* Ensure mobile media queries on legacy page stylesheets don't re-inject extra top padding */
+@media (max-width: 1024px) {
+    .layout-wrapper .layout-main-container .layout-main .admin-page,
+    .layout-wrapper .layout-main-container .layout-main .page-container,
+    .layout-wrapper .layout-main-container .layout-main .stakeholder-dashboard,
+    .layout-wrapper .layout-main-container .layout-main .dashboard-container,
+    .layout-wrapper .layout-main-container .layout-main .dashboard-content,
+    .layout-wrapper .layout-main-container .layout-main .office-main,
+    .layout-wrapper .layout-main-container .layout-main .page-content,
+    .layout-wrapper .layout-main-container .layout-main .stall-management,
+    .layout-wrapper .layout-main-container .layout-main .payments-page,
+    .layout-wrapper .layout-main-container .layout-main .settings-page,
+    .layout-wrapper .layout-main-container .layout-main .ai-page,
+    .layout-wrapper .layout-main-container .layout-main .notify-page,
+    .layout-wrapper .layout-main-container .layout-main .content {
+        padding-top: 0 !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        padding-bottom: 1.5rem !important;
+        margin-left: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+}
+
+.layout-wrapper .layout-main-container .layout-main > .admin-layout,
+.layout-wrapper .layout-main-container .layout-main > .dashboard,
+.layout-wrapper .layout-main-container .layout-main > .layout,
+.layout-wrapper .layout-main-container .layout-main > .stakeholder-layout,
+.layout-wrapper .layout-main-container .layout-main > .office-shell,
+.layout-wrapper .layout-main-container .layout-main > .reports-page,
+.layout-wrapper .layout-main-container .layout-main > .contracts-page,
+.layout-wrapper .layout-main-container .layout-main > .ai-shell,
+.layout-wrapper .layout-main-container .layout-main > .notify-shell,
+.layout-wrapper .layout-main-container .layout-main > .archive-page {
     background: transparent !important;
 }
 
+/* Onboarding pages were built as full-screen views with their own top
+   offset (80px) — drop it so they sit at the same distance from the topbar. */
+.layout-wrapper .layout-main-container .layout-main > .progress-wrapper,
+.layout-wrapper .layout-main-container .layout-main > .requirements-page,
+.layout-wrapper .layout-main-container .layout-main > .create-page {
+    min-height: auto !important;
+    padding: 0 0 1rem !important;
+    background: transparent !important;
+}
+
+/* Suppress all legacy duplicate sidebars and duplicate mobile topbars */
 .layout-main .sidebar,
+.layout-main aside.sidebar,
 .layout-main .mobile-topbar,
+.layout-main header.mobile-topbar,
 .layout-main .sidebar-backdrop,
 .layout-main .portal-topbar {
     display: none !important;
@@ -685,12 +1120,12 @@ html.app-dark body,
     40%, 80% { transform: rotate(-14deg); }
 }
 
-/* Universal Tactile Touch Feedback on Mobile & PC */
+/* Universal Tactile Touch Feedback on Mobile & PC
+   (sidebar links use their own softer press in the MENU & ITEMS section) */
 .p-button:active,
 button:active,
 .layout-topbar-action:active,
 .p-button-icon-only:active,
-.layout-menu li a:active,
 .metric-card:active {
     transform: scale(0.96) !important;
     transition: transform 0.08s ease !important;
@@ -799,23 +1234,26 @@ button:active,
 }
 
 /* Interactive Sidebar Menu Item Icons */
-.layout-menu li a {
-    position: relative;
-    overflow: hidden;
-}
-
 .layout-menu li a .layout-menuitem-icon {
-    transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.18s ease;
+    transition: transform 0.4s var(--nav-spring), color 0.25s ease;
 }
 
 @media (hover: hover) {
     .layout-menu li a:hover .layout-menuitem-icon {
-        transform: scale(1.2);
+        color: #10b981;
+        transform: scale(1.18) rotate(-6deg);
     }
 }
 
 .layout-menu li a.active-route .layout-menuitem-icon {
-    transform: scale(1.12);
+    color: #059669;
+    transform: scale(1.1);
+    animation: nav-icon-pop 0.6s var(--nav-spring);
+}
+
+.app-dark .layout-menu li a:hover .layout-menuitem-icon,
+.app-dark .layout-menu li a.active-route .layout-menuitem-icon {
+    color: #34d399;
 }
 
 /* Interactive Topbar Actions */
@@ -836,10 +1274,6 @@ button:active,
 
     .layout-topbar-action:hover .pi-moon {
         transform: rotate(-20deg) scale(1.15);
-    }
-
-    .layout-topbar-action:hover .pi-bars {
-        transform: scale(1.12);
     }
 
     .layout-topbar-action:hover .pi-sign-out {

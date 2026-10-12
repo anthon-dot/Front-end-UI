@@ -1,11 +1,15 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, provide, reactive, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
+import { useLayout } from './composables/layout.js';
 import AppMenuItem from './AppMenuItem.vue';
 
 const authStore = useAuthStore();
+const route = useRoute();
+const { layoutState } = useLayout();
 
-const model = computed(() => {
+const baseModel = computed(() => {
     const role = authStore.normalizedRole;
 
     if (role === 'ADMIN') {
@@ -150,10 +154,111 @@ const model = computed(() => {
         }
     ];
 });
+
+// Attach a running order to every entry so the CSS entrance animation can stagger.
+const model = computed(() => {
+    let order = 0;
+    return baseModel.value.map((section) => ({
+        ...section,
+        _order: order++,
+        items: section.items?.map((item) => ({ ...item, _order: order++ }))
+    }));
+});
+
+// Pick the single most specific matching route, so "/treasurer" (Dashboard)
+// is not highlighted together with "/treasurer/billing".
+const activeMenuPath = computed(() => {
+    const path = route.path;
+    let best = null;
+    const visit = (items = []) => {
+        items.forEach((item) => {
+            if (item.to && (path === item.to || (item.to !== '/' && path.startsWith(item.to + '/')))) {
+                if (!best || item.to.length > best.length) best = item.to;
+            }
+            if (item.items) visit(item.items);
+        });
+    };
+    visit(model.value);
+    return best;
+});
+
+provide('activeMenuPath', activeMenuPath);
+
+/* ---------- Sliding active indicator ---------- */
+const menuRef = ref(null);
+const indicatorRef = ref(null);
+const indicatorReady = ref(false);
+const indicator = reactive({ top: 0, height: 0, visible: false });
+let resizeObserver = null;
+
+function measureIndicator() {
+    const menu = menuRef.value;
+    if (!menu) return;
+    const active = menu.querySelector('a.active-route');
+    if (!active || !active.offsetHeight) {
+        indicator.visible = false;
+        return;
+    }
+    const menuRect = menu.getBoundingClientRect();
+    const activeRect = active.getBoundingClientRect();
+    const nextTop = activeRect.top - menuRect.top;
+    const moved = indicator.visible && Math.abs(nextTop - indicator.top) > 1;
+    indicator.top = nextTop;
+    indicator.height = activeRect.height;
+    indicator.visible = true;
+    if (moved && indicatorReady.value) replaySquash();
+}
+
+function replaySquash() {
+    const el = indicatorRef.value;
+    if (!el) return;
+    el.classList.remove('is-moving');
+    void el.offsetWidth; // restart the CSS animation
+    el.classList.add('is-moving');
+}
+
+function scheduleMeasure() {
+    nextTick(() => requestAnimationFrame(measureIndicator));
+}
+
+watch(() => route.path, scheduleMeasure);
+watch(model, scheduleMeasure);
+watch(
+    () => layoutState.staticMenuMobileActive,
+    (isOpen) => {
+        if (isOpen) {
+            scheduleMeasure();
+            setTimeout(measureIndicator, 320);
+        }
+    }
+);
+
+onMounted(() => {
+    nextTick(() => {
+        measureIndicator();
+        // Enable transitions only after the first placement (no fly-in from top).
+        requestAnimationFrame(() => requestAnimationFrame(() => (indicatorReady.value = true)));
+    });
+    if (typeof ResizeObserver !== 'undefined' && menuRef.value) {
+        resizeObserver = new ResizeObserver(() => measureIndicator());
+        resizeObserver.observe(menuRef.value);
+    }
+});
+
+onBeforeUnmount(() => {
+    resizeObserver?.disconnect();
+});
 </script>
 
 <template>
-    <ul class="layout-menu">
+    <ul ref="menuRef" class="layout-menu" :class="{ 'has-indicator': indicator.visible }">
+        <li
+            ref="indicatorRef"
+            class="layout-menu-indicator"
+            :class="{ 'is-visible': indicator.visible, 'no-anim': !indicatorReady }"
+            :style="{ transform: `translateY(${indicator.top}px)`, height: `${indicator.height}px` }"
+            aria-hidden="true"
+        ></li>
         <template v-for="(item, i) in model" :key="item.label || i">
             <app-menu-item v-if="!item.separator" :item="item" :index="i"></app-menu-item>
             <li v-if="item.separator" class="menu-separator"></li>
