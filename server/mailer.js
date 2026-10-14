@@ -2,10 +2,13 @@ import nodemailer from 'nodemailer'
 
 /**
  * ==============================================================================
- * NODEMAILER TRANSPORTER CONFIGURATION
+ * AUTOMATED SYSTEM EMAIL DISPATCHER (NO GOOGLE APP PASSWORD REQUIRED)
  * ==============================================================================
- * Connects to standard SMTP services (Gmail, Brevo, Outlook, Mailtrap, AWS SES, etc.)
- * or creates an automated test account (Ethereal) when credentials are not supplied.
+ * Dispatches municipal notifications automatically using:
+ * 1. Resend API (Primary modern HTTP auto-sender, zero SMTP/password config needed)
+ * 2. Brevo API (Secondary HTTP auto-sender)
+ * 3. Standard SMTP Server (Custom municipal or institutional mail relay)
+ * 4. Ethereal Test Inbox (Zero-config local sandbox fallback)
  */
 
 let transporter = null
@@ -36,7 +39,7 @@ export async function getTransporter() {
     }
     transporter = nodemailer.createTransport(transporterConfig)
     isTestAccount = false
-    console.log(`[Nodemailer] Transporter initialized for ${host}:${port} (${user})`)
+    console.log(`[Auto-Sender SMTP] Transporter initialized for ${host}:${port} (${user})`)
     return { transporter, isTestAccount, config: transporterConfig }
   }
 
@@ -54,10 +57,10 @@ export async function getTransporter() {
     }
     transporter = nodemailer.createTransport(transporterConfig)
     isTestAccount = true
-    console.log(`[Nodemailer] Initialized Ethereal test account: ${testAccount.user}`)
+    console.log(`[Auto-Sender] Initialized test mailbox: ${testAccount.user}`)
     return { transporter, isTestAccount, config: transporterConfig }
   } catch (err) {
-    console.warn('[Nodemailer] Could not create Ethereal test account, using JSON stream transporter:', err.message)
+    console.warn('[Auto-Sender] Could not create Ethereal test account, using JSON stream transporter:', err.message)
     transporter = nodemailer.createTransport({
       jsonTransport: true
     })
@@ -67,7 +70,8 @@ export async function getTransporter() {
 }
 
 /**
- * Send an email using Nodemailer.
+ * Dispatch an email to a real recipient.
+ * Automatically tries modern HTTP Email APIs (Resend, Brevo) first before falling back to SMTP.
  *
  * @param {Object} options
  * @param {string} options.to - Recipient email address
@@ -82,6 +86,101 @@ export async function sendEmail({ to, recipientName, subject, html, text, from }
     throw new Error('Recipient email address ("to") is required.')
   }
 
+  const targetEmail = to.trim()
+  const emailSubject = subject || 'Municipal Market Administration Notification'
+  const emailHtml = html || `<p>${text || subject}</p>`
+  const emailText = text || subject
+
+  // =========================================================================
+  // 1. RESEND API AUTO-SENDER (NO GOOGLE APP PASSWORD NEEDED)
+  // =========================================================================
+  const resendApiKey = (process.env.RESEND_API_KEY || process.env.VITE_RESEND_API_KEY || '').trim()
+  if (resendApiKey) {
+    try {
+      const resendFrom = from ||
+        process.env.RESEND_FROM ||
+        process.env.VITE_RESEND_FROM ||
+        'Office of the Market Supervisor <onboarding@resend.dev>'
+
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${resendApiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          from: resendFrom,
+          to: [targetEmail],
+          subject: emailSubject,
+          html: emailHtml,
+          text: emailText
+        })
+      })
+
+      const data = await res.json()
+      if (res.ok && data?.id) {
+        console.log(`[Auto-Sender: Resend] Dispatched directly to ${targetEmail} (ID: ${data.id})`)
+        return {
+          success: true,
+          messageId: data.id,
+          provider: 'resend',
+          recipient: targetEmail,
+          subject: emailSubject,
+          transport: 'resend-api'
+        }
+      } else {
+        console.warn('[Auto-Sender: Resend] API returned non-200:', data)
+      }
+    } catch (resendErr) {
+      console.warn('[Auto-Sender: Resend] Network error, trying fallback:', resendErr.message)
+    }
+  }
+
+  // =========================================================================
+  // 2. BREVO API AUTO-SENDER (NO GOOGLE APP PASSWORD NEEDED)
+  // =========================================================================
+  const brevoApiKey = (process.env.BREVO_API_KEY || process.env.VITE_BREVO_API_KEY || '').trim()
+  if (brevoApiKey) {
+    try {
+      const brevoFrom = process.env.BREVO_FROM || 'notifications@manticao-market.gov.ph'
+      const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'api-key': brevoApiKey,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          sender: { name: 'Office of the Market Supervisor', email: brevoFrom },
+          to: [{ email: targetEmail, name: recipientName || targetEmail }],
+          subject: emailSubject,
+          htmlContent: emailHtml,
+          textContent: emailText
+        })
+      })
+
+      const data = await res.json()
+      if (res.ok && (data?.messageId || data?.id)) {
+        const msgId = data.messageId || data.id
+        console.log(`[Auto-Sender: Brevo] Dispatched directly to ${targetEmail} (ID: ${msgId})`)
+        return {
+          success: true,
+          messageId: msgId,
+          provider: 'brevo',
+          recipient: targetEmail,
+          subject: emailSubject,
+          transport: 'brevo-api'
+        }
+      } else {
+        console.warn('[Auto-Sender: Brevo] API returned non-200:', data)
+      }
+    } catch (brevoErr) {
+      console.warn('[Auto-Sender: Brevo] Network error, trying fallback:', brevoErr.message)
+    }
+  }
+
+  // =========================================================================
+  // 3. NODEMAILER SMTP / ETHEREAL FALLBACK
+  // =========================================================================
   const { transporter: activeTransporter, isTestAccount: isTest } = await getTransporter()
 
   const defaultFrom = process.env.SMTP_FROM ||
@@ -90,10 +189,10 @@ export async function sendEmail({ to, recipientName, subject, html, text, from }
 
   const mailOptions = {
     from: from || defaultFrom,
-    to: recipientName ? `"${recipientName}" <${to.trim()}>` : to.trim(),
-    subject: subject || 'Municipal Market Administration Notification',
-    text: text || subject,
-    html: html || `<p>${text || subject}</p>`
+    to: recipientName ? `"${recipientName}" <${targetEmail}>` : targetEmail,
+    subject: emailSubject,
+    text: emailText,
+    html: emailHtml
   }
 
   const info = await activeTransporter.sendMail(mailOptions)
@@ -104,22 +203,41 @@ export async function sendEmail({ to, recipientName, subject, html, text, from }
     console.log(`[Nodemailer Preview URL]: ${previewUrl}`)
   }
 
-  console.log(`[Nodemailer] Email sent successfully to ${to} (Message ID: ${info.messageId})`)
+  console.log(`[Nodemailer] Email sent successfully to ${targetEmail} (Message ID: ${info.messageId})`)
 
   return {
     success: true,
     messageId: info.messageId,
     previewUrl,
     isTestAccount: isTest,
-    recipient: to.trim(),
-    subject
+    recipient: targetEmail,
+    subject: emailSubject,
+    transport: isTest ? 'ethereal-test' : 'smtp'
   }
 }
 
 /**
- * Verify transporter connectivity
+ * Verify transporter connectivity or active auto-sender service
  */
 export async function verifyTransporter() {
+  const resendApiKey = (process.env.RESEND_API_KEY || process.env.VITE_RESEND_API_KEY || '').trim()
+  if (resendApiKey) {
+    return {
+      connected: true,
+      provider: 'resend',
+      mode: 'Resend Email API (No Google App Password required)'
+    }
+  }
+
+  const brevoApiKey = (process.env.BREVO_API_KEY || process.env.VITE_BREVO_API_KEY || '').trim()
+  if (brevoApiKey) {
+    return {
+      connected: true,
+      provider: 'brevo',
+      mode: 'Brevo Email API (No Google App Password required)'
+    }
+  }
+
   const { transporter: activeTransporter, isTestAccount: isTest, config } = await getTransporter()
   try {
     await activeTransporter.verify()
@@ -127,7 +245,8 @@ export async function verifyTransporter() {
       connected: true,
       isTestAccount: isTest,
       host: config.host,
-      port: config.port
+      port: config.port,
+      mode: isTest ? 'Ethereal Test Sandbox' : 'Custom SMTP Server'
     }
   } catch (err) {
     return {
@@ -144,3 +263,4 @@ export default {
   sendEmail,
   verifyTransporter
 }
+
