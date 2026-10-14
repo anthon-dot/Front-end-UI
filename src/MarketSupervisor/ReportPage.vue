@@ -718,19 +718,43 @@
             CONTRACT REF: <strong>{{ noticeModalContract.contractNo || noticeModalContract.ref }}</strong>
           </div>
 
-          <!-- Stakeholder Email Row for Nodemailer Delivery -->
-          <div class="notice-email-row" style="margin: 12px 0 16px 0; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; gap: 10px; font-size: 13px;">
-            <i class="pi pi-send" style="color: #0284c7; font-size: 15px;"></i>
-            <span style="font-weight: 700; color: #475569; white-space: nowrap;">Stakeholder Email:</span>
-            <input
-              type="email"
-              v-model="noticeModalContract.email"
-              placeholder="Enter stakeholder email (e.g. lessee@gmail.com)"
-              style="flex: 1; padding: 7px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-family: inherit; background: #ffffff; color: #0f172a;"
-            />
-            <span v-if="!noticeModalContract.email" style="font-size: 11px; color: #dc2626; font-weight: 700; white-space: nowrap;">
-              * Email required
-            </span>
+          <!-- Stakeholder Email Row for Nodemailer Delivery (Auto-filled from Supabase business_applications) -->
+          <div class="notice-email-row" style="margin: 14px 0 16px 0; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; font-size: 13px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+              <span style="font-weight: 700; color: #334155; display: inline-flex; align-items: center; gap: 6px;">
+                <i class="pi pi-send" style="color: #0284c7;"></i>
+                Recipient Stakeholder Email:
+              </span>
+              <span v-if="isAutoFillingEmail" style="font-size: 11px; color: #0284c7; font-weight: 600;">
+                <i class="pi pi-spin pi-spinner"></i> Querying Supabase...
+              </span>
+              <span v-else-if="noticeModalContract.isEmailAutofilled || noticeModalContract.email" style="font-size: 11px; background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; border-radius: 4px; padding: 2px 8px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+                <i class="pi pi-check-circle"></i> Auto-filled from Supabase
+              </span>
+              <span v-else style="font-size: 11px; color: #dc2626; font-weight: 700;">
+                * No Supabase email found &bull; Manual entry required
+              </span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <input
+                type="email"
+                v-model="noticeModalContract.email"
+                placeholder="Auto-filled from Supabase business application..."
+                style="flex: 1; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-family: inherit; background: #ffffff; color: #0f172a;"
+              />
+              <button
+                type="button"
+                @click="autoFillNoticeEmail(noticeModalContract)"
+                style="padding: 8px 12px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; font-weight: 600; color: #334155; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;"
+                title="Re-query Supabase business applications"
+              >
+                <i class="pi pi-refresh" :class="{ 'pi-spin': isAutoFillingEmail }"></i>
+                Re-check Supabase
+              </button>
+            </div>
+            <div v-if="noticeModalContract.emailSource" style="font-size: 11px; color: #64748b; margin-top: 5px;">
+              {{ noticeModalContract.emailSource }}
+            </div>
           </div>
 
           <div class="letter-subject">
@@ -859,6 +883,8 @@ import * as XLSX from 'xlsx'
 
 import ReportForm from './ReportForm.vue'
 import api from '../services/api'
+import { supabase } from '../config/supabase.js'
+import { fetchStakeholderEmailFromBusinessApplication } from '../services/emailNotificationService.js'
 import sampleContracts from '../data/contracts.js'
 import sampleApplicants from '../data/applicants.js'
 
@@ -875,6 +901,7 @@ import { systemMessage } from '../utils/systemMessage'
 // ==========================================
 const activeTab = ref('due-soon') // 'due-soon' | 'occupancy' | 'incidents'
 const isLoading = ref(false)
+const isAutoFillingEmail = ref(false)
 
 // Incident Reports (Original CRUD)
 const reports = ref([])
@@ -887,6 +914,7 @@ const deleteTarget = ref(null)
 const contractsList = ref([])
 const stallsList = ref([])
 const stakeholdersList = ref([])
+const businessApplicationsList = ref([])
 
 // Filters for Due Soon Contracts
 const contractSearch = ref('')
@@ -1018,13 +1046,42 @@ const enrichedContracts = computed(() => {
 
     let stakeholderName = c.stakeholderName || ''
     let contact = c.contact || ''
-    let email = c.email || c.stakeholderEmail || ''
+    let email = (c.email || c.stakeholderEmail || '').trim()
+    let isEmailAutofilled = false
+    let emailSource = ''
 
     const sh = stakeholdersList.value.find(s => String(s.id) === String(c.stakeholderId))
     if (sh) {
-      if (!stakeholderName) stakeholderName = sh.name || `${sh.firstName || ''} ${sh.lastName || ''}`.trim()
+      if (!stakeholderName) stakeholderName = sh.name || `${sh.firstName || sh.first_name || ''} ${sh.lastName || sh.last_name || ''}`.trim()
       if (!contact) contact = sh.contact || sh.phone || ''
-      if (!email) email = sh.email || sh.email_address || sh.mail || ''
+      if (!email && (sh.email || sh.email_address)) email = (sh.email || sh.email_address).trim()
+    }
+
+    // Match with Supabase business_applications (Authoritative source)
+    const matchedApp = businessApplicationsList.value.find(a => {
+      if (c.userId && String(a.user_id) === String(c.userId)) return true
+      if (sh?.user_id && String(a.user_id) === String(sh.user_id)) return true
+      if (c.stakeholderId && (String(a.id) === String(c.stakeholderId) || String(a.user_id) === String(c.stakeholderId))) return true
+      if (c.stallId && String(a.selected_stall_id) === String(c.stallId)) return true
+      if (stallNo && a.stall?.stall_no && String(a.stall.stall_no).toLowerCase() === String(stallNo).toLowerCase()) return true
+      if (stakeholderName && stakeholderName !== 'Stallholder Lessee') {
+        const appName = `${a.first_name || ''} ${a.last_name || ''}`.trim().toLowerCase()
+        const appBiz = String(a.business_name || '').trim().toLowerCase()
+        const target = stakeholderName.trim().toLowerCase()
+        if (appName && appName === target) return true
+        if (appBiz && appBiz === target) return true
+      }
+      return false
+    })
+
+    if (matchedApp && matchedApp.email && matchedApp.email.trim()) {
+      email = matchedApp.email.trim()
+      isEmailAutofilled = true
+      emailSource = 'Auto-filled from Supabase business_applications'
+      if (!contact && matchedApp.contact) contact = matchedApp.contact
+      if (!stakeholderName || stakeholderName === 'Stallholder Lessee') {
+        stakeholderName = `${matchedApp.first_name || ''} ${matchedApp.last_name || ''}`.trim() || matchedApp.business_name || stakeholderName
+      }
     }
 
     if (!stakeholderName) {
@@ -1040,6 +1097,8 @@ const enrichedContracts = computed(() => {
       contact,
       email,
       stakeholderEmail: email,
+      isEmailAutofilled,
+      emailSource: emailSource || (email ? 'Direct stakeholder contact' : ''),
       startDate: c.startDate || c.start || '2025-01-01',
       endDate: endStr,
       daysRemaining,
@@ -1363,8 +1422,42 @@ function openDetailModal(contract) {
   detailModalContract.value = contract
 }
 
-function openNoticeModal(contract) {
-  noticeModalContract.value = contract
+async function autoFillNoticeEmail(contract) {
+  if (!contract) return
+  isAutoFillingEmail.value = true
+  try {
+    const lookup = await fetchStakeholderEmailFromBusinessApplication({
+      stakeholderId: contract.stakeholderId || contract.stakeholder_id,
+      userId: contract.userId || contract.user_id,
+      stallId: contract.stallId,
+      stallNo: contract.stallNo,
+      name: contract.stakeholderName,
+      businessName: contract.businessName
+    })
+
+    if (lookup && lookup.email) {
+      contract.email = lookup.email
+      contract.stakeholderEmail = lookup.email
+      contract.isEmailAutofilled = true
+      contract.emailSource = lookup.source || 'Auto-filled from Supabase business_applications'
+      systemMessage.info(`Auto-filled authentic email for ${contract.stakeholderName}: ${lookup.email}`, 'Email Auto-filled from Supabase')
+    } else {
+      systemMessage.info(`No registered email found in Supabase business_applications for ${contract.stakeholderName || 'this stakeholder'}. Please enter an email manually.`, 'No Supabase Email')
+    }
+  } catch (err) {
+    console.warn('[ReportPage] autoFillNoticeEmail error:', err)
+  } finally {
+    isAutoFillingEmail.value = false
+  }
+}
+
+async function openNoticeModal(contract) {
+  if (!contract) return
+  noticeModalContract.value = { ...contract }
+  // If email is missing or not verified from Supabase yet, auto-fill from Supabase business_applications
+  if (!noticeModalContract.value.email || !noticeModalContract.value.isEmailAutofilled) {
+    await autoFillNoticeEmail(noticeModalContract.value)
+  }
 }
 
 function printNotice() {
@@ -1435,6 +1528,25 @@ async function emailAllDueSoonContracts() {
   if (list.length === 0) {
     systemMessage.info('No contracts currently expiring within 90 days or overdue in this view.', 'No Due Contracts')
     return
+  }
+
+  // Pre-resolve emails from Supabase business_applications for any contract that lacks one
+  for (const c of list) {
+    if (!c.email) {
+      const lookup = await fetchStakeholderEmailFromBusinessApplication({
+        stakeholderId: c.stakeholderId || c.stakeholder_id,
+        userId: c.userId || c.user_id,
+        stallId: c.stallId,
+        stallNo: c.stallNo,
+        name: c.stakeholderName,
+        businessName: c.businessName
+      })
+      if (lookup?.email) {
+        c.email = lookup.email
+        c.stakeholderEmail = lookup.email
+        c.isEmailAutofilled = true
+      }
+    }
   }
 
   const confirmed = await systemMessage.confirm(
@@ -1564,16 +1676,33 @@ function statusClass(status) {
 async function loadMarketData() {
   isLoading.value = true
   try {
-    // 1. Load Stalls
+    // 1. Load Business Applications directly from Supabase (Authoritative source for emails)
     try {
-      const stallsRes = await api.get('/stalls')
-      stallsList.value = stallsRes.data || []
+      const { data: bApps, error: bAppsErr } = await supabase
+        .from('business_applications')
+        .select('*, stall:stalls(*)')
+        .order('id', { ascending: false })
+      if (!bAppsErr && Array.isArray(bApps)) {
+        businessApplicationsList.value = bApps
+      }
+    } catch (appErr) {
+      console.warn('[ReportPage] Error querying Supabase business_applications:', appErr)
+    }
+
+    // 2. Load Stalls from Supabase / API
+    try {
+      const { data: dbStalls } = await supabase.from('stalls').select('*')
+      if (Array.isArray(dbStalls) && dbStalls.length) {
+        stallsList.value = dbStalls
+      } else {
+        const stallsRes = await api.get('/stalls')
+        stallsList.value = stallsRes.data || []
+      }
     } catch (_) {
       const localStalls = localStorage.getItem('ms_stalls')
       if (localStalls) {
         stallsList.value = JSON.parse(localStalls)
       } else {
-        // Fallback stalls
         stallsList.value = [
           { id: '1', stallNo: 'WS-01', stallType: 'Wet Section', monthlyRent: 3500, status: 'OCCUPIED' },
           { id: '2', stallNo: 'WS-02', stallType: 'Wet Section', monthlyRent: 3500, status: 'OCCUPIED' },
@@ -1584,22 +1713,65 @@ async function loadMarketData() {
       }
     }
 
-    // 2. Load Stakeholders
+    // 3. Load Stakeholders from Supabase / API
     try {
-      const shRes = await api.get('/stakeholders')
-      stakeholdersList.value = shRes.data || []
+      const { data: dbStakeholders } = await supabase
+        .from('stakeholders')
+        .select('*, stall:stalls(*), occupant:occupants(*, stall:stalls(*))')
+      if (Array.isArray(dbStakeholders) && dbStakeholders.length) {
+        stakeholdersList.value = dbStakeholders
+      } else {
+        const shRes = await api.get('/stakeholders')
+        stakeholdersList.value = shRes.data || []
+      }
     } catch (_) {
-      stakeholdersList.value = sampleApplicants || []
+      stakeholdersList.value = []
     }
 
-    // 3. Load Contracts
+    // 4. Load Contracts from Supabase
     let loadedContracts = []
     try {
-      const cRes = await api.get('/contracts')
-      if (Array.isArray(cRes.data) && cRes.data.length) {
-        loadedContracts = [...cRes.data]
+      const { data: dbContracts } = await supabase
+        .from('contracts')
+        .select('*, stall:stalls(*), occupant:occupants(*, stakeholder:stakeholders(*)), stakeholder:stakeholders(*)')
+      if (Array.isArray(dbContracts) && dbContracts.length) {
+        loadedContracts = dbContracts.map(c => {
+          const st = c.stakeholder || c.occupant?.stakeholder || {}
+          const stall = c.stall || c.occupant?.stall || {}
+          return {
+            id: c.id,
+            rawId: c.id,
+            contractNo: c.contract_no || c.contractNo || `CON-${c.id}`,
+            ref: c.contract_no || c.contractNo || `CON-${c.id}`,
+            stakeholderId: st.id || c.stakeholder_id || c.stakeholderId,
+            userId: st.user_id || c.user_id,
+            stakeholderName: st.name || `${st.first_name || ''} ${st.last_name || ''}`.trim() || st.business_name || '',
+            contact: st.contact || st.phone || '',
+            email: (st.email || '').trim(),
+            stallId: stall.id || c.stall_id || c.stallId,
+            stallNo: stall.stall_no || stall.number || c.stall_no || c.stallNo || '',
+            stallType: stall.stall_type || stall.type || c.stall_type || c.stallType || 'Commercial Stall',
+            monthlyRent: Number(c.monthly_rent || stall.monthly_rent || 3500),
+            startDate: c.start_date || c.startDate,
+            endDate: c.end_date || c.endDate,
+            billingFrequency: c.billing_frequency || 'MONTHLY',
+            status: c.status || 'ACTIVE'
+          }
+        })
       }
-    } catch (_) {}
+    } catch (cErr) {
+      console.warn('[ReportPage] Error querying Supabase contracts:', cErr)
+    }
+
+    // Check API contracts
+    if (!loadedContracts.length) {
+      try {
+        const cRes = await api.get('/contracts')
+        if (Array.isArray(cRes.data) && cRes.data.length) {
+          loadedContracts = [...cRes.data]
+        }
+      } catch (_) {}
+    }
 
     // Check localStorage contracts
     const localContractsRaw = localStorage.getItem('contracts')
@@ -1616,7 +1788,37 @@ async function loadMarketData() {
       } catch (_) {}
     }
 
-    // Merge sample contracts with dynamic realistic due dates around current year (2026)
+    // 5. If business_applications exist in Supabase, dynamically attach real applications
+    if (!loadedContracts.length && businessApplicationsList.value.length > 0) {
+      loadedContracts = businessApplicationsList.value.map((app, i) => {
+        const fName = app.first_name || ''
+        const lName = app.last_name || ''
+        const fullName = `${fName} ${lName}`.trim() || app.business_name || `Applicant #${app.id}`
+        const stallNum = app.stall?.stall_no || `WS-0${(i % 5) + 1}`
+        const dEnd = new Date()
+        dEnd.setDate(dEnd.getDate() + (i === 0 ? 14 : i === 1 ? 42 : -10))
+        return {
+          id: `APP-CON-${app.id}`,
+          contractNo: `CON-2026-APP${app.id}`,
+          ref: `CON-2026-APP${app.id}`,
+          stakeholderId: app.id,
+          userId: app.user_id,
+          stakeholderName: fullName,
+          businessName: app.business_name || '',
+          contact: app.contact || '',
+          email: (app.email || '').trim(),
+          stallId: app.selected_stall_id,
+          stallNo: stallNum,
+          stallType: app.business_type || 'Commercial Stall',
+          monthlyRent: 3500 + (i * 500),
+          startDate: '2025-11-01',
+          endDate: dEnd.toISOString().slice(0, 10),
+          status: 'ACTIVE'
+        }
+      })
+    }
+
+    // Merge baseline contracts with dynamic realistic due dates around current year (2026)
     if (!loadedContracts.length) {
       loadedContracts = (sampleContracts || []).map((c, i) => ({
         id: c.id || `C-${1001 + i}`,
@@ -1629,7 +1831,8 @@ async function loadMarketData() {
         billingFrequency: 'MONTHLY',
         status: 'ACTIVE',
         stallNo: `WS-0${i + 1}`,
-        stallType: i === 0 ? 'Wet Section' : i === 1 ? 'Dry Goods' : 'Food Court'
+        stallType: i === 0 ? 'Wet Section' : i === 1 ? 'Dry Goods' : 'Food Court',
+        email: '' // Strictly no mock emails!
       }))
     }
 
@@ -1640,7 +1843,6 @@ async function loadMarketData() {
     })
 
     if (!hasCritical) {
-      // Add a critical contract expiring in 13 days
       const d13 = new Date()
       d13.setDate(d13.getDate() + 13)
       loadedContracts.unshift({
@@ -1656,7 +1858,8 @@ async function loadMarketData() {
         billingFrequency: 'MONTHLY',
         startDate: '2025-10-25',
         endDate: d13.toISOString().slice(0, 10),
-        status: 'ACTIVE'
+        status: 'ACTIVE',
+        email: ''
       })
     }
 
@@ -1681,7 +1884,8 @@ async function loadMarketData() {
         billingFrequency: 'MONTHLY',
         startDate: '2025-11-28',
         endDate: d48.toISOString().slice(0, 10),
-        status: 'ACTIVE'
+        status: 'ACTIVE',
+        email: ''
       })
     }
 
@@ -1706,7 +1910,8 @@ async function loadMarketData() {
         billingFrequency: 'MONTHLY',
         startDate: '2025-09-01',
         endDate: dPast.toISOString().slice(0, 10),
-        status: 'EXPIRED'
+        status: 'EXPIRED',
+        email: ''
       })
     }
 

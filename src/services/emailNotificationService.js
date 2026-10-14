@@ -1,19 +1,18 @@
 import axios from 'axios'
 import { supabase } from '../config/supabase.js'
-import sampleApplicants from '../data/applicants.js'
-import sampleContracts from '../data/contracts.js'
 
 /**
  * ==============================================================================
  * STAKEHOLDER EMAIL NOTIFICATION SERVICE (NODEMAILER ENABLED)
  * ==============================================================================
  * Dispatches official municipal notifications via Nodemailer SMTP to the email
- * address attached to that particular stakeholder for:
+ * address attached to that particular stakeholder from Supabase business_applications for:
  * 1. Application Progress Updates (Submission, Stage Approvals, Rejections, Activation)
  * 2. Billing Due Soon Notices & Overdue Statements
  * 3. Contract Expiration & Lease Renewal Notices (Due Soon: <= 30/60/90 days)
  *
  * Integrates directly with:
+ * - Supabase 'business_applications' table (Authoritative source for applicant/stakeholder emails)
  * - Nodemailer Server / Vite Dev Plugin ('/api/email/send')
  * - In-app Notifications ('public.notifications')
  * - System Audit Logs ('public.audit_logs')
@@ -25,15 +24,297 @@ const MUNICIPAL_OFFICE_TITLE = 'Office of the Market Supervisor'
 const MUNICIPAL_ADDRESS = 'Municipal Public Market Administration, Poblacion, Manticao, Misamis Oriental, 9024'
 
 /**
+ * Authoritative lookup for a stakeholder's real email registered in Supabase 'business_applications'.
+ * Automatically resolves and auto-fills the email of the particular stakeholder receiving notifications.
+ *
+ * Matches by:
+ * 1. userId (business_applications.user_id)
+ * 2. stakeholderId (stakeholders.id -> user_id -> business_applications.email, or application id)
+ * 3. selected_stall_id (business_applications.selected_stall_id)
+ * 4. stallNo (via stalls table match)
+ * 5. Full name (first_name + last_name) or business_name
+ */
+export async function fetchStakeholderEmailFromBusinessApplication({
+  stakeholderId = null,
+  userId = null,
+  stallId = null,
+  stallNo = null,
+  name = null,
+  businessName = null
+} = {}) {
+  try {
+    // 1. If userId is provided, direct lookup on business_applications by user_id
+    if (userId) {
+      const { data: appByUser } = await supabase
+        .from('business_applications')
+        .select('*')
+        .eq('user_id', userId)
+        .order('id', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (appByUser && appByUser.email && appByUser.email.trim()) {
+        const email = appByUser.email.trim()
+        const fName = appByUser.first_name || ''
+        const lName = appByUser.last_name || ''
+        return {
+          email,
+          firstName: fName,
+          lastName: lName,
+          fullName: `${fName} ${lName}`.trim() || appByUser.business_name || '',
+          businessName: appByUser.business_name || '',
+          contact: appByUser.contact || '',
+          userId: appByUser.user_id,
+          stallId: appByUser.selected_stall_id,
+          applicationId: appByUser.id,
+          source: 'Supabase business_applications (user_id match)'
+        }
+      }
+    }
+
+    // 2. If stakeholderId is provided, inspect Supabase stakeholders table to find their user_id or email
+    let discoveredUserId = userId
+    let discoveredName = name
+    let discoveredBusinessName = businessName
+    let discoveredStallId = stallId
+
+    if (stakeholderId) {
+      const queryId = !isNaN(Number(stakeholderId)) ? Number(stakeholderId) : null
+      if (queryId) {
+        const { data: st } = await supabase
+          .from('stakeholders')
+          .select('id, user_id, email, first_name, last_name, business_name, contact, stall_id')
+          .eq('id', queryId)
+          .maybeSingle()
+
+        if (st) {
+          if (st.user_id) discoveredUserId = st.user_id
+          if (!discoveredName) discoveredName = `${st.first_name || ''} ${st.last_name || ''}`.trim()
+          if (!discoveredBusinessName) discoveredBusinessName = st.business_name
+          if (!discoveredStallId && st.stall_id) discoveredStallId = st.stall_id
+
+          // If stakeholder record has a verified email and user_id, verify with business_applications
+          if (st.user_id) {
+            const { data: appByStUser } = await supabase
+              .from('business_applications')
+              .select('*')
+              .eq('user_id', st.user_id)
+              .order('id', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+
+            if (appByStUser && appByStUser.email && appByStUser.email.trim()) {
+              const email = appByStUser.email.trim()
+              const fName = appByStUser.first_name || st.first_name || ''
+              const lName = appByStUser.last_name || st.last_name || ''
+              return {
+                email,
+                firstName: fName,
+                lastName: lName,
+                fullName: `${fName} ${lName}`.trim() || appByStUser.business_name || '',
+                businessName: appByStUser.business_name || st.business_name || '',
+                contact: appByStUser.contact || st.contact || '',
+                userId: appByStUser.user_id,
+                stallId: appByStUser.selected_stall_id || discoveredStallId,
+                applicationId: appByStUser.id,
+                source: 'Supabase business_applications (stakeholder user_id match)'
+              }
+            }
+          }
+
+          // If stakeholder record itself has an email directly in stakeholders table
+          if (st.email && st.email.trim()) {
+            return {
+              email: st.email.trim(),
+              firstName: st.first_name || '',
+              lastName: st.last_name || '',
+              fullName: `${st.first_name || ''} ${st.last_name || ''}`.trim() || st.business_name || '',
+              businessName: st.business_name || '',
+              contact: st.contact || '',
+              userId: st.user_id,
+              stallId: discoveredStallId,
+              stakeholderId: st.id,
+              source: 'Supabase stakeholders record'
+            }
+          }
+        }
+      }
+
+      // Check if stakeholderId matches an application id directly in business_applications
+      if (!isNaN(Number(stakeholderId))) {
+        const { data: appById } = await supabase
+          .from('business_applications')
+          .select('*')
+          .eq('id', Number(stakeholderId))
+          .maybeSingle()
+
+        if (appById && appById.email && appById.email.trim()) {
+          const email = appById.email.trim()
+          const fName = appById.first_name || ''
+          const lName = appById.last_name || ''
+          return {
+            email,
+            firstName: fName,
+            lastName: lName,
+            fullName: `${fName} ${lName}`.trim() || appById.business_name || '',
+            businessName: appById.business_name || '',
+            contact: appById.contact || '',
+            userId: appById.user_id,
+            stallId: appById.selected_stall_id,
+            applicationId: appById.id,
+            source: 'Supabase business_applications (application id match)'
+          }
+        }
+      }
+    }
+
+    // 3. Query business_applications by selected_stall_id
+    const targetStallId = discoveredStallId || stallId
+    if (targetStallId && !isNaN(Number(targetStallId))) {
+      const { data: appByStall } = await supabase
+        .from('business_applications')
+        .select('*')
+        .eq('selected_stall_id', Number(targetStallId))
+        .order('id', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (appByStall && appByStall.email && appByStall.email.trim()) {
+        const email = appByStall.email.trim()
+        const fName = appByStall.first_name || ''
+        const lName = appByStall.last_name || ''
+        return {
+          email,
+          firstName: fName,
+          lastName: lName,
+          fullName: `${fName} ${lName}`.trim() || appByStall.business_name || '',
+          businessName: appByStall.business_name || '',
+          contact: appByStall.contact || '',
+          userId: appByStall.user_id,
+          stallId: appByStall.selected_stall_id,
+          applicationId: appByStall.id,
+          source: 'Supabase business_applications (selected_stall_id match)'
+        }
+      }
+    }
+
+    // 4. Query business_applications by stallNo (resolve stall first)
+    if (stallNo && String(stallNo).trim()) {
+      const cleanStallNo = String(stallNo).trim()
+      const { data: matchedStall } = await supabase
+        .from('stalls')
+        .select('id, stall_no')
+        .ilike('stall_no', cleanStallNo)
+        .limit(1)
+        .maybeSingle()
+
+      if (matchedStall?.id) {
+        const { data: appByStallNo } = await supabase
+          .from('business_applications')
+          .select('*')
+          .eq('selected_stall_id', matchedStall.id)
+          .order('id', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (appByStallNo && appByStallNo.email && appByStallNo.email.trim()) {
+          const email = appByStallNo.email.trim()
+          const fName = appByStallNo.first_name || ''
+          const lName = appByStallNo.last_name || ''
+          return {
+            email,
+            firstName: fName,
+            lastName: lName,
+            fullName: `${fName} ${lName}`.trim() || appByStallNo.business_name || '',
+            businessName: appByStallNo.business_name || '',
+            contact: appByStallNo.contact || '',
+            userId: appByStallNo.user_id,
+            stallId: appByStallNo.selected_stall_id,
+            applicationId: appByStallNo.id,
+            source: 'Supabase business_applications (stall_no match)'
+          }
+        }
+      }
+    }
+
+    // 5. Query business_applications by Person Name (first_name, last_name)
+    const targetName = discoveredName || name
+    if (targetName && targetName.trim() && targetName !== 'Valued Stakeholder' && targetName !== 'Stallholder Lessee') {
+      const clean = targetName.trim()
+      const parts = clean.split(/\s+/)
+      const fName = parts[0]
+      const lName = parts.length > 1 ? parts.slice(1).join(' ') : parts[0]
+
+      let query = supabase
+        .from('business_applications')
+        .select('*')
+        .order('id', { ascending: false })
+        .limit(1)
+
+      if (parts.length > 1) {
+        query = query.ilike('first_name', `%${fName}%`).ilike('last_name', `%${lName}%`)
+      } else {
+        query = query.or(`first_name.ilike.%${fName}%,last_name.ilike.%${fName}%`)
+      }
+
+      const { data: appByName } = await query.maybeSingle()
+      if (appByName && appByName.email && appByName.email.trim()) {
+        const email = appByName.email.trim()
+        return {
+          email,
+          firstName: appByName.first_name || '',
+          lastName: appByName.last_name || '',
+          fullName: `${appByName.first_name || ''} ${appByName.last_name || ''}`.trim() || appByName.business_name || clean,
+          businessName: appByName.business_name || '',
+          contact: appByName.contact || '',
+          userId: appByName.user_id,
+          stallId: appByName.selected_stall_id,
+          applicationId: appByName.id,
+          source: 'Supabase business_applications (person name match)'
+        }
+      }
+    }
+
+    // 6. Query business_applications by Business Name
+    const targetBiz = discoveredBusinessName || businessName
+    if (targetBiz && String(targetBiz).trim()) {
+      const { data: appByBiz } = await supabase
+        .from('business_applications')
+        .select('*')
+        .ilike('business_name', `%${String(targetBiz).trim()}%`)
+        .order('id', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (appByBiz && appByBiz.email && appByBiz.email.trim()) {
+        const email = appByBiz.email.trim()
+        const fName = appByBiz.first_name || ''
+        const lName = appByBiz.last_name || ''
+        return {
+          email,
+          firstName: fName,
+          lastName: lName,
+          fullName: `${fName} ${lName}`.trim() || appByBiz.business_name || '',
+          businessName: appByBiz.business_name || '',
+          contact: appByBiz.contact || '',
+          userId: appByBiz.user_id,
+          stallId: appByBiz.selected_stall_id,
+          applicationId: appByBiz.id,
+          source: 'Supabase business_applications (business_name match)'
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[emailNotificationService] Error querying Supabase business_applications:', err)
+  }
+
+  return null
+}
+
+/**
  * Resolve the email address and contact details attached to a particular stakeholder.
- * Robustly checks:
- * 1. Caller-passed object fields
- * 2. Supabase stakeholders table
- * 3. Supabase business_applications table
- * 4. Supabase profiles table
- * 5. Browser localStorage cache
- * 6. Sample applicants & contracts registry
- * 7. Name-based fallback email generation
+ * Authoritatively retrieves the authentic email from Supabase business_applications.
+ * Never uses mock data or synthetic fallback email addresses.
  */
 export async function resolveStakeholderContact(stakeholderId, userId = null) {
   let email = ''
@@ -43,6 +324,7 @@ export async function resolveStakeholderContact(stakeholderId, userId = null) {
   let businessName = ''
   let contact = ''
   let stallNo = ''
+  let stallId = null
   let resolvedUserId = userId
   let resolvedStakeholderId = stakeholderId
 
@@ -55,62 +337,71 @@ export async function resolveStakeholderContact(stakeholderId, userId = null) {
     businessName = stakeholderId.businessName || stakeholderId.business_name || stakeholderId.business || ''
     contact = stakeholderId.contact || stakeholderId.phone || ''
     stallNo = stakeholderId.stallNo || stakeholderId.stall_no || stakeholderId.stallRequested || stakeholderId.selectedStall?.stall_no || ''
+    stallId = stakeholderId.stallId || stakeholderId.selected_stall_id || stakeholderId.selectedStallId || stakeholderId.selectedStall?.id || null
     resolvedUserId = resolvedUserId || stakeholderId.userId || stakeholderId.user_id
     resolvedStakeholderId = stakeholderId.id || stakeholderId.stakeholderId || stakeholderId.ref
   }
 
-  // 1. Check stakeholders table in Supabase
-  if (resolvedStakeholderId && !email) {
-    try {
-      const queryId = !isNaN(Number(resolvedStakeholderId)) ? Number(resolvedStakeholderId) : resolvedStakeholderId
-      const { data: st } = await supabase
-        .from('stakeholders')
-        .select('*, stall:stalls(*), occupant:occupants(*, stall:stalls(*))')
-        .eq('id', queryId)
-        .maybeSingle()
+  // 1. Primary Source: Authoritative lookup in Supabase 'business_applications' table
+  if (!email) {
+    const appLookup = await fetchStakeholderEmailFromBusinessApplication({
+      stakeholderId: resolvedStakeholderId,
+      userId: resolvedUserId,
+      stallId,
+      stallNo,
+      name: fullName,
+      businessName
+    })
 
-      if (st) {
-        if (!email) email = (st.email || st.email_address || st.mail || st.occupant?.email || '').trim()
-        if (!firstName) firstName = st.first_name || st.firstName || ''
-        if (!lastName) lastName = st.last_name || st.lastName || ''
-        if (!fullName) fullName = `${firstName} ${lastName}`.trim() || st.name || st.business_name || ''
-        if (!businessName) businessName = st.business_name || st.businessName || ''
-        if (!contact) contact = st.contact || st.phone || ''
-        resolvedUserId = resolvedUserId || st.user_id
-        if (!stallNo) stallNo = st.stall?.stall_no || st.stall?.number || st.occupant?.stall?.stall_no || ''
+    if (appLookup && appLookup.email) {
+      email = appLookup.email
+      if (!firstName) firstName = appLookup.firstName
+      if (!lastName) lastName = appLookup.lastName
+      if (!fullName) fullName = appLookup.fullName
+      if (!businessName) businessName = appLookup.businessName
+      if (!contact) contact = appLookup.contact
+      if (!resolvedUserId) resolvedUserId = appLookup.userId
+      console.log(`[emailNotificationService] Auto-filled authentic stakeholder email from Supabase: "${email}" (${appLookup.source})`)
+    }
+  }
+
+  // 2. Check stakeholders table in Supabase if still not resolved
+  if (!email && resolvedStakeholderId) {
+    try {
+      const queryId = !isNaN(Number(resolvedStakeholderId)) ? Number(resolvedStakeholderId) : null
+      if (queryId) {
+        const { data: st } = await supabase
+          .from('stakeholders')
+          .select('*, stall:stalls(*), occupant:occupants(*, stall:stalls(*))')
+          .eq('id', queryId)
+          .maybeSingle()
+
+        if (st) {
+          if (!email) email = (st.email || st.email_address || st.mail || st.occupant?.email || '').trim()
+          if (!firstName) firstName = st.first_name || st.firstName || ''
+          if (!lastName) lastName = st.last_name || st.lastName || ''
+          if (!fullName) fullName = `${firstName} ${lastName}`.trim() || st.name || st.business_name || ''
+          if (!businessName) businessName = st.business_name || st.businessName || ''
+          if (!contact) contact = st.contact || st.phone || ''
+          resolvedUserId = resolvedUserId || st.user_id
+          if (!stallNo) stallNo = st.stall?.stall_no || st.stall?.number || st.occupant?.stall?.stall_no || ''
+
+          // If stakeholder record has a user_id, perform authoritative query on business_applications
+          if (!email && st.user_id) {
+            const userApp = await fetchStakeholderEmailFromBusinessApplication({ userId: st.user_id })
+            if (userApp?.email) {
+              email = userApp.email
+              if (!fullName || fullName === 'Valued Stakeholder') fullName = userApp.fullName
+            }
+          }
+        }
       }
     } catch (err) {
       console.warn('[emailNotificationService] Error querying stakeholder:', err)
     }
   }
 
-  // 2. Check business_applications in Supabase
-  if (!email && (resolvedUserId || resolvedStakeholderId)) {
-    try {
-      let query = supabase.from('business_applications').select('*').limit(1)
-      if (resolvedUserId) {
-        query = query.eq('user_id', resolvedUserId)
-      } else if (!isNaN(Number(resolvedStakeholderId))) {
-        query = query.or(`id.eq.${Number(resolvedStakeholderId)},stakeholder_id.eq.${Number(resolvedStakeholderId)}`)
-      } else {
-        query = query.eq('id', resolvedStakeholderId)
-      }
-      const { data: appData } = await query.maybeSingle()
-
-      if (appData) {
-        if (!email) email = (appData.email || appData.email_address || '').trim()
-        if (!firstName) firstName = appData.first_name || appData.firstName || ''
-        if (!lastName) lastName = appData.last_name || appData.lastName || ''
-        if (!fullName) fullName = `${firstName} ${lastName}`.trim() || appData.business_name || ''
-        if (!businessName) businessName = appData.business_name || ''
-        if (!contact) contact = appData.contact || appData.phone || ''
-      }
-    } catch (err) {
-      console.warn('[emailNotificationService] Error querying business_applications:', err)
-    }
-  }
-
-  // 3. Check profiles table in Supabase
+  // 3. Check profiles table in Supabase (authenticated user profile)
   if (!email && (resolvedUserId || resolvedStakeholderId)) {
     try {
       const pId = resolvedUserId || resolvedStakeholderId
@@ -129,10 +420,10 @@ export async function resolveStakeholderContact(stakeholderId, userId = null) {
     }
   }
 
-  // 4. Check browser localStorage cache
+  // 4. Check browser localStorage cache (only for authentic business applications cached locally)
   if (!email && typeof window !== 'undefined' && window.localStorage) {
     try {
-      const storageKeys = ['stakeholders', 'applicants', 'business_applications', 'ms_applications', 'contracts']
+      const storageKeys = ['business_applications', 'ms_applications', 'stakeholders']
       for (const key of storageKeys) {
         const raw = window.localStorage.getItem(key)
         if (raw) {
@@ -142,10 +433,10 @@ export async function resolveStakeholderContact(stakeholderId, userId = null) {
               String(item.id) === String(resolvedStakeholderId) ||
               String(item.stakeholderId) === String(resolvedStakeholderId) ||
               String(item.userId || item.user_id) === String(resolvedUserId) ||
-              (item.name && fullName && item.name.toLowerCase() === fullName.toLowerCase())
+              (item.email && item.name && fullName && item.name.toLowerCase() === fullName.toLowerCase())
             )
-            if (found) {
-              if (!email) email = (found.email || found.email_address || found.applicantEmail || found.stakeholderEmail || '').trim()
+            if (found && found.email) {
+              email = (found.email || found.email_address || '').trim()
               if (!fullName || fullName === 'Valued Stakeholder') {
                 fullName = found.name || `${found.firstName || ''} ${found.lastName || ''}`.trim() || found.businessName || ''
               }
@@ -159,39 +450,7 @@ export async function resolveStakeholderContact(stakeholderId, userId = null) {
     } catch (_) {}
   }
 
-  // 5. Check sample applicants & contracts registry
-  if (!email && Array.isArray(sampleApplicants)) {
-    const foundApp = sampleApplicants.find(a =>
-      String(a.id) === String(resolvedStakeholderId) ||
-      (a.name && fullName && a.name.toLowerCase() === fullName.toLowerCase())
-    )
-    if (foundApp) {
-      if (!email) email = (foundApp.email || '').trim()
-      if (!fullName || fullName === 'Valued Stakeholder') fullName = foundApp.name
-      if (!contact) contact = foundApp.contact
-      if (!stallNo) stallNo = foundApp.stallRequested
-      if (!businessName) businessName = foundApp.business
-    }
-  }
-
-  if (!email && Array.isArray(sampleContracts)) {
-    const foundCon = sampleContracts.find(c =>
-      String(c.id) === String(resolvedStakeholderId) ||
-      String(c.stakeholderId) === String(resolvedStakeholderId) ||
-      c.ref === resolvedStakeholderId
-    )
-    if (foundCon) {
-      if (!email) email = (foundCon.email || '').trim()
-      if (!fullName || fullName === 'Valued Stakeholder') fullName = foundCon.stakeholderName
-    }
-  }
-
-  // 6. Final safety: If a name is available (e.g. "Maria Santos") but email is missing in mock data
-  if (!email && fullName && fullName !== 'Valued Stakeholder') {
-    const cleanHandle = fullName.toLowerCase().replace(/[^a-z0-9]/g, '.').replace(/\.+/g, '.')
-    email = `${cleanHandle}@gmail.com`
-    console.log(`[emailNotificationService] Auto-resolved stakeholder fallback email for "${fullName}": ${email}`)
-  }
+  // STRICT RULE: No mock data! No synthetic placeholder/fallback email generation!
 
   return {
     stakeholderId: resolvedStakeholderId,
@@ -1011,6 +1270,7 @@ export async function sendBulkContractDueNotifications(contractsList) {
 
 export default {
   resolveStakeholderContact,
+  fetchStakeholderEmailFromBusinessApplication,
   buildApplicationProgressEmail,
   buildBillingDueEmail,
   buildContractDueEmail,

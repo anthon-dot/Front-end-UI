@@ -2,7 +2,6 @@ const applicants = [
   {
     id: 'A001',
     name: 'Maria Santos',
-    email: 'maria.santos@gmail.com',
     business: 'Santos Pastries',
     appliedOn: '2025-11-10',
     status: 'PENDING',
@@ -13,7 +12,6 @@ const applicants = [
   {
     id: 'A002',
     name: 'Juan Dela Cruz',
-    email: 'juan.delacruz@gmail.com',
     business: 'Dela Cruz Fish',
     appliedOn: '2025-10-22',
     status: 'APPROVED',
@@ -24,7 +22,6 @@ const applicants = [
   {
     id: 'A003',
     name: 'Liza Mercado',
-    email: 'liza.mercado@gmail.com',
     business: 'Mercado Textiles',
     appliedOn: '2025-12-01',
     status: 'REJECTED',
@@ -35,7 +32,6 @@ const applicants = [
   {
     id: 'A004',
     name: 'Pedro Reyes',
-    email: 'pedro.reyes@gmail.com',
     business: 'Reyes Produce',
     appliedOn: '2025-12-27',
     status: 'APPROVED',
