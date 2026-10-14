@@ -2,14 +2,18 @@ const contracts = [
   {
     id: 'C-1001',
     stakeholderId: 'A001',
+    stakeholderName: 'Maria Santos',
+    email: 'maria.santos@gmail.com',
     ref: 'CONTRACT-A001-2025',
     start: '2025-12-01',
     end: '2026-11-30',
-    contractUrl: '' // optional: URL or data URL to the signed contract PDF
+    contractUrl: ''
   },
   {
     id: 'C-1002',
     stakeholderId: 'A002',
+    stakeholderName: 'Juan Dela Cruz',
+    email: 'juan.delacruz@gmail.com',
     ref: 'CONTRACT-A002-2025',
     start: '2025-10-25',
     end: '2026-10-24',
@@ -18,6 +22,8 @@ const contracts = [
   {
     id: 'C-1003',
     stakeholderId: 'A004',
+    stakeholderName: 'Pedro Reyes',
+    email: 'pedro.reyes@gmail.com',
     ref: 'CONTRACT-A004-2025',
     start: '2025-12-27',
     end: '2026-12-26',

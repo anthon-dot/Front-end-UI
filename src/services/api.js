@@ -1262,6 +1262,8 @@ const api = {
           const { sendApplicationProgressNotification } = await import('./emailNotificationService');
           await sendApplicationProgressNotification({
             stakeholderId: Number(stakeholderId),
+            userId: updated?.user_id,
+            email: updated?.email,
             stage: 'MARKET_SUPERVISOR',
             status: 'APPROVED',
             title: 'Market Supervisor Approval Granted',
