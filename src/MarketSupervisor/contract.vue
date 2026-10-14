@@ -732,6 +732,7 @@ import api from '../services/api'
 import sampleContracts from '../data/contracts.js'
 import MarketSupervisorMenu from '../components/MarketSupervisorMenu.vue'
 import SearchField from '../components/SearchField.vue'
+import { systemMessage } from '../utils/systemMessage'
 
 const route = useRoute()
 const router = useRouter()
@@ -1195,19 +1196,19 @@ function closeEditModal() {
 
 async function saveEditContract() {
 	if (!editForm.value.contractNo || !editForm.value.contractNo.trim()) {
-		alert('Please enter a valid contract reference number.')
+		systemMessage.warn('Please enter a valid contract reference number.', 'Validation Error')
 		return
 	}
 	if (!editForm.value.startDate || !editForm.value.endDate) {
-		alert('Please select both contract start and end dates.')
+		systemMessage.warn('Please select both contract start and end dates.', 'Validation Error')
 		return
 	}
 	if (new Date(editForm.value.endDate) <= new Date(editForm.value.startDate)) {
-		alert('Contract End Date must be after Start Date.')
+		systemMessage.warn('Contract End Date must be after Start Date.', 'Validation Error')
 		return
 	}
 	if (isNaN(editForm.value.monthlyRent) || Number(editForm.value.monthlyRent) < 0) {
-		alert('Monthly rent must be a valid non-negative amount.')
+		systemMessage.warn('Monthly rent must be a valid non-negative amount.', 'Validation Error')
 		return
 	}
 
@@ -1243,10 +1244,10 @@ async function saveEditContract() {
 
 		saveContractsToStorage()
 		closeEditModal()
-		alert(`Contract ${payload.contractNo} updated successfully!`)
+		systemMessage.success(`Contract ${payload.contractNo} updated successfully!`, 'Contract Saved')
 	} catch (err) {
 		console.error(err)
-		alert(`Failed to update contract: ${err.message || err}`)
+		systemMessage.error(`Failed to update contract: ${err.message || err}`, 'Update Failed')
 	} finally {
 		isSavingEdit.value = false
 	}
@@ -1254,7 +1255,13 @@ async function saveEditContract() {
 
 async function terminateContract(contract) {
 	const refName = contract.contractNo || contract.ref || 'this contract'
-	if (!confirm(`Are you sure you want to TERMINATE ${refName}? This will mark the contract as inactive.`)) {
+	const confirmed = await systemMessage.confirm(`Are you sure you want to TERMINATE ${refName}? This will mark the contract as inactive.`, {
+		title: 'Terminate Contract',
+		isDanger: true,
+		acceptLabel: 'Terminate Contract',
+		rejectLabel: 'Cancel'
+	})
+	if (!confirmed) {
 		return
 	}
 
@@ -1268,12 +1275,18 @@ async function terminateContract(contract) {
 
 	contract.status = 'TERMINATED'
 	saveContractsToStorage()
-	alert(`${refName} has been marked as TERMINATED.`)
+	systemMessage.warn(`${refName} has been marked as TERMINATED.`, 'Contract Terminated')
 }
 
 async function archiveContract(contract) {
 	const refName = contract.contractNo || contract.ref || 'this contract'
-	if (!confirm(`Are you sure you want to ARCHIVE ${refName}? This contract will be moved to Archive Records.`)) {
+	const confirmed = await systemMessage.confirm(`Are you sure you want to ARCHIVE ${refName}? This contract will be moved to Archive Records.`, {
+		title: 'Archive Contract',
+		isDanger: true,
+		acceptLabel: 'Archive Contract',
+		rejectLabel: 'Cancel'
+	})
+	if (!confirmed) {
 		return
 	}
 
@@ -1288,7 +1301,7 @@ async function archiveContract(contract) {
 	contract.status = 'ARCHIVED'
 	contract.isArchived = true
 	saveContractsToStorage()
-	alert(`${refName} has been archived successfully! You can view or restore it in Archive Records.`)
+	systemMessage.success(`${refName} has been archived successfully! You can view or restore it in Archive Records.`, 'Contract Archived')
 }
 
 async function restoreContract(contract) {
@@ -1304,7 +1317,7 @@ async function restoreContract(contract) {
 	contract.status = 'ACTIVE'
 	contract.isArchived = false
 	saveContractsToStorage()
-	alert(`${refName} has been restored to active contracts!`)
+	systemMessage.success(`${refName} has been restored to active contracts!`, 'Contract Restored')
 }
 
 function printContract() {

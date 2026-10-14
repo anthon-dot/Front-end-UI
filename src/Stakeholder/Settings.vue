@@ -56,6 +56,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import StakeholderMenu from '../components/StakeholderMenu.vue'
+import { systemMessage } from '../utils/systemMessage'
 
 const route = useRoute()
 const stakeholderId = route.query.id || route.params.id || 'default'
@@ -68,21 +69,21 @@ const credentials = ref({ username: '', currentPassword: '', newPassword: '', co
 // settings removed (Preferences card removed)
 
 function loadProfile(){ try{ const v = localStorage.getItem(profileKey); if(v) profile.value = JSON.parse(v) }catch(e){} }
-function saveProfile(){ try{ localStorage.setItem(profileKey, JSON.stringify(profile.value)); alert('Profile saved') }catch(e){} }
+function saveProfile(){ try{ localStorage.setItem(profileKey, JSON.stringify(profile.value)); systemMessage.success('Profile settings updated successfully.', 'Profile Saved') }catch(e){} }
 
 function loadCredentials(){ try{ const v = localStorage.getItem(credentialsKey); if(v){ const parsed = JSON.parse(v); credentials.value.username = parsed.username || '' } }catch(e){} }
 function saveCredentials(){
   try{
     const stored = (()=>{ try{ const s = localStorage.getItem(credentialsKey); return s ? JSON.parse(s) : {} }catch(e){} return {} })()
     // If a current password exists, verify it
-    if (stored.password && credentials.value.currentPassword !== stored.password){ alert('Current password is incorrect'); return }
-    if (credentials.value.newPassword && credentials.value.newPassword !== credentials.value.confirmPassword){ alert('New passwords do not match'); return }
+    if (stored.password && credentials.value.currentPassword !== stored.password){ systemMessage.error('Current password is incorrect', 'Authentication Failed'); return }
+    if (credentials.value.newPassword && credentials.value.newPassword !== credentials.value.confirmPassword){ systemMessage.warn('New passwords do not match', 'Password Mismatch'); return }
     const toSave = { username: credentials.value.username, password: credentials.value.newPassword || stored.password || '' }
     localStorage.setItem(credentialsKey, JSON.stringify(toSave))
     credentials.value.currentPassword = ''
     credentials.value.newPassword = ''
     credentials.value.confirmPassword = ''
-    alert('Credentials saved')
+    systemMessage.success('Security credentials saved successfully.', 'Credentials Saved')
   }catch(e){}
 }
 

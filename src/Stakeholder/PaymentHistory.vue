@@ -42,6 +42,7 @@
 import { ref, onMounted, computed } from 'vue'
 import StakeholderMenu from '../components/StakeholderMenu.vue'
 import SearchField from '../components/SearchField.vue'
+import { systemMessage } from '../utils/systemMessage'
 
 const payments = ref([])
 const q = ref('')
@@ -59,9 +60,9 @@ onMounted(()=>load())
 
 function isUrl(v){ if(!v) return false; try{ const s = String(v).trim(); return /^https?:\/\//i.test(s) || /^data:/i.test(s) }catch(e){return false} }
 
-function openReceipt(p){ const url = p.receiptUrl || p.receipt; if(!url) return; if(isUrl(url)){ window.open(url,'_blank') } else { alert('Receipt: ' + url) } }
+function openReceipt(p){ const url = p.receiptUrl || p.receipt; if(!url) return; if(isUrl(url)){ window.open(url,'_blank') } else { systemMessage.info(url, 'Receipt Reference') } }
 
-function copyReceipt(p){ const val = p.receipt || p.receiptUrl; if(!val) return; try{ navigator.clipboard.writeText(val); alert('Receipt copied to clipboard') }catch(e){ alert('Receipt: ' + val) } }
+function copyReceipt(p){ const val = p.receipt || p.receiptUrl; if(!val) return; try{ navigator.clipboard.writeText(val); systemMessage.success('Receipt copied to clipboard', 'Copied') }catch(e){ systemMessage.info(val, 'Receipt Reference') } }
 </script>
 
 <style scoped src="../styles/Stakeholder/PaymentHistory.css"></style>

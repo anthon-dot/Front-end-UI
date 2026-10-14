@@ -284,6 +284,7 @@ import { supabase } from '../config/supabase'
 import { useAuthStore } from '../stores/auth'
 import { useStakeholderStore } from '../stores/stakeholder'
 import { getStakeholderByUserId } from '../services/applicationService'
+import { systemMessage } from '../utils/systemMessage'
 
 const route = useRoute()
 const router = useRouter()
@@ -479,7 +480,11 @@ async function submitApplication() {
     }
 
     stakeholderStore.clearCache()
-    alert('Application submitted successfully!')
+    await systemMessage.alert('Your application has been submitted successfully for verification.', {
+      title: 'Application Submitted',
+      severity: 'success',
+      acceptLabel: 'View Progress'
+    })
     router.push('/application-progress')
 
   } catch (error) {

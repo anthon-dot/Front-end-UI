@@ -531,14 +531,26 @@ select:focus,
   z-index: 99999 !important;
 }
 
+@media (max-width: 640px) {
+  .p-toast {
+    top: max(12px, env(safe-area-inset-top, 12px)) !important;
+    left: 0.75rem !important;
+    right: 0.75rem !important;
+    width: auto !important;
+    max-width: calc(100vw - 1.5rem) !important;
+  }
+}
+
 .p-toast .p-toast-message {
   margin-bottom: 12px !important;
-  border-radius: 14px !important;
+  border-radius: 16px !important;
   box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.08), 0 4px 10px -2px rgba(0, 0, 0, 0.04) !important;
   border: 1px solid transparent !important;
   border-left-width: 6px !important;
   overflow: hidden !important;
   transition: all 0.25s ease-in-out !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
 }
 
 .p-toast .p-toast-message-content {
@@ -643,6 +655,41 @@ select:focus,
 .p-toast .p-toast-message-error .p-toast-detail {
   color: #991b1b !important;
 }
+
+/* Dark mode toast enhancements */
+.app-dark .p-toast .p-toast-message {
+  box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.5) !important;
+}
+.app-dark .p-toast .p-toast-message-success {
+  background-color: #064e3b !important;
+  border-color: #065f46 !important;
+  border-left-color: #10b981 !important;
+}
+.app-dark .p-toast .p-toast-message-success .p-toast-message-icon { color: #34d399 !important; }
+.app-dark .p-toast .p-toast-message-success .p-toast-summary { color: #a7f3d0 !important; }
+.app-dark .p-toast .p-toast-message-success .p-toast-detail { color: #d1fae5 !important; }
+
+.app-dark .p-toast .p-toast-message-warn,
+.app-dark .p-toast .p-toast-message-info {
+  background-color: #451a03 !important;
+  border-color: #78350f !important;
+  border-left-color: #f59e0b !important;
+}
+.app-dark .p-toast .p-toast-message-warn .p-toast-message-icon,
+.app-dark .p-toast .p-toast-message-info .p-toast-message-icon { color: #fbbf24 !important; }
+.app-dark .p-toast .p-toast-message-warn .p-toast-summary,
+.app-dark .p-toast .p-toast-message-info .p-toast-summary { color: #fde68a !important; }
+.app-dark .p-toast .p-toast-message-warn .p-toast-detail,
+.app-dark .p-toast .p-toast-message-info .p-toast-detail { color: #fef3c7 !important; }
+
+.app-dark .p-toast .p-toast-message-error {
+  background-color: #450a0a !important;
+  border-color: #7f1d1d !important;
+  border-left-color: #ef4444 !important;
+}
+.app-dark .p-toast .p-toast-message-error .p-toast-message-icon { color: #f87171 !important; }
+.app-dark .p-toast .p-toast-message-error .p-toast-summary { color: #fecaca !important; }
+.app-dark .p-toast .p-toast-message-error .p-toast-detail { color: #fee2e2 !important; }
 
 
 /* ==========================================================================
@@ -830,8 +877,39 @@ select:focus,
 }
 
 /* ==========================================================================
-   Responsive UI Utilities & Viewport Safeguards
+   Responsive UI Utilities & Viewport Safeguards (iOS & Android Compatible)
    ========================================================================== */
+
+:root {
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-left: env(safe-area-inset-left, 0px);
+  --safe-area-right: env(safe-area-inset-right, 0px);
+}
+
+/* Prevent unwanted mobile text scaling and delay on taps */
+html,
+body {
+  -webkit-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 100dvh;
+}
+
+/* Prevent iOS Safari from auto-zooming on form fields when font-size < 16px */
+@media screen and (max-width: 768px) {
+  input,
+  select,
+  textarea,
+  .p-inputtext,
+  .p-select,
+  .p-dropdown,
+  .p-inputnumber-input,
+  .search-control {
+    font-size: 16px !important;
+  }
+}
 
 /* Fluid containers */
 .container-responsive {
@@ -839,16 +917,20 @@ select:focus,
   max-width: 1200px;
   margin-left: auto;
   margin-right: auto;
-  padding-left: 1rem;
-  padding-right: 1rem;
+  padding-left: max(1rem, var(--safe-area-left));
+  padding-right: max(1rem, var(--safe-area-right));
   box-sizing: border-box;
 }
 
-/* Table horizontal scroll container */
-.table-responsive {
-  width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+/* Table horizontal scroll container & native touch swipe */
+.table-responsive,
+.p-datatable,
+.p-datatable-wrapper,
+.p-datatable-table-container {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
 }
 
 /* Responsive grid layout */
@@ -864,7 +946,7 @@ img, video, canvas, svg {
   height: auto;
 }
 
-/* Mobile responsive media queries */
+/* Mobile & tablet responsive media queries */
 @media (max-width: 1023px) {
   :root {
     --header-height: 60px;
@@ -872,28 +954,51 @@ img, video, canvas, svg {
   }
 
   .container-responsive {
-    padding-left: 0.75rem;
-    padding-right: 0.75rem;
+    padding-left: max(0.75rem, var(--safe-area-left));
+    padding-right: max(0.75rem, var(--safe-area-right));
   }
 
   /* PrimeVue Datatable & Paginator mobile adjustments */
   .p-datatable .p-datatable-thead > tr > th,
   .p-datatable .p-datatable-tbody > tr > td {
-    padding: 0.5rem 0.75rem;
-    font-size: 0.875rem;
+    padding: 0.6rem 0.75rem;
+    font-size: 0.85rem;
   }
 
   .p-paginator {
     flex-wrap: wrap;
     gap: 0.25rem;
     padding: 0.5rem;
+    justify-content: center;
   }
 
-  /* PrimeVue Dialog on mobile */
+  /* Touch-friendly buttons on mobile */
+  .p-button,
+  .btn,
+  .btn-primary,
+  .btn-secondary {
+    touch-action: manipulation;
+    min-height: 42px;
+  }
+
+  /* PrimeVue Dialog on mobile and tablets */
   .p-dialog {
-    width: 95vw !important;
-    max-width: 95vw !important;
-    margin: 0.5rem;
+    width: min(calc(100vw - 1.25rem), 560px) !important;
+    max-width: calc(100vw - 1.25rem) !important;
+    max-height: calc(90dvh - var(--safe-area-bottom)) !important;
+    margin: auto 0.625rem !important;
+    border-radius: 20px !important;
+    overflow: hidden !important;
+  }
+
+  .p-dialog .p-dialog-content {
+    max-height: calc(82dvh - 120px) !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .p-dialog .p-dialog-footer {
+    padding-bottom: max(1rem, var(--safe-area-bottom)) !important;
   }
 }
 
@@ -904,7 +1009,7 @@ img, video, canvas, svg {
 
 @media (max-width: 480px) {
   .p-button {
-    font-size: 0.875rem;
+    font-size: 0.85rem;
   }
 }
 

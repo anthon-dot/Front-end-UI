@@ -237,6 +237,7 @@ import MarketSupervisorMenu from '../components/MarketSupervisorMenu.vue'
 import SearchField from '../components/SearchField.vue'
 import sampleApplicants from '../data/applicants.js'
 import api from '../services/api'
+import { systemMessage } from '../utils/systemMessage'
 
 const STORAGE_KEY = 'ms_applications'
 const STALLS_KEY = 'ms_stalls'
@@ -420,7 +421,7 @@ function restore(app) {
 	if (applications.value[idx].archivedOn) delete applications.value[idx].archivedOn
 	saveApplications()
 	if (selected.value && selected.value.id === app.id) showModal.value = false
-	alert('Record restored: ' + (applications.value[idx].name || app.id))
+	systemMessage.success('Record restored: ' + (applications.value[idx].name || app.id), 'Record Restored')
 }
 
 async function restoreStall(st) {
@@ -437,7 +438,7 @@ async function restoreStall(st) {
 		stalls.value.splice(idx, 1)
 	}
 	saveStalls(stalls.value)
-	alert('Stall restored to active registry: ' + st.number)
+	systemMessage.success('Stall restored to active registry: ' + st.number, 'Stall Restored')
 }
 
 async function restoreContract(c) {
@@ -465,7 +466,7 @@ async function restoreContract(c) {
 			}
 		}
 	} catch (_) {}
-	alert('Contract restored to active contracts: ' + (c.contractNo || c.ref))
+	systemMessage.success('Contract restored to active contracts: ' + (c.contractNo || c.ref), 'Contract Restored')
 }
 
 onMounted(() => {

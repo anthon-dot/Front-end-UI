@@ -829,6 +829,7 @@ import {
   updateReport,
   deleteReport
 } from '../services/reportService'
+import { systemMessage } from '../utils/systemMessage'
 
 // ==========================================
 // STATE
@@ -1334,9 +1335,9 @@ function copyNoticeText() {
   const el = document.getElementById('notice-document')
   if (el) {
     navigator.clipboard.writeText(el.innerText).then(() => {
-      alert('Notice text copied to clipboard successfully.')
+      systemMessage.success('Notice text copied to clipboard successfully.', 'Copied')
     }).catch(() => {
-      alert('Unable to copy to clipboard.')
+      systemMessage.error('Unable to copy to clipboard.', 'Clipboard Error')
     })
   }
 }
@@ -1391,14 +1392,16 @@ async function saveReport(payload) {
   try {
     if (selectedReport.value?.id) {
       await updateReport(selectedReport.value.id, payload)
+      systemMessage.success('Report updated successfully.', 'Report Saved')
     } else {
       await createReport(payload)
+      systemMessage.success('Report created successfully.', 'Report Created')
     }
     closeForm()
     await loadReports()
   } catch (error) {
     console.error(error)
-    alert(error.response?.data?.message || 'Failed to save report')
+    systemMessage.error(error.response?.data?.message || 'Failed to save report', 'Operation Failed')
   }
 }
 
@@ -1409,11 +1412,12 @@ function confirmDelete(report) {
 async function removeReport() {
   try {
     await deleteReport(deleteTarget.value.id)
+    systemMessage.success('Report deleted successfully.', 'Report Deleted')
     deleteTarget.value = null
     await loadReports()
   } catch (error) {
     console.error(error)
-    alert(error.response?.data?.message || 'Failed to delete report')
+    systemMessage.error(error.response?.data?.message || 'Failed to delete report', 'Delete Failed')
   }
 }
 

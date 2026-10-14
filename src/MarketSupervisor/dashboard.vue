@@ -564,6 +564,7 @@ import { AUTH_TOKEN_KEY } from '../stores/auth'
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import Tag from 'primevue/tag'
+import { systemMessage } from '../utils/systemMessage'
 
 const confirm = useConfirm()
 
@@ -810,11 +811,11 @@ async function approveMarketSupervisor(app) {
           }
         }
 
-        alert(`Application for ${applicantName} successfully approved!`)
+        systemMessage.success(`Application for ${applicantName} successfully approved!`, 'Application Approved')
         await refreshData()
       } catch (error) {
         console.error('[Dashboard] Approval failed:', error)
-        alert(error.message || 'Approval request failed')
+        systemMessage.error(error.message || 'Approval request failed', 'Approval Failed')
       } finally {
         isApproving.value = false
       }

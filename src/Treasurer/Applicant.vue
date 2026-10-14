@@ -294,6 +294,7 @@ import Tag from 'primevue/tag'
 import InputText from 'primevue/inputtext'
 import { useToast } from "primevue/usetoast"
 import { useConfirm } from 'primevue/useconfirm'
+import { systemMessage } from '../utils/systemMessage'
 
 const toast = useToast()
 const confirm = useConfirm()
@@ -640,9 +641,15 @@ async function approveApplicant(item) {
 }
 
 async function rejectApplicant(item) {
-  const reason = prompt('Reject this applicant? Enter rejection reason:')
+  const reason = await systemMessage.prompt(`Please provide a reason for rejecting the application of ${item.firstName || ''} ${item.lastName || ''}.`, {
+    title: 'Reject Applicant',
+    placeholder: 'Enter rejection reason...',
+    isDanger: true,
+    acceptLabel: 'Reject Application',
+    rejectLabel: 'Cancel'
+  })
 
-  if (reason === null) return
+  if (!reason) return
 
   approvingId.value = item.id
 

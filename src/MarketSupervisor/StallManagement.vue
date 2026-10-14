@@ -809,6 +809,7 @@ import {
   archiveStall,
   restoreStall
 } from '../services/stallService'
+import { systemMessage } from '../utils/systemMessage'
 
 const router = useRouter()
 
@@ -1105,7 +1106,7 @@ function renderMarkers() {
 
 function focusStallOnMap(stall) {
   if (stall.lat == null || stall.lng == null) {
-    alert(`Stall ${stall.number} does not have GPS coordinates assigned.`)
+    systemMessage.info(`Stall ${stall.number} does not have GPS coordinates assigned.`, 'No GPS Assigned')
     return
   }
 
@@ -1187,10 +1188,10 @@ function startLocationPickerForStall(stall) {
       await updateStall(stall.id, { latitude: coords.lat, longitude: coords.lng })
       await loadStalls()
       renderMarkers()
-      alert(`GPS location for Stall ${stall.number} saved successfully!`)
+      systemMessage.success(`GPS location for Stall ${stall.number} saved successfully!`, 'Location Updated')
     } catch (err) {
       console.error(err)
-      alert(err.message || 'Failed to update stall location')
+      systemMessage.error(err.message || 'Failed to update stall location', 'Update Failed')
     }
   }
 
@@ -1231,10 +1232,10 @@ function startLocationPickerForFormStall() {
       await updateStall(form.value.id, { latitude: coords.lat, longitude: coords.lng })
       await loadStalls()
       renderMarkers()
-      alert(`Stall ${form.value.number} relocated successfully!`)
+      systemMessage.success(`Stall ${form.value.number} relocated successfully!`, 'Stall Relocated')
     } catch (err) {
       console.error(err)
-      alert(err.message || 'Failed to relocate stall')
+      systemMessage.error(err.message || 'Failed to relocate stall', 'Relocation Failed')
     }
   }
 
@@ -1296,7 +1297,7 @@ function openEditFromDetails() {
 async function submitStallForm() {
   const num = String(stallForm.value.number || '').trim()
   if (!num) {
-    alert('Please enter a stall number.')
+    systemMessage.warn('Please enter a stall number.', 'Validation Error')
     return
   }
 
@@ -1305,7 +1306,7 @@ async function submitStallForm() {
     (s) => String(s.number).trim().toLowerCase() === num.toLowerCase() && s.id !== stallForm.value.id
   )
   if (duplicate) {
-    alert(`A stall with number "${num}" already exists. Please choose a unique stall number.`)
+    systemMessage.warn(`A stall with number "${num}" already exists. Please choose a unique stall number.`, 'Duplicate Stall')
     return
   }
 
@@ -1324,10 +1325,10 @@ async function submitStallForm() {
 
     if (isEditingStall.value && stallForm.value.id) {
       await updateStall(stallForm.value.id, payload)
-      alert(`Stall #${num} updated successfully!`)
+      systemMessage.success(`Stall #${num} updated successfully!`, 'Stall Updated')
     } else {
       await createStall(payload)
-      alert(`Stall #${num} created successfully!`)
+      systemMessage.success(`Stall #${num} created successfully!`, 'Stall Created')
     }
 
     showCreateEditModal.value = false
@@ -1335,7 +1336,7 @@ async function submitStallForm() {
     renderMarkers()
   } catch (err) {
     console.error(err)
-    alert(err.message || 'Failed to save stall')
+    systemMessage.error(err.message || 'Failed to save stall', 'Operation Failed')
   } finally {
     isSavingStall.value = false
   }
@@ -1398,7 +1399,7 @@ function selectStakeholder(person) {
 
 async function confirmAssignOccupant() {
   if (!selectedStakeholder.value) {
-    alert('Please select an eligible approved stakeholder to assign.')
+    systemMessage.warn('Please select an eligible approved stakeholder to assign.', 'Selection Required')
     return
   }
 
@@ -1419,17 +1420,23 @@ async function confirmAssignOccupant() {
     form.value.status = 'OCCUPIED'
 
     closeAssignModal()
-    alert(`Stall ${form.value.number} successfully assigned to ${stakeholderName}!`)
+    systemMessage.success(`Stall ${form.value.number} successfully assigned to ${stakeholderName}!`, 'Occupant Assigned')
   } catch (err) {
     console.error(err)
-    alert(err.message || 'Failed to assign occupant to stall')
+    systemMessage.error(err.message || 'Failed to assign occupant to stall', 'Assignment Failed')
   } finally {
     isSaving.value = false
   }
 }
 
 async function vacateOccupant() {
-  if (!confirm(`Are you sure you want to remove occupant "${currentOccupantName.value}" from Stall ${form.value.number}? The stall will be set to VACANT.`)) {
+  const confirmed = await systemMessage.confirm(`Are you sure you want to remove occupant "${currentOccupantName.value}" from Stall ${form.value.number}? The stall will be set to VACANT.`, {
+    title: 'Remove Occupant',
+    isDanger: true,
+    acceptLabel: 'Remove Occupant',
+    rejectLabel: 'Cancel'
+  })
+  if (!confirmed) {
     return
   }
 
@@ -1446,10 +1453,10 @@ async function vacateOccupant() {
     initialOccupantName.value = ''
     form.value.status = 'VACANT'
 
-    alert(`Occupant removed from Stall ${form.value.number}. Stall is now VACANT.`)
+    systemMessage.warn(`Occupant removed from Stall ${form.value.number}. Stall is now VACANT.`, 'Stall Vacated')
   } catch (err) {
     console.error(err)
-    alert(err.message || 'Failed to remove occupant')
+    systemMessage.error(err.message || 'Failed to remove occupant', 'Operation Failed')
   } finally {
     isSaving.value = false
   }
@@ -1558,7 +1565,13 @@ function formatDate(d) {
 
 async function archiveStallAction(stall) {
   const stallNum = stall.number || stall.stallNo || 'this stall'
-  if (!confirm(`Are you sure you want to ARCHIVE Stall ${stallNum}? It will be moved to Archive Records.`)) {
+  const confirmed = await systemMessage.confirm(`Are you sure you want to ARCHIVE Stall ${stallNum}? It will be moved to Archive Records.`, {
+    title: 'Archive Stall',
+    isDanger: true,
+    acceptLabel: 'Archive Stall',
+    rejectLabel: 'Cancel'
+  })
+  if (!confirmed) {
     return
   }
 
@@ -1566,10 +1579,10 @@ async function archiveStallAction(stall) {
     await archiveStall(stall.id)
     await loadStalls()
     renderMarkers()
-    alert(`Stall ${stallNum} has been archived successfully.`)
+    systemMessage.success(`Stall ${stallNum} has been archived successfully.`, 'Stall Archived')
   } catch (err) {
     console.error(err)
-    alert(`Failed to archive stall: ${err.message || err}`)
+    systemMessage.error(`Failed to archive stall: ${err.message || err}`, 'Archive Failed')
   }
 }
 
@@ -1579,10 +1592,10 @@ async function restoreStallAction(stall) {
     await restoreStall(stall.id)
     await loadStalls()
     renderMarkers()
-    alert(`Stall ${stallNum} has been restored to active registry!`)
+    systemMessage.success(`Stall ${stallNum} has been restored to active registry!`, 'Stall Restored')
   } catch (err) {
     console.error(err)
-    alert(`Failed to restore stall: ${err.message || err}`)
+    systemMessage.error(`Failed to restore stall: ${err.message || err}`, 'Restore Failed')
   }
 }
 

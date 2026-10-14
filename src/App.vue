@@ -1,5 +1,6 @@
 <template>
   <Toast position="top-right" />
+  <ModernSystemMessage />
   <ConfirmDialog pt:root:class="confirm-modal-root" pt:mask:class="confirm-modal-mask">
     <template #container="{ message, acceptCallback, rejectCallback }">
       <div class="confirm-dialog-card">
@@ -52,9 +53,19 @@
 </template>
 
 <script setup>
+import { onMounted } from 'vue'
 import { isNavigating } from './router'
 import Toast from 'primevue/toast'
 import ConfirmDialog from 'primevue/confirmdialog'
+import { useToast } from 'primevue/usetoast'
+import ModernSystemMessage from './components/ModernSystemMessage.vue'
+import { registerToastInstance } from './utils/systemMessage'
+
+const toast = useToast()
+
+onMounted(() => {
+  registerToastInstance(toast)
+})
 
 function isSuccess(message) {
   if (!message) return false

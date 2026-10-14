@@ -958,6 +958,8 @@
 
     .layout-topbar {
         padding: 0 1rem;
+        padding-top: max(0px, env(safe-area-inset-top, 0px));
+        height: calc(var(--layout-topbar-height) + env(safe-area-inset-top, 0px));
         z-index: 1001;
     }
 
@@ -965,22 +967,29 @@
         font-size: 0.95rem;
     }
 
-    /* Drawer sits below the topbar so the morphing X stays reachable */
+    /* Drawer sits below the topbar with safe-area support */
     .layout-sidebar {
         width: min(var(--layout-sidebar-width), 86vw);
-        height: calc(100dvh - var(--layout-topbar-height));
+        top: calc(var(--layout-topbar-height) + env(safe-area-inset-top, 0px));
+        height: calc(100dvh - var(--layout-topbar-height) - env(safe-area-inset-top, 0px));
+        padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 0px));
         z-index: 1000;
         transform: translateX(-105%);
         box-shadow: none;
         border-radius: 0 18px 18px 0;
+        -webkit-overflow-scrolling: touch;
     }
 
     .layout-main-container {
         margin-left: 0;
+        padding-top: calc(var(--layout-topbar-height) + env(safe-area-inset-top, 0px) + var(--layout-content-gap));
+        padding-bottom: max(2rem, env(safe-area-inset-bottom, 0px));
+        padding-left: max(var(--layout-gutter), env(safe-area-inset-left, 0px));
+        padding-right: max(var(--layout-gutter), env(safe-area-inset-right, 0px));
     }
 
     .layout-mask {
-        top: var(--layout-topbar-height);
+        top: calc(var(--layout-topbar-height) + env(safe-area-inset-top, 0px));
     }
 
     .layout-wrapper.layout-mobile-active .layout-sidebar {

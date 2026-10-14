@@ -12,6 +12,9 @@ import ConfirmationService from 'primevue/confirmationservice';
 import ToastService from 'primevue/toastservice';
 import Tooltip from 'primevue/tooltip';
 import 'primeicons/primeicons.css'
+import { installGlobalSystemMessageOverrides } from './utils/systemMessage';
+
+installGlobalSystemMessageOverrides();
 
 const app = createApp(App);
 const pinia = createPinia();
