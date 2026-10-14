@@ -28,7 +28,8 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { to, recipientName, subject, html, text, from, notificationType, stakeholderId, metadata } = req.body
+  const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {})
+  const { to, recipientName, subject, html, text, from, notificationType, stakeholderId, metadata } = body
 
   if (!to) {
     return res.status(400).json({

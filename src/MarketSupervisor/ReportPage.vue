@@ -1507,9 +1507,8 @@ async function sendNoticeEmail(contract) {
 
     if (res.success) {
       const emailTarget = res.email ? ` to ${res.email}` : ''
-      const previewNote = res.previewUrl ? ` (Preview: ${res.previewUrl})` : ''
       systemMessage.success(
-        `Official lease expiration notice successfully dispatched via Nodemailer${emailTarget}!${previewNote}`,
+        `Official lease expiration notice successfully dispatched via Nodemailer${emailTarget}!`,
         'Notice Dispatched via Nodemailer'
       )
     } else {

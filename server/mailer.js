@@ -10,67 +10,45 @@ import nodemailer from 'nodemailer'
 
 let transporter = null
 let transporterConfig = null
-let isTestAccount = false
 
 export async function getTransporter() {
   if (transporter) {
-    return { transporter, isTestAccount, config: transporterConfig }
+    return { transporter, config: transporterConfig }
   }
 
   const host = process.env.SMTP_HOST || process.env.VITE_SMTP_HOST || 'smtp.gmail.com'
   const port = Number(process.env.SMTP_PORT || process.env.VITE_SMTP_PORT || 587)
   const secure = (process.env.SMTP_SECURE || process.env.VITE_SMTP_SECURE) === 'true' || port === 465
-  const user = process.env.SMTP_USER || process.env.VITE_SMTP_USER || 'anthony.jamaca@msunaawan.edu.ph'
-  const pass = process.env.SMTP_PASS || process.env.VITE_SMTP_PASS || ''
+  const user = (process.env.SMTP_USER || process.env.VITE_SMTP_USER || 'anthony.jamaca@msunaawan.edu.ph').trim()
+  const pass = (process.env.SMTP_PASS || process.env.VITE_SMTP_PASS || '').trim()
 
-  // If real SMTP credentials are provided, use them
-  if (host && user && pass) {
-    transporterConfig = {
-      host,
-      port,
-      secure,
-      auth: { user, pass },
-      tls: {
-        rejectUnauthorized: false
-      }
-    }
-    transporter = nodemailer.createTransport(transporterConfig)
-    isTestAccount = false
-    console.log(`[Nodemailer SMTP] Transporter initialized for ${host}:${port} (${user})`)
-    return { transporter, isTestAccount, config: transporterConfig }
+  if (!pass) {
+    throw new Error(
+      `SMTP password (SMTP_PASS) is not configured. Real email delivery to external recipients requires authentication. ` +
+      `Please configure SMTP_PASS in your Vercel Project Settings (Environment Variables) or .env file.`
+    )
   }
 
-  // Fallback: Create ethereal test account for local testing if SMTP_PASS is not yet provided
-  try {
-    const testAccount = await nodemailer.createTestAccount()
-    transporterConfig = {
-      host: testAccount.smtp.host,
-      port: testAccount.smtp.port,
-      secure: testAccount.smtp.secure,
-      auth: {
-        user: testAccount.user,
-        pass: testAccount.pass
-      }
+  transporterConfig = {
+    host,
+    port,
+    secure,
+    auth: { user, pass },
+    tls: {
+      rejectUnauthorized: false
     }
-    transporter = nodemailer.createTransport(transporterConfig)
-    isTestAccount = true
-    console.log(`[Nodemailer] Running in local test sandbox. Configured sender: ${user}`)
-    return { transporter, isTestAccount, config: transporterConfig }
-  } catch (err) {
-    console.warn('[Nodemailer] Could not create Ethereal test account, using JSON stream transporter:', err.message)
-    transporter = nodemailer.createTransport({
-      jsonTransport: true
-    })
-    isTestAccount = true
-    return { transporter, isTestAccount, config: { host: 'json-fallback' } }
   }
+
+  transporter = nodemailer.createTransport(transporterConfig)
+  console.log(`[Nodemailer SMTP] Real transporter connected to ${host}:${port} (${user})`)
+  return { transporter, config: transporterConfig }
 }
 
 /**
- * Dispatch an email strictly using Nodemailer.
+ * Dispatch an email strictly using Nodemailer to a real recipient.
  *
  * @param {Object} options
- * @param {string} options.to - Recipient email address
+ * @param {string} options.to - Real recipient email address
  * @param {string} [options.recipientName] - Recipient full name
  * @param {string} options.subject - Email subject
  * @param {string} options.html - Rich HTML email body
@@ -87,11 +65,11 @@ export async function sendEmail({ to, recipientName, subject, html, text, from }
   const emailHtml = html || `<p>${text || subject}</p>`
   const emailText = text || subject
 
-  const { transporter: activeTransporter, isTestAccount: isTest } = await getTransporter()
+  const { transporter: activeTransporter } = await getTransporter()
 
   const defaultFrom = process.env.SMTP_FROM ||
     process.env.VITE_SMTP_FROM ||
-    '"Office of the Market Supervisor - Municipality of Manticao" <anthony.jamaca@msunaawan.edu.ph>'
+    `"Office of the Market Supervisor - Municipality of Manticao" <${process.env.SMTP_USER || 'anthony.jamaca@msunaawan.edu.ph'}>`
 
   const mailOptions = {
     from: from || defaultFrom,
@@ -103,23 +81,15 @@ export async function sendEmail({ to, recipientName, subject, html, text, from }
 
   const info = await activeTransporter.sendMail(mailOptions)
 
-  let previewUrl = null
-  if (isTest && nodemailer.getTestMessageUrl) {
-    previewUrl = nodemailer.getTestMessageUrl(info)
-    console.log(`[Nodemailer Preview URL]: ${previewUrl}`)
-  }
-
-  console.log(`[Nodemailer] Email dispatched from "${mailOptions.from}" to "${targetEmail}" (Message ID: ${info.messageId})`)
+  console.log(`[Nodemailer] Real email dispatched to "${targetEmail}" (Message ID: ${info.messageId})`)
 
   return {
     success: true,
     messageId: info.messageId,
-    previewUrl,
-    isTestAccount: isTest,
-    sender: defaultFrom,
+    sender: mailOptions.from,
     recipient: targetEmail,
     subject: emailSubject,
-    transport: isTest ? 'nodemailer-ethereal-test' : 'nodemailer-smtp'
+    transport: 'nodemailer-smtp'
   }
 }
 
@@ -127,23 +97,22 @@ export async function sendEmail({ to, recipientName, subject, html, text, from }
  * Verify transporter connectivity
  */
 export async function verifyTransporter() {
-  const { transporter: activeTransporter, isTestAccount: isTest, config } = await getTransporter()
   try {
+    const { transporter: activeTransporter, config } = await getTransporter()
     await activeTransporter.verify()
     return {
       connected: true,
-      isTestAccount: isTest,
       host: config.host,
       port: config.port,
       sender: process.env.SMTP_USER || 'anthony.jamaca@msunaawan.edu.ph',
-      mode: isTest ? 'Nodemailer Ethereal Sandbox' : 'Nodemailer Real SMTP'
+      mode: 'Nodemailer SMTP (Real Delivery)'
     }
   } catch (err) {
     return {
       connected: false,
       error: err.message,
-      isTestAccount: isTest,
-      host: config.host
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      sender: process.env.SMTP_USER || 'anthony.jamaca@msunaawan.edu.ph'
     }
   }
 }

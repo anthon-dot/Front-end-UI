@@ -1013,9 +1013,7 @@ export async function sendStakeholderEmail({
       recipientName: targetName,
       subject,
       messageId: mailerResponse?.messageId,
-      previewUrl: mailerResponse?.previewUrl,
-      isTestAccount: mailerResponse?.isTestAccount,
-      transport: 'nodemailer'
+      transport: 'nodemailer-smtp'
     }
   } catch (fatalErr) {
     console.error('[emailNotificationService] Fatal email sending error:', fatalErr)
