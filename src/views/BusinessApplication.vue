@@ -479,8 +479,27 @@ async function submitApplication() {
       throw new Error('Application was not saved')
     }
 
+    try {
+      const { sendApplicationProgressNotification } = await import('../services/emailNotificationService')
+      const targetStall = selectedStallDetails.value?.stallNo ? String(selectedStallDetails.value.stallNo) : ''
+      await sendApplicationProgressNotification({
+        stakeholderId: response.data?.stakeholderId || response.data?.id,
+        userId: currentUserId,
+        email: email.value,
+        stage: 'SUBMISSION',
+        status: 'SUBMITTED',
+        title: 'Application Received & Queued for Review',
+        message: 'Your commercial market stall application has been successfully received. It is now queued for Treasurer review and advance payment assessment.',
+        remarks: targetStall ? `Selected Stall: ${targetStall}` : 'Open commercial stall allocation',
+        referenceNo: response.data?.id ? `APP-${response.data.id}` : undefined,
+        stallNo: targetStall
+      })
+    } catch (eErr) {
+      console.warn('[BusinessApplication] Confirmation email dispatch warning:', eErr)
+    }
+
     stakeholderStore.clearCache()
-    await systemMessage.alert('Your application has been submitted successfully for verification.', {
+    await systemMessage.alert(`Your application has been submitted successfully for verification. A confirmation has also been sent to ${email.value}.`, {
       title: 'Application Submitted',
       severity: 'success',
       acceptLabel: 'View Progress'

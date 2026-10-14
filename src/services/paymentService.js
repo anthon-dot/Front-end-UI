@@ -109,6 +109,20 @@ export async function createPayment(payload) {
           console.warn('[paymentService] Primary advance balance update failed, trying fallback:', sUpdateErr)
           await supabase.from('stakeholders').update({ advance_balance: newAdvance }).eq('id', stakeholderId)
         }
+
+        try {
+          const { sendApplicationProgressNotification } = await import('./emailNotificationService')
+          await sendApplicationProgressNotification({
+            stakeholderId: Number(stakeholderId),
+            stage: 'TREASURER',
+            status: 'ADVANCE_PAID',
+            title: 'Advance Rental Payment Recorded',
+            message: `Your advance payment of ₱${Number(payload.amount || 0).toLocaleString()} has been officially credited. Your balance is ₱${newAdvance.toLocaleString()}. Your application has proceeded to Market Supervisor review.`,
+            remarks: `Advance credit: ₱${newAdvance.toLocaleString()}`
+          })
+        } catch (eErr) {
+          console.warn('[paymentService] Advance payment email dispatch warning:', eErr)
+        }
       }
     } catch (sErr) {
       console.warn('[paymentService] Could not update stakeholder advance status:', sErr)
@@ -170,6 +184,22 @@ export async function createPayment(payload) {
           message: `Your payment of ₱${amountVal} has been recorded. Contract activation will finalize once all required approvals are completed.`
         })
       } catch (_) {}
+
+      // Dispatch Application Progress / Activation Email
+      try {
+        const { sendApplicationProgressNotification } = await import('./emailNotificationService')
+        await sendApplicationProgressNotification({
+          stakeholderId: Number(stakeholderId),
+          userId: targetUserId,
+          stage: 'PERMIT_PAYMENT',
+          status: 'COMPLETED',
+          title: 'Business Permit Fee Payment Recorded - Onboarding Complete',
+          message: `Your business permit fee payment of ₱${amountVal.toLocaleString()} has been officially receipted. Your municipal stall onboarding is now complete and active!`,
+          remarks: `Official Receipt on file. Permit fee: ₱${amountVal.toLocaleString()}`
+        })
+      } catch (eErr) {
+        console.warn('[paymentService] Permit payment email dispatch warning:', eErr)
+      }
     } catch (sErr) {
       console.warn('[paymentService] Could not update stakeholder application fee status:', sErr)
     }

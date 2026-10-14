@@ -971,6 +971,17 @@ const api = {
         }
       } catch (_) {}
 
+      try {
+        const { sendApplicationProgressNotification } = await import('./emailNotificationService');
+        await sendApplicationProgressNotification({
+          stakeholderId,
+          stage: 'STALL_ASSIGNMENT',
+          status: 'ASSIGNED',
+          title: 'Market Stall Assignment Completed',
+          message: 'Your stall assignment has been processed and forwarded to BPLO for verification.'
+        });
+      } catch (_) {}
+
       return { data: resData };
     }
 
@@ -1135,6 +1146,19 @@ const api = {
         body: { action: 'reject', stakeholderId: id, stage, remarks }
       });
       if (error || res?.error) throw new Error(error?.message || res?.error || 'Rejection failed');
+
+      try {
+        const { sendApplicationProgressNotification } = await import('./emailNotificationService');
+        await sendApplicationProgressNotification({
+          stakeholderId: id,
+          stage,
+          status: 'REJECTED',
+          title: `Application Disapproved at ${stage} Stage`,
+          message: `Your application was disapproved during ${stage} review.`,
+          remarks
+        });
+      } catch (_) {}
+
       return { data: res };
     }
 
@@ -1144,6 +1168,18 @@ const api = {
         body: { action: 'treasurer-approve', stakeholderId: id, ...(data || {}) }
       });
       if (error || res?.error) throw new Error(error?.message || res?.error || 'Approval failed');
+
+      try {
+        const { sendApplicationProgressNotification } = await import('./emailNotificationService');
+        await sendApplicationProgressNotification({
+          stakeholderId: id,
+          stage: 'TREASURER',
+          status: 'APPROVED',
+          title: 'Treasurer Review Approved',
+          message: 'Your application has been approved by the Municipal Treasurer and forwarded to the Market Supervisor.'
+        });
+      } catch (_) {}
+
       return { data: res };
     }
 
@@ -1164,6 +1200,17 @@ const api = {
             application_status: 'PENDING_BUSINESS_PERMIT_PAYMENT'
           }).eq('user_id', st.user_id);
         }
+      } catch (_) {}
+
+      try {
+        const { sendApplicationProgressNotification } = await import('./emailNotificationService');
+        await sendApplicationProgressNotification({
+          stakeholderId: id,
+          stage: 'ENDORSEMENT',
+          status: 'APPROVED',
+          title: 'Final Mayoral Endorsement Approved',
+          message: 'Your application has received final executive endorsement. Please settle business permit fees with the Treasurer to commence operations.'
+        });
       } catch (_) {}
 
       return { data: res };
@@ -1210,6 +1257,17 @@ const api = {
           related_record_type: 'STAKEHOLDER',
           related_record_id: Number(stakeholderId)
         });
+
+        try {
+          const { sendApplicationProgressNotification } = await import('./emailNotificationService');
+          await sendApplicationProgressNotification({
+            stakeholderId: Number(stakeholderId),
+            stage: 'MARKET_SUPERVISOR',
+            status: 'APPROVED',
+            title: 'Market Supervisor Approval Granted',
+            message: 'Your application has been approved by the Market Supervisor and forwarded to BPLO.'
+          });
+        } catch (_) {}
       } catch (_) {}
 
       return { data: normalizeRecord(updated) };

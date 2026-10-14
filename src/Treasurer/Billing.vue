@@ -24,6 +24,15 @@
             <SearchField v-model="search" placeholder="Search tenant, stall, or billing ID..." />
           </div>
           <Button 
+            icon="pi pi-envelope" 
+            label="Email Due Reminders" 
+            severity="warn" 
+            size="small" 
+            :loading="isSendingBulkReminders" 
+            @click="sendBulkDueReminders"
+            class="!py-2 !px-3 font-semibold"
+          />
+          <Button 
             icon="pi pi-refresh" 
             label="Refresh" 
             outlined 
@@ -433,9 +442,11 @@ import Button from 'primevue/button'
 import Tag from 'primevue/tag'
 import Dialog from 'primevue/dialog'
 import Toast from 'primevue/toast'
+import systemMessage from '../utils/systemMessage'
 
 const router = useRouter()
 const toast = useToast()
+const isSendingBulkReminders = ref(false)
 
 const search = ref('')
 const rows = ref([])
@@ -700,12 +711,14 @@ function initials(name) {
 ========================= */
 async function sendNotification(row) {
   try {
-    await sendBillingNotification(row.rawId || row.billingNo || row.id)
+    const res = await sendBillingNotification(row.rawId || row.billingNo || row.id)
+    const emailTarget = res?.emailResult?.email
+    const emailMsg = emailTarget ? ` & emailed to ${emailTarget}` : ''
     toast.add({
       severity: 'success',
-      summary: 'Reminder Sent',
-      detail: `Billing reminder sent successfully to ${row.stakeholder}.`,
-      life: 4500
+      summary: 'Reminder Dispatched',
+      detail: `Billing reminder recorded${emailMsg} for ${row.stakeholder}.`,
+      life: 5000
     })
   } catch (err) {
     console.error('Failed to send notification', err)
@@ -715,6 +728,52 @@ async function sendNotification(row) {
       detail: 'Could not send reminder notification.',
       life: 4000
     })
+  }
+}
+
+async function sendBulkDueReminders() {
+  const dueBills = rows.value.filter(r => (r.balance > 0) && (r.isPastDue || r.isThisMonth || r.status === 'UNPAID'))
+  if (dueBills.length === 0) {
+    toast.add({
+      severity: 'info',
+      summary: 'No Due Bills',
+      detail: 'There are currently no unpaid bills due this month or past due.',
+      life: 4000
+    })
+    return
+  }
+
+  const confirmed = await systemMessage.confirm(
+    `Send official email notices and in-app reminders to ${dueBills.length} stakeholder(s) with bills due soon or past due?`,
+    {
+      title: 'Dispatch Due Reminders',
+      acceptLabel: 'Send Reminders',
+      rejectLabel: 'Cancel'
+    }
+  )
+
+  if (!confirmed) return
+
+  isSendingBulkReminders.value = true
+  try {
+    const { sendBulkBillingDueNotifications } = await import('../services/emailNotificationService')
+    const res = await sendBulkBillingDueNotifications(dueBills)
+    toast.add({
+      severity: 'success',
+      summary: 'Due Reminders Dispatched',
+      detail: `Successfully emailed and notified ${res.sent} stakeholder(s).`,
+      life: 5500
+    })
+  } catch (err) {
+    console.error('Error sending bulk billing reminders:', err)
+    toast.add({
+      severity: 'error',
+      summary: 'Dispatch Error',
+      detail: err.message || 'Could not send bulk reminders.',
+      life: 4500
+    })
+  } finally {
+    isSendingBulkReminders.value = false
   }
 }
 

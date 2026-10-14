@@ -690,6 +690,21 @@
   background: #dbeafe;
 }
 
+.email-btn {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.email-btn:hover {
+  background: #dcfce7;
+}
+
+.email-due-btn:hover {
+  background: #f8fafc !important;
+  border-color: #94a3b8 !important;
+}
+
 .view-btn {
   background: #f1f5f9;
   color: #334155;

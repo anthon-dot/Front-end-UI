@@ -221,7 +221,17 @@
                 <h2>Expiring Lease Contracts Directory</h2>
                 <p>Contract end date countdowns, stakeholder info, and renewal issuance</p>
               </div>
-              <div class="table-header-meta">
+              <div class="table-header-meta" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <button
+                  type="button"
+                  class="btn-outline email-due-btn"
+                  style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; border: 1px solid #cbd5e1; background: #ffffff;"
+                  :disabled="isSendingNoticeEmail"
+                  @click="emailAllDueSoonContracts"
+                >
+                  <i class="pi pi-send" style="color: #0284c7;"></i>
+                  <span>Email All Due Soon</span>
+                </button>
                 <span class="report-timestamp">As of {{ currentFormattedDate }}</span>
               </div>
             </div>
@@ -309,6 +319,16 @@
 
                     <td class="actions-cell">
                       <div class="actions">
+                        <button
+                          class="action-btn email-btn"
+                          title="Email Official Expiration Notice"
+                          :disabled="isSendingNoticeEmail"
+                          @click="sendNoticeEmail(contract)"
+                        >
+                          <i class="pi pi-send"></i>
+                          <span>Email</span>
+                        </button>
+
                         <button
                           class="action-btn notice-btn"
                           title="Generate Renewal Notice"
@@ -733,9 +753,13 @@
         </div>
 
         <div class="modal-footer">
-          <button class="btn-primary" @click="printNotice">
+          <button class="btn-primary" :disabled="isSendingNoticeEmail" @click="sendNoticeEmail(noticeModalContract)">
+            <i class="pi pi-send"></i>
+            {{ isSendingNoticeEmail ? 'Sending Notice...' : 'Email Notice to Stakeholder' }}
+          </button>
+          <button class="btn-outline" @click="printNotice">
             <i class="pi pi-print"></i>
-            Print Official Notice
+            Print Notice
           </button>
           <button class="btn-outline" @click="copyNoticeText">
             <i class="pi pi-copy"></i>
@@ -1339,6 +1363,76 @@ function copyNoticeText() {
     }).catch(() => {
       systemMessage.error('Unable to copy to clipboard.', 'Clipboard Error')
     })
+  }
+}
+
+const isSendingNoticeEmail = ref(false)
+
+async function sendNoticeEmail(contract) {
+  if (!contract) return
+  isSendingNoticeEmail.value = true
+  try {
+    const { sendContractDueNotification } = await import('../services/emailNotificationService')
+    const res = await sendContractDueNotification({
+      contractId: contract.id || contract.rawId,
+      stakeholderId: contract.stakeholderId || contract.stakeholder_id,
+      contractNo: contract.contractNo || contract.ref,
+      stallNo: contract.stallNo,
+      stallType: contract.stallType,
+      monthlyRent: contract.monthlyRent,
+      endDate: contract.endDate,
+      daysRemaining: contract.daysRemaining,
+      urgencyCategory: contract.urgencyCategory
+    })
+
+    if (res.success) {
+      const emailTarget = res.email ? ` to ${res.email}` : ''
+      systemMessage.success(
+        `Official lease expiration notice successfully emailed${emailTarget} for ${contract.stakeholderName || 'stakeholder'}.`,
+        'Notice Dispatched'
+      )
+    } else {
+      systemMessage.error(res.error || 'Failed to dispatch email.', 'Notice Error')
+    }
+  } catch (err) {
+    console.error('[sendNoticeEmail] error:', err)
+    systemMessage.error(err.message || 'Could not send expiration notice email.', 'Notice Error')
+  } finally {
+    isSendingNoticeEmail.value = false
+  }
+}
+
+async function emailAllDueSoonContracts() {
+  const list = filteredDueContracts.value.filter(c => c.daysRemaining <= 90)
+  if (list.length === 0) {
+    systemMessage.info('No contracts currently expiring within 90 days or overdue in this view.', 'No Due Contracts')
+    return
+  }
+
+  const confirmed = await systemMessage.confirm(
+    `Send official lease renewal notices via email to all ${list.length} stakeholder(s) whose contracts are expiring soon or overdue?`,
+    {
+      title: 'Email Expiration Notices',
+      acceptLabel: 'Send All Notices',
+      rejectLabel: 'Cancel'
+    }
+  )
+
+  if (!confirmed) return
+
+  isSendingNoticeEmail.value = true
+  try {
+    const { sendBulkContractDueNotifications } = await import('../services/emailNotificationService')
+    const res = await sendBulkContractDueNotifications(list)
+    systemMessage.success(
+      `Official lease expiration notices emailed to ${res.sent} stakeholder(s).`,
+      'Bulk Notices Dispatched'
+    )
+  } catch (err) {
+    console.error('[emailAllDueSoonContracts] error:', err)
+    systemMessage.error(err.message || 'Failed to send bulk notices.', 'Error')
+  } finally {
+    isSendingNoticeEmail.value = false
   }
 }
 

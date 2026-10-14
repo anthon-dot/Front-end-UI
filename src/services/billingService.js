@@ -362,12 +362,30 @@ export async function sendBillingNotification(billingIdentifier) {
       })
     if (notifErr) console.warn('[billingService] Could not insert notification:', notifErr)
 
+    let emailResult = null
+    try {
+      const { sendBillingDueNotification } = await import('./emailNotificationService')
+      emailResult = await sendBillingDueNotification({
+        billingId: bill.id,
+        stakeholderId: Number(stakeholderId),
+        billingNo: bill.billing_no || `BILL-${bill.id}`,
+        balance: Number(bill.balance || 0),
+        dueDate: bill.due_date,
+        totalAmount: Number(bill.total_amount || 0),
+        billingPeriod: bill.billing_period || 'Monthly Rental'
+      })
+    } catch (emailErr) {
+      console.warn('[billingService] Email dispatch error:', emailErr)
+    }
+
     try {
       await supabase.from('audit_logs').insert({
         action: 'SEND_BILLING_REMINDER',
-        details: `Sent billing reminder for invoice ${invoiceLabel} to stakeholder #${stakeholderId}`
+        details: `Sent billing reminder and email for invoice ${invoiceLabel} to stakeholder #${stakeholderId}`
       })
     } catch (_) {}
+
+    return { success: true, stakeholderId, emailResult }
   }
 
   return { success: true, stakeholderId }

@@ -616,13 +616,30 @@ async function approveApplicant(item) {
         }
         item.treasurerApproved = true
         item.treasurer_approved = true
+
+        try {
+          const { sendApplicationProgressNotification } = await import('../services/emailNotificationService')
+          await sendApplicationProgressNotification({
+            stakeholderId: item.id,
+            userId: item.userId || item.user_id,
+            email: item.email,
+            stage: 'TREASURER',
+            status: 'APPROVED',
+            title: 'Treasurer Review Approved - Advance Payment Verified',
+            message: 'Your application has been approved by the Municipal Treasurer. It is now officially forwarded to the Market Supervisor for market stall assignment.',
+            remarks: 'Advance payment and compliance verified by Municipal Treasurer.'
+          })
+        } catch (eErr) {
+          console.warn('[Applicant] Approval email dispatch warning:', eErr)
+        }
+
         // Immediately remove approved applicant from current list
         stakeholders.value = stakeholders.value.filter(s => s.id !== item.id)
         await fetchStakeholders()
         toast.add({
           severity: 'success',
           summary: 'Stakeholder Approved',
-          detail: `${item.firstName} ${item.lastName} has been approved. They can now proceed to advance payment.`,
+          detail: `${item.firstName} ${item.lastName} approved & notified via email.`,
           life: 4500
         })
       } catch (error) {
@@ -657,12 +674,29 @@ async function rejectApplicant(item) {
     await api.put(`/stakeholders/${item.id}/reject`, null, {
       params: { remarks: reason }
     })
+
+    try {
+      const { sendApplicationProgressNotification } = await import('../services/emailNotificationService')
+      await sendApplicationProgressNotification({
+        stakeholderId: item.id,
+        userId: item.userId || item.user_id,
+        email: item.email,
+        stage: 'TREASURER',
+        status: 'REJECTED',
+        title: 'Application Disapproved by Municipal Treasurer',
+        message: 'Your application was not approved during the Treasurer review stage.',
+        remarks: reason
+      })
+    } catch (eErr) {
+      console.warn('[Applicant] Rejection email dispatch warning:', eErr)
+    }
+
     stakeholders.value = stakeholders.value.filter(s => s.id !== item.id)
     await fetchStakeholders()
     toast.add({
       severity: 'warn',
       summary: 'Applicant Rejected',
-      detail: `${item.firstName} ${item.lastName} application has been rejected.`,
+      detail: `${item.firstName} ${item.lastName} application has been rejected and notified via email.`,
       life: 4500
     })
   } catch (error) {

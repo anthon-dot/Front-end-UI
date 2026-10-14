@@ -195,3 +195,5 @@ export function installGlobalSystemMessageOverrides() {
     return defaultVal || ''
   }
 }
+
+export default systemMessage

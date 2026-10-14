@@ -1411,6 +1411,23 @@ async function confirmAssignOccupant() {
 
     await allocateOccupant(targetStallId, stakeholder.id)
 
+    try {
+      const { sendApplicationProgressNotification } = await import('../services/emailNotificationService')
+      await sendApplicationProgressNotification({
+        stakeholderId: stakeholder.id,
+        userId: stakeholder.userId || stakeholder.user_id,
+        email: stakeholder.email,
+        stage: 'STALL_ASSIGNMENT',
+        status: 'ASSIGNED',
+        title: `Market Stall Assigned: Stall No. ${form.value.number}`,
+        message: `Congratulations! Stall No. ${form.value.number} (${form.value.type || 'Commercial Stall'}) has been officially assigned to you. Your application has now proceeded to BPLO validation.`,
+        remarks: `Assigned Stall: Stall No. ${form.value.number}. Monthly rental: ₱${Number(form.value.rent || 0).toLocaleString()}/month.`,
+        stallNo: form.value.number
+      })
+    } catch (eErr) {
+      console.warn('[StallManagement] Stall assignment email dispatch warning:', eErr)
+    }
+
     await loadStalls()
     await loadContracts()
     renderMarkers()
@@ -1420,7 +1437,7 @@ async function confirmAssignOccupant() {
     form.value.status = 'OCCUPIED'
 
     closeAssignModal()
-    systemMessage.success(`Stall ${form.value.number} successfully assigned to ${stakeholderName}!`, 'Occupant Assigned')
+    systemMessage.success(`Stall ${form.value.number} successfully assigned to ${stakeholderName} and notified via email!`, 'Occupant Assigned')
   } catch (err) {
     console.error(err)
     systemMessage.error(err.message || 'Failed to assign occupant to stall', 'Assignment Failed')

@@ -811,7 +811,23 @@ async function approveMarketSupervisor(app) {
           }
         }
 
-        systemMessage.success(`Application for ${applicantName} successfully approved!`, 'Application Approved')
+        try {
+          const { sendApplicationProgressNotification } = await import('../services/emailNotificationService')
+          await sendApplicationProgressNotification({
+            stakeholderId: app.id,
+            userId: app.userId || app.user_id,
+            email: app.email,
+            stage: 'MARKET_SUPERVISOR',
+            status: 'APPROVED',
+            title: 'Market Supervisor Approval Granted',
+            message: 'Your application has been verified and approved by the Market Supervisor. It has now progressed to BPLO business permit validation.',
+            remarks: 'Compliance verified by Market Supervisor.'
+          })
+        } catch (eErr) {
+          console.warn('[MarketSupervisor] Email dispatch warning:', eErr)
+        }
+
+        systemMessage.success(`Application for ${applicantName} successfully approved and notified via email!`, 'Application Approved')
         await refreshData()
       } catch (error) {
         console.error('[Dashboard] Approval failed:', error)
