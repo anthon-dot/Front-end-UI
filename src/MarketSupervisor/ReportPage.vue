@@ -718,6 +718,21 @@
             CONTRACT REF: <strong>{{ noticeModalContract.contractNo || noticeModalContract.ref }}</strong>
           </div>
 
+          <!-- Stakeholder Email Row for Nodemailer Delivery -->
+          <div class="notice-email-row" style="margin: 12px 0 16px 0; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; gap: 10px; font-size: 13px;">
+            <i class="pi pi-send" style="color: #0284c7; font-size: 15px;"></i>
+            <span style="font-weight: 700; color: #475569; white-space: nowrap;">Stakeholder Email:</span>
+            <input
+              type="email"
+              v-model="noticeModalContract.email"
+              placeholder="Enter stakeholder email (e.g. lessee@gmail.com)"
+              style="flex: 1; padding: 7px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-family: inherit; background: #ffffff; color: #0f172a;"
+            />
+            <span v-if="!noticeModalContract.email" style="font-size: 11px; color: #dc2626; font-weight: 700; white-space: nowrap;">
+              * Email required
+            </span>
+          </div>
+
           <div class="letter-subject">
             SUBJECT: <strong>NOTICE OF LEASE CONTRACT EXPIRATION & RENEWAL PROCEDURE</strong>
           </div>
@@ -1001,16 +1016,15 @@ const enrichedContracts = computed(() => {
     if (!stallNo) stallNo = `WS-${String(c.id).slice(-3) || '01'}`
     if (!monthlyRent) monthlyRent = 3500
 
-    // Match Stakeholder
     let stakeholderName = c.stakeholderName || ''
     let contact = c.contact || ''
+    let email = c.email || c.stakeholderEmail || ''
 
-    if (!stakeholderName) {
-      const sh = stakeholdersList.value.find(s => String(s.id) === String(c.stakeholderId))
-      if (sh) {
-        stakeholderName = sh.name || `${sh.firstName || ''} ${sh.lastName || ''}`.trim()
-        contact = sh.contact || sh.phone || ''
-      }
+    const sh = stakeholdersList.value.find(s => String(s.id) === String(c.stakeholderId))
+    if (sh) {
+      if (!stakeholderName) stakeholderName = sh.name || `${sh.firstName || ''} ${sh.lastName || ''}`.trim()
+      if (!contact) contact = sh.contact || sh.phone || ''
+      if (!email) email = sh.email || sh.email_address || sh.mail || ''
     }
 
     if (!stakeholderName) {
@@ -1024,6 +1038,8 @@ const enrichedContracts = computed(() => {
       monthlyRent,
       stakeholderName,
       contact,
+      email,
+      stakeholderEmail: email,
       startDate: c.startDate || c.start || '2025-01-01',
       endDate: endStr,
       daysRemaining,
@@ -1370,6 +1386,16 @@ const isSendingNoticeEmail = ref(false)
 
 async function sendNoticeEmail(contract) {
   if (!contract) return
+
+  const targetEmail = (contract.email || contract.stakeholderEmail || '').trim()
+  if (!targetEmail) {
+    systemMessage.error(
+      `Please provide an email address for ${contract.stakeholderName || 'this stakeholder'} before dispatching the notice.`,
+      'Stakeholder Email Required'
+    )
+    return
+  }
+
   isSendingNoticeEmail.value = true
   try {
     const { sendContractDueNotification } = await import('../services/emailNotificationService')
@@ -1382,17 +1408,19 @@ async function sendNoticeEmail(contract) {
       monthlyRent: contract.monthlyRent,
       endDate: contract.endDate,
       daysRemaining: contract.daysRemaining,
-      urgencyCategory: contract.urgencyCategory
+      urgencyCategory: contract.urgencyCategory,
+      email: targetEmail
     })
 
     if (res.success) {
       const emailTarget = res.email ? ` to ${res.email}` : ''
+      const previewNote = res.previewUrl ? ` (Preview: ${res.previewUrl})` : ''
       systemMessage.success(
-        `Official lease expiration notice successfully emailed${emailTarget} for ${contract.stakeholderName || 'stakeholder'}.`,
-        'Notice Dispatched'
+        `Official lease expiration notice successfully dispatched via Nodemailer${emailTarget}!${previewNote}`,
+        'Notice Dispatched via Nodemailer'
       )
     } else {
-      systemMessage.error(res.error || 'Failed to dispatch email.', 'Notice Error')
+      systemMessage.error(res.error || 'Failed to dispatch email via Nodemailer.', 'Notice Error')
     }
   } catch (err) {
     console.error('[sendNoticeEmail] error:', err)
@@ -1410,10 +1438,10 @@ async function emailAllDueSoonContracts() {
   }
 
   const confirmed = await systemMessage.confirm(
-    `Send official lease renewal notices via email to all ${list.length} stakeholder(s) whose contracts are expiring soon or overdue?`,
+    `Send official lease renewal notices via Nodemailer to all ${list.length} stakeholder(s) whose contracts are expiring soon or overdue?`,
     {
-      title: 'Email Expiration Notices',
-      acceptLabel: 'Send All Notices',
+      title: 'Email Expiration Notices (Nodemailer)',
+      acceptLabel: 'Send All Notices via Nodemailer',
       rejectLabel: 'Cancel'
     }
   )
@@ -1425,7 +1453,7 @@ async function emailAllDueSoonContracts() {
     const { sendBulkContractDueNotifications } = await import('../services/emailNotificationService')
     const res = await sendBulkContractDueNotifications(list)
     systemMessage.success(
-      `Official lease expiration notices emailed to ${res.sent} stakeholder(s).`,
+      `Official lease expiration notices dispatched via Nodemailer: ${res.sent} sent successfully${res.skipped ? `, ${res.skipped} skipped (missing email)` : ''}.`,
       'Bulk Notices Dispatched'
     )
   } catch (err) {

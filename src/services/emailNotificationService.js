@@ -1,19 +1,21 @@
+import axios from 'axios'
 import { supabase } from '../config/supabase.js'
 
 /**
  * ==============================================================================
- * STAKEHOLDER EMAIL NOTIFICATION SERVICE
+ * STAKEHOLDER EMAIL NOTIFICATION SERVICE (NODEMAILER ENABLED)
  * ==============================================================================
- * Dispatches official municipal notifications via email to the email attached
- * to that particular stakeholder for:
+ * Dispatches official municipal notifications via Nodemailer SMTP to the email
+ * address attached to that particular stakeholder for:
  * 1. Application Progress Updates (Submission, Stage Approvals, Rejections, Activation)
  * 2. Billing Due Soon Notices & Overdue Statements
  * 3. Contract Expiration & Lease Renewal Notices (Due Soon: <= 30/60/90 days)
  *
  * Integrates directly with:
- * - Supabase Edge Functions ('approval-workflow' / 'send-email')
+ * - Nodemailer Server / Vite Dev Plugin ('/api/email/send')
  * - In-app Notifications ('public.notifications')
  * - System Audit Logs ('public.audit_logs')
+ * - Supabase Edge Functions ('approval-workflow' / 'send-email') as secondary fallback
  */
 
 const MUNICIPAL_LOGO_ALT = 'Municipality of Manticao'
@@ -38,19 +40,20 @@ export async function resolveStakeholderContact(stakeholderId, userId = null) {
   // 1. Check stakeholders table
   if (stakeholderId) {
     try {
+      const queryId = !isNaN(Number(stakeholderId)) ? Number(stakeholderId) : stakeholderId
       const { data: st } = await supabase
         .from('stakeholders')
         .select('*, stall:stalls(*), occupant:occupants(*, stall:stalls(*))')
-        .eq('id', Number(stakeholderId))
+        .eq('id', queryId)
         .maybeSingle()
 
       if (st) {
-        email = (st.email || '').trim()
+        email = (st.email || st.email_address || st.mail || st.occupant?.email || '').trim()
         firstName = st.first_name || st.firstName || ''
         lastName = st.last_name || st.lastName || ''
         fullName = `${firstName} ${lastName}`.trim() || st.name || st.business_name || 'Stakeholder'
         businessName = st.business_name || st.businessName || ''
-        contact = st.contact || ''
+        contact = st.contact || st.phone || ''
         resolvedUserId = resolvedUserId || st.user_id
         stallNo = st.stall?.stall_no || st.stall?.number || st.occupant?.stall?.stall_no || ''
       }
@@ -473,7 +476,7 @@ export function buildContractDueEmail({
 }
 
 /**
- * Low-level dispatch function: Invokes Supabase Edge Function with action 'send_email',
+ * Low-level dispatch function: Dispatches email via Nodemailer SMTP endpoint,
  * inserts into 'public.notifications', and records into 'public.audit_logs'.
  */
 export async function sendStakeholderEmail({
@@ -491,7 +494,7 @@ export async function sendStakeholderEmail({
 }) {
   try {
     // 1. Resolve recipient details if not fully provided
-    let targetEmail = email
+    let targetEmail = (email || '').trim()
     let targetName = recipientName
     let resolvedStallNo = metadata?.stallNo || ''
 
@@ -506,67 +509,134 @@ export async function sendStakeholderEmail({
       console.warn(`[emailNotificationService] No email address attached to stakeholder #${stakeholderId}. In-app notification will still be registered.`)
     }
 
-    // 2. Dispatch via Supabase Edge Function ('approval-workflow' / 'send-email')
-    let edgeFunctionResponse = null
-    try {
-      const { data, error } = await supabase.functions.invoke('approval-workflow', {
-        body: {
-          action: 'send_email',
-          to: targetEmail,
-          recipientName: targetName,
-          subject,
-          html,
-          text: text || subject,
-          notificationType,
-          stakeholderId: stakeholderId ? Number(stakeholderId) : null,
-          relatedRecordType,
-          relatedRecordId: relatedRecordId ? Number(relatedRecordId) : null,
-          metadata
+    // 2. Dispatch via Nodemailer API endpoint
+    let mailerResponse = null
+    let emailSent = false
+    let emailError = null
+
+    if (targetEmail) {
+      const emailEndpoint = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_EMAIL_API_URL) || '/api/email/send'
+
+      try {
+        const res = await axios.post(
+          emailEndpoint,
+          {
+            to: targetEmail,
+            recipientName: targetName,
+            subject,
+            html,
+            text: text || subject,
+            notificationType,
+            stakeholderId: stakeholderId ? Number(stakeholderId) : null,
+            relatedRecordType,
+            relatedRecordId: relatedRecordId ? Number(relatedRecordId) : null,
+            metadata: { ...metadata, stallNo: resolvedStallNo }
+          },
+          {
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 25000
+          }
+        )
+
+        if (res.data && (res.data.success || res.data.messageId)) {
+          mailerResponse = res.data
+          emailSent = true
+          console.log(`[emailNotificationService] Nodemailer successfully dispatched to "${targetEmail}" (MsgID: ${res.data.messageId || 'OK'})`)
+        } else {
+          emailError = res.data?.error || 'Nodemailer returned an unhandled response.'
         }
-      })
-      if (error) {
-        console.warn('[emailNotificationService] Edge function invoke warning:', error.message)
-      } else {
-        edgeFunctionResponse = data
+      } catch (postErr) {
+        console.warn('[emailNotificationService] Nodemailer endpoint call failed, attempting fallback:', postErr.message)
+        emailError = postErr.response?.data?.error || postErr.message
       }
-    } catch (edgeErr) {
-      console.warn('[emailNotificationService] Edge function call bypassed:', edgeErr.message)
+
+      // 3. Fallback to Supabase Edge Function if local/custom Nodemailer endpoint failed
+      if (!emailSent) {
+        try {
+          const { data, error } = await supabase.functions.invoke('approval-workflow', {
+            body: {
+              action: 'send_email',
+              to: targetEmail,
+              recipientName: targetName,
+              subject,
+              html,
+              text: text || subject,
+              notificationType,
+              stakeholderId: stakeholderId ? Number(stakeholderId) : null,
+              relatedRecordType,
+              relatedRecordId: relatedRecordId ? Number(relatedRecordId) : null,
+              metadata
+            }
+          })
+          if (!error && data?.success) {
+            mailerResponse = data
+            emailSent = true
+            emailError = null
+          }
+        } catch (edgeErr) {
+          console.warn('[emailNotificationService] Edge function fallback also bypassed:', edgeErr.message)
+        }
+      }
     }
 
-    // 3. Register in 'public.notifications' so the stakeholder sees it in their notification center
+    // 4. Register in 'public.notifications' so the stakeholder sees it in their notification center
     if (stakeholderId) {
       try {
-        await supabase.from('notifications').insert({
-          stakeholder_id: Number(stakeholderId),
-          title: subject,
-          message: text || subject,
-          priority: notificationType.includes('EXPIRATION') || notificationType.includes('OVERDUE') ? 'HIGH' : 'MEDIUM',
-          notification_type: notificationType,
-          related_record_type: relatedRecordType,
-          related_record_id: relatedRecordId ? Number(relatedRecordId) : null,
-          is_read: false
-        })
+        const queryId = !isNaN(Number(stakeholderId)) ? Number(stakeholderId) : null
+        if (queryId) {
+          await supabase.from('notifications').insert({
+            stakeholder_id: queryId,
+            title: subject,
+            message: text || subject,
+            priority: notificationType.includes('EXPIRATION') || notificationType.includes('OVERDUE') ? 'HIGH' : 'MEDIUM',
+            notification_type: notificationType,
+            related_record_type: relatedRecordType,
+            related_record_id: relatedRecordId && !isNaN(Number(relatedRecordId)) ? Number(relatedRecordId) : null,
+            is_read: false
+          })
+        }
       } catch (notifErr) {
         console.warn('[emailNotificationService] Could not insert in notifications table:', notifErr.message)
       }
     }
 
-    // 4. Record in 'public.audit_logs'
+    // 5. Record in 'public.audit_logs'
     try {
       await supabase.from('audit_logs').insert({
         action: `EMAIL_${notificationType}`,
         entity_name: relatedRecordType || 'Stakeholder',
         entity_id: relatedRecordId || stakeholderId,
-        details: `Dispatched ${notificationType} email to "${targetEmail || 'No Email'}" (Subject: ${subject})`
+        details: `Dispatched ${notificationType} email via Nodemailer to "${targetEmail || 'No Email'}" (Subject: ${subject})`
       })
     } catch (_) {}
+
+    if (!targetEmail) {
+      return {
+        success: false,
+        emailMissing: true,
+        error: `No email address registered for stakeholder #${stakeholderId}. In-app notification was saved, but email could not be delivered.`,
+        recipientName: targetName
+      }
+    }
+
+    if (!emailSent && emailError) {
+      return {
+        success: false,
+        error: `Failed to dispatch email via Nodemailer: ${emailError}`,
+        email: targetEmail,
+        recipientName: targetName
+      }
+    }
 
     return {
       success: true,
       email: targetEmail,
       recipientName: targetName,
       subject,
-      edgeResponse: edgeFunctionResponse
+      messageId: mailerResponse?.messageId,
+      previewUrl: mailerResponse?.previewUrl,
+      isTestAccount: mailerResponse?.isTestAccount,
+      transport: 'nodemailer'
     }
   } catch (fatalErr) {
     console.error('[emailNotificationService] Fatal email sending error:', fatalErr)
@@ -691,10 +761,11 @@ export async function sendContractDueNotification({
   monthlyRent = 0,
   endDate = null,
   daysRemaining = null,
-  urgencyCategory = 'WARNING'
+  urgencyCategory = 'WARNING',
+  email = null
 }) {
   const contact = await resolveStakeholderContact(stakeholderId)
-  const targetEmail = contact.email
+  const targetEmail = (email || contact.email || '').trim()
   const stakeholderName = contact.fullName
   const resolvedStall = stallNo || contact.stallNo
 
@@ -799,10 +870,15 @@ export async function sendBulkContractDueNotifications(contractsList) {
         monthlyRent: contract.monthlyRent || contract.monthly_rent,
         endDate: contract.endDate || contract.end_date,
         daysRemaining: contract.daysRemaining,
-        urgencyCategory: contract.urgencyCategory
+        urgencyCategory: contract.urgencyCategory,
+        email: contract.email || contract.stakeholderEmail
       })
-      if (res.success) results.sent++
-      else results.errors.push({ id: contract.id, error: res.error })
+      if (res.success) {
+        results.sent++
+      } else {
+        results.skipped++
+        results.errors.push({ id: contract.id, error: res.error })
+      }
     } catch (err) {
       results.errors.push({ id: contract.id, error: err.message })
     }
