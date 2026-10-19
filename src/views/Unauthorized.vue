@@ -20,23 +20,19 @@ const router = useRouter()
 function goHome() {
   const role = String(localStorage.getItem('role') || '').replace('ROLE_', '').toUpperCase()
 
-  // ADMIN — must go to admin dashboard, not treasurer
-  if (role === 'ADMIN') {
-    router.push('/admin/dashboard')
-    return
-  }
-
-  if (role === 'TREASURER') {
-    router.push('/treasurer')
-    return
-  }
-
+  // ADMIN & MARKET SUPERVISOR (MERGED)
   if (
+    role === 'ADMIN' ||
     role === 'MARKETSUPERVISOR' ||
     role === 'MARKET_SUPERVISOR' ||
     role === 'SUPERVISOR'
   ) {
     router.push('/supervisor')
+    return
+  }
+
+  if (role === 'TREASURER') {
+    router.push('/treasurer')
     return
   }
 

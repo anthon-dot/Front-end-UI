@@ -472,34 +472,38 @@ async function fetchBillings() {
     const data = await getBillingsApi()
 
     rows.value = (data || []).map(b => {
-      const st = b.occupant?.stakeholder || b.stakeholder || {}
+      const st = b.occupant?.stakeholder || b.stakeholderObj || b.stakeholder || {}
       const stFirstName = st.firstName || st.first_name || ''
       const stLastName = st.lastName || st.last_name || ''
       const stFullName = `${stFirstName} ${stLastName}`.trim()
-      const businessName = st.businessName || st.business_name || ''
-      const stakeholderLabel = stFullName || businessName || b.occupantName || b.occupant_name || 'Verified Tenant'
+      const businessName = st.businessName || st.business_name || b.businessName || ''
+      const stakeholderLabel = (b.stakeholder && b.stakeholder !== 'Verified Tenant')
+        ? b.stakeholder
+        : (stFullName || businessName || b.occupantName || b.occupant_name || 'Verified Tenant')
       const stallNo = b.stallNo || b.stall_no || b.contract?.stall?.stallNo || b.contract?.stall?.stall_no || ''
       const stakeholderId = b.stakeholderId || st.id || b.occupant?.stakeholderId || b.occupant?.stakeholder_id
 
-      const totalVal = Number(b.totalAmount ?? b.total_amount ?? 0)
-      const paidVal = Number(b.paidAmount ?? b.paid_amount ?? 0)
+      const totalVal = Number(b.totalAmount ?? b.total_amount ?? b.total ?? 0)
+      const paidVal = Number(b.paidAmount ?? b.paid_amount ?? b.paid ?? 0)
       const balanceVal = Number(b.balance ?? Math.max(totalVal - paidVal, 0))
 
       return {
         ...b,
-        rawId: b.id,
+        rawId: b.rawId || b.id,
         id: b.billingNo || b.billing_no || (b.id ? `BILL-${b.id}` : 'N/A'),
-        billingNo: b.billingNo || b.billing_no || '',
+        billingNo: b.billingNo || b.billing_no || (b.id ? `BILL-${b.id}` : ''),
         stakeholder: stakeholderLabel,
         stakeholderId,
         businessName,
         stallNo,
-        period: b.billingPeriod || b.billing_period || 'N/A',
+        period: b.billingPeriod || b.billing_period || b.period || 'N/A',
         total: totalVal,
         paid: paidVal,
         balance: balanceVal,
-        due: b.dueDate || b.due_date || 'N/A',
-        status: (b.status || (balanceVal <= 0 ? 'PAID' : 'UNPAID')).toUpperCase()
+        due: b.dueDate || b.due_date || b.due || 'N/A',
+        status: (b.status || (balanceVal <= 0 ? 'PAID' : 'UNPAID')).toUpperCase(),
+        email: (b.email || st.email || b.stakeholderEmail || b.occupant?.email || '').trim(),
+        stakeholderEmail: (b.email || st.email || b.stakeholderEmail || b.occupant?.email || '').trim()
       }
     })
   } catch (err) {
@@ -600,16 +604,31 @@ function parsePeriod(periodStr) {
   if (match) {
     return { month: parseInt(match[1], 10), year: parseInt(match[2], 10) }
   }
+  const dateMatch = periodStr.match(/(\d{4})-(\d{1,2})/)
+  if (dateMatch) {
+    return { month: parseInt(dateMatch[2], 10), year: parseInt(dateMatch[1], 10) }
+  }
+  const words = periodStr.trim().split(/\s+/)
+  if (words.length === 2) {
+    const monthNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+    const mIdx = monthNames.findIndex(m => words[0].toLowerCase().startsWith(m))
+    const yr = parseInt(words[1], 10)
+    if (mIdx !== -1 && !isNaN(yr)) {
+      return { month: mIdx + 1, year: yr }
+    }
+  }
   return null
 }
 
 function isPastDue(row) {
   if (row.status === 'PAID') return false
+  if (row.status === 'OVERDUE') return true
   if (!row.due || row.due === 'N/A') return false
   const due = new Date(row.due)
   if (isNaN(due.getTime())) return false
   return due < todayStart
 }
+
 
 function isThisMonth(row) {
   if (isPastDue(row)) return false
@@ -711,8 +730,12 @@ function initials(name) {
 ========================= */
 async function sendNotification(row) {
   try {
-    const res = await sendBillingNotification(row.rawId || row.billingNo || row.id)
-    const emailTarget = res?.emailResult?.email
+    const res = await sendBillingNotification(row.rawId || row.billingNo || row.id, {
+      email: row.email || row.stakeholderEmail,
+      stallNo: row.stallNo,
+      stakeholderId: row.stakeholderId
+    })
+    const emailTarget = res?.targetEmail || res?.emailResult?.email || row.email
     const emailMsg = emailTarget ? ` & emailed to ${emailTarget}` : ''
     toast.add({
       severity: 'success',
@@ -732,7 +755,7 @@ async function sendNotification(row) {
 }
 
 async function sendBulkDueReminders() {
-  const dueBills = rows.value.filter(r => (r.balance > 0) && (r.isPastDue || r.isThisMonth || r.status === 'UNPAID'))
+  const dueBills = rows.value.filter(r => (Number(r.balance || 0) > 0) && (isPastDue(r) || isThisMonth(r) || r.status !== 'PAID'))
   if (dueBills.length === 0) {
     toast.add({
       severity: 'info',

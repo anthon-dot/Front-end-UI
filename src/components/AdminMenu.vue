@@ -101,7 +101,10 @@ const isMobile = ref(false)
 const sections = [
   {
     label: '',
-    items: [{ label: 'Dashboard', icon: 'pi pi-home', routeName: 'AdminDashboard' }]
+    items: [
+      { label: 'Dashboard', icon: 'pi pi-home', routeName: 'AdminDashboard' },
+      { label: 'Supervisor Dashboard', icon: 'pi pi-th-large', routeName: 'MarketSupervisor' }
+    ]
   },
   {
     label: 'User Management',
@@ -114,10 +117,13 @@ const sections = [
   {
     label: 'Market Management',
     items: [
+      { label: 'Stall Management', icon: 'pi pi-th-large', routeName: 'MSStalls' },
       { label: 'Stall Map', icon: 'pi pi-map', routeName: 'AdminStallMap' },
       { label: 'Stalls', icon: 'pi pi-building', routeName: 'AdminStalls' },
       { label: 'Stall Types', icon: 'pi pi-tags', routeName: 'AdminStallTypes' },
-      { label: 'Rental Rates', icon: 'pi pi-money-bill', routeName: 'AdminRentalRates' }
+      { label: 'Rental Rates', icon: 'pi pi-money-bill', routeName: 'AdminRentalRates' },
+      { label: 'Contracts', icon: 'pi pi-file-edit', routeName: 'MSContracts' },
+      { label: 'Archive Record', icon: 'pi pi-inbox', routeName: 'MSArchive' }
     ]
   },
   {

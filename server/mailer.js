@@ -1,47 +1,104 @@
 import nodemailer from 'nodemailer'
+import fs from 'fs'
+import path from 'path'
 
 /**
  * ==============================================================================
  * NODEMAILER EMAIL DISPATCHER
  * ==============================================================================
  * Dispatches official municipal notifications strictly using Nodemailer SMTP.
- * Configured with university sender: anthony.jamaca@msunaawan.edu.ph
  */
 
 let transporter = null
 let transporterConfig = null
+let isTestAccount = false
 
-export async function getTransporter() {
-  if (transporter) {
-    return { transporter, config: transporterConfig }
-  }
-
-  const host = process.env.SMTP_HOST || process.env.VITE_SMTP_HOST || 'smtp.gmail.com'
-  const port = Number(process.env.SMTP_PORT || process.env.VITE_SMTP_PORT || 587)
-  const secure = (process.env.SMTP_SECURE || process.env.VITE_SMTP_SECURE) === 'true' || port === 465
-  const user = (process.env.SMTP_USER || process.env.VITE_SMTP_USER || 'anthony.jamaca@msunaawan.edu.ph').trim()
-  const pass = (process.env.SMTP_PASS || process.env.VITE_SMTP_PASS || '').trim()
-
-  if (!pass) {
-    throw new Error(
-      `SMTP password (SMTP_PASS) is not configured. Real email delivery to external recipients requires authentication. ` +
-      `Please configure SMTP_PASS in your Vercel Project Settings (Environment Variables) or .env file.`
-    )
-  }
-
-  transporterConfig = {
-    host,
-    port,
-    secure,
-    auth: { user, pass },
-    tls: {
-      rejectUnauthorized: false
+function getFreshEnv() {
+  const env = { ...process.env }
+  try {
+    const envPath = path.resolve(process.cwd(), '.env')
+    if (fs.existsSync(envPath)) {
+      const content = fs.readFileSync(envPath, 'utf8')
+      content.split('\n').forEach(line => {
+        const trimmed = line.trim()
+        if (trimmed && !trimmed.startsWith('#')) {
+          const eqIdx = trimmed.indexOf('=')
+          if (eqIdx !== -1) {
+            const k = trimmed.slice(0, eqIdx).trim()
+            let v = trimmed.slice(eqIdx + 1).trim()
+            if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+              v = v.slice(1, -1)
+            }
+            env[k] = v
+          }
+        }
+      })
     }
+  } catch (_) {}
+  return env
+}
+
+export async function getTransporter(forceRefresh = false) {
+  const env = getFreshEnv()
+  const host = env.SMTP_HOST || env.VITE_SMTP_HOST || 'smtp.gmail.com'
+  const port = Number(env.SMTP_PORT || env.VITE_SMTP_PORT || 587)
+  const secure = (env.SMTP_SECURE || env.VITE_SMTP_SECURE) === 'true' || port === 465
+  const user = (env.SMTP_USER || env.VITE_SMTP_USER || 'anthony.jamaca@msunaawan.edu.ph').trim()
+  const pass = (env.SMTP_PASS || env.VITE_SMTP_PASS || '').trim()
+
+  const hasRealCreds = Boolean(host && user && pass)
+  const configChanged = !transporterConfig ||
+    transporterConfig.host !== host ||
+    transporterConfig.port !== port ||
+    transporterConfig.auth?.user !== user ||
+    transporterConfig.auth?.pass !== pass
+
+  if (transporter && !forceRefresh && !configChanged && (!isTestAccount || !hasRealCreds)) {
+    return { transporter, isTestAccount, config: transporterConfig }
   }
 
-  transporter = nodemailer.createTransport(transporterConfig)
-  console.log(`[Nodemailer SMTP] Real transporter connected to ${host}:${port} (${user})`)
-  return { transporter, config: transporterConfig }
+  // 1. If real SMTP credentials are provided, use real SMTP transporter
+  if (hasRealCreds) {
+    transporterConfig = {
+      host,
+      port,
+      secure,
+      auth: { user, pass },
+      tls: {
+        rejectUnauthorized: false
+      }
+    }
+    transporter = nodemailer.createTransport(transporterConfig)
+    isTestAccount = false
+    console.log(`[Nodemailer SMTP] Real transporter connected to ${host}:${port} (${user})`)
+    return { transporter, isTestAccount, config: transporterConfig }
+  }
+
+  // 2. Fallback: Automated Ethereal test mailbox for seamless zero-config local development
+  try {
+    const testAccount = await nodemailer.createTestAccount()
+    transporterConfig = {
+      host: testAccount.smtp.host,
+      port: testAccount.smtp.port,
+      secure: testAccount.smtp.secure,
+      auth: {
+        user: testAccount.user,
+        pass: testAccount.pass
+      }
+    }
+    transporter = nodemailer.createTransport(transporterConfig)
+    isTestAccount = true
+    console.log(`[Nodemailer] SMTP_PASS not set in .env. Initialized automated test mailbox: ${testAccount.user}`)
+    console.log(`[Nodemailer] To deliver real emails to actual recipient inboxes, configure your 16-character App Password in .env as SMTP_PASS.`)
+    return { transporter, isTestAccount, config: transporterConfig }
+  } catch (err) {
+    console.warn('[Nodemailer] Could not create Ethereal test account, using JSON stream transporter:', err.message)
+    transporter = nodemailer.createTransport({
+      jsonTransport: true
+    })
+    isTestAccount = true
+    return { transporter, isTestAccount, config: { host: 'json-fallback' } }
+  }
 }
 
 /**
@@ -65,11 +122,12 @@ export async function sendEmail({ to, recipientName, subject, html, text, from }
   const emailHtml = html || `<p>${text || subject}</p>`
   const emailText = text || subject
 
-  const { transporter: activeTransporter } = await getTransporter()
+  const { transporter: activeTransporter, isTestAccount: isTest } = await getTransporter()
+  const env = getFreshEnv()
 
-  const defaultFrom = process.env.SMTP_FROM ||
-    process.env.VITE_SMTP_FROM ||
-    `"Office of the Market Supervisor - Municipality of Manticao" <${process.env.SMTP_USER || 'anthony.jamaca@msunaawan.edu.ph'}>`
+  const defaultFrom = env.SMTP_FROM ||
+    env.VITE_SMTP_FROM ||
+    `"Office of the Market Supervisor" <${env.SMTP_USER || 'tawoayie@gmail.com'}>`
 
   const mailOptions = {
     from: from || defaultFrom,
@@ -81,15 +139,23 @@ export async function sendEmail({ to, recipientName, subject, html, text, from }
 
   const info = await activeTransporter.sendMail(mailOptions)
 
-  console.log(`[Nodemailer] Real email dispatched to "${targetEmail}" (Message ID: ${info.messageId})`)
+  let previewUrl = null
+  if (isTest && nodemailer.getTestMessageUrl) {
+    previewUrl = nodemailer.getTestMessageUrl(info)
+    console.log(`[Nodemailer Preview URL]: ${previewUrl}`)
+  }
+
+  console.log(`[Nodemailer] Email dispatched to "${targetEmail}" (Message ID: ${info.messageId})${isTest ? ' [Test Account]' : ' [Real Delivery]'}`)
 
   return {
     success: true,
     messageId: info.messageId,
+    previewUrl,
+    isTestAccount: isTest,
     sender: mailOptions.from,
     recipient: targetEmail,
     subject: emailSubject,
-    transport: 'nodemailer-smtp'
+    transport: isTest ? 'nodemailer-ethereal-test' : 'nodemailer-smtp'
   }
 }
 
@@ -97,22 +163,24 @@ export async function sendEmail({ to, recipientName, subject, html, text, from }
  * Verify transporter connectivity
  */
 export async function verifyTransporter() {
+  const env = getFreshEnv()
   try {
-    const { transporter: activeTransporter, config } = await getTransporter()
+    const { transporter: activeTransporter, isTestAccount: isTest, config } = await getTransporter()
     await activeTransporter.verify()
     return {
       connected: true,
+      isTestAccount: isTest,
       host: config.host,
       port: config.port,
-      sender: process.env.SMTP_USER || 'anthony.jamaca@msunaawan.edu.ph',
-      mode: 'Nodemailer SMTP (Real Delivery)'
+      sender: env.SMTP_USER || 'tawoayie@gmail.com',
+      mode: isTest ? 'Nodemailer Ethereal Sandbox (Configure SMTP_PASS in .env for real delivery)' : 'Nodemailer SMTP (Real Delivery)'
     }
   } catch (err) {
     return {
       connected: false,
       error: err.message,
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      sender: process.env.SMTP_USER || 'anthony.jamaca@msunaawan.edu.ph'
+      host: env.SMTP_HOST || 'smtp.gmail.com',
+      sender: env.SMTP_USER || 'tawoayie@gmail.com'
     }
   }
 }

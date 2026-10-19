@@ -125,7 +125,7 @@ async function createAccount() {
           action: 'register',
           username: cleanUsername,
           password: password.value,
-          role: cleanUsername.toLowerCase() === 'admin' ? 'ADMIN' : 'STAKEHOLDER'
+          role: cleanUsername.toLowerCase() === 'admin' ? 'MARKET_SUPERVISOR' : 'STAKEHOLDER'
         }
       })
 
@@ -170,8 +170,8 @@ async function createAccount() {
     })
 
     // Route according to user role
-    if (roleToSet === 'ADMIN') {
-      router.push('/admin/dashboard')
+    if (roleToSet === 'ADMIN' || roleToSet === 'MARKET_SUPERVISOR') {
+      router.push('/supervisor')
     } else {
       router.push('/business-application')
     }

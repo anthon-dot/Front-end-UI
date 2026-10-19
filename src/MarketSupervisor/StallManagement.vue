@@ -1411,22 +1411,39 @@ async function confirmAssignOccupant() {
 
     await allocateOccupant(targetStallId, stakeholder.id)
 
+    // Ensure occupant status is ACTIVE and tenant billing cycle is initiated
     try {
-      const { sendApplicationProgressNotification } = await import('../services/emailNotificationService')
-      await sendApplicationProgressNotification({
-        stakeholderId: stakeholder.id,
-        userId: stakeholder.userId || stakeholder.user_id,
-        email: stakeholder.email,
-        stage: 'STALL_ASSIGNMENT',
-        status: 'ASSIGNED',
-        title: `Market Stall Assigned: Stall No. ${form.value.number}`,
-        message: `Congratulations! Stall No. ${form.value.number} (${form.value.type || 'Commercial Stall'}) has been officially assigned to you. Your application has now proceeded to BPLO validation.`,
-        remarks: `Assigned Stall: Stall No. ${form.value.number}. Monthly rental: ₱${Number(form.value.rent || 0).toLocaleString()}/month.`,
-        stallNo: form.value.number
-      })
-    } catch (eErr) {
-      console.warn('[StallManagement] Stall assignment email dispatch warning:', eErr)
-    }
+      const { supabase } = await import('../config/supabase')
+      await supabase
+        .from('occupants')
+        .update({ status: 'ACTIVE', occupancy_date: new Date().toISOString().split('T')[0] })
+        .eq('stakeholder_id', stakeholder.id)
+    } catch (_) {}
+
+    // Non-blocking billing check and notification dispatch
+    void (async () => {
+      try {
+        const { ensureBillingsForVerifiedTenants } = await import('../services/billingService')
+        await ensureBillingsForVerifiedTenants()
+      } catch (_) {}
+
+      try {
+        const { sendApplicationProgressNotification } = await import('../services/emailNotificationService')
+        await sendApplicationProgressNotification({
+          stakeholderId: stakeholder.id,
+          userId: stakeholder.userId || stakeholder.user_id,
+          email: stakeholder.email,
+          stage: 'STALL_ASSIGNMENT',
+          status: 'ASSIGNED',
+          title: `Market Stall Assigned: Stall No. ${form.value.number}`,
+          message: `Congratulations! Stall No. ${form.value.number} (${form.value.type || 'Commercial Stall'}) has been officially assigned to you. Your application has now proceeded to BPLO validation.`,
+          remarks: `Assigned Stall: Stall No. ${form.value.number}. Monthly rental: ₱${Number(form.value.rent || 0).toLocaleString()}/month.`,
+          stallNo: form.value.number
+        })
+      } catch (eErr) {
+        console.warn('[StallManagement] Stall assignment email dispatch warning:', eErr)
+      }
+    })()
 
     await loadStalls()
     await loadContracts()

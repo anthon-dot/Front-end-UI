@@ -41,13 +41,13 @@ const routes = [
         path: "/admin/dashboard",
         name: "AdminDashboard",
         component: () => import("../Admin/AdminView.vue"),
-        meta: { roles: ['ADMIN'] }
+        meta: { roles: ['ADMIN', 'MARKET_SUPERVISOR', 'SUPERVISOR', 'MARKETSUPERVISOR'] }
       },
   {
     path: "/admin/users",
     name: "AdminUsers",
     component: () => import("../Admin/AdminView.vue"),
-    meta: { roles: ['ADMIN'] }
+    meta: { roles: ['ADMIN', 'MARKET_SUPERVISOR', 'SUPERVISOR', 'MARKETSUPERVISOR'] }
   },
   {
     path: "/admin/roles-permissions",
@@ -57,97 +57,97 @@ const routes = [
     path: "/admin/roles",
     name: "AdminRoles",
     component: () => import("../Admin/AdminView.vue"),
-    meta: { roles: ['ADMIN'] }
+    meta: { roles: ['ADMIN', 'MARKET_SUPERVISOR', 'SUPERVISOR', 'MARKETSUPERVISOR'] }
   },
   {
     path: "/admin/login-history",
     name: "AdminLoginHistory",
     component: () => import("../Admin/AdminView.vue"),
-    meta: { roles: ['ADMIN'] }
+    meta: { roles: ['ADMIN', 'MARKET_SUPERVISOR', 'SUPERVISOR', 'MARKETSUPERVISOR'] }
   },
   {
     path: "/admin/stall-map",
     name: "AdminStallMap",
     component: () => import("../Admin/AdminView.vue"),
-    meta: { roles: ['ADMIN'] }
+    meta: { roles: ['ADMIN', 'MARKET_SUPERVISOR', 'SUPERVISOR', 'MARKETSUPERVISOR'] }
   },
   {
     path: "/admin/stalls",
     name: "AdminStalls",
     component: () => import("../Admin/AdminView.vue"),
-    meta: { roles: ['ADMIN'] }
+    meta: { roles: ['ADMIN', 'MARKET_SUPERVISOR', 'SUPERVISOR', 'MARKETSUPERVISOR'] }
   },
   {
     path: "/admin/stall-types",
     name: "AdminStallTypes",
     component: () => import("../Admin/AdminView.vue"),
-    meta: { roles: ['ADMIN'] }
+    meta: { roles: ['ADMIN', 'MARKET_SUPERVISOR', 'SUPERVISOR', 'MARKETSUPERVISOR'] }
   },
   {
     path: "/admin/rental-rates",
     name: "AdminRentalRates",
     component: () => import("../Admin/AdminView.vue"),
-    meta: { roles: ['ADMIN'] }
+    meta: { roles: ['ADMIN', 'MARKET_SUPERVISOR', 'SUPERVISOR', 'MARKETSUPERVISOR'] }
   },
   {
     path: "/admin/applications",
     name: "AdminApplications",
     component: () => import("../Admin/AdminView.vue"),
-    meta: { roles: ['ADMIN'] }
+    meta: { roles: ['ADMIN', 'MARKET_SUPERVISOR', 'SUPERVISOR', 'MARKETSUPERVISOR'] }
   },
   {
     path: "/admin/stakeholders",
     name: "AdminStakeholders",
     component: () => import("../Admin/AdminView.vue"),
-    meta: { roles: ['ADMIN'] }
+    meta: { roles: ['ADMIN', 'MARKET_SUPERVISOR', 'SUPERVISOR', 'MARKETSUPERVISOR'] }
   },
   {
     path: "/admin/contracts",
     name: "AdminContracts",
     component: () => import("../Admin/AdminView.vue"),
-    meta: { roles: ['ADMIN'] }
+    meta: { roles: ['ADMIN', 'MARKET_SUPERVISOR', 'SUPERVISOR', 'MARKETSUPERVISOR'] }
   },
   {
     path: "/admin/payments",
     name: "AdminPayments",
     component: () => import("../Admin/AdminView.vue"),
-    meta: { roles: ['ADMIN'] }
+    meta: { roles: ['ADMIN', 'MARKET_SUPERVISOR', 'SUPERVISOR', 'MARKETSUPERVISOR'] }
   },
   {
     path: "/admin/billing",
     name: "AdminBilling",
     component: () => import("../Admin/AdminView.vue"),
-    meta: { roles: ['ADMIN'] }
+    meta: { roles: ['ADMIN', 'MARKET_SUPERVISOR', 'SUPERVISOR', 'MARKETSUPERVISOR'] }
   },
   {
     path: "/admin/occupancy",
     name: "AdminOccupancy",
     component: () => import("../Admin/AdminView.vue"),
-    meta: { roles: ['ADMIN'] }
+    meta: { roles: ['ADMIN', 'MARKET_SUPERVISOR', 'SUPERVISOR', 'MARKETSUPERVISOR'] }
   },
   {
     path: "/admin/reports/revenue",
     name: "AdminRevenueReport",
     component: () => import("../Admin/AdminView.vue"),
-    meta: { roles: ['ADMIN'] }
+    meta: { roles: ['ADMIN', 'MARKET_SUPERVISOR', 'SUPERVISOR', 'MARKETSUPERVISOR'] }
   },
   {
     path: "/admin/reports/applications",
     name: "AdminApplicationsReport",
     component: () => import("../Admin/AdminView.vue"),
-    meta: { roles: ['ADMIN'] }
+    meta: { roles: ['ADMIN', 'MARKET_SUPERVISOR', 'SUPERVISOR', 'MARKETSUPERVISOR'] }
   },
   {
     path: "/admin/reports/occupancy",
     name: "AdminOccupancyReport",
     component: () => import("../Admin/AdminView.vue"),
-    meta: { roles: ['ADMIN'] }
+    meta: { roles: ['ADMIN', 'MARKET_SUPERVISOR', 'SUPERVISOR', 'MARKETSUPERVISOR'] }
   },
   {
     path: "/admin/reports/system-activity",
     name: "AdminActivityReport",
     component: () => import("../Admin/AdminView.vue"),
-    meta: { roles: ['ADMIN'] }
+    meta: { roles: ['ADMIN', 'MARKET_SUPERVISOR', 'SUPERVISOR', 'MARKETSUPERVISOR'] }
   },
   {
     path: "/admin/reports",
@@ -157,25 +157,25 @@ const routes = [
     path: "/admin/audit-logs",
     name: "AdminAuditLogs",
     component: () => import("../Admin/AdminView.vue"),
-    meta: { roles: ['ADMIN'] }
+    meta: { roles: ['ADMIN', 'MARKET_SUPERVISOR', 'SUPERVISOR', 'MARKETSUPERVISOR'] }
   },
   {
     path: "/admin/notifications",
     name: "AdminNotifications",
     component: () => import("../Admin/AdminView.vue"),
-    meta: { roles: ['ADMIN'] }
+    meta: { roles: ['ADMIN', 'MARKET_SUPERVISOR', 'SUPERVISOR', 'MARKETSUPERVISOR'] }
   },
   {
     path: "/admin/settings",
     name: "AdminSettings",
     component: () => import("../Admin/AdminView.vue"),
-    meta: { roles: ['ADMIN'] }
+    meta: { roles: ['ADMIN', 'MARKET_SUPERVISOR', 'SUPERVISOR', 'MARKETSUPERVISOR'] }
   },
   {
     path: "/admin/profile",
     name: "AdminProfile",
     component: () => import("../Admin/AdminView.vue"),
-    meta: { roles: ['ADMIN'] }
+    meta: { roles: ['ADMIN', 'MARKET_SUPERVISOR', 'SUPERVISOR', 'MARKETSUPERVISOR'] }
   }
   ,
   {
@@ -249,35 +249,35 @@ const routes = [
     path: "/supervisor",
     name: "MarketSupervisor",
     component: () => import("../MarketSupervisor/dashboard.vue"),
-    meta: { roles: ['ADMIN', 'TREASURER', 'SUPERVISOR', 'MARKET_SUPERVISOR', 'MARKETSUPERVISOR'] }
+    meta: { roles: ['ADMIN', 'SUPERVISOR', 'MARKET_SUPERVISOR', 'MARKETSUPERVISOR'] }
   }
   ,
   {
     path: "/supervisor/contracts",
     name: "MSContracts",
     component: () => import("../MarketSupervisor/contract.vue"),
-    meta: { roles: ['ADMIN', 'TREASURER', 'SUPERVISOR', 'MARKET_SUPERVISOR', 'MARKETSUPERVISOR'] }
+    meta: { roles: ['ADMIN', 'SUPERVISOR', 'MARKET_SUPERVISOR', 'MARKETSUPERVISOR'] }
   }
   ,
   {
     path: "/supervisor/stalls",
     name: "MSStalls",
     component: () => import("../MarketSupervisor/StallManagement.vue"),
-    meta: { roles: ['ADMIN', 'TREASURER', 'SUPERVISOR', 'MARKET_SUPERVISOR', 'MARKETSUPERVISOR'] }
+    meta: { roles: ['ADMIN', 'SUPERVISOR', 'MARKET_SUPERVISOR', 'MARKETSUPERVISOR'] }
   }
   ,
   {
     path: "/supervisor/archive",
     name: "MSArchive",
     component: () => import("../MarketSupervisor/archive.vue"),
-    meta: { roles: ['ADMIN', 'TREASURER', 'SUPERVISOR', 'MARKET_SUPERVISOR', 'MARKETSUPERVISOR'] }
+    meta: { roles: ['ADMIN', 'SUPERVISOR', 'MARKET_SUPERVISOR', 'MARKETSUPERVISOR'] }
   }
   ,
   {
     path: "/supervisor/reports",
     name: "MSReports",
     component: () => import("../MarketSupervisor/ReportPage.vue"),
-    meta: { roles: ['ADMIN', 'TREASURER', 'SUPERVISOR', 'MARKET_SUPERVISOR', 'MARKETSUPERVISOR'] }
+    meta: { roles: ['ADMIN', 'SUPERVISOR', 'MARKET_SUPERVISOR', 'MARKETSUPERVISOR'] }
   }
   ,
   {

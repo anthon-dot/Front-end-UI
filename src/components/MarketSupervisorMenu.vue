@@ -159,6 +159,12 @@ const baseItems = [
     routeName: 'MSStalls'
   },
   {
+    id: 'stall-map',
+    label: 'Stall Map',
+    icon: 'pi pi-map',
+    routeName: 'AdminStallMap'
+  },
+  {
     id: 'archive',
     label: 'Archive Record',
     icon: 'pi pi-inbox',
@@ -169,6 +175,30 @@ const baseItems = [
     label: 'Reports',
     icon: 'pi pi-chart-bar',
     routeName: 'MSReports'
+  },
+  {
+    id: 'users',
+    label: 'Users',
+    icon: 'pi pi-users',
+    routeName: 'AdminUsers'
+  },
+  {
+    id: 'roles',
+    label: 'Roles & Permissions',
+    icon: 'pi pi-shield',
+    routeName: 'AdminRoles'
+  },
+  {
+    id: 'audit-logs',
+    label: 'Audit Logs',
+    icon: 'pi pi-book',
+    routeName: 'AdminAuditLogs'
+  },
+  {
+    id: 'settings',
+    label: 'Settings',
+    icon: 'pi pi-cog',
+    routeName: 'AdminSettings'
   }
 ]
 
@@ -178,11 +208,7 @@ const items = computed(() => {
       .toUpperCase()
 
   return baseItems.filter((item) => {
-    if (item.id !== 'reports') {
-      return true
-    }
-
-    return ['ADMIN', 'TREASURER', 'SUPERVISOR', 'MARKET_SUPERVISOR', 'MARKETSUPERVISOR'].includes(role)
+    return ['ADMIN', 'SUPERVISOR', 'MARKET_SUPERVISOR', 'MARKETSUPERVISOR'].includes(role)
   })
 })
 

@@ -68,7 +68,7 @@
           <i class="pi pi-lock"></i>
         </div>
         <h2>Access Restricted</h2>
-        <p>This reporting module is strictly reserved for authorized Market Supervisors, Administrators, and Treasurers.</p>
+        <p>This reporting module is strictly reserved for authorized Market Supervisors and Administrators.</p>
         <div class="access-role-note">
           Current session role: <strong>{{ currentRole || 'Guest' }}</strong>
         </div>
@@ -939,12 +939,10 @@ const isAuthorized = computed(() => {
     'MARKETSUPERVISOR',
     'MARKET_SUPERVISOR',
     'SUPERVISOR',
-    'ADMIN',
-    'TREASURER'
+    'ADMIN'
   ].includes(role) ||
     role.includes('SUPERVISOR') ||
-    role.includes('ADMIN') ||
-    role.includes('TREASURER')
+    role.includes('ADMIN')
 })
 
 const currentFormattedDate = computed(() => {

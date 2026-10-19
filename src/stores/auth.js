@@ -25,6 +25,7 @@ export function normalizeWorkflowRole(role) {
   const normalized = normalizeRole(role)
 
   const aliases = {
+    ADMIN: 'MARKET_SUPERVISOR',
     SUPERVISOR: 'MARKET_SUPERVISOR',
     MARKETSUPERVISOR: 'MARKET_SUPERVISOR',
     BPLO: 'BPLO_OFFICE',
@@ -33,7 +34,8 @@ export function normalizeWorkflowRole(role) {
     ENDORSING_OFFICER: 'ENDORSING_OFFICE',
     ENDORISING_OFFICE: 'ENDORSING_OFFICE',
     TENANT: 'STAKEHOLDER',
-    APPLICANT: 'STAKEHOLDER'
+    APPLICANT: 'STAKEHOLDER',
+    USER: 'STAKEHOLDER'
   }
 
   return aliases[normalized] || normalized
@@ -93,35 +95,51 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function hydrateFromStorage() {
-    token.value = localStorage.getItem(AUTH_TOKEN_KEY) || ''
-    role.value = localStorage.getItem('role') || ''
-    userId.value = localStorage.getItem('userId') || ''
-    stakeholderId.value = localStorage.getItem('stakeholderId') || ''
+  let inFlightHydration = null
 
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session?.access_token) {
-        token.value = session.access_token
-        userId.value = session.user.id
-        localStorage.setItem(AUTH_TOKEN_KEY, session.access_token)
-        localStorage.setItem('userId', session.user.id)
+  async function hydrateFromStorage({ force = false } = {}) {
+    // 1. Read immediate synchronous storage state
+    if (!token.value) token.value = localStorage.getItem(AUTH_TOKEN_KEY) || ''
+    if (!role.value) role.value = localStorage.getItem('role') || ''
+    if (!userId.value) userId.value = localStorage.getItem('userId') || ''
+    if (!stakeholderId.value) stakeholderId.value = localStorage.getItem('stakeholderId') || ''
 
-        if (!role.value) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', session.user.id)
-            .single()
-          if (profile?.role) {
-            role.value = profile.role
-            localStorage.setItem('role', profile.role)
+    // If session is already active and valid in memory, avoid redundant network check
+    if (!force && token.value && !isTokenExpired.value && role.value) {
+      return
+    }
+
+    if (inFlightHydration) return inFlightHydration
+
+    inFlightHydration = (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.access_token) {
+          token.value = session.access_token
+          userId.value = session.user.id
+          localStorage.setItem(AUTH_TOKEN_KEY, session.access_token)
+          localStorage.setItem('userId', session.user.id)
+
+          if (!role.value) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('role')
+              .eq('id', session.user.id)
+              .maybeSingle()
+            if (profile?.role) {
+              role.value = profile.role
+              localStorage.setItem('role', profile.role)
+            }
           }
         }
+      } catch (e) {
+        // Ignore network errors on hydration
+      } finally {
+        inFlightHydration = null
       }
-    } catch (e) {
-      // Ignore network errors on hydration
-    }
+    })()
+
+    return inFlightHydration
   }
 
   async function clearSession() {

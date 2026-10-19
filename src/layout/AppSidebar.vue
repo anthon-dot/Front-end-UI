@@ -17,6 +17,12 @@ const userRole = computed(() => {
     return authStore.normalizedRole || 'GUEST';
 });
 
+const displayRole = computed(() => {
+    const r = userRole.value;
+    if (r === 'MARKET_SUPERVISOR' || r === 'ADMIN') return 'Market Supervisor';
+    return r;
+});
+
 const userInitials = computed(() => {
     const name = userName.value;
     if (!name) return 'U';
@@ -47,7 +53,7 @@ function handleLogout() {
                 </div>
                 <div class="sidebar-user-info">
                     <span class="sidebar-user-name" :title="userName">{{ userName }}</span>
-                    <span class="sidebar-user-role">{{ userRole }}</span>
+                    <span class="sidebar-user-role">{{ displayRole }}</span>
                 </div>
                 <button
                     type="button"

@@ -29,7 +29,7 @@ export async function createUser(payload) {
       username: cleanUsername,
       password: payload.password,
       name: payload.name || cleanUsername,
-      role: payload.role || 'STAKEHOLDER',
+      role: payload.role || 'MARKET_SUPERVISOR',
       status: payload.status || 'ACTIVE'
     }
   })

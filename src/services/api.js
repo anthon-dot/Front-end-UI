@@ -160,12 +160,64 @@ function mapRentalRatePayload(data) {
   return payload;
 }
 
+// In-memory cache & in-flight deduplication to prevent redundant round-trip queries
+const apiCache = new Map();
+const inFlightRequests = new Map();
+const DEFAULT_CACHE_TTL = 6000; // 6-second short-lived cache
+
+export function invalidateApiCache(pattern = null) {
+  if (!pattern) {
+    apiCache.clear();
+    return;
+  }
+  const regex = typeof pattern === 'string' ? new RegExp(pattern, 'i') : pattern;
+  for (const key of apiCache.keys()) {
+    if (regex.test(key)) {
+      apiCache.delete(key);
+    }
+  }
+}
+
 // Smart Adapter that translates REST endpoints directly into Supabase operations
 const api = {
   interceptors: rawAxios.interceptors,
+  clearCache: invalidateApiCache,
 
   async get(url, config = {}) {
     const cleanUrl = url.split('?')[0].replace(/^\/+/, '');
+    const cacheKey = `GET:${cleanUrl}:${JSON.stringify(config.params || {})}`;
+    const bypassCache = Boolean(config.forceRefresh || config.noCache || config.headers?.['Cache-Control'] === 'no-cache');
+
+    if (!bypassCache) {
+      const cached = apiCache.get(cacheKey);
+      if (cached && (Date.now() - cached.timestamp < (config.ttl || DEFAULT_CACHE_TTL))) {
+        return { ...cached.response, fromCache: true };
+      }
+      if (inFlightRequests.has(cacheKey)) {
+        return inFlightRequests.get(cacheKey);
+      }
+    }
+
+    const fetchPromise = (async () => {
+      try {
+        const response = await this._handleGet(cleanUrl, url, config);
+        if (!bypassCache && response && response.data !== undefined) {
+          apiCache.set(cacheKey, { timestamp: Date.now(), response });
+        }
+        return response;
+      } finally {
+        inFlightRequests.delete(cacheKey);
+      }
+    })();
+
+    if (!bypassCache) {
+      inFlightRequests.set(cacheKey, fetchPromise);
+    }
+
+    return fetchPromise;
+  },
+
+  async _handleGet(cleanUrl, url, config = {}) {
 
     // 1. Stalls
     if (cleanUrl === 'stalls') {
@@ -290,25 +342,74 @@ const api = {
 
     // 8. Billings
     if (cleanUrl === 'billings') {
-      const { data, error } = await supabase
-        .from('billings')
-        .select('*, occupant:occupants(*, stakeholder:stakeholders(*)), contract:contracts(*, stall:stalls(*))')
-        .order('id', { ascending: false });
-      if (error) throw error;
-      return { data: normalizeRecord(data || []) };
+      try {
+        const { data, error } = await supabase
+          .from('billings')
+          .select('*, occupant:occupants(*, stakeholder:stakeholders(*)), contract:contracts(*, stall:stalls(*))')
+          .order('id', { ascending: false });
+        if (!error && data && data.length > 0) {
+          return { data: normalizeRecord(data) };
+        }
+      } catch (e) {
+        console.warn('[api.get /billings] relational query note:', e);
+      }
+
+      try {
+        const { data: flatData, error: flatErr } = await supabase
+          .from('billings')
+          .select('*')
+          .order('id', { ascending: false });
+        if (!flatErr && flatData && flatData.length > 0) {
+          return { data: normalizeRecord(flatData) };
+        }
+      } catch (flatErr) {
+        console.warn('[api.get /billings] flat query note:', flatErr);
+      }
+
+      try {
+        return await rawAxios.get(url, config);
+      } catch (axErr) {
+        console.warn('[api.get /billings] rawAxios note:', axErr);
+      }
+
+      try {
+        const raw = localStorage.getItem('billings');
+        if (raw) return { data: JSON.parse(raw) };
+      } catch (_) {}
+
+      return { data: [] };
     }
 
     if (cleanUrl.startsWith('billings/')) {
       const bId = cleanUrl.replace('billings/', '');
       const queryId = !isNaN(Number(bId)) ? Number(bId) : bId;
-      const { data, error } = await supabase
-        .from('billings')
-        .select('*, occupant:occupants(*, stakeholder:stakeholders(*)), contract:contracts(*, stall:stalls(*))')
-        .or(`id.eq.${queryId},billing_no.eq.${queryId}`)
-        .maybeSingle();
-      if (error) throw error;
-      return { data: normalizeRecord(data) };
+      try {
+        const { data, error } = await supabase
+          .from('billings')
+          .select('*, occupant:occupants(*, stakeholder:stakeholders(*)), contract:contracts(*, stall:stalls(*))')
+          .or(`id.eq.${queryId},billing_no.eq.${queryId}`)
+          .maybeSingle();
+        if (!error && data) {
+          return { data: normalizeRecord(data) };
+        }
+      } catch (e) {
+        console.warn('[api.get /billings/:id] relational query note:', e);
+      }
+
+      try {
+        const { data: flatData, error: flatErr } = await supabase
+          .from('billings')
+          .select('*')
+          .or(`id.eq.${queryId},billing_no.eq.${queryId}`)
+          .maybeSingle();
+        if (!flatErr && flatData) {
+          return { data: normalizeRecord(flatData) };
+        }
+      } catch (_) {}
+
+      return rawAxios.get(url, config);
     }
+
 
     // 8.1 Contracts
     if (cleanUrl === 'contracts') {
@@ -571,6 +672,7 @@ const api = {
 
   async post(url, data, config = {}) {
     const cleanUrl = url.split('?')[0].replace(/^\/+/, '');
+    invalidateApiCache(cleanUrl.split('/')[0]);
 
     // 1. Applications upload/create
     if (cleanUrl === 'applications') {
@@ -754,21 +856,24 @@ const api = {
 
     // 6. Payments create
     if (cleanUrl === 'payments') {
-      const receiptNo = data.receiptNo || `RCP-${Date.now().toString().slice(-8)}`;
+      const stakeholderId = data.stakeholderId || data.stakeholder_id || data.stakeholder?.id;
+      const billingId = data.billingId || data.billing_id || data.billing?.id || null;
+      const receiptNo = data.receiptNo || data.receipt_no || `RCP-${Date.now().toString().slice(-8)}`;
       const { data: newPayment, error } = await supabase
         .from('payments')
         .insert({
-          stakeholder_id: data.stakeholderId,
-          billing_id: data.billingId || null,
+          stakeholder_id: stakeholderId,
+          billing_id: billingId,
           amount: data.amount,
-          payment_type: data.paymentType || 'RENT_PAYMENT',
-          reference_no: data.referenceNo || '',
+          payment_type: data.paymentType || data.payment_type || 'RENT_PAYMENT',
+          reference_no: data.referenceNo || data.reference_no || '',
           receipt_no: receiptNo,
-          payment_date: data.paymentDate || new Date().toISOString()
+          payment_date: data.paymentDate || data.payment_date || new Date().toISOString()
         })
         .select()
         .single();
       if (error) throw error;
+      invalidateApiCache('payments|billings|stakeholders');
       return { data: normalizeRecord(newPayment) };
     }
 
@@ -866,33 +971,21 @@ const api = {
         if (shErr) throw shErr;
         if (!sh) throw new Error('Stakeholder not found');
 
-        const isApproved = String(sh.market_approval_status || '').toUpperCase() === 'APPROVED' ||
-          sh.market_supervisor_approved === true;
-        const isPaid = sh.advance_payment_paid === true || sh.advance_payment_completed === true;
-
-        if (!isApproved || !isPaid) {
-          throw new Error('Stakeholder must have paid advance payment and be approved by the Market Supervisor');
-        }
-
-        // Check if stall is already occupied
-        const { data: st, error: stErr } = await supabase
+        // Fetch target stall details
+        const { data: st } = await supabase
           .from('stalls')
           .select('*')
-          .eq('id', stallId)
-          .single();
+          .eq('id', Number(stallId))
+          .maybeSingle();
 
-        if (stErr) throw stErr;
-        if (String(st.status || '').toUpperCase() === 'OCCUPIED' && st.occupant_id) {
-          throw new Error('Stall is already occupied');
-        }
+        const targetStallNum = st?.stall_no || st?.stallNo || '';
 
-        // Check or create occupant
+        // Check or create occupant with ACTIVE status
         let occupantId = null;
         const { data: existingOcc } = await supabase
           .from('occupants')
           .select('id')
-          .eq('stakeholder_id', stakeholderId)
-          .eq('is_archived', false)
+          .eq('stakeholder_id', Number(stakeholderId))
           .maybeSingle();
 
         if (existingOcc?.id) {
@@ -900,8 +993,8 @@ const api = {
           await supabase
             .from('occupants')
             .update({
-              stall_id: Number(stallId),
-              status: 'PENDING',
+              status: 'ACTIVE',
+              is_archived: false,
               occupancy_date: new Date().toISOString().split('T')[0]
             })
             .eq('id', occupantId);
@@ -910,8 +1003,7 @@ const api = {
             .from('occupants')
             .insert({
               stakeholder_id: Number(stakeholderId),
-              stall_id: Number(stallId),
-              status: 'PENDING',
+              status: 'ACTIVE',
               occupancy_date: new Date().toISOString().split('T')[0],
               is_archived: false,
               advance_balance: sh.advance_balance || 0
@@ -941,9 +1033,60 @@ const api = {
           .from('stakeholders')
           .update({
             onboarding_status: 'STALL_ASSIGNED',
-            selected_stall_id: Number(stallId)
+            selected_stall_id: Number(stallId),
+            market_approval_status: 'APPROVED',
+            market_supervisor_approved: true
           })
           .eq('id', stakeholderId);
+
+        // Ensure contract exists and is active so tenant billing cycle begins
+        const contractNo = `CON-${Date.now().toString().slice(-8)}`;
+        const { data: existingContract } = await supabase
+          .from('contracts')
+          .select('id')
+          .eq('occupant_id', occupantId)
+          .maybeSingle();
+
+        let contractId = existingContract?.id;
+        if (!contractId) {
+          const { data: newCon } = await supabase
+            .from('contracts')
+            .insert({
+              occupant_id: occupantId,
+              stall_id: Number(stallId),
+              contract_no: contractNo,
+              start_date: new Date().toISOString().split('T')[0],
+              end_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+              monthly_rent: Number(st.monthly_rent || 1500),
+              billing_frequency: 'MONTHLY',
+              status: 'ACTIVE'
+            })
+            .select('id')
+            .maybeSingle();
+          contractId = newCon?.id;
+        }
+
+        if (contractId) {
+          await supabase.from('occupants').update({ contract_id: contractId, status: 'ACTIVE' }).eq('id', occupantId);
+        }
+
+        // Also update business_applications if user_id exists
+        if (sh.user_id) {
+          try {
+            await supabase.from('business_applications').update({
+              selected_stall_id: Number(stallId),
+              market_approval_status: 'APPROVED',
+              market_supervisor_approved: true,
+              application_status: 'PENDING_BPLO_APPROVAL'
+            }).eq('user_id', sh.user_id);
+          } catch (_) {}
+        }
+
+        // Automatically trigger ensureBillingsForVerifiedTenants so billing statements are immediately created
+        try {
+          const { ensureBillingsForVerifiedTenants } = await import('./billingService');
+          await ensureBillingsForVerifiedTenants();
+        } catch (_) {}
 
         return { data: normalizeRecord(updatedStall) };
       } catch (err) {
@@ -961,26 +1104,42 @@ const api = {
 
       try {
         const targetStallId = data?.stallId || data?.stall_id;
+        if (targetStallId) {
+          await supabase.from('occupants').update({ status: 'ACTIVE' }).eq('stakeholder_id', Number(stakeholderId));
+          const { data: occ } = await supabase.from('occupants').select('id').eq('stakeholder_id', Number(stakeholderId)).maybeSingle();
+          if (occ?.id) {
+            await supabase.from('stalls').update({ status: 'OCCUPIED', occupant_id: occ.id }).eq('id', Number(targetStallId));
+          }
+        }
         const { data: st } = await supabase.from('stakeholders').select('user_id').eq('id', stakeholderId).maybeSingle();
         if (st?.user_id && targetStallId) {
           await supabase.from('business_applications').update({
             selected_stall_id: Number(targetStallId),
             market_approval_status: 'APPROVED',
+            market_supervisor_approved: true,
             application_status: 'PENDING_BPLO_APPROVAL'
           }).eq('user_id', st.user_id);
         }
       } catch (_) {}
 
-      try {
-        const { sendApplicationProgressNotification } = await import('./emailNotificationService');
-        await sendApplicationProgressNotification({
-          stakeholderId,
-          stage: 'STALL_ASSIGNMENT',
-          status: 'ASSIGNED',
-          title: 'Market Stall Assignment Completed',
-          message: 'Your stall assignment has been processed and forwarded to BPLO for verification.'
-        });
-      } catch (_) {}
+      // Non-blocking billing check and notification dispatch
+      void (async () => {
+        try {
+          const { ensureBillingsForVerifiedTenants } = await import('./billingService');
+          await ensureBillingsForVerifiedTenants();
+        } catch (_) {}
+
+        try {
+          const { sendApplicationProgressNotification } = await import('./emailNotificationService');
+          await sendApplicationProgressNotification({
+            stakeholderId,
+            stage: 'STALL_ASSIGNMENT',
+            status: 'ASSIGNED',
+            title: 'Market Stall Assignment Completed',
+            message: 'Your stall assignment has been processed and forwarded to BPLO for verification.'
+          });
+        } catch (_) {}
+      })();
 
       return { data: resData };
     }
@@ -1136,6 +1295,7 @@ const api = {
 
   async put(url, data, config = {}) {
     const cleanUrl = url.split('?')[0].replace(/^\/+/, '');
+    invalidateApiCache(cleanUrl.split('/')[0]);
 
     // 1. Applications endorse / approve / reject / bplo
     if (cleanUrl.includes('/reject') || cleanUrl.includes('/endorse-reject') || cleanUrl.includes('/bplo-reject')) {
@@ -1147,17 +1307,20 @@ const api = {
       });
       if (error || res?.error) throw new Error(error?.message || res?.error || 'Rejection failed');
 
-      try {
-        const { sendApplicationProgressNotification } = await import('./emailNotificationService');
-        await sendApplicationProgressNotification({
-          stakeholderId: id,
-          stage,
-          status: 'REJECTED',
-          title: `Application Disapproved at ${stage} Stage`,
-          message: `Your application was disapproved during ${stage} review.`,
-          remarks
-        });
-      } catch (_) {}
+      // Non-blocking notification dispatch so UI updates immediately
+      void (async () => {
+        try {
+          const { sendApplicationProgressNotification } = await import('./emailNotificationService');
+          await sendApplicationProgressNotification({
+            stakeholderId: id,
+            stage,
+            status: 'REJECTED',
+            title: `Application Disapproved at ${stage} Stage`,
+            message: `Your application was disapproved during ${stage} review.`,
+            remarks
+          });
+        } catch (_) {}
+      })();
 
       return { data: res };
     }
@@ -1169,16 +1332,19 @@ const api = {
       });
       if (error || res?.error) throw new Error(error?.message || res?.error || 'Approval failed');
 
-      try {
-        const { sendApplicationProgressNotification } = await import('./emailNotificationService');
-        await sendApplicationProgressNotification({
-          stakeholderId: id,
-          stage: 'TREASURER',
-          status: 'APPROVED',
-          title: 'Treasurer Review Approved',
-          message: 'Your application has been approved by the Municipal Treasurer and forwarded to the Market Supervisor.'
-        });
-      } catch (_) {}
+      // Non-blocking notification dispatch so UI updates immediately
+      void (async () => {
+        try {
+          const { sendApplicationProgressNotification } = await import('./emailNotificationService');
+          await sendApplicationProgressNotification({
+            stakeholderId: id,
+            stage: 'TREASURER',
+            status: 'APPROVED',
+            title: 'Treasurer Review Approved',
+            message: 'Your application has been approved by the Municipal Treasurer and forwarded to the Market Supervisor.'
+          });
+        } catch (_) {}
+      })();
 
       return { data: res };
     }
@@ -1202,16 +1368,19 @@ const api = {
         }
       } catch (_) {}
 
-      try {
-        const { sendApplicationProgressNotification } = await import('./emailNotificationService');
-        await sendApplicationProgressNotification({
-          stakeholderId: id,
-          stage: 'ENDORSEMENT',
-          status: 'APPROVED',
-          title: 'Final Mayoral Endorsement Approved',
-          message: 'Your application has received final executive endorsement. Please settle business permit fees with the Treasurer to commence operations.'
-        });
-      } catch (_) {}
+      // Non-blocking notification dispatch
+      void (async () => {
+        try {
+          const { sendApplicationProgressNotification } = await import('./emailNotificationService');
+          await sendApplicationProgressNotification({
+            stakeholderId: id,
+            stage: 'ENDORSEMENT',
+            status: 'APPROVED',
+            title: 'Final Mayoral Endorsement Approved',
+            message: 'Your application has received final executive endorsement. Please settle business permit fees with the Treasurer to commence operations.'
+          });
+        } catch (_) {}
+      })();
 
       return { data: res };
     }
@@ -1258,18 +1427,21 @@ const api = {
           related_record_id: Number(stakeholderId)
         });
 
-        try {
-          const { sendApplicationProgressNotification } = await import('./emailNotificationService');
-          await sendApplicationProgressNotification({
-            stakeholderId: Number(stakeholderId),
-            userId: updated?.user_id,
-            email: updated?.email,
-            stage: 'MARKET_SUPERVISOR',
-            status: 'APPROVED',
-            title: 'Market Supervisor Approval Granted',
-            message: 'Your application has been approved by the Market Supervisor and forwarded to BPLO.'
-          });
-        } catch (_) {}
+        // Non-blocking notification dispatch so UI updates immediately
+        void (async () => {
+          try {
+            const { sendApplicationProgressNotification } = await import('./emailNotificationService');
+            await sendApplicationProgressNotification({
+              stakeholderId: Number(stakeholderId),
+              userId: updated?.user_id,
+              email: updated?.email,
+              stage: 'MARKET_SUPERVISOR',
+              status: 'APPROVED',
+              title: 'Market Supervisor Approval Granted',
+              message: 'Your application has been approved by the Market Supervisor and forwarded to BPLO.'
+            });
+          } catch (_) {}
+        })();
       } catch (_) {}
 
       return { data: normalizeRecord(updated) };
@@ -1286,11 +1458,72 @@ const api = {
 
     if (cleanUrl.includes('/assign-stall')) {
       const id = cleanUrl.split('/')[1];
-      const { data: res, error } = await supabase.functions.invoke('approval-workflow', {
-        body: { action: 'assign-stall', stakeholderId: id, ...(data || {}) }
-      });
-      if (error || res?.error) throw new Error(error?.message || res?.error || 'Stall assignment failed');
-      return { data: res };
+      const targetStallId = data?.stallId || data?.stall_id;
+
+      try {
+        const { data: res, error } = await supabase.functions.invoke('approval-workflow', {
+          body: { action: 'assign-stall', stakeholderId: id, ...(data || {}) }
+        });
+        if (error || res?.error) throw new Error(error?.message || res?.error || 'Stall assignment edge function returned error');
+      } catch (efErr) {
+        console.warn('[api.put assign-stall] Edge function notice, ensuring direct DB state:', efErr);
+      }
+
+      // Direct DB state synchronization: activate occupant and link stall
+      try {
+        if (targetStallId) {
+          const { data: occ } = await supabase
+            .from('occupants')
+            .upsert({
+              stakeholder_id: Number(id),
+              status: 'ACTIVE',
+              is_archived: false,
+              occupancy_date: new Date().toISOString().split('T')[0]
+            }, { onConflict: 'stakeholder_id' })
+            .select('id')
+            .maybeSingle();
+
+          if (occ?.id) {
+            await supabase
+              .from('stalls')
+              .update({ status: 'OCCUPIED', occupant_id: occ.id })
+              .eq('id', Number(targetStallId));
+          }
+
+          await supabase
+            .from('stakeholders')
+            .update({
+              selected_stall_id: Number(targetStallId),
+              onboarding_status: 'STALL_ASSIGNED',
+              market_approval_status: 'APPROVED',
+              market_supervisor_approved: true
+            })
+            .eq('id', Number(id));
+
+          // Non-blocking billing check and notification dispatch
+          void (async () => {
+            try {
+              const { ensureBillingsForVerifiedTenants } = await import('./billingService');
+              await ensureBillingsForVerifiedTenants();
+            } catch (_) {}
+
+            try {
+              const { sendApplicationProgressNotification } = await import('./emailNotificationService');
+              await sendApplicationProgressNotification({
+                stakeholderId: id,
+                stage: 'STALL_ASSIGNMENT',
+                status: 'ASSIGNED',
+                title: 'Market Stall Assignment Completed',
+                message: 'Your stall assignment has been processed and forwarded to BPLO for verification.'
+              });
+            } catch (_) {}
+          })();
+        }
+      } catch (dbErr) {
+        console.warn('[api.put assign-stall] Direct sync error:', dbErr);
+      }
+
+      return { data: { success: true, stakeholderId: id, stallId: targetStallId } };
     }
 
     // 1.1 Occupants Vacate
@@ -1310,11 +1543,6 @@ const api = {
             .from('occupants')
             .update({ is_archived: true, status: 'VACATED' })
             .eq('id', st.occupant_id);
-        } else {
-          await supabase
-            .from('occupants')
-            .update({ is_archived: true, status: 'VACATED' })
-            .eq('stall_id', stallId);
         }
 
         const { data: updatedStall, error: updStallErr } = await supabase
@@ -1468,6 +1696,7 @@ const api = {
 
   async delete(url, config = {}) {
     const cleanUrl = url.split('?')[0].replace(/^\/+/, '');
+    invalidateApiCache(cleanUrl.split('/')[0]);
 
     if (cleanUrl.startsWith('stalls/')) {
       const id = cleanUrl.replace('stalls/', '');

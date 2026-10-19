@@ -116,20 +116,38 @@ export async function allocateOccupant(stallId, stakeholderId) {
     console.warn('Edge function allocateOccupant failed, attempting direct table update:', e)
   }
 
-  // Direct DB fallback: assign in occupants table and update stall status
+  // Direct DB fallback: assign in occupants table with ACTIVE status and update stall status
   try {
     const { data: occupantData, error: occErr } = await supabase
       .from('occupants')
       .upsert(
-        { stall_id: stallId, stakeholder_id: stakeholderId },
-        { onConflict: 'stall_id' }
+        {
+          stakeholder_id: Number(stakeholderId),
+          status: 'ACTIVE',
+          occupancy_date: new Date().toISOString().split('T')[0],
+          is_archived: false
+        },
+        { onConflict: 'stakeholder_id' }
       )
       .select()
+      .maybeSingle()
+
+    if (occupantData?.id) {
+      await supabase
+        .from('stalls')
+        .update({ status: 'OCCUPIED', occupant_id: occupantData.id })
+        .eq('id', Number(stallId))
+    }
 
     await supabase
-      .from('stalls')
-      .update({ status: 'OCCUPIED' })
-      .eq('id', stallId)
+      .from('stakeholders')
+      .update({
+        selected_stall_id: Number(stallId),
+        onboarding_status: 'STALL_ASSIGNED',
+        market_approval_status: 'APPROVED',
+        market_supervisor_approved: true
+      })
+      .eq('id', Number(stakeholderId))
 
     if (!occErr && occupantData) return occupantData
   } catch (e) {
@@ -153,9 +171,12 @@ export async function unassignOccupant(stallId) {
   }
 
   try {
-    await supabase.from('occupants').delete().eq('stall_id', stallId)
+    const { data: st } = await supabase.from('stalls').select('occupant_id').eq('id', stallId).maybeSingle()
+    if (st?.occupant_id) {
+      await supabase.from('occupants').update({ status: 'VACATED', is_archived: true }).eq('id', st.occupant_id)
+    }
   } catch (e) {
-    console.warn('Direct occupants delete note:', e)
+    console.warn('Direct occupants update note:', e)
   }
 
   const { data, error } = await supabase

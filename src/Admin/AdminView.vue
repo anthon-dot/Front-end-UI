@@ -48,7 +48,7 @@
             icon="pi pi-refresh"
             severity="secondary"
             outlined
-            @click="loadAdminData"
+            @click="loadAdminData(true)"
           />
         </div>
       </header>
@@ -404,7 +404,7 @@ const page = computed(() => {
 const hasSearch = computed(() => !['AdminDashboard', 'AdminRoles', 'AdminSettings', 'AdminProfile', 'AdminStallMap'].includes(route.name))
 const showFilterBar = computed(() => ['AdminUsers', 'AdminAuditLogs', 'AdminLoginHistory', 'AdminNotifications'].includes(route.name))
 const isReportRoute = computed(() => String(route.name).includes('Report'))
-const roleOptions = ['ADMIN', 'TREASURER', 'MARKET_SUPERVISOR', 'BPLO_OFFICE', 'ENDORSING_OFFICE', 'STAKEHOLDER']
+const roleOptions = ['MARKET_SUPERVISOR', 'ADMIN']
 const stallStatuses = ['VACANT', 'OCCUPIED']
 const roleFilterOptions = computed(() => ['All', ...new Set([...roleOptions, ...state.users.map((user) => user.role)].filter(Boolean))])
 const statusFilterOptions = computed(() => {
@@ -512,14 +512,20 @@ function filterRows(rows, fields) {
 }
 
 function emptyUser() {
-  return { id: null, name: '', username: '', role: 'ADMIN', password: '', confirmPassword: '', status: 'ACTIVE', createdAt: '', lastLogin: '', actionCount: 0 }
+  return { id: null, name: '', username: '', role: 'MARKET_SUPERVISOR', password: '', confirmPassword: '', status: 'ACTIVE', createdAt: '', lastLogin: '', actionCount: 0 }
 }
 
 function emptyStall() {
   return { id: null, stallNo: '', section: '', stallType: '', monthlyRent: 0, status: 'VACANT', latitude: null, longitude: null }
 }
 
-async function loadAdminData() {
+let lastAdminDataLoadedAt = 0
+
+async function loadAdminData(force = false) {
+  // Skip redundant fetches if data is already loaded and fresh
+  if (!force && lastAdminDataLoadedAt > 0 && (Date.now() - lastAdminDataLoadedAt < 20000) && state.users.length > 0) {
+    return
+  }
   loading.value = true
   loadError.value = ''
 
@@ -600,10 +606,49 @@ async function loadAdminData() {
     }
     state.contracts = mappedContracts
     settingsForm.value = normalizeSettings(state.settings)
+    lastAdminDataLoadedAt = Date.now()
   } catch (error) {
     loadError.value = error.message || 'Unable to load admin records.'
   } finally {
     loading.value = false
+  }
+}
+
+async function refreshUsersOnly() {
+  try {
+    const [users, auditLogs, loginHistory] = await Promise.all([
+      getAdminUsers(),
+      getAuditLogs(),
+      getLoginHistory()
+    ])
+    state.users = toArray(users).map(mapUser)
+    state.auditLogs = toArray(auditLogs).map(mapAuditLog)
+    state.loginHistory = toArray(loginHistory).map(mapLoginHistory)
+  } catch (_) {
+    await loadAdminData(true)
+  }
+}
+
+async function refreshStallsOnly() {
+  try {
+    const stalls = await getList('/stalls')
+    state.stalls = toArray(stalls).map(mapStall)
+  } catch (_) {
+    await loadAdminData(true)
+  }
+}
+
+async function refreshMasterOnly(kind) {
+  try {
+    if (kind === 'rate') {
+      const rentalRates = await getRentalRates()
+      state.rentalRates = toArray(rentalRates).map(mapRentalRate)
+    } else {
+      const stallTypes = await getStallTypes()
+      state.stallTypes = toArray(stallTypes).map(mapStallType)
+    }
+  } catch (_) {
+    await loadAdminData(true)
   }
 }
 
@@ -969,7 +1014,7 @@ async function saveUser() {
     }
     toast.add({ severity: 'success', summary: 'Saved', detail: 'User account saved.', life: 2500 })
     userDialog.visible = false
-    await loadAdminData()
+    await refreshUsersOnly()
   } catch (error) {
     toast.add({ severity: 'error', summary: 'Unable to save user', detail: error.message, life: 3500 })
   } finally {
@@ -1044,7 +1089,7 @@ async function runUserAction(action, detail) {
   try {
     await action()
     toast.add({ severity: 'success', summary: 'Updated', detail, life: 2500 })
-    await loadAdminData()
+    await refreshUsersOnly()
   } catch (error) {
     toast.add({ severity: 'error', summary: 'Action failed', detail: error.message, life: 3500 })
   }
@@ -1093,7 +1138,7 @@ async function saveStall() {
     else await api.post('/stalls', payload)
     toast.add({ severity: 'success', summary: 'Saved', detail: 'Stall master record saved.', life: 2500 })
     stallDialog.visible = false
-    await loadAdminData()
+    await refreshStallsOnly()
   } catch (error) {
     toast.add({ severity: 'error', summary: 'Unable to save stall', detail: error.message, life: 3500 })
   } finally {
@@ -1114,7 +1159,7 @@ function confirmDeleteStall(stall) {
         await api.delete(`/stalls/${stall.id}`)
         toast.add({ severity: 'success', summary: 'Deleted', detail: `Stall ${stall.stallNo || ''} deleted successfully.`, life: 2500 })
         stallDialog.visible = false
-        await loadAdminData()
+        await refreshStallsOnly()
       } catch (error) {
         toast.add({ severity: 'error', summary: 'Delete failed', detail: error.message, life: 3500 })
       }
@@ -1126,7 +1171,7 @@ async function saveStallLocation({ stallId, latitude, longitude }) {
   try {
     await api.put(`/stalls/${stallId}`, { latitude, longitude })
     toast.add({ severity: 'success', summary: 'Location Saved', detail: 'Stall coordinates updated successfully.', life: 2500 })
-    await loadAdminData()
+    await refreshStallsOnly()
   } catch (error) {
     toast.add({ severity: 'error', summary: 'Failed to update location', detail: error.message, life: 3500 })
   }
@@ -1144,7 +1189,7 @@ function confirmToggleStall(stall) {
       try {
         await api.put(`/stalls/${stall.id}`, { ...stall, status: nextStatus })
         toast.add({ severity: 'success', summary: 'Updated', detail: 'Stall status updated.', life: 2500 })
-        await loadAdminData()
+        await refreshStallsOnly()
       } catch (error) {
         toast.add({ severity: 'error', summary: 'Update failed', detail: error.message, life: 3500 })
       }
@@ -1166,7 +1211,7 @@ async function saveMasterRecord() {
     else await api.post(collection, masterDialog.form)
     toast.add({ severity: 'success', summary: 'Saved', detail: 'Master data saved.', life: 2500 })
     masterDialog.visible = false
-    await loadAdminData()
+    await refreshMasterOnly(masterDialog.kind)
   } catch (error) {
     toast.add({ severity: 'error', summary: 'Unable to save master data', detail: error.message, life: 3500 })
   } finally {
@@ -1180,7 +1225,7 @@ async function toggleMasterRecord(kind, row) {
   try {
     await api.put(`${collection}/${row.id}`, { ...row, status })
     toast.add({ severity: 'success', summary: 'Updated', detail: 'Status updated.', life: 2500 })
-    await loadAdminData()
+    await refreshMasterOnly(kind)
   } catch (error) {
     toast.add({ severity: 'error', summary: 'Update failed', detail: error.message, life: 3500 })
   }
@@ -1380,45 +1425,48 @@ const UsersView = defineComponent({
 const RolesView = defineComponent({
   setup() {
     const roles = [
-      ['admin', 'Admin'],
-      ['treasurer', 'Treasurer'],
-      ['supervisor', 'Supervisor'],
-      ['bplo', 'BPLO'],
-      ['endorsing', 'Endorsing']
+      ['supervisor', 'Market Supervisor (Admin Merged)'],
+      ['treasurer', 'Treasurer (Excluded)'],
+      ['bplo', 'BPLO (Excluded)'],
+      ['endorsing', 'Endorsing (Excluded)'],
+      ['user', 'User / Stakeholder (Excluded)']
     ]
     const rows = [
-      ['View Applications', true, true, true, true, true],
-      ['View Stakeholders', true, true, true, true, true],
-      ['View Contracts', true, true, true, true, true],
-      ['View Payments', true, true, false, false, false],
-      ['Record Payment', false, true, false, false, false],
-      ['Issue Receipt', false, true, false, false, false],
-      ['Assign Stall', false, false, true, false, false],
+      ['View Applications', true, false, false, false, false],
+      ['View Stakeholders', true, false, false, false, false],
+      ['View Contracts', true, false, false, false, false],
+      ['View Payments', true, false, false, false, false],
+      ['Record Payment', true, false, false, false, false],
+      ['Issue Receipt', true, false, false, false, false],
+      ['Assign Stall', true, false, false, false, false],
       ['Manage Stalls', true, false, false, false, false],
-      ['BPLO Approval', false, false, false, true, false],
-      ['Endorse Application', false, false, false, false, true],
+      ['BPLO Approval', true, false, false, false, false],
+      ['Endorse Application', true, false, false, false, false],
       ['Manage Users', true, false, false, false, false],
       ['Audit Logs', true, false, false, false, false],
       ['System Settings', true, false, false, false, false]
-    ].map(([permission, admin, treasurer, supervisor, bplo, endorsing]) => ({
+    ].map(([permission, supervisor]) => ({
       permission,
-      admin,
-      treasurer,
       supervisor,
-      bplo,
-      endorsing
+      treasurer: false,
+      bplo: false,
+      endorsing: false,
+      user: false
     }))
 
     return () => h(Card, null, {
-      title: () => 'Role Permission Matrix',
-      content: () => h(DataTable, { value: rows, responsiveLayout: 'scroll', class: 'permission-table surface-table' }, {
-        default: () => [
-          h(Column, { field: 'permission', header: 'Permission' }),
-          ...roles.map(([field, label]) => h(Column, { header: label }, {
-            body: ({ data }) => h(Checkbox, { modelValue: data[field], binary: true, disabled: true })
-          }))
-        ]
-      })
+      title: () => 'Role Permission Matrix (Market Supervisor & Admin Unified)',
+      content: () => h('div', { class: 'space-y-4' }, [
+        h('p', { class: 'text-sm text-slate-500 mb-3' }, 'Market Supervisor is unified with Administrator access. Other roles (Treasurer, BPLO, Endorsing Office, and Stakeholder User) are excluded for integration.'),
+        h(DataTable, { value: rows, responsiveLayout: 'scroll', class: 'permission-table surface-table' }, {
+          default: () => [
+            h(Column, { field: 'permission', header: 'Permission' }),
+            ...roles.map(([field, label]) => h(Column, { header: label }, {
+              body: ({ data }) => h(Checkbox, { modelValue: data[field], binary: true, disabled: true })
+            }))
+          ]
+        })
+      ])
     })
   }
 })

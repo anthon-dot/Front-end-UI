@@ -83,7 +83,7 @@ export async function fetchStakeholderEmailFromBusinessApplication({
       if (queryId) {
         const { data: st } = await supabase
           .from('stakeholders')
-          .select('id, user_id, email, first_name, last_name, business_name, contact, stall_id')
+          .select('id, user_id, email, first_name, last_name, business_name, contact, selected_stall_id')
           .eq('id', queryId)
           .maybeSingle()
 
@@ -91,7 +91,7 @@ export async function fetchStakeholderEmailFromBusinessApplication({
           if (st.user_id) discoveredUserId = st.user_id
           if (!discoveredName) discoveredName = `${st.first_name || ''} ${st.last_name || ''}`.trim()
           if (!discoveredBusinessName) discoveredBusinessName = st.business_name
-          if (!discoveredStallId && st.stall_id) discoveredStallId = st.stall_id
+          if (!discoveredStallId && st.selected_stall_id) discoveredStallId = st.selected_stall_id
 
           // If stakeholder record has a verified email and user_id, verify with business_applications
           if (st.user_id) {
@@ -372,19 +372,28 @@ export async function resolveStakeholderContact(stakeholderId, userId = null) {
       if (queryId) {
         const { data: st } = await supabase
           .from('stakeholders')
-          .select('*, stall:stalls(*), occupant:occupants(*, stall:stalls(*))')
+          .select('*')
           .eq('id', queryId)
           .maybeSingle()
 
         if (st) {
-          if (!email) email = (st.email || st.email_address || st.mail || st.occupant?.email || '').trim()
+          if (!email) email = (st.email || st.email_address || st.mail || '').trim()
           if (!firstName) firstName = st.first_name || st.firstName || ''
           if (!lastName) lastName = st.last_name || st.lastName || ''
           if (!fullName) fullName = `${firstName} ${lastName}`.trim() || st.name || st.business_name || ''
           if (!businessName) businessName = st.business_name || st.businessName || ''
           if (!contact) contact = st.contact || st.phone || ''
           resolvedUserId = resolvedUserId || st.user_id
-          if (!stallNo) stallNo = st.stall?.stall_no || st.stall?.number || st.occupant?.stall?.stall_no || ''
+
+          // Resolve stall number from selected_stall_id
+          if (!stallNo && st.selected_stall_id) {
+            const { data: stallObj } = await supabase
+              .from('stalls')
+              .select('stall_no')
+              .eq('id', st.selected_stall_id)
+              .maybeSingle()
+            if (stallObj?.stall_no) stallNo = stallObj.stall_no
+          }
 
           // If stakeholder record has a user_id, perform authoritative query on business_applications
           if (!email && st.user_id) {
@@ -401,7 +410,7 @@ export async function resolveStakeholderContact(stakeholderId, userId = null) {
     }
   }
 
-  // 3. Check profiles table in Supabase (authenticated user profile)
+  // 3. Check profiles table in Supabase (authenticated user profile, username often stores email)
   if (!email && (resolvedUserId || resolvedStakeholderId)) {
     try {
       const pId = resolvedUserId || resolvedStakeholderId
@@ -412,7 +421,8 @@ export async function resolveStakeholderContact(stakeholderId, userId = null) {
         .maybeSingle()
 
       if (prof) {
-        if (!email) email = (prof.email || '').trim()
+        const potentialEmail = (prof.username && prof.username.includes('@')) ? prof.username.trim() : (prof.email || '').trim()
+        if (!email && potentialEmail) email = potentialEmail
         if (!fullName) fullName = prof.name || prof.username || ''
       }
     } catch (err) {
@@ -887,9 +897,7 @@ export async function sendStakeholderEmail({
       if (!emailSent) {
         const candidateEndpoints = [
           (typeof import.meta !== 'undefined' && import.meta.env?.VITE_EMAIL_API_URL),
-          '/api/email/send',
-          'http://localhost:3001/api/email/send',
-          'http://localhost:5173/api/email/send'
+          '/api/email/send'
         ].filter(Boolean)
 
         for (const endpoint of candidateEndpoints) {
@@ -910,7 +918,7 @@ export async function sendStakeholderEmail({
               },
               {
                 headers: { 'Content-Type': 'application/json' },
-                timeout: 15000
+                timeout: 4000
               }
             )
 
@@ -924,7 +932,6 @@ export async function sendStakeholderEmail({
             }
           } catch (postErr) {
             emailError = postErr.response?.data?.error || postErr.message
-            // Continue to next candidate endpoint
           }
         }
       }
@@ -958,12 +965,13 @@ export async function sendStakeholderEmail({
       }
     }
 
-    // 4. Register in 'public.notifications' so the stakeholder sees it in their notification center
+    // 4 & 5. Concurrently register in 'public.notifications' and 'public.audit_logs'
+    const backgroundTasks = []
     if (stakeholderId) {
-      try {
-        const queryId = !isNaN(Number(stakeholderId)) ? Number(stakeholderId) : null
-        if (queryId) {
-          await supabase.from('notifications').insert({
+      const queryId = !isNaN(Number(stakeholderId)) ? Number(stakeholderId) : null
+      if (queryId) {
+        backgroundTasks.push(
+          supabase.from('notifications').insert({
             stakeholder_id: queryId,
             title: subject,
             message: text || subject,
@@ -972,22 +980,21 @@ export async function sendStakeholderEmail({
             related_record_type: relatedRecordType,
             related_record_id: relatedRecordId && !isNaN(Number(relatedRecordId)) ? Number(relatedRecordId) : null,
             is_read: false
-          })
-        }
-      } catch (notifErr) {
-        console.warn('[emailNotificationService] Could not insert in notifications table:', notifErr.message)
+          }).then(() => {}).catch(notifErr => console.warn('[emailNotificationService] Could not insert in notifications table:', notifErr.message))
+        )
       }
     }
 
-    // 5. Record in 'public.audit_logs'
-    try {
-      await supabase.from('audit_logs').insert({
+    backgroundTasks.push(
+      supabase.from('audit_logs').insert({
         action: `EMAIL_${notificationType}`,
         entity_name: relatedRecordType || 'Stakeholder',
         entity_id: relatedRecordId || stakeholderId,
         details: `Dispatched ${notificationType} email via Nodemailer to "${targetEmail || 'No Email'}" (Subject: ${subject})`
-      })
-    } catch (_) {}
+      }).then(() => {}).catch(() => {})
+    )
+
+    await Promise.allSettled(backgroundTasks)
 
     if (!targetEmail) {
       return {
@@ -1013,7 +1020,9 @@ export async function sendStakeholderEmail({
       recipientName: targetName,
       subject,
       messageId: mailerResponse?.messageId,
-      transport: 'nodemailer-smtp'
+      previewUrl: mailerResponse?.previewUrl,
+      isTestAccount: mailerResponse?.isTestAccount,
+      transport: mailerResponse?.transport || 'nodemailer-smtp'
     }
   } catch (fatalErr) {
     console.error('[emailNotificationService] Fatal email sending error:', fatalErr)
@@ -1023,6 +1032,9 @@ export async function sendStakeholderEmail({
     }
   }
 }
+
+const recentProgressNotifications = new Map()
+const PROGRESS_DEDUPE_MS = 10000 // 10 seconds dedupe window
 
 /**
  * High-level trigger: Send Application Progress Email
@@ -1039,6 +1051,15 @@ export async function sendApplicationProgressNotification({
   stallNo = null,
   email = null
 }) {
+  const dedupeKey = `${stakeholderId || userId || 'unknown'}:${stage}:${status}`
+  const now = Date.now()
+  if (recentProgressNotifications.has(dedupeKey)) {
+    const prev = recentProgressNotifications.get(dedupeKey)
+    if (now - prev.time < PROGRESS_DEDUPE_MS) {
+      return prev.result
+    }
+  }
+
   const contact = await resolveStakeholderContact(stakeholderId, userId)
   const targetEmail = email || contact.email
   const applicantName = contact.fullName
@@ -1057,7 +1078,7 @@ export async function sendApplicationProgressNotification({
     stallNo: targetStall
   })
 
-  return sendStakeholderEmail({
+  const result = await sendStakeholderEmail({
     stakeholderId,
     userId,
     email: targetEmail,
@@ -1070,6 +1091,9 @@ export async function sendApplicationProgressNotification({
     relatedRecordId: stakeholderId,
     metadata: { stage, status, remarks, stallNo: targetStall, referenceNo }
   })
+
+  recentProgressNotifications.set(dedupeKey, { time: now, result })
+  return result
 }
 
 /**

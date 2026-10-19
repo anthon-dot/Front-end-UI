@@ -12,12 +12,36 @@ const { layoutState } = useLayout();
 const baseModel = computed(() => {
     const role = authStore.normalizedRole;
 
-    if (role === 'ADMIN') {
+    if (role === 'MARKET_SUPERVISOR' || role === 'ADMIN') {
         return [
             {
                 label: 'OVERVIEW',
                 items: [
-                    { label: 'Dashboard', icon: 'pi pi-fw pi-home', to: '/admin/dashboard' }
+                    { label: 'Supervisor Dashboard', icon: 'pi pi-fw pi-home', to: '/supervisor' },
+                    { label: 'Admin Analytics', icon: 'pi pi-fw pi-chart-line', to: '/admin/dashboard' }
+                ]
+            },
+            {
+                label: 'OPERATIONS & STALLS',
+                items: [
+                    { label: 'Stall Management', icon: 'pi pi-fw pi-th-large', to: '/supervisor/stalls' },
+                    { label: 'Stall Map', icon: 'pi pi-fw pi-map', to: '/admin/stall-map' },
+                    { label: 'Master Stalls', icon: 'pi pi-fw pi-building', to: '/admin/stalls' },
+                    { label: 'Stall Types', icon: 'pi pi-fw pi-tags', to: '/admin/stall-types' },
+                    { label: 'Rental Rates', icon: 'pi pi-fw pi-dollar', to: '/admin/rental-rates' },
+                    { label: 'Contracts', icon: 'pi pi-fw pi-file-edit', to: '/supervisor/contracts' },
+                    { label: 'Archive Records', icon: 'pi pi-fw pi-inbox', to: '/supervisor/archive' }
+                ]
+            },
+            {
+                label: 'MONITORING & FINANCIALS',
+                items: [
+                    { label: 'Applications', icon: 'pi pi-fw pi-file-edit', to: '/admin/applications' },
+                    { label: 'Stakeholders', icon: 'pi pi-fw pi-id-card', to: '/admin/stakeholders' },
+                    { label: 'Contracts Registry', icon: 'pi pi-fw pi-file', to: '/admin/contracts' },
+                    { label: 'Occupancy', icon: 'pi pi-fw pi-chart-pie', to: '/admin/occupancy' },
+                    { label: 'Payments', icon: 'pi pi-fw pi-wallet', to: '/admin/payments' },
+                    { label: 'Billing', icon: 'pi pi-fw pi-receipt', to: '/admin/billing' }
                 ]
             },
             {
@@ -29,34 +53,16 @@ const baseModel = computed(() => {
                 ]
             },
             {
-                label: 'STALL & OPERATIONS',
+                label: 'REPORTS & SECURITY',
                 items: [
-                    { label: 'Stall Map', icon: 'pi pi-fw pi-map', to: '/admin/stall-map' },
-                    { label: 'Stalls', icon: 'pi pi-fw pi-th-large', to: '/admin/stalls' },
-                    { label: 'Stall Types', icon: 'pi pi-fw pi-tags', to: '/admin/stall-types' },
-                    { label: 'Rental Rates', icon: 'pi pi-fw pi-dollar', to: '/admin/rental-rates' },
-                    { label: 'Applications', icon: 'pi pi-fw pi-file-edit', to: '/admin/applications' },
-                    { label: 'Stakeholders', icon: 'pi pi-fw pi-id-card', to: '/admin/stakeholders' },
-                    { label: 'Contracts', icon: 'pi pi-fw pi-file', to: '/admin/contracts' },
-                    { label: 'Occupancy', icon: 'pi pi-fw pi-chart-pie', to: '/admin/occupancy' }
-                ]
-            },
-            {
-                label: 'FINANCIALS',
-                items: [
-                    { label: 'Payments', icon: 'pi pi-fw pi-wallet', to: '/admin/payments' },
-                    { label: 'Billing', icon: 'pi pi-fw pi-receipt', to: '/admin/billing' }
-                ]
-            },
-            {
-                label: 'REPORTS & AUDIT',
-                items: [
+                    { label: 'Supervisor Reports', icon: 'pi pi-fw pi-chart-bar', to: '/supervisor/reports' },
                     { label: 'Revenue Report', icon: 'pi pi-fw pi-chart-line', to: '/admin/reports/revenue' },
                     { label: 'Applications Report', icon: 'pi pi-fw pi-chart-bar', to: '/admin/reports/applications' },
                     { label: 'Occupancy Report', icon: 'pi pi-fw pi-percentage', to: '/admin/reports/occupancy' },
                     { label: 'System Activity', icon: 'pi pi-fw pi-list-check', to: '/admin/reports/system-activity' },
                     { label: 'Audit Logs', icon: 'pi pi-fw pi-book', to: '/admin/audit-logs' },
-                    { label: 'Notifications', icon: 'pi pi-fw pi-bell', to: '/admin/notifications' }
+                    { label: 'Notifications', icon: 'pi pi-fw pi-bell', to: '/admin/notifications' },
+                    { label: 'System Settings', icon: 'pi pi-fw pi-cog', to: '/admin/settings' }
                 ]
             }
         ];
@@ -85,26 +91,6 @@ const baseModel = computed(() => {
                     { label: 'AI Analytics', icon: 'pi pi-fw pi-sparkles', to: '/treasurer/ai-reports' },
                     { label: 'AI Notifications', icon: 'pi pi-fw pi-bell', to: '/treasurer/ai-notifications' },
                     { label: 'Audit Logs', icon: 'pi pi-fw pi-book', to: '/audit-logs' }
-                ]
-            }
-        ];
-    }
-
-    if (role === 'MARKET_SUPERVISOR') {
-        return [
-            {
-                label: 'OVERVIEW',
-                items: [
-                    { label: 'Dashboard', icon: 'pi pi-fw pi-home', to: '/supervisor' }
-                ]
-            },
-            {
-                label: 'OPERATIONS',
-                items: [
-                    { label: 'Stall Management', icon: 'pi pi-fw pi-th-large', to: '/supervisor/stalls' },
-                    { label: 'Contracts', icon: 'pi pi-fw pi-file-edit', to: '/supervisor/contracts' },
-                    { label: 'Archive', icon: 'pi pi-fw pi-inbox', to: '/supervisor/archive' },
-                    { label: 'Reports', icon: 'pi pi-fw pi-chart-bar', to: '/supervisor/reports' }
                 ]
             }
         ];

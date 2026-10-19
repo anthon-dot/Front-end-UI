@@ -35,9 +35,9 @@ const userInitials = computed(() => {
 
 const portalHomeRoute = computed(() => {
     switch (userRole.value) {
-        case 'ADMIN': return '/admin/dashboard';
-        case 'TREASURER': return '/treasurer';
+        case 'ADMIN':
         case 'MARKET_SUPERVISOR': return '/supervisor';
+        case 'TREASURER': return '/treasurer';
         case 'BPLO_OFFICE': return '/bplo';
         case 'ENDORSING_OFFICE': return '/endorsing';
         case 'STAKEHOLDER': return '/stakeholder';
@@ -50,7 +50,7 @@ const currentRouteMeta = computed(() => {
     if (path.startsWith('/admin')) {
         const seg = path.replace('/admin', '').replace(/^\//, '') || 'Dashboard';
         return {
-            portal: 'Admin',
+            portal: 'Market Supervisor',
             page: seg.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Dashboard',
             icon: 'pi pi-shield'
         };
@@ -58,7 +58,7 @@ const currentRouteMeta = computed(() => {
     if (path.startsWith('/supervisor')) {
         const seg = path.replace('/supervisor', '').replace(/^\//, '') || 'Dashboard';
         return {
-            portal: 'Supervisor',
+            portal: 'Market Supervisor',
             page: seg.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Dashboard',
             icon: 'pi pi-shopping-bag'
         };
@@ -255,7 +255,7 @@ function handleLogout() {
                         <div class="dropdown-divider"></div>
                         <div class="dropdown-items">
                             <router-link
-                                v-if="userRole === 'ADMIN'"
+                                v-if="userRole === 'ADMIN' || userRole === 'MARKET_SUPERVISOR'"
                                 to="/admin/profile"
                                 class="dropdown-item"
                                 @click="userMenuOpen = false"

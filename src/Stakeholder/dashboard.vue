@@ -1215,6 +1215,25 @@ const occupantStatus = computed(() => {
     stakeholderProfile.value?.occupant?.status ||
     stakeholderProfile.value?.occupantStatus ||
     stakeholderProfile.value?.occupancyStatus
+
+  const upper = String(raw || '').trim().toUpperCase()
+  if (upper === 'VACATED' || upper === 'TERMINATED') return 'Vacated'
+  if (upper === 'ARCHIVED') return 'Archived'
+  if (upper === 'EXPIRED') return 'Expired'
+
+  // When Market Supervisor assigns stakeholder to a stall, occupant status is strictly Active
+  const isAssigned = Boolean(
+    upper === 'ACTIVE' ||
+    stakeholderProfile.value?.selected_stall_id ||
+    stakeholderProfile.value?.onboarding_status === 'STALL_ASSIGNED' ||
+    assignedStall.value?.id ||
+    activeContractRecord.value
+  )
+
+  if (isAssigned) {
+    return 'Active'
+  }
+
   return formatOccupantStatus(raw)
 })
 
@@ -1329,11 +1348,44 @@ async function loadAllData(background = false) {
     stakeholderProfile.value = stData
 
     // 2. Set Occupant & Assigned Stall
-    const occ = Array.isArray(stData.occupant) ? stData.occupant[0] : stData.occupant
+    let occ = Array.isArray(stData.occupant) ? stData.occupant[0] : stData.occupant
+    if (!occ && stData.id && typeof stData.id === 'number') {
+      const { data: directOcc } = await supabase
+        .from('occupants')
+        .select('*')
+        .eq('stakeholder_id', stData.id)
+        .maybeSingle()
+      if (directOcc) occ = normalizeRecord(directOcc)
+    }
+
+    let resolvedStall = null
+    const targetStallId = stData.selected_stall_id || stData.selectedStallId || occ?.stall_id
+    if (targetStallId && !isNaN(Number(targetStallId))) {
+      const { data: stl } = await supabase
+        .from('stalls')
+        .select('*')
+        .eq('id', Number(targetStallId))
+        .maybeSingle()
+      if (stl) resolvedStall = normalizeRecord(stl)
+    }
+    if (!resolvedStall && occ?.id) {
+      const { data: stlByOcc } = await supabase
+        .from('stalls')
+        .select('*')
+        .eq('occupant_id', occ.id)
+        .maybeSingle()
+      if (stlByOcc) resolvedStall = normalizeRecord(stlByOcc)
+    }
+
     if (occ) {
+      if (resolvedStall || stData.selected_stall_id) {
+        occ.status = 'ACTIVE'
+      }
       assignedOccupant.value = occ
-      const rawStall = Array.isArray(occ.stall) ? occ.stall[0] : occ.stall
+      const rawStall = resolvedStall || (Array.isArray(occ.stall) ? occ.stall[0] : occ.stall)
       if (rawStall) assignedStall.value = typeof rawStall === 'object' ? normalizeRecord(rawStall) : rawStall
+    } else if (resolvedStall) {
+      assignedStall.value = resolvedStall
     } else if (stData.stall) {
       const rawStall = Array.isArray(stData.stall) ? stData.stall[0] : stData.stall
       assignedStall.value = typeof rawStall === 'object' ? normalizeRecord(rawStall) : rawStall

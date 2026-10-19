@@ -140,9 +140,8 @@ function quickLogin(targetRole) {
     user: { name: 'Demo ' + targetRole, email: targetRole.toLowerCase() + '@manticao.gov.ph' }
   })
 
-  if (targetRole === 'ADMIN') router.push('/admin/dashboard')
+  if (targetRole === 'ADMIN' || targetRole === 'MARKET_SUPERVISOR') router.push('/supervisor')
   else if (targetRole === 'TREASURER') router.push('/treasurer')
-  else if (targetRole === 'MARKET_SUPERVISOR') router.push('/supervisor')
   else if (targetRole === 'BPLO_OFFICE') router.push('/bplo')
   else if (targetRole === 'ENDORSING_OFFICE') router.push('/endorsing')
 }
@@ -150,6 +149,17 @@ function quickLogin(targetRole) {
 // =====================
 // LOGIN
 // =====================
+const MUNICIPAL_STAFF_MAP = {
+  admin: 'admin@manticao.market',
+  market_supervisor: 'supervisor@manticao.gov.ph',
+  supervisor: 'supervisor@manticao.gov.ph',
+  treasurer: 'treasurer@manticao.gov.ph',
+  bplo: 'bplo@manticao.gov.ph',
+  bplo_office: 'bplo@manticao.gov.ph',
+  endorsing: 'endorsing@manticao.gov.ph',
+  endorsing_office: 'endorsing@manticao.gov.ph'
+}
+
 async function onSubmit() {
   errorMessage.value = ''
   isLoading.value = true
@@ -157,36 +167,41 @@ async function onSubmit() {
   try {
     const inputIdentifier = username.value.trim()
     const rawPassword = password.value
+    const lowerId = inputIdentifier.toLowerCase()
 
     let emailToAuth = inputIdentifier
     if (!inputIdentifier.includes('@')) {
-      // First try resolving the username via Edge Function
-      try {
-        const { data: resData } = await supabase.functions.invoke('approval-workflow', {
-          body: {
-            action: 'resolve-login',
-            identifier: inputIdentifier
+      // 1. Instant local lookup for municipal system accounts
+      if (MUNICIPAL_STAFF_MAP[lowerId]) {
+        emailToAuth = MUNICIPAL_STAFF_MAP[lowerId]
+      } else {
+        // 2. Fast direct database lookup for registered stakeholder username
+        try {
+          const { data: prof } = await supabase
+            .from('profiles')
+            .select('email, username')
+            .ilike('username', inputIdentifier)
+            .maybeSingle()
+
+          if (prof?.email) {
+            emailToAuth = prof.email.trim()
+          } else {
+            emailToAuth = lowerId.replace(/[^a-z0-9_.-]/g, '') + '@manticao.market'
           }
-        })
-        if (resData?.email) {
-          emailToAuth = resData.email
-        } else {
-          emailToAuth = inputIdentifier.toLowerCase().replace(/[^a-z0-9_.-]/g, '') + '@manticao.market'
+        } catch (_) {
+          emailToAuth = lowerId.replace(/[^a-z0-9_.-]/g, '') + '@manticao.market'
         }
-      } catch (_) {
-        emailToAuth = inputIdentifier.toLowerCase().replace(/[^a-z0-9_.-]/g, '') + '@manticao.market'
       }
     }
 
-    console.log('[AUTH] Supabase signIn for:', emailToAuth)
     let authResult = await supabase.auth.signInWithPassword({
       email: emailToAuth,
       password: rawPassword
     })
 
-    if (authResult.error && !inputIdentifier.includes('@')) {
+    if (authResult.error && !inputIdentifier.includes('@') && emailToAuth.endsWith('@manticao.market')) {
       const retryResult = await supabase.auth.signInWithPassword({
-        email: inputIdentifier.toLowerCase() + '@manticao.gov.ph',
+        email: lowerId + '@manticao.gov.ph',
         password: rawPassword
       })
       if (!retryResult.error && retryResult.data?.session) {
@@ -201,24 +216,17 @@ async function onSubmit() {
     const session = authResult.data.session
     const authUser = authResult.data.user
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', authUser.id)
-      .maybeSingle()
+    // Parallel fetch of profile and stakeholder records to eliminate sequential loading delay
+    const [profileRes, stakeholderRes] = await Promise.all([
+      supabase.from('profiles').select('*').eq('id', authUser.id).maybeSingle(),
+      supabase.from('stakeholders').select('id').eq('user_id', authUser.id).maybeSingle()
+    ])
 
-    const rawRole = profile?.role || authUser.user_metadata?.role || (inputIdentifier.toLowerCase() === 'admin' ? 'ADMIN' : 'STAKEHOLDER')
+    const profile = profileRes?.data || null
+    const stakeholder = stakeholderRes?.data || null
+    const rawRole = profile?.role || authUser.user_metadata?.role || (lowerId === 'admin' ? 'MARKET_SUPERVISOR' : 'STAKEHOLDER')
     const role = normalizeWorkflowRole(rawRole)
-
-    let stakeholderId = ''
-    if (role === 'STAKEHOLDER') {
-      const { data: stakeholder } = await supabase
-        .from('stakeholders')
-        .select('id')
-        .eq('user_id', authUser.id)
-        .maybeSingle()
-      if (stakeholder) stakeholderId = String(stakeholder.id)
-    }
+    const stakeholderId = stakeholder ? String(stakeholder.id) : ''
 
     authStore.setSession({
       token: session.access_token,
@@ -243,10 +251,10 @@ async function onSubmit() {
 
     // ─── 5. ROLE-BASED ROUTING ────────────────────────────────────────────────
 
-    // ADMIN
-    if (role === 'ADMIN') {
-      console.log('[AUTH] ✅ ADMIN detected — navigating to /admin/dashboard')
-      router.push('/admin/dashboard')
+    // MARKET SUPERVISOR & ADMIN (MERGED)
+    if (role === 'MARKET_SUPERVISOR' || role === 'ADMIN') {
+      console.log('[AUTH] ✅ MARKET_SUPERVISOR / ADMIN detected — navigating to /supervisor')
+      router.push('/supervisor')
       return
     }
 
@@ -268,13 +276,6 @@ async function onSubmit() {
     if (role === 'ENDORSING_OFFICE') {
       console.log('[AUTH] ✅ ENDORSING_OFFICE — navigating to /endorsing')
       router.push('/endorsing')
-      return
-    }
-
-    // MARKET SUPERVISOR
-    if (role === 'MARKET_SUPERVISOR') {
-      console.log('[AUTH] ✅ MARKET_SUPERVISOR — navigating to /supervisor')
-      router.push('/supervisor')
       return
     }
 

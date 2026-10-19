@@ -401,19 +401,22 @@ export async function endorseApplication(id, stakeholderId = null) {
     if (error) console.warn('[endorseApplication] edge function warning:', error)
   } catch (err) {}
 
-  try {
-    const { sendApplicationProgressNotification } = await import('./emailNotificationService')
-    await sendApplicationProgressNotification({
-      stakeholderId: targetStakeholderId,
-      stage: 'ENDORSEMENT',
-      status: 'APPROVED',
-      title: 'Final Mayoral Endorsement Approved',
-      message: 'Your application has received final executive endorsement. Please proceed to the Municipal Treasurer Office to settle your business permit fee and activate your commercial lease contract.',
-      remarks: 'Official endorsement granted.'
-    })
-  } catch (eErr) {
-    console.warn('[endorseApplication] Email dispatch warning:', eErr)
-  }
+  // Non-blocking notification dispatch
+  void (async () => {
+    try {
+      const { sendApplicationProgressNotification } = await import('./emailNotificationService')
+      await sendApplicationProgressNotification({
+        stakeholderId: targetStakeholderId,
+        stage: 'ENDORSEMENT',
+        status: 'APPROVED',
+        title: 'Final Mayoral Endorsement Approved',
+        message: 'Your application has received final executive endorsement. Please proceed to the Municipal Treasurer Office to settle your business permit fee and activate your commercial lease contract.',
+        remarks: 'Official endorsement granted.'
+      })
+    } catch (eErr) {
+      console.warn('[endorseApplication] Email dispatch warning:', eErr)
+    }
+  })()
 
   return { success: true }
 }
@@ -449,19 +452,22 @@ export async function rejectEndorsement(id, remarks = '', stakeholderId = null) 
     })
   } catch (_) {}
 
-  try {
-    const { sendApplicationProgressNotification } = await import('./emailNotificationService')
-    await sendApplicationProgressNotification({
-      stakeholderId: targetStakeholderId,
-      stage: 'ENDORSEMENT',
-      status: 'REJECTED',
-      title: 'Application Disapproved by Endorsing Office',
-      message: 'Your application was not approved during final endorsement review.',
-      remarks
-    })
-  } catch (eErr) {
-    console.warn('[rejectEndorsement] Email dispatch warning:', eErr)
-  }
+  // Non-blocking notification dispatch
+  void (async () => {
+    try {
+      const { sendApplicationProgressNotification } = await import('./emailNotificationService')
+      await sendApplicationProgressNotification({
+        stakeholderId: targetStakeholderId,
+        stage: 'ENDORSEMENT',
+        status: 'REJECTED',
+        title: 'Application Disapproved by Endorsing Office',
+        message: 'Your application was not approved during final endorsement review.',
+        remarks
+      })
+    } catch (eErr) {
+      console.warn('[rejectEndorsement] Email dispatch warning:', eErr)
+    }
+  })()
 
   return { success: true }
 }
@@ -491,19 +497,22 @@ export async function approveByBPLO(id, stakeholderId = null) {
     if (error) console.warn('[approveByBPLO] edge function warning:', error)
   } catch (err) {}
 
-  try {
-    const { sendApplicationProgressNotification } = await import('./emailNotificationService')
-    await sendApplicationProgressNotification({
-      stakeholderId: targetStakeholderId,
-      stage: 'BPLO',
-      status: 'APPROVED',
-      title: 'BPLO Business Permit Validation Approved',
-      message: 'Your commercial requirements and hazard-free stall compliance have been validated by BPLO. Your application is forwarded to the Endorsing Office for final executive approval.',
-      remarks: 'BPLO business compliance verified.'
-    })
-  } catch (eErr) {
-    console.warn('[approveByBPLO] Email dispatch warning:', eErr)
-  }
+  // Non-blocking notification dispatch
+  void (async () => {
+    try {
+      const { sendApplicationProgressNotification } = await import('./emailNotificationService')
+      await sendApplicationProgressNotification({
+        stakeholderId: targetStakeholderId,
+        stage: 'BPLO',
+        status: 'APPROVED',
+        title: 'BPLO Business Permit Validation Approved',
+        message: 'Your commercial requirements and hazard-free stall compliance have been validated by BPLO. Your application is forwarded to the Endorsing Office for final executive approval.',
+        remarks: 'BPLO business compliance verified.'
+      })
+    } catch (eErr) {
+      console.warn('[approveByBPLO] Email dispatch warning:', eErr)
+    }
+  })()
 
   return { success: true }
 }
@@ -534,19 +543,22 @@ export async function rejectByBPLO(id, remarks = '', stakeholderId = null) {
     })
   } catch (_) {}
 
-  try {
-    const { sendApplicationProgressNotification } = await import('./emailNotificationService')
-    await sendApplicationProgressNotification({
-      stakeholderId: targetStakeholderId,
-      stage: 'BPLO',
-      status: 'REJECTED',
-      title: 'BPLO Business Permit Verification Disapproved',
-      message: 'Your application was not approved during BPLO business permit validation.',
-      remarks
-    })
-  } catch (eErr) {
-    console.warn('[rejectByBPLO] Email dispatch warning:', eErr)
-  }
+  // Non-blocking notification dispatch
+  void (async () => {
+    try {
+      const { sendApplicationProgressNotification } = await import('./emailNotificationService')
+      await sendApplicationProgressNotification({
+        stakeholderId: targetStakeholderId,
+        stage: 'BPLO',
+        status: 'REJECTED',
+        title: 'BPLO Business Permit Verification Disapproved',
+        message: 'Your application was not approved during BPLO business permit validation.',
+        remarks
+      })
+    } catch (eErr) {
+      console.warn('[rejectByBPLO] Email dispatch warning:', eErr)
+    }
+  })()
 
   return { success: true }
 }
