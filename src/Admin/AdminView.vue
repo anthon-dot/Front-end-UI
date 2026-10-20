@@ -58,6 +58,8 @@
           v-if="route.name === 'AdminUsers' || route.name === 'AdminAuditLogs'"
           v-model="roleFilter"
           :options="roleFilterOptions"
+          optionLabel="label"
+          optionValue="value"
           placeholder="Role"
         />
         <Select
@@ -167,6 +169,9 @@
           <Select
             v-model="userDialog.form.role"
             :options="roleOptions"
+            optionLabel="label"
+            optionValue="value"
+            placeholder="Select Role"
             :disabled="userDialog.mode === 'view'"
             class="w-full"
           />
@@ -306,6 +311,7 @@ import { useRoute } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import AdminMenu from '../components/AdminMenu.vue'
 import AdminStallMap from './AdminStallMap.vue'
+import { normalizeWorkflowRole } from '../stores/auth'
 import api from '../services/api'
 import {
   activateUser,
@@ -404,9 +410,36 @@ const page = computed(() => {
 const hasSearch = computed(() => !['AdminDashboard', 'AdminRoles', 'AdminSettings', 'AdminProfile', 'AdminStallMap'].includes(route.name))
 const showFilterBar = computed(() => ['AdminUsers', 'AdminAuditLogs', 'AdminLoginHistory', 'AdminNotifications'].includes(route.name))
 const isReportRoute = computed(() => String(route.name).includes('Report'))
-const roleOptions = ['MARKET_SUPERVISOR', 'ADMIN']
+
+const baseRoleOptions = [
+  { label: 'Market Supervisor', value: 'MARKET_SUPERVISOR' },
+  { label: 'Administrator', value: 'ADMIN' },
+  { label: 'Municipal Treasurer', value: 'TREASURER' },
+  { label: 'BPLO Office', value: 'BPLO_OFFICE' },
+  { label: 'Endorsing Office', value: 'ENDORSING_OFFICE' },
+  { label: 'Stakeholder / Applicant', value: 'STAKEHOLDER' }
+]
+
+function normalizeRoleForDialog(role) {
+  if (!role) return 'MARKET_SUPERVISOR'
+  const upper = String(role).replace('ROLE_', '').trim().toUpperCase()
+  if (upper === 'ADMIN') return 'ADMIN'
+  return normalizeWorkflowRole(upper) || upper
+}
+
+const roleOptions = computed(() => {
+  const currentRole = userDialog.form?.role
+  if (currentRole && !baseRoleOptions.some((opt) => opt.value === currentRole)) {
+    return [...baseRoleOptions, { label: formatEnum(currentRole), value: currentRole }]
+  }
+  return baseRoleOptions
+})
+
 const stallStatuses = ['VACANT', 'OCCUPIED']
-const roleFilterOptions = computed(() => ['All', ...new Set([...roleOptions, ...state.users.map((user) => user.role)].filter(Boolean))])
+const roleFilterOptions = computed(() => [
+  { label: 'All Roles', value: 'All' },
+  ...baseRoleOptions
+])
 const statusFilterOptions = computed(() => {
   const source = route.name === 'AdminNotifications'
     ? state.notifications
@@ -438,7 +471,11 @@ const masterDialog = reactive({
 const q = computed(() => search.value.trim().toLowerCase())
 const filteredUsers = computed(() => {
   return filterRows(state.users, ['name', 'username', 'role', 'status'])
-    .filter((user) => roleFilter.value === 'All' || user.role === roleFilter.value)
+    .filter((user) => {
+      if (roleFilter.value === 'All') return true
+      const userNorm = normalizeRoleForDialog(user.role)
+      return user.role === roleFilter.value || userNorm === roleFilter.value
+    })
     .filter((user) => statusFilter.value === 'All' || user.status === statusFilter.value)
     .filter((user) => withinDateRange(user.createdAt || user.createdDate))
 })
@@ -447,7 +484,11 @@ const filteredStallTypes = computed(() => filterRows(state.stallTypes, ['name', 
 const filteredRentalRates = computed(() => filterRows(state.rentalRates, ['stallType', 'name', 'description', 'status']))
 const filteredAuditLogs = computed(() => {
   return filterRows(state.auditLogs, ['user', 'role', 'action', 'module', 'record', 'description'])
-    .filter((log) => roleFilter.value === 'All' || log.role === roleFilter.value)
+    .filter((log) => {
+      if (roleFilter.value === 'All') return true
+      const logNorm = normalizeRoleForDialog(log.role)
+      return log.role === roleFilter.value || logNorm === roleFilter.value
+    })
     .filter((log) => moduleFilter.value === 'All' || log.module === moduleFilter.value)
     .filter((log) => withinDateRange(log.rawDate))
 })
@@ -989,13 +1030,13 @@ function openCreateUser() {
 
 function openEditUser(user) {
   userDialog.mode = 'edit'
-  userDialog.form = { ...emptyUser(), ...user, password: '' }
+  userDialog.form = { ...emptyUser(), ...user, role: normalizeRoleForDialog(user.role), password: '' }
   userDialog.visible = true
 }
 
 function viewUser(user) {
   userDialog.mode = 'view'
-  userDialog.form = { ...emptyUser(), ...user, password: '' }
+  userDialog.form = { ...emptyUser(), ...user, role: normalizeRoleForDialog(user.role), password: '' }
   userDialog.visible = true
 }
 
@@ -1397,6 +1438,20 @@ const ActivityList = defineComponent({
   }
 })
 
+function formatRole(role) {
+  if (!role) return 'Unassigned'
+  const normalized = normalizeRoleForDialog(role)
+  const map = {
+    MARKET_SUPERVISOR: 'Market Supervisor',
+    ADMIN: 'Administrator',
+    TREASURER: 'Treasurer',
+    BPLO_OFFICE: 'BPLO Office',
+    ENDORSING_OFFICE: 'Endorsing Office',
+    STAKEHOLDER: 'Stakeholder'
+  }
+  return map[normalized] || formatEnum(normalized)
+}
+
 const UsersView = defineComponent({
   props: { rows: { type: Array, default: () => [] } },
   emits: ['view', 'edit', 'activate', 'disable', 'reset'],
@@ -1406,7 +1461,7 @@ const UsersView = defineComponent({
       default: () => [
         h(Column, { field: 'name', header: 'Full Name', sortable: true }),
         h(Column, { field: 'username', header: 'Username', sortable: true }),
-        h(Column, { field: 'role', header: 'Role', sortable: true }),
+        h(Column, { field: 'role', header: 'Role', sortable: true }, { body: ({ data }) => formatRole(data.role) }),
         h(Column, { field: 'status', header: 'Status' }, { body: ({ data }) => h(StatusTag, { value: data.status }) }),
         h(Column, { field: 'lastLogin', header: 'Last Login' }, { body: ({ data }) => formatDateTime(data.lastLogin) || 'Never' }),
         h(Column, { field: 'createdAt', header: 'Created Date', sortable: true }, { body: ({ data }) => formatDateTime(data.createdAt) || 'N/A' }),
@@ -1425,42 +1480,43 @@ const UsersView = defineComponent({
 const RolesView = defineComponent({
   setup() {
     const roles = [
-      ['supervisor', 'Market Supervisor (Admin Merged)'],
-      ['treasurer', 'Treasurer (Excluded)'],
-      ['bplo', 'BPLO (Excluded)'],
-      ['endorsing', 'Endorsing (Excluded)'],
-      ['user', 'User / Stakeholder (Excluded)']
+      ['supervisor', 'Market Supervisor / Admin'],
+      ['treasurer', 'Municipal Treasurer'],
+      ['bplo', 'BPLO Office'],
+      ['endorsing', 'Endorsing Office'],
+      ['user', 'Stakeholder / Applicant']
     ]
-    const rows = [
-      ['View Applications', true, false, false, false, false],
-      ['View Stakeholders', true, false, false, false, false],
-      ['View Contracts', true, false, false, false, false],
-      ['View Payments', true, false, false, false, false],
-      ['Record Payment', true, false, false, false, false],
-      ['Issue Receipt', true, false, false, false, false],
-      ['Assign Stall', true, false, false, false, false],
-      ['Manage Stalls', true, false, false, false, false],
-      ['BPLO Approval', true, false, false, false, false],
-      ['Endorse Application', true, false, false, false, false],
-      ['Manage Users', true, false, false, false, false],
-      ['Audit Logs', true, false, false, false, false],
-      ['System Settings', true, false, false, false, false]
-    ].map(([permission, supervisor]) => ({
+    const rawPermissions = [
+      ['View Public Market Applications', true, true, true, true, true],
+      ['View Stakeholder Profiles', true, true, true, true, false],
+      ['Manage Stalls & Stall Map', true, false, false, false, false],
+      ['Assign Stalls to Applicants', true, false, false, false, false],
+      ['Endorse Application (Step 5)', false, false, false, true, false],
+      ['Hazard-Free Verification & BPLO Approval (Step 6)', false, false, true, false, false],
+      ['Record Payments & Issue Official Receipts', false, true, false, false, false],
+      ['View Payments & Financial Reports', true, true, false, false, false],
+      ['Generate Contracts & Archive Records', true, false, false, false, false],
+      ['Manage System Users & Roles', true, false, false, false, false],
+      ['View Audit Logs & Login History', true, true, false, false, false],
+      ['System Settings & Notifications', true, false, false, false, false]
+    ]
+
+    const rows = rawPermissions.map(([permission, supervisor, treasurer, bplo, endorsing, user]) => ({
       permission,
       supervisor,
-      treasurer: false,
-      bplo: false,
-      endorsing: false,
-      user: false
+      treasurer,
+      bplo,
+      endorsing,
+      user
     }))
 
     return () => h(Card, null, {
-      title: () => 'Role Permission Matrix (Market Supervisor & Admin Unified)',
+      title: () => 'Role Permission Matrix',
       content: () => h('div', { class: 'space-y-4' }, [
-        h('p', { class: 'text-sm text-slate-500 mb-3' }, 'Market Supervisor is unified with Administrator access. Other roles (Treasurer, BPLO, Endorsing Office, and Stakeholder User) are excluded for integration.'),
+        h('p', { class: 'text-sm text-slate-500 mb-3' }, 'Comprehensive role & permission distribution across the Manticao Public Market workflow. The Admin user is unified with Market Supervisor responsibilities, while Municipal Treasurer, BPLO Office, Endorsing Office, and Stakeholder roles perform their respective operational stages.'),
         h(DataTable, { value: rows, responsiveLayout: 'scroll', class: 'permission-table surface-table' }, {
           default: () => [
-            h(Column, { field: 'permission', header: 'Permission' }),
+            h(Column, { field: 'permission', header: 'Permission / Operational Stage' }),
             ...roles.map(([field, label]) => h(Column, { header: label }, {
               body: ({ data }) => h(Checkbox, { modelValue: data[field], binary: true, disabled: true })
             }))
