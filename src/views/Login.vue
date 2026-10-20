@@ -140,10 +140,12 @@ function quickLogin(targetRole) {
     user: { name: 'Demo ' + targetRole, email: targetRole.toLowerCase() + '@manticao.gov.ph' }
   })
 
-  if (targetRole === 'ADMIN' || targetRole === 'MARKET_SUPERVISOR') router.push('/supervisor')
+  if (targetRole === 'ADMIN') router.push('/admin/dashboard')
+  else if (targetRole === 'MARKET_SUPERVISOR') router.push('/supervisor')
+  else if (targetRole === 'MAYOR') router.push('/mayor')
   else if (targetRole === 'TREASURER') router.push('/treasurer')
-  else if (targetRole === 'BPLO_OFFICE') router.push('/bplo')
-  else if (targetRole === 'ENDORSING_OFFICE') router.push('/endorsing')
+  else if (targetRole === 'COLLECTOR_INSPECTOR') router.push('/collector')
+  else router.push('/application-progress')
 }
 
 // =====================
@@ -153,11 +155,14 @@ const MUNICIPAL_STAFF_MAP = {
   admin: 'admin@manticao.market',
   market_supervisor: 'supervisor@manticao.gov.ph',
   supervisor: 'supervisor@manticao.gov.ph',
+  mayor: 'mayor@manticao.gov.ph',
+  municipal_mayor: 'mayor@manticao.gov.ph',
   treasurer: 'treasurer@manticao.gov.ph',
-  bplo: 'bplo@manticao.gov.ph',
-  bplo_office: 'bplo@manticao.gov.ph',
-  endorsing: 'endorsing@manticao.gov.ph',
-  endorsing_office: 'endorsing@manticao.gov.ph'
+  collector: 'collector@manticao.gov.ph',
+  inspector: 'collector@manticao.gov.ph',
+  collector_inspector: 'collector@manticao.gov.ph',
+  applicant: 'applicant@manticao.market',
+  vendor: 'vendor@manticao.market'
 }
 
 async function onSubmit() {
@@ -224,7 +229,7 @@ async function onSubmit() {
 
     const profile = profileRes?.data || null
     const stakeholder = stakeholderRes?.data || null
-    const rawRole = profile?.role || authUser.user_metadata?.role || (lowerId === 'admin' ? 'MARKET_SUPERVISOR' : 'STAKEHOLDER')
+    const rawRole = profile?.role || authUser.user_metadata?.role || (lowerId === 'admin' ? 'ADMIN' : (lowerId === 'mayor' ? 'MAYOR' : (lowerId === 'treasurer' ? 'TREASURER' : (lowerId === 'collector' ? 'COLLECTOR_INSPECTOR' : 'STAKEHOLDER'))))
     const role = normalizeWorkflowRole(rawRole)
     const stakeholderId = stakeholder ? String(stakeholder.id) : ''
 
@@ -251,10 +256,24 @@ async function onSubmit() {
 
     // ─── 5. ROLE-BASED ROUTING ────────────────────────────────────────────────
 
-    // MARKET SUPERVISOR & ADMIN (MERGED)
-    if (role === 'MARKET_SUPERVISOR' || role === 'ADMIN') {
-      console.log('[AUTH] ✅ MARKET_SUPERVISOR / ADMIN detected — navigating to /supervisor')
+    // ADMIN
+    if (role === 'ADMIN') {
+      console.log('[AUTH] ✅ ADMIN — navigating to /admin/dashboard')
+      router.push('/admin/dashboard')
+      return
+    }
+
+    // MARKET SUPERVISOR
+    if (role === 'MARKET_SUPERVISOR') {
+      console.log('[AUTH] ✅ MARKET_SUPERVISOR — navigating to /supervisor')
       router.push('/supervisor')
+      return
+    }
+
+    // MUNICIPAL MAYOR
+    if (role === 'MAYOR') {
+      console.log('[AUTH] ✅ MAYOR — navigating to /mayor')
+      router.push('/mayor')
       return
     }
 
@@ -265,22 +284,15 @@ async function onSubmit() {
       return
     }
 
-    // BPLO OFFICE
-    if (role === 'BPLO_OFFICE') {
-      console.log('[AUTH] ✅ BPLO_OFFICE — navigating to /bplo')
-      router.push('/bplo')
+    // COLLECTOR / INSPECTOR
+    if (role === 'COLLECTOR_INSPECTOR') {
+      console.log('[AUTH] ✅ COLLECTOR_INSPECTOR — navigating to /collector')
+      router.push('/collector')
       return
     }
 
-    // ENDORSING OFFICE
-    if (role === 'ENDORSING_OFFICE') {
-      console.log('[AUTH] ✅ ENDORSING_OFFICE — navigating to /endorsing')
-      router.push('/endorsing')
-      return
-    }
-
-    // STAKEHOLDER
-    if (role === 'STAKEHOLDER') {
+    // STAKEHOLDER (APPLICANT / ACTIVE VENDOR)
+    if (role === 'STAKEHOLDER' || role === 'APPLICANT' || role === 'VENDOR') {
       console.log('[AUTH] ✅ STAKEHOLDER — navigating to /application-progress (router guard handles redirect)')
       router.push('/application-progress')
       return

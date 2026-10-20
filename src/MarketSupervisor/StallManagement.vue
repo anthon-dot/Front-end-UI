@@ -16,6 +16,7 @@
         <select v-model="filterStatus" class="filter" aria-label="Filter by status">
           <option value="All">All Active ({{ activeStallsCount }})</option>
           <option value="VACANT">Vacant ({{ vacantCount }})</option>
+          <option value="RESERVED">Reserved ({{ reservedCount }})</option>
           <option value="OCCUPIED">Occupied ({{ occupiedCount }})</option>
           <option value="UNAVAILABLE">Unavailable ({{ unavailableCount }})</option>
           <option value="ARCHIVED">Archived ({{ archivedCount }})</option>
@@ -26,6 +27,40 @@
           <option value="All">All Sections ({{ stallTypes.length }})</option>
           <option v-for="t in stallTypes" :key="t" :value="t">{{ t }}</option>
         </select>
+
+        <!-- View Mode Switcher -->
+        <div class="sm-view-mode-toggle" aria-label="Display View Mode">
+          <button
+            type="button"
+            class="sm-view-btn"
+            :class="{ active: viewMode === 'split' }"
+            title="Show both Map and Registry Table"
+            @click="setViewMode('split')"
+          >
+            <i class="pi pi-th-large"></i>
+            <span>Split View</span>
+          </button>
+          <button
+            type="button"
+            class="sm-view-btn"
+            :class="{ active: viewMode === 'map' }"
+            title="Focus on Interactive GPS Map"
+            @click="setViewMode('map')"
+          >
+            <i class="pi pi-map"></i>
+            <span>Map View</span>
+          </button>
+          <button
+            type="button"
+            class="sm-view-btn"
+            :class="{ active: viewMode === 'table' }"
+            title="Focus on Stall Registry Table"
+            @click="setViewMode('table')"
+          >
+            <i class="pi pi-table"></i>
+            <span>Table View</span>
+          </button>
+        </div>
 
         <!-- Create Stall Button -->
         <button
@@ -63,6 +98,16 @@
       </div>
 
       <div class="stat-card">
+        <div class="stat-icon reserved-icon">
+          <i class="pi pi-bookmark"></i>
+        </div>
+        <div class="stat-info">
+          <span class="stat-label">Reserved</span>
+          <span class="stat-value">{{ reservedCount }}</span>
+        </div>
+      </div>
+
+      <div class="stat-card">
         <div class="stat-icon occupied-icon">
           <i class="pi pi-check-circle"></i>
         </div>
@@ -83,8 +128,8 @@
       </div>
     </section>
 
-    <!-- MAP CONTAINER -->
-    <section class="map-card modern-map-card">
+    <!-- MAP CONTAINER (COLLAPSIBLE / EXPANDABLE) -->
+    <section v-show="viewMode !== 'table'" class="map-card modern-map-card" :class="{ 'map-full-view': viewMode === 'map' }">
       <div class="map-card-header">
         <div class="map-title-wrap">
           <div class="map-title-icon">
@@ -152,12 +197,17 @@
             <span class="chip-text">Vacant</span>
             <span class="chip-count">{{ vacantCount }}</span>
           </div>
+          <div class="legend-chip chip-reserved" title="Reserved for Pending Stakeholders (Orange)">
+            <span class="chip-dot dot-reserved"></span>
+            <span class="chip-text">Reserved</span>
+            <span class="chip-count">{{ reservedCount }}</span>
+          </div>
           <div class="legend-chip chip-occupied" title="Occupied Stalls (Blue)">
             <span class="chip-dot dot-occupied"></span>
             <span class="chip-text">Occupied</span>
             <span class="chip-count">{{ occupiedCount }}</span>
           </div>
-          <div class="legend-chip chip-unavailable" title="Unavailable Stalls (Orange)">
+          <div class="legend-chip chip-unavailable" title="Unavailable Stalls (Slate)">
             <span class="chip-dot dot-unavailable"></span>
             <span class="chip-text">Unavailable</span>
             <span class="chip-count">{{ unavailableCount }}</span>
@@ -187,8 +237,8 @@
       </div>
     </section>
 
-    <!-- STALL REGISTRY TABLE -->
-    <section class="table-wrap">
+    <!-- STALL REGISTRY TABLE (COLLAPSIBLE / EXPANDABLE) -->
+    <section v-show="viewMode !== 'map'" class="table-wrap">
       <div class="table-header-bar">
         <h2>Stall Registry ({{ filteredStalls.length }})</h2>
         <span class="table-hint">
@@ -276,6 +326,17 @@
                   @click="startLocationPickerForStall(stall)"
                 >
                   📍 Assign Location
+                </button>
+
+                <!-- Approve Stakeholder & Create Contract (Reserved Stalls) -->
+                <button
+                  v-if="getNormalizedStatus(stall.status, stall) === 'reserved'"
+                  type="button"
+                  class="btn-action btn-approve-row"
+                  title="Approve stakeholder, create contract and assign stall"
+                  @click="approveAndContractForStall(stall)"
+                >
+                  ✓ Approve & Contract
                 </button>
 
                 <!-- Assign Stakeholder -->
@@ -516,6 +577,38 @@
                 <i class="pi pi-user"></i>
                 {{ currentOccupantName }}
               </div>
+              <div class="flex items-center gap-2 mt-1.5">
+                <span class="text-xs text-slate-500 font-medium">Occupant Status:</span>
+                <span
+                  class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-bold"
+                  :class="currentOccupantStatus === 'PENDING' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'"
+                >
+                  <span
+                    class="w-2 h-2 rounded-full inline-block animate-pulse"
+                    :class="currentOccupantStatus === 'PENDING' ? 'bg-amber-500' : 'bg-emerald-500'"
+                  ></span>
+                  {{ currentOccupantStatus === 'PENDING' ? 'PENDING APPROVAL' : (currentOccupantStatus || 'ACTIVE') }}
+                </span>
+              </div>
+
+              <!-- Pending Approval Banner for Reserved Stalls -->
+              <div v-if="currentOccupantStatus === 'PENDING' || form.status === 'RESERVED'" class="pending-approval-banner mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <div class="flex items-center justify-between gap-3">
+                  <div>
+                    <div class="text-xs font-bold text-amber-800 uppercase tracking-wide">Reserved for Stakeholder (Pending Approval)</div>
+                    <p class="text-xs text-amber-700 mt-0.5">Application is pending Market Supervisor approval. Approving will activate the tenant and auto-generate the lease contract.</p>
+                  </div>
+                  <button
+                    type="button"
+                    class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shadow-sm"
+                    :disabled="isSaving"
+                    @click="approveAndContractForCurrentStall"
+                  >
+                    <i class="pi pi-check" :class="{ 'pi-spin': isSaving }"></i>
+                    <span>Approve & Contract</span>
+                  </button>
+                </div>
+              </div>
               <div class="occupant-card-action mt-2">
                 <button
                   type="button"
@@ -688,17 +781,17 @@
             </div>
           </div>
 
-          <!-- Stakeholder Search Input -->
+          <!-- Stakeholder Search Input & Filter Tabs -->
           <div class="assign-field-group">
             <label class="assign-input-label">
-              <span>Select Eligible Approved Stakeholder</span>
-              <small>Stakeholders who are approved by Market Supervisor and have advance payment verified</small>
+              <span>Select Stakeholder to Assign</span>
+              <small>Assign a vacant stall to an awaiting or approved applicant, or reassign an existing stakeholder</small>
             </label>
             <div class="search-input-wrap">
               <input
                 v-model="stakeholderSearch"
                 type="text"
-                placeholder="Search approved stakeholder by name, business, contact..."
+                placeholder="Search stakeholder by name, business, contact, or email..."
               />
               <button
                 v-if="stakeholderSearch"
@@ -710,13 +803,53 @@
                 ✕
               </button>
             </div>
+
+            <!-- Quick Filter Tabs -->
+            <div class="flex items-center gap-1.5 mt-2">
+              <button
+                type="button"
+                class="px-2.5 py-1 text-xs font-bold rounded-lg transition-colors border"
+                :style="stakeholderAssignTab === 'ALL' ? 'background: #4f46e5; color: #fff; border-color: #4f46e5;' : 'background: #fff; color: #475569; border-color: #e2e8f0;'"
+                @click="stakeholderAssignTab = 'ALL'"
+              >
+                All Stakeholders ({{ (stakeholders || []).length }})
+              </button>
+              <button
+                type="button"
+                class="px-2.5 py-1 text-xs font-bold rounded-lg transition-colors border flex items-center gap-1"
+                :style="stakeholderAssignTab === 'AWAITING' ? 'background: #2563eb; color: #fff; border-color: #2563eb;' : 'background: #fff; color: #1e40af; border-color: #bfdbfe;'"
+                @click="stakeholderAssignTab = 'AWAITING'"
+              >
+                <i class="pi pi-clock text-[10px]"></i>
+                Awaiting Stall ({{ awaitingAssignmentCount }})
+              </button>
+              <button
+                type="button"
+                class="px-2.5 py-1 text-xs font-bold rounded-lg transition-colors border flex items-center gap-1"
+                :style="stakeholderAssignTab === 'APPROVED' ? 'background: #059669; color: #fff; border-color: #059669;' : 'background: #fff; color: #047857; border-color: #a7f3d0;'"
+                @click="stakeholderAssignTab = 'APPROVED'"
+              >
+                <i class="pi pi-check text-[10px]"></i>
+                Approved / Paid
+              </button>
+            </div>
           </div>
 
           <!-- Selected Stakeholder Card -->
           <div v-if="selectedStakeholder" class="selected-occupant-card">
             <div class="selected-badge-row">
-              <span class="selected-tag"><i class="pi pi-check-circle"></i> Eligible & Approved</span>
-              <span class="badge-approved">Advance Paid</span>
+              <span v-if="!hasAssignedStall(selectedStakeholder)" class="selected-tag">
+                <i class="pi pi-user-plus"></i> New Stall Assignment
+              </span>
+              <span v-else class="selected-tag" style="background: #fef3c7; color: #92400e; border-color: #fde68a;">
+                <i class="pi pi-refresh"></i> Reassigning from Stall #{{ getStakeholderCurrentStallNo(selectedStakeholder) }}
+              </span>
+              <span v-if="isStakeholderAdvancePaid(selectedStakeholder)" class="badge-approved" style="background: #dcfce7; color: #166534; border-color: #bbf7d0;">
+                <i class="pi pi-check"></i> Advance Verified
+              </span>
+              <span v-if="isStakeholderSupervisorApproved(selectedStakeholder)" class="badge-approved" style="background: #ede9fe; color: #5b21b6; border-color: #ddd6fe;">
+                <i class="pi pi-check-circle"></i> Supervisor Approved
+              </span>
             </div>
             <div class="selected-occupant-name">
               <i class="pi pi-user"></i> {{ getPersonName(selectedStakeholder) }}
@@ -724,6 +857,7 @@
             <div class="selected-occupant-biz">
               <i class="pi pi-briefcase"></i> {{ selectedStakeholder.businessName || 'Business Applicant' }}
               <span v-if="selectedStakeholder.contact">&bull; {{ selectedStakeholder.contact }}</span>
+              <span v-if="selectedStakeholder.email">&bull; {{ selectedStakeholder.email }}</span>
             </div>
             <button type="button" class="btn-change-selection" @click="clearStakeholderSearch">
               Change Selection
@@ -732,18 +866,19 @@
 
           <!-- Stakeholders Selection List -->
           <div v-else class="assign-stakeholders-container">
-            <div class="stakeholder-list-title">
-              Eligible Approved Stakeholders ({{ filteredEligibleStakeholders.length }})
+            <div class="stakeholder-list-title flex items-center justify-between">
+              <span>Selectable Stakeholders ({{ filteredEligibleStakeholders.length }})</span>
+              <span class="text-[11px] font-normal text-slate-500">Click any applicant below to select</span>
             </div>
 
             <div v-if="eligibleStakeholders.length === 0" class="stakeholder-empty-notice">
               <i class="pi pi-info-circle text-amber-500"></i>
-              <span>No eligible approved stakeholders found. Stakeholders become eligible once advance payment is paid and approved by the Market Supervisor.</span>
+              <span>No stakeholders found matching the selected filter. Applicants will appear here once registered.</span>
             </div>
 
             <div v-else-if="filteredEligibleStakeholders.length === 0" class="stakeholder-empty-notice">
               <i class="pi pi-search"></i>
-              <span>No approved stakeholder matching "{{ stakeholderSearch }}"</span>
+              <span>No stakeholder matching "{{ stakeholderSearch }}"</span>
             </div>
 
             <div v-else class="stakeholders-pick-list">
@@ -755,14 +890,31 @@
               >
                 <div class="pick-item-top">
                   <span class="pick-name">{{ getPersonName(person) }}</span>
-                  <span class="badge-approved">Eligible</span>
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <span v-if="!hasAssignedStall(person)" class="badge-awaiting">
+                      <i class="pi pi-clock"></i> Awaiting Stall
+                    </span>
+                    <span v-else class="badge-reassign">
+                      <i class="pi pi-building"></i> Stall #{{ getStakeholderCurrentStallNo(person) }}
+                    </span>
+                    <span v-if="isStakeholderAdvancePaid(person)" class="badge-paid">
+                      <i class="pi pi-check"></i> Paid
+                    </span>
+                    <span v-if="isStakeholderSupervisorApproved(person)" class="badge-approved">
+                      <i class="pi pi-check-circle"></i> Approved
+                    </span>
+                  </div>
                 </div>
                 <div v-if="person.businessName" class="pick-biz">
                   <i class="pi pi-briefcase"></i> {{ person.businessName }}
+                  <span v-if="person.businessType" class="text-slate-400">({{ person.businessType }})</span>
                 </div>
                 <div class="pick-meta">
                   <span v-if="person.contact">
-                    <i class="pi pi-id-card"></i> {{ person.contact }}
+                    <i class="pi pi-phone"></i> {{ person.contact }}
+                  </span>
+                  <span v-if="person.email">
+                    <i class="pi pi-envelope"></i> {{ person.email }}
                   </span>
                 </div>
               </div>
@@ -790,8 +942,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
@@ -812,6 +964,30 @@ import {
 import { systemMessage } from '../utils/systemMessage'
 
 const router = useRouter()
+const route = useRoute()
+const stakeholderAssignTab = ref('ALL')
+const viewMode = ref(route.query.view === 'map' ? 'map' : (route.query.view === 'table' ? 'table' : 'split'))
+
+function setViewMode(mode) {
+  viewMode.value = mode
+  router.replace({ query: { ...route.query, view: mode !== 'split' ? mode : undefined } })
+  if (mode !== 'table') {
+    setTimeout(() => {
+      if (leafletMap) leafletMap.invalidateSize()
+    }, 150)
+  }
+}
+
+watch(() => route.query.view, (newView) => {
+  if (newView === 'map' || newView === 'table' || newView === 'split') {
+    viewMode.value = newView
+    if (newView !== 'table') {
+      setTimeout(() => {
+        if (leafletMap) leafletMap.invalidateSize()
+      }, 150)
+    }
+  }
+})
 
 // Default Manticao Public Market Center
 const DEFAULT_CENTER = { lat: 8.399991, lng: 124.291353 }
@@ -839,6 +1015,7 @@ const stakeholderSearch = ref('')
 const selectedStakeholder = ref(null)
 const currentOccupantName = ref('')
 const initialOccupantName = ref('')
+const currentOccupantStatus = ref('')
 
 // Interactive Map Position Picker State
 const isPickingCoordinates = ref(false)
@@ -901,16 +1078,20 @@ let leafletTileLayer = null
 
 // Expose global callback handlers for Leaflet HTML popups
 window.__smOpenStallDetails = (stallId) => {
-  const stall = stalls.value.find((s) => s.id === stallId)
+  const stall = stalls.value.find((s) => String(s.id) === String(stallId))
   if (stall) openStallDetailsModal(stall)
 }
 window.__smAssignStall = (stallId) => {
-  const stall = stalls.value.find((s) => s.id === stallId)
+  const stall = stalls.value.find((s) => String(s.id) === String(stallId))
   if (stall) openAssignForStall(stall)
 }
 window.__smRelocateStall = (stallId) => {
-  const stall = stalls.value.find((s) => s.id === stallId)
+  const stall = stalls.value.find((s) => String(s.id) === String(stallId))
   if (stall) startLocationPickerForStall(stall)
+}
+window.__smApproveAndContract = (stallId) => {
+  const stall = stalls.value.find((s) => String(s.id) === String(stallId))
+  if (stall) approveAndContractForStall(stall)
 }
 
 function initModernLeafletMap() {
@@ -986,20 +1167,21 @@ function clearAllMarkers() {
 }
 
 function createModernMarkerIcon(stall) {
-  const norm = getNormalizedStatus(stall.status)
+  const norm = getNormalizedStatus(stall.status, stall)
   const stallNo = String(stall.number || stall.stallNo || '—')
   const isOccupied = norm === 'occupied'
+  const isReserved = norm === 'reserved'
   const isUnavailable = norm === 'unavailable'
 
-  // Blue for Occupied, Green for Vacant, Orange for Unavailable
+  // Blue for Occupied, Orange for Reserved or Unavailable, Green for Vacant
   const iconUrl = isOccupied
     ? '/icons/stall-pin-blue.svg'
-    : isUnavailable
+    : (isReserved || isUnavailable)
     ? '/icons/stall-pin-orange.svg'
     : '/icons/stall-pin-green.svg'
 
-  const statusLabel = isOccupied ? 'Occupied' : isUnavailable ? 'Unavailable' : 'Vacant'
-  const badgeClass = isOccupied ? 'badge-occupied' : isUnavailable ? 'badge-unavailable' : 'badge-vacant'
+  const statusLabel = isOccupied ? 'Occupied' : isReserved ? 'Reserved' : isUnavailable ? 'Unavailable' : 'Vacant'
+  const badgeClass = isOccupied ? 'badge-occupied' : isReserved ? 'badge-reserved' : isUnavailable ? 'badge-unavailable' : 'badge-vacant'
 
   const html = `
     <div class="stall-svg-pin pin-${norm}" title="Stall #${stallNo} (${statusLabel})">
@@ -1018,14 +1200,17 @@ function createModernMarkerIcon(stall) {
 }
 
 function buildLeafletPopupContent(stall) {
-  const norm = getNormalizedStatus(stall.status)
-  const statusLabel = getStatusLabel(stall.status)
+  const norm = getNormalizedStatus(stall.status, stall)
+  const statusLabel = getStatusLabel(stall.status, stall)
   const occupant = getOccupantName(stall)
   const business = getOccupantBusiness(stall)
+  const occupantStatus = getOccupantStatus(stall)
   const rent = formatCurrency(stall.rent)
   const imgUrl = stall.imageUrl ? (stall.imageUrl.startsWith('http') ? stall.imageUrl : `${API_ORIGIN}${stall.imageUrl}`) : ''
   const stallNo = String(stall.number || stall.stallNo || '—')
   const stallType = stall.type || 'Standard Stall'
+  const isVacant = norm === 'vacant'
+  const isReserved = norm === 'reserved'
 
   return `
     <div class="sm-leaflet-popup">
@@ -1045,6 +1230,15 @@ function buildLeafletPopupContent(stall) {
           <span class="sm-lbl">Occupant:</span>
           <span class="sm-val">${occupant ? `<strong>${occupant}</strong>` : '<em style="color:#94a3b8">Vacant</em>'}</span>
         </div>
+        ${occupant ? `
+        <div class="sm-popup-row">
+          <span class="sm-lbl">Occupant Status:</span>
+          <span class="sm-val">
+            <span class="sm-popup-occupant-status ${occupantStatus === 'PENDING' ? 'status-pending' : 'status-active'}">
+              <span class="status-dot"></span> ${occupantStatus === 'PENDING' ? 'PENDING APPROVAL' : (occupantStatus || 'ACTIVE')}
+            </span>
+          </span>
+        </div>` : ''}
         ${business ? `
         <div class="sm-popup-row">
           <span class="sm-lbl">Business:</span>
@@ -1053,14 +1247,20 @@ function buildLeafletPopupContent(stall) {
       </div>
 
       <div class="sm-popup-actions">
-        <button type="button" onclick="window.__smOpenStallDetails(${stall.id})" class="sm-popup-btn sm-btn-details">
+        <button type="button" onclick="window.__smOpenStallDetails('${stall.id}')" class="sm-popup-btn sm-btn-details">
           <i class="pi pi-info-circle"></i> Details
         </button>
-        ${norm === 'vacant' ? `
-        <button type="button" onclick="window.__smAssignStall(${stall.id})" class="sm-popup-btn sm-btn-assign">
+        ${isReserved ? `
+        <button type="button" onclick="window.__smApproveAndContract('${stall.id}')" class="sm-popup-btn sm-btn-approve" title="Approve Stakeholder & Create Contract">
+          <i class="pi pi-check-circle"></i> Approve & Contract
+        </button>` : isVacant ? `
+        <button type="button" onclick="window.__smAssignStall('${stall.id}')" class="sm-popup-btn sm-btn-assign">
           <i class="pi pi-user-plus"></i> Assign
-        </button>` : ''}
-        <button type="button" onclick="window.__smRelocateStall(${stall.id})" class="sm-popup-btn sm-btn-relocate" title="Adjust GPS Pin">
+        </button>` : `
+        <button type="button" onclick="window.__smAssignStall('${stall.id}')" class="sm-popup-btn sm-btn-assign sm-btn-reassign" title="Reassign Occupant">
+          <i class="pi pi-user-edit"></i> Reassign
+        </button>`}
+        <button type="button" onclick="window.__smRelocateStall('${stall.id}')" class="sm-popup-btn sm-btn-relocate" title="Adjust GPS Pin">
           <i class="pi pi-map-marker"></i> Relocate
         </button>
       </div>
@@ -1072,7 +1272,11 @@ function renderMarkers() {
   clearAllMarkers()
   if (!leafletMap) return
 
-  const validStalls = stalls.value.filter(
+  const sourceStalls = (search.value || filterStatus.value !== 'All' || filterType.value !== 'All')
+    ? filteredStalls.value
+    : stalls.value
+
+  const validStalls = sourceStalls.filter(
     (s) => s.lat != null && s.lng != null && !isNaN(Number(s.lat)) && !isNaN(Number(s.lng))
   )
 
@@ -1105,9 +1309,19 @@ function renderMarkers() {
 }
 
 function focusStallOnMap(stall) {
-  if (stall.lat == null || stall.lng == null) {
-    systemMessage.info(`Stall ${stall.number} does not have GPS coordinates assigned.`, 'No GPS Assigned')
+  if (!stall || stall.lat == null || stall.lng == null) {
+    if (stall && (stall.lat == null || stall.lng == null)) {
+      systemMessage.info(`Stall ${stall.number} does not have GPS coordinates assigned.`, 'No GPS Assigned')
+    }
     return
+  }
+
+  // Auto-switch to split or map view if currently on table-only view
+  if (viewMode.value === 'table') {
+    viewMode.value = 'split'
+    if (leafletMap) {
+      setTimeout(() => leafletMap.invalidateSize(), 50)
+    }
   }
 
   const lat = Number(stall.lat)
@@ -1117,7 +1331,7 @@ function focusStallOnMap(stall) {
     leafletMap.setView([lat, lng], 19)
   }
 
-  const targetMarker = leafletMarkers.find((m) => m.stallId === stall.id)
+  const targetMarker = leafletMarkers.find((m) => String(m.stallId) === String(stall.id))
   if (targetMarker) {
     targetMarker.openPopup()
   }
@@ -1176,6 +1390,12 @@ function clearPickerMarker() {
 }
 
 function startLocationPickerForStall(stall) {
+  if (viewMode.value === 'table') {
+    viewMode.value = 'split'
+    if (leafletMap) {
+      setTimeout(() => leafletMap.invalidateSize(), 50)
+    }
+  }
   pickingStallNumber.value = stall.number
   const initialLat = stall.lat ? Number(stall.lat) : DEFAULT_CENTER.lat
   const initialLng = stall.lng ? Number(stall.lng) : DEFAULT_CENTER.lng
@@ -1361,6 +1581,7 @@ function openStallDetailsModal(stall) {
   const occupant = getOccupantName(stall)
   currentOccupantName.value = occupant
   initialOccupantName.value = occupant
+  currentOccupantStatus.value = getOccupantStatus(stall)
 
   showModal.value = true
 }
@@ -1416,8 +1637,12 @@ async function confirmAssignOccupant() {
       const { supabase } = await import('../config/supabase')
       await supabase
         .from('occupants')
-        .update({ status: 'ACTIVE', occupancy_date: new Date().toISOString().split('T')[0] })
-        .eq('stakeholder_id', stakeholder.id)
+        .update({
+          status: 'ACTIVE',
+          stall_id: Number(targetStallId),
+          occupancy_date: new Date().toISOString().split('T')[0]
+        })
+        .eq('stakeholder_id', Number(stakeholder.id))
     } catch (_) {}
 
     // Non-blocking billing check and notification dispatch
@@ -1446,15 +1671,47 @@ async function confirmAssignOccupant() {
     })()
 
     await loadStalls()
+    await loadStakeholders()
     await loadContracts()
+
+    // Ensure immediate reactive UI state reflects ACTIVE occupant status
+    const targetStall = stalls.value.find((s) => String(s.id) === String(targetStallId))
+    if (targetStall) {
+      targetStall.status = 'OCCUPIED'
+      if (!targetStall.occupant || !targetStall.occupant.stakeholder) {
+        targetStall.occupant = {
+          status: 'ACTIVE',
+          name: stakeholderName,
+          stakeholder: {
+            ...stakeholder,
+            firstName: stakeholder.firstName || stakeholder.first_name,
+            lastName: stakeholder.lastName || stakeholder.last_name,
+            businessName: stakeholder.businessName || stakeholder.business_name
+          }
+        }
+      } else {
+        const occ = Array.isArray(targetStall.occupant) ? targetStall.occupant[0] : targetStall.occupant
+        if (occ) occ.status = 'ACTIVE'
+      }
+    }
+
     renderMarkers()
 
     currentOccupantName.value = stakeholderName
     initialOccupantName.value = stakeholderName
+    currentOccupantStatus.value = 'ACTIVE'
     form.value.status = 'OCCUPIED'
 
     closeAssignModal()
-    systemMessage.success(`Stall ${form.value.number} successfully assigned to ${stakeholderName} and notified via email!`, 'Occupant Assigned')
+    closeModal()
+
+    if (targetStall) {
+      setTimeout(() => {
+        focusStallOnMap(targetStall)
+      }, 150)
+    }
+
+    systemMessage.success(`Stall ${form.value.number} successfully assigned to ${stakeholderName}! Occupant status is now ACTIVE.`, 'Occupant Assigned')
   } catch (err) {
     console.error(err)
     systemMessage.error(err.message || 'Failed to assign occupant to stall', 'Assignment Failed')
@@ -1481,11 +1738,27 @@ async function vacateOccupant() {
 
     await loadStalls()
     await loadContracts()
+
+    const targetStall = stalls.value.find((s) => String(s.id) === String(targetStallId))
+    if (targetStall) {
+      targetStall.status = 'VACANT'
+      targetStall.occupant = null
+    }
+
     renderMarkers()
 
     currentOccupantName.value = ''
     initialOccupantName.value = ''
+    currentOccupantStatus.value = ''
     form.value.status = 'VACANT'
+
+    closeModal()
+
+    if (targetStall) {
+      setTimeout(() => {
+        focusStallOnMap(targetStall)
+      }, 150)
+    }
 
     systemMessage.warn(`Occupant removed from Stall ${form.value.number}. Stall is now VACANT.`, 'Stall Vacated')
   } catch (err) {
@@ -1519,6 +1792,7 @@ async function loadStalls() {
       imageUrl: stall.image_url || stall.imageUrl || '',
       occupant: stall.occupant
     }))
+    syncReservedStallsWithStakeholders()
   } catch (err) {
     console.error('[StallManagement] Load stalls error:', err)
   }
@@ -1528,9 +1802,41 @@ async function loadStakeholders() {
   try {
     const res = await api.get('/stakeholders')
     stakeholders.value = Array.isArray(res.data) ? res.data : []
+    syncReservedStallsWithStakeholders()
   } catch (err) {
     console.error('[StallManagement] Load stakeholders error:', err)
   }
+}
+
+function syncReservedStallsWithStakeholders() {
+  if (!stalls.value.length || !stakeholders.value.length) return
+  stakeholders.value.forEach((sh) => {
+    const isApproved = isStakeholderSupervisorApproved(sh)
+    const targetStallId = sh.selectedStallId || sh.selected_stall_id || sh.selectedStall?.id
+    if (targetStallId) {
+      const st = stalls.value.find((s) => String(s.id) === String(targetStallId))
+      if (st) {
+        if (!isApproved) {
+          if (st.status !== 'OCCUPIED') {
+            st.status = 'RESERVED'
+          }
+          if (!st.occupant || !getOccupantName(st)) {
+            st.occupant = {
+              status: 'PENDING',
+              stakeholder_id: sh.id,
+              stakeholder: sh,
+              name: getPersonName(sh)
+            }
+          } else {
+            const occ = Array.isArray(st.occupant) ? st.occupant[0] : st.occupant
+            if (occ && (!occ.status || occ.status === 'PENDING')) {
+              occ.status = 'PENDING'
+            }
+          }
+        }
+      }
+    }
+  })
 }
 
 async function loadContracts() {
@@ -1561,6 +1867,14 @@ function getOccupantBusiness(stall) {
   return ''
 }
 
+function getOccupantStatus(stall) {
+  if (!stall || !stall.occupant) return ''
+  const occ = Array.isArray(stall.occupant) ? stall.occupant[0] : stall.occupant
+  if (!occ) return ''
+  const rawStatus = occ.status || (occ.stakeholder ? 'ACTIVE' : '')
+  return rawStatus ? String(rawStatus).toUpperCase() : 'ACTIVE'
+}
+
 function getPersonName(person) {
   if (!person) return ''
   const first = person.firstName || person.first_name || ''
@@ -1568,20 +1882,94 @@ function getPersonName(person) {
   return `${first} ${last}`.trim() || 'Unknown Stakeholder'
 }
 
-function getNormalizedStatus(status) {
+function getNormalizedStatus(status, stall) {
   const s = String(status || '').toUpperCase()
-  if (s === 'OCCUPIED') return 'occupied'
-  if (s === 'UNAVAILABLE' || s === 'RESERVED') return 'unavailable'
   if (s === 'ARCHIVED') return 'archived'
+  const occStatus = stall ? getOccupantStatus(stall) : ''
+  if (s === 'RESERVED' || occStatus === 'PENDING') return 'reserved'
+  if (s === 'OCCUPIED') return 'occupied'
+  if (s === 'UNAVAILABLE') return 'unavailable'
   return 'vacant'
 }
 
-function getStatusLabel(status) {
-  const norm = getNormalizedStatus(status)
+function getStatusLabel(status, stall) {
+  const norm = getNormalizedStatus(status, stall)
+  if (norm === 'reserved') return 'RESERVED'
   if (norm === 'occupied') return 'OCCUPIED'
   if (norm === 'unavailable') return 'UNAVAILABLE'
   if (norm === 'archived') return 'ARCHIVED'
   return 'VACANT'
+}
+
+function getStakeholderForStall(stall) {
+  if (!stall) return null
+  const occ = Array.isArray(stall.occupant) ? stall.occupant[0] : stall.occupant
+  if (occ?.stakeholder) return occ.stakeholder
+  if (occ?.stakeholder_id || occ?.stakeholderId) {
+    const sId = occ.stakeholder_id || occ.stakeholderId
+    const found = stakeholders.value.find((s) => String(s.id) === String(sId))
+    if (found) return found
+  }
+  const match = stakeholders.value.find((s) => 
+    String(s.selectedStallId || s.selected_stall_id) === String(stall.id)
+  )
+  if (match) return match
+  return null
+}
+
+async function approveAndContractForStall(stall) {
+  const sh = getStakeholderForStall(stall)
+  const stallNum = stall.number || stall.stallNo || ''
+  const applicantName = sh ? getPersonName(sh) : `applicant for Stall #${stallNum}`
+
+  const confirmed = await systemMessage.confirm(
+    `Are you sure you want to approve ${applicantName}, assign Stall #${stallNum}, and generate their digital lease contract?`,
+    {
+      title: 'Approve, Assign Stall & Create Contract',
+      acceptLabel: 'Approve & Create Contract',
+      rejectLabel: 'Cancel',
+      isDanger: false
+    }
+  )
+  if (!confirmed) return
+
+  isSaving.value = true
+  try {
+    let stakeholderId = sh?.id
+    if (!stakeholderId) {
+      throw new Error(`No pending stakeholder found for Stall #${stallNum}`)
+    }
+
+    await api.put(`/stakeholders/${stakeholderId}/market-approve`, { stallId: stall.id })
+
+    await loadStalls()
+    await loadStakeholders()
+    await loadContracts()
+    renderMarkers()
+
+    systemMessage.success(
+      `Stall #${stallNum} successfully assigned to ${applicantName}! Lease contract generated and occupant status updated to ACTIVE.`,
+      'Approved & Contract Created'
+    )
+
+    const updatedStall = stalls.value.find((s) => String(s.id) === String(stall.id))
+    if (updatedStall) {
+      focusStallOnMap(updatedStall)
+    }
+    if (showModal.value) {
+      closeModal()
+    }
+  } catch (err) {
+    console.error('[StallManagement] approveAndContract error:', err)
+    systemMessage.error(err.message || 'Failed to approve and create contract', 'Approval Failed')
+  } finally {
+    isSaving.value = false
+  }
+}
+
+async function approveAndContractForCurrentStall() {
+  const stall = stalls.value.find((s) => String(s.id) === String(form.value.id)) || form.value
+  await approveAndContractForStall(stall)
 }
 
 function formatCurrency(val) {
@@ -1645,21 +2033,93 @@ async function restoreCurrentStall() {
   closeModal()
 }
 
-// Eligibility Rule: Market supervisor approved + advance payment paid
+// ===================================
+// STAKEHOLDER ELIGIBILITY & SELECTION
+// ===================================
+function isStakeholderAdvancePaid(s) {
+  if (!s) return false
+  if (s.advancePaymentPaid === true || s.advance_payment_paid === true) return true
+  if (s.advancePaymentCompleted === true || s.advance_payment_completed === true) return true
+  if (s.advancePayment === true) return true
+  if (s.treasurerApproved === true || s.treasurer_approved === true) return true
+  if (Number(s.advanceBalance || s.advance_balance || 0) > 0) return true
+  if (Number(s.totalAdvanceAmount || s.total_advance_amount || 0) > 0) return true
+  if (s.advancePaymentDate || s.advance_payment_date) return true
+  if (Array.isArray(s.payments) && s.payments.some((p) => {
+    const pType = String(p.paymentType || p.payment_type || '').toUpperCase()
+    const pStat = String(p.status || 'PAID').toUpperCase()
+    return (pType === 'ADVANCE_PAYMENT' || pType === 'APPLICATION_FEE') && pStat !== 'FAILED'
+  })) return true
+  return false
+}
+
+function isStakeholderSupervisorApproved(s) {
+  if (!s) return false
+  if (s.marketSupervisorApproved === true || s.market_supervisor_approved === true) return true
+  const appStatus = String(s.applicationStatus || s.application_status || '').toUpperCase()
+  if (['APPROVED', 'FULLY_APPROVED', 'COMPLETED', 'PENDING_BPLO_APPROVAL'].includes(appStatus)) return true
+  const mStatus = String(s.marketApprovalStatus || s.market_approval_status || '').toUpperCase()
+  return mStatus === 'APPROVED'
+}
+
+function getStakeholderCurrentStallNo(s) {
+  if (!s) return ''
+  if (s.occupant) {
+    const occ = Array.isArray(s.occupant) ? s.occupant[0] : s.occupant
+    const stNo = occ?.stall?.stallNo || occ?.stall?.stall_no || occ?.stall?.number || occ?.stall_no
+    if (stNo) return stNo
+  }
+  if (Array.isArray(s.occupants) && s.occupants[0]) {
+    const occ = s.occupants[0]
+    const stNo = occ?.stall?.stallNo || occ?.stall?.stall_no || occ?.stall?.number || occ?.stall_no
+    if (stNo) return stNo
+  }
+  const sStall = s.selectedStall || s.selected_stall
+  if (sStall) return sStall.stallNo || sStall.stall_no || sStall.number || ''
+  if (s.selectedStallId || s.selected_stall_id) {
+    const matched = stalls.value.find(st => String(st.id) === String(s.selectedStallId || s.selected_stall_id))
+    if (matched) return matched.number || matched.stallNo || matched.stall_no
+  }
+  return ''
+}
+
+function hasAssignedStall(s) {
+  return Boolean(getStakeholderCurrentStallNo(s))
+}
+
+const awaitingAssignmentCount = computed(() => {
+  return (stakeholders.value || []).filter(s => {
+    const st = String(s.applicationStatus || s.application_status || '').toUpperCase()
+    return !['REJECTED', 'CANCELLED'].includes(st) && !hasAssignedStall(s)
+  }).length
+})
+
+// Comprehensive eligibility: prioritize applicants awaiting a stall, approved, or advance paid
 const eligibleStakeholders = computed(() => {
   return (stakeholders.value || []).filter((s) => {
-    const isApproved =
-      s.marketSupervisorApproved === true ||
-      s.market_supervisor_approved === true ||
-      String(s.marketApprovalStatus || s.market_approval_status || '').toUpperCase() === 'APPROVED'
+    const appStatus = String(s.applicationStatus || s.application_status || '').toUpperCase()
+    if (['REJECTED', 'CANCELLED'].includes(appStatus)) return false
 
-    const hasPaid =
-      s.advancePaymentPaid === true ||
-      s.advance_payment_paid === true ||
-      s.advancePaymentCompleted === true ||
-      s.advance_payment_completed === true
+    if (stakeholderAssignTab.value === 'AWAITING') {
+      return !hasAssignedStall(s)
+    }
+    if (stakeholderAssignTab.value === 'APPROVED') {
+      return isStakeholderSupervisorApproved(s) || isStakeholderAdvancePaid(s)
+    }
 
-    return isApproved && hasPaid
+    return true
+  }).sort((a, b) => {
+    // 1. Those who DO NOT have a stall yet (awaiting assignment) first
+    const aHas = hasAssignedStall(a) ? 1 : 0
+    const bHas = hasAssignedStall(b) ? 1 : 0
+    if (aHas !== bHas) return aHas - bHas
+
+    // 2. Those who are advance paid / approved next
+    const aPaid = (isStakeholderAdvancePaid(a) || isStakeholderSupervisorApproved(a)) ? 0 : 1
+    const bPaid = (isStakeholderAdvancePaid(b) || isStakeholderSupervisorApproved(b)) ? 0 : 1
+    if (aPaid !== bPaid) return aPaid - bPaid
+
+    return Number(b.id || 0) - Number(a.id || 0)
   })
 })
 
@@ -1671,7 +2131,9 @@ const filteredEligibleStakeholders = computed(() => {
     const name = getPersonName(s).toLowerCase()
     const biz = String(s.businessName || s.business_name || '').toLowerCase()
     const contact = String(s.contact || '').toLowerCase()
-    return name.includes(q) || biz.includes(q) || contact.includes(q)
+    const email = String(s.email || '').toLowerCase()
+    const curStall = String(getStakeholderCurrentStallNo(s)).toLowerCase()
+    return name.includes(q) || biz.includes(q) || contact.includes(q) || email.includes(q) || curStall.includes(q)
   })
 })
 
@@ -1683,17 +2145,12 @@ const stallTypes = computed(() => {
   return Array.from(set)
 })
 
-const occupiedCount = computed(() => stalls.value.filter((s) => String(s.status).toUpperCase() === 'OCCUPIED').length)
-const vacantCount = computed(() => stalls.value.filter((s) => {
-  const st = String(s.status).toUpperCase()
-  return st === 'VACANT' || st === 'AVAILABLE'
-}).length)
-const unavailableCount = computed(() => stalls.value.filter((s) => {
-  const st = String(s.status).toUpperCase()
-  return st === 'UNAVAILABLE' || st === 'RESERVED'
-}).length)
-const archivedCount = computed(() => stalls.value.filter((s) => String(s.status).toUpperCase() === 'ARCHIVED' || s.isArchived).length)
-const activeStallsCount = computed(() => stalls.value.filter((s) => String(s.status).toUpperCase() !== 'ARCHIVED' && !s.isArchived).length)
+const reservedCount = computed(() => stalls.value.filter((s) => getNormalizedStatus(s.status, s) === 'reserved').length)
+const occupiedCount = computed(() => stalls.value.filter((s) => getNormalizedStatus(s.status, s) === 'occupied').length)
+const vacantCount = computed(() => stalls.value.filter((s) => getNormalizedStatus(s.status, s) === 'vacant').length)
+const unavailableCount = computed(() => stalls.value.filter((s) => getNormalizedStatus(s.status, s) === 'unavailable').length)
+const archivedCount = computed(() => stalls.value.filter((s) => getNormalizedStatus(s.status, s) === 'archived').length)
+const activeStallsCount = computed(() => stalls.value.filter((s) => getNormalizedStatus(s.status, s) !== 'archived').length)
 const occupancyRate = computed(() => activeStallsCount.value ? Math.round((occupiedCount.value / activeStallsCount.value) * 100) : 0)
 
 const filteredStalls = computed(() => {
@@ -1706,7 +2163,7 @@ const filteredStalls = computed(() => {
 
     const matchesSearch = !q || stallNo.includes(q) || stallType.includes(q) || occupant.includes(q) || business.includes(q)
 
-    const normStatus = getNormalizedStatus(stall.status).toUpperCase()
+    const normStatus = getNormalizedStatus(stall.status, stall).toUpperCase()
     const filterNorm = getNormalizedStatus(filterStatus.value).toUpperCase()
 
     let matchesStatus = false
@@ -1714,11 +2171,13 @@ const filteredStalls = computed(() => {
       matchesStatus = normStatus !== 'ARCHIVED'
     } else if (filterStatus.value === 'ARCHIVED') {
       matchesStatus = normStatus === 'ARCHIVED'
+    } else if (filterStatus.value === 'RESERVED') {
+      matchesStatus = normStatus === 'RESERVED'
     } else {
       matchesStatus =
         normStatus === filterNorm ||
         String(stall.status).toUpperCase() === filterStatus.value ||
-        (filterStatus.value === 'UNAVAILABLE' && String(stall.status).toUpperCase() === 'RESERVED')
+        (filterStatus.value === 'UNAVAILABLE' && normStatus === 'UNAVAILABLE')
     }
 
     const matchesType = filterType.value === 'All' || stall.type === filterType.value
@@ -1746,18 +2205,42 @@ const currentStallContract = computed(() => {
   )
 })
 
+// Synchronize search and filters with map pins
+watch([search, filterStatus, filterType], () => {
+  renderMarkers()
+})
+
 // ===================================
 // LIFECYCLE HOOKS
 // ===================================
 onMounted(async () => {
   await Promise.all([loadStalls(), loadStakeholders(), loadContracts()])
   initModernLeafletMap()
+
+  if (route.query.q) {
+    search.value = String(route.query.q)
+  }
+  if (route.query.assignStallId) {
+    const targetStall = stalls.value.find((s) => String(s.id) === String(route.query.assignStallId))
+    if (targetStall) {
+      openAssignForStall(targetStall)
+    }
+  }
+  if (route.query.assignStakeholderId) {
+    const shId = String(route.query.assignStakeholderId)
+    const targetSh = (stakeholders.value || []).find((s) => String(s.id) === shId)
+    if (targetSh) {
+      selectedStakeholder.value = targetSh
+      stakeholderSearch.value = getPersonName(targetSh)
+    }
+  }
 })
 
 onBeforeUnmount(() => {
   delete window.__smOpenStallDetails
   delete window.__smAssignStall
   delete window.__smRelocateStall
+  delete window.__smApproveAndContract
   clearAllMarkers()
   clearPickerMarker()
   if (leafletMap) {
@@ -1821,9 +2304,14 @@ onBeforeUnmount(() => {
   background: #16a34a; /* Green for Vacant */
 }
 
+.badge-reserved,
+.pill-reserved {
+  background: #ea580c; /* Orange for Reserved */
+}
+
 .badge-unavailable,
 .pill-unavailable {
-  background: #ea580c; /* Orange for Unavailable */
+  background: #64748b; /* Slate for Unavailable */
 }
 
 .stall-pin-svg-icon {
@@ -2037,6 +2525,62 @@ onBeforeUnmount(() => {
 
 .sm-btn-assign:hover {
   background: #059669;
+}
+
+.sm-btn-approve {
+  background: #ea580c;
+  color: #ffffff;
+}
+
+.sm-btn-approve:hover {
+  background: #c2410c;
+}
+
+.sm-popup-occupant-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 750;
+  padding: 1.5px 6px;
+  border-radius: 999px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.sm-popup-occupant-status.status-active {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.sm-popup-occupant-status.status-pending {
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+}
+
+.sm-popup-occupant-status .status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  display: inline-block;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+
+.sm-popup-occupant-status.status-pending .status-dot {
+  background: #ea580c;
+  box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.25);
+}
+
+.sm-btn-assign.sm-btn-reassign {
+  background: #3b82f6;
+  color: #ffffff;
+}
+
+.sm-btn-assign.sm-btn-reassign:hover {
+  background: #2563eb;
 }
 
 .sm-btn-relocate {

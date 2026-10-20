@@ -20,158 +20,64 @@ export async function ensureBillingsForVerifiedTenants({ force = false } = {}) {
   lastEnsureRunTime = now
 
   try {
-    // 1. Fetch eligible stakeholders (assigned to a stall, verified tenants, approved onboarding, or completed workflow)
-    const { data: verifiedStakeholders, error: stErr } = await supabase
-      .from('stakeholders')
-      .select('*, occupant:occupants(*)')
-      .or('selected_stall_id.not.is.null,onboarding_status.eq.COMPLETED,onboarding_status.eq.CONTRACT_CREATED,onboarding_status.eq.STALL_ASSIGNED,market_approval_status.eq.APPROVED,market_supervisor_approved.eq.true')
+    // 1. Fetch only ACTIVE contracts for verified occupants
+    const { data: activeContracts, error: conErr } = await supabase
+      .from('contracts')
+      .select('*, occupant:occupants(*, stakeholder:stakeholders(*)), stall:stalls(*)')
+      .eq('status', 'ACTIVE')
 
-    if (stErr) {
-      console.warn('[billingService] Notice querying eligible stakeholders:', stErr)
+    if (conErr) {
+      console.warn('[billingService] Notice querying active contracts:', conErr)
     }
 
-    // Also fetch occupants with active or pending status
+    // Also fetch occupants with active status and their active contracts
     const { data: activeOccupants, error: occErr } = await supabase
       .from('occupants')
-      .select('*, stakeholder:stakeholders(*)')
-      .in('status', ['ACTIVE', 'PENDING'])
+      .select('*, stakeholder:stakeholders(*), stall:stalls(*), contract:contracts(*)')
+      .eq('status', 'ACTIVE')
 
     if (occErr) {
       console.warn('[billingService] Notice querying occupants:', occErr)
     }
 
-    // Build consolidated map of stakeholders
-    const stakeholderMap = new Map()
-    for (const s of (verifiedStakeholders || [])) {
-      if (s.id) stakeholderMap.set(Number(s.id), s)
+    const contractsToProcess = []
+    const processedContractIds = new Set()
+
+    for (const c of (activeContracts || [])) {
+      if (c.id && !processedContractIds.has(Number(c.id))) {
+        processedContractIds.add(Number(c.id))
+        contractsToProcess.push(c)
+      }
     }
 
     for (const occ of (activeOccupants || [])) {
-      if (occ.stakeholder && !stakeholderMap.has(Number(occ.stakeholder.id))) {
-        stakeholderMap.set(Number(occ.stakeholder.id), {
-          ...occ.stakeholder,
-          occupant: occ
+      const occContract = Array.isArray(occ.contract) ? occ.contract[0] : occ.contract
+      if (occContract?.id && occContract.status === 'ACTIVE' && !processedContractIds.has(Number(occContract.id))) {
+        processedContractIds.add(Number(occContract.id))
+        contractsToProcess.push({
+          ...occContract,
+          occupant: occ,
+          stall: occ.stall || occContract.stall
         })
       }
     }
 
-    const eligibleList = Array.from(stakeholderMap.values())
-    if (eligibleList.length === 0) return
+    if (contractsToProcess.length === 0) return
 
     const todayDate = new Date().toISOString().split('T')[0]
     const currentMonth = new Date().getMonth() + 1
     const currentYear = new Date().getFullYear()
 
-    for (const s of eligibleList) {
+    for (const contract of contractsToProcess) {
       try {
-        let occ = Array.isArray(s.occupant) ? s.occupant[0] : s.occupant
-        if (!occ) {
-          const { data: existingOcc } = await supabase
-            .from('occupants')
-            .select('*')
-            .eq('stakeholder_id', s.id)
-            .maybeSingle()
-
-          if (existingOcc) {
-            occ = existingOcc
-          } else {
-            const { data: createdOcc } = await supabase
-              .from('occupants')
-              .insert({
-                stakeholder_id: s.id,
-                status: 'ACTIVE',
-                occupancy_date: todayDate,
-                advance_balance: Number(s.advance_balance || 0)
-              })
-              .select()
-              .maybeSingle()
-            occ = createdOcc
-          }
-        }
-
+        const occ = contract.occupant
         if (!occ?.id) continue
 
-        // Find or create contract to get monthly rent
-        let contract = null
-        const { data: existingCon } = await supabase
-          .from('contracts')
-          .select('*')
-          .eq('occupant_id', occ.id)
-          .order('id', { ascending: false })
-          .limit(1)
-          .maybeSingle()
+        const stakeholder = occ.stakeholder || contract.stakeholder
+        const stall = contract.stall || occ.stall
+        const rentAmount = Number(contract.monthly_rent || stall?.monthly_rent || 1500)
 
-        if (existingCon) {
-          contract = existingCon
-        } else {
-          let stallId = s.selected_stall_id
-          if (!stallId) {
-            const { data: stByOcc } = await supabase
-              .from('stalls')
-              .select('id')
-              .eq('occupant_id', occ.id)
-              .maybeSingle()
-            if (stByOcc?.id) stallId = stByOcc.id
-          }
-          if (!stallId && s.user_id) {
-            try {
-              const { data: appData } = await supabase
-                .from('business_applications')
-                .select('selected_stall_id')
-                .eq('user_id', s.user_id)
-                .order('id', { ascending: false })
-                .limit(1)
-                .maybeSingle()
-              stallId = appData?.selected_stall_id
-            } catch (appLookupErr) {
-              console.warn('[billingService] Could not lookup business application stall:', appLookupErr)
-            }
-          }
-
-          let stallRent = 1500
-
-          if (stallId) {
-            const { data: stallData } = await supabase
-              .from('stalls')
-              .select('id, monthly_rent, stall_no')
-              .eq('id', Number(stallId))
-              .maybeSingle()
-
-            if (stallData?.monthly_rent) stallRent = Number(stallData.monthly_rent)
-
-            const { data: createdCon } = await supabase
-              .from('contracts')
-              .insert({
-                occupant_id: occ.id,
-                stall_id: Number(stallId),
-                contract_no: `CON-${Date.now().toString().slice(-8)}`,
-                start_date: todayDate,
-                end_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                monthly_rent: stallRent,
-                billing_frequency: 'MONTHLY',
-                status: 'ACTIVE'
-              })
-              .select()
-              .maybeSingle()
-
-            contract = createdCon
-
-            // Update stall occupant and status
-            await supabase.from('stalls').update({
-              occupant_id: occ.id,
-              status: 'OCCUPIED'
-            }).eq('id', Number(stallId))
-
-            // Update occupant contract_id
-            if (createdCon?.id) {
-              await supabase.from('occupants').update({ contract_id: createdCon.id, status: 'ACTIVE' }).eq('id', occ.id)
-            }
-          }
-        }
-
-        const rentAmount = Number(contract?.monthly_rent || 1500)
-
-        // Fetch all existing bills for this occupant
+        // Fetch all existing bills for this occupant / contract
         const { data: existingBills } = await supabase
           .from('billings')
           .select('id, billing_period, total_amount, paid_amount, balance, status')
@@ -182,11 +88,11 @@ export async function ensureBillingsForVerifiedTenants({ force = false } = {}) {
           if (b.billing_period) existingPeriodMap.set(b.billing_period, b)
         })
 
-        // Determine starting month (from contract/occupant start, or up to 2 months back)
+        // Determine starting month from contract start_date or occupancy_date
         let startYear = currentYear
         let startMonth = currentMonth
 
-        const rawStartDate = contract?.start_date || occ.occupancy_date
+        const rawStartDate = contract.start_date || occ.occupancy_date
         if (rawStartDate) {
           const sDate = new Date(rawStartDate)
           if (!isNaN(sDate.getTime())) {
@@ -202,20 +108,22 @@ export async function ensureBillingsForVerifiedTenants({ force = false } = {}) {
           }
         }
 
-        // Generate from startMonth/startYear up to (currentMonth + 2 months advance = 3 months total)
         let iterYear = startYear
         let iterMonth = startMonth
-        let curAdvance = Number(occ.advance_balance || s.advance_balance || 0)
+        let curAdvance = Number(occ.advance_balance ?? stakeholder?.advance_balance ?? 0)
 
+        // Generate billing up to the current active billing cycle (never future phantom bills)
         while (true) {
           const monthOffset = (iterYear - currentYear) * 12 + (iterMonth - currentMonth)
-          if (monthOffset > 2) break // Stop after current + 2 months ahead
+          if (monthOffset > 0) break // Stop after current month
 
           const billingPeriod = `MONTHLY-${iterMonth}-${iterYear}`
 
+          // Strict uniqueness check: prevent duplicate billing per contract and period
           if (!existingPeriodMap.has(billingPeriod)) {
-            // Due date: 5th of that month
+            // Due date: 5th of that billing month
             const dueDateStr = `${iterYear}-${String(iterMonth).padStart(2, '0')}-05`
+            const isPastDue = todayDate > dueDateStr
             const billingNo = `BILL-${Date.now().toString().slice(-6)}${Math.floor(Math.random() * 1000)}`
 
             let paidAmount = 0
@@ -225,22 +133,24 @@ export async function ensureBillingsForVerifiedTenants({ force = false } = {}) {
             if (curAdvance <= 0) {
               paidAmount = 0
               balance = rentAmount
-              status = 'UNPAID'
+              status = isPastDue ? 'OVERDUE' : 'UNPAID'
             } else if (curAdvance >= rentAmount) {
+              // Full advance credit allocated
               paidAmount = rentAmount
               balance = 0
               status = 'PAID'
               curAdvance = curAdvance - rentAmount
             } else {
+              // Partial advance credit allocated
               paidAmount = curAdvance
               balance = rentAmount - curAdvance
-              status = 'PARTIAL'
+              status = isPastDue ? 'OVERDUE' : 'PARTIALLY_PAID'
               curAdvance = 0
             }
 
             await supabase.from('billings').insert({
               occupant_id: occ.id,
-              contract_id: contract?.id || null,
+              contract_id: contract.id,
               billing_no: billingNo,
               billing_period: billingPeriod,
               total_amount: rentAmount,
@@ -250,7 +160,7 @@ export async function ensureBillingsForVerifiedTenants({ force = false } = {}) {
               status: status
             })
 
-            console.log(`[billingService] Generated billing invoice ${billingNo} (${billingPeriod}) for stakeholder ${s.id} (Status: ${status})`)
+            console.log(`[billingService] Generated billing invoice ${billingNo} (${billingPeriod}) for occupant ${occ.id} (Status: ${status}, Advance Credit Applied: ₱${paidAmount})`)
           }
 
           iterMonth++
@@ -260,13 +170,15 @@ export async function ensureBillingsForVerifiedTenants({ force = false } = {}) {
           }
         }
 
-        // Update remaining advance balance on occupant and stakeholder if modified
+        // Update remaining advance balance on occupant and stakeholder if credit was applied
         if (Number(occ.advance_balance || 0) !== curAdvance) {
           await supabase.from('occupants').update({ advance_balance: curAdvance }).eq('id', occ.id)
-          await supabase.from('stakeholders').update({ advance_balance: curAdvance }).eq('id', s.id)
+          if (stakeholder?.id) {
+            await supabase.from('stakeholders').update({ advance_balance: curAdvance }).eq('id', stakeholder.id)
+          }
         }
       } catch (innerErr) {
-        console.warn('[billingService] Could not start billing for stakeholder', s.id, innerErr)
+        console.warn('[billingService] Could not process billing for contract', contract.id, innerErr)
       }
     }
   } catch (err) {
@@ -441,13 +353,29 @@ export async function fetchBillings({ forceEnsure = false } = {}) {
     const invoiceId = b.billing_no || b.billingNo || (b.id ? `BILL-${b.id}` : 'BILL-000')
     const tenantEmail = (resolvedStakeholder.email || resolvedOccupant?.email || b.email || '').trim()
 
+    const dueDateStr = b.due_date || b.dueDate || b.due || null
+    let computedStatus = (b.status || '').toUpperCase()
+    if (balanceVal <= 0) {
+      computedStatus = 'PAID'
+    } else {
+      const todayStr = new Date().toISOString().split('T')[0]
+      const isPastDue = dueDateStr && todayStr > dueDateStr
+      if (isPastDue) {
+        computedStatus = 'OVERDUE'
+      } else if (paidVal > 0 && balanceVal > 0) {
+        computedStatus = 'PARTIALLY_PAID'
+      } else if (!computedStatus || computedStatus === 'OVERDUE') {
+        computedStatus = 'UNPAID'
+      }
+    }
+
     const enriched = {
       ...b,
       rawId: b.id,
       id: invoiceId,
       billingNo: b.billing_no || b.billingNo || invoiceId,
       billingPeriod: b.billing_period || b.billingPeriod || b.period || 'Monthly Rental',
-      dueDate: b.due_date || b.dueDate || b.due || null,
+      dueDate: dueDateStr,
       occupant: resolvedOccupant,
       stakeholder: stakeholderLabel,
       stakeholderObj: resolvedStakeholder,
@@ -462,8 +390,8 @@ export async function fetchBillings({ forceEnsure = false } = {}) {
       balance: balanceVal,
       total: totalVal,
       paid: paidVal,
-      due: b.due_date || b.dueDate || b.due || null,
-      status: (b.status || (balanceVal <= 0 ? 'PAID' : 'UNPAID')).toUpperCase()
+      due: dueDateStr,
+      status: computedStatus
     }
 
     return normalizeRecord(enriched)

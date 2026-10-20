@@ -80,6 +80,19 @@ function nodemailerDevPlugin() {
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [vue(), nodemailerDevPlugin()],
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        bypass(req) {
+          if (req.url?.startsWith('/api/email')) {
+            return req.url;
+          }
+        }
+      }
+    }
+  },
   build: {
     target: 'es2020',
     chunkSizeWarningLimit: 600,

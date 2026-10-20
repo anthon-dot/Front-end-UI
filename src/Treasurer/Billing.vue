@@ -487,6 +487,22 @@ async function fetchBillings() {
       const paidVal = Number(b.paidAmount ?? b.paid_amount ?? b.paid ?? 0)
       const balanceVal = Number(b.balance ?? Math.max(totalVal - paidVal, 0))
 
+      const dueDateStr = b.dueDate || b.due_date || b.due || null
+      let computedStatus = (b.status || '').toUpperCase()
+      if (balanceVal <= 0) {
+        computedStatus = 'PAID'
+      } else {
+        const todayStr = new Date().toISOString().split('T')[0]
+        const isPastDue = dueDateStr && todayStr > dueDateStr
+        if (isPastDue) {
+          computedStatus = 'OVERDUE'
+        } else if (paidVal > 0 && balanceVal > 0) {
+          computedStatus = 'PARTIALLY_PAID'
+        } else if (!computedStatus || computedStatus === 'OVERDUE') {
+          computedStatus = 'UNPAID'
+        }
+      }
+
       return {
         ...b,
         rawId: b.rawId || b.id,
@@ -500,8 +516,8 @@ async function fetchBillings() {
         total: totalVal,
         paid: paidVal,
         balance: balanceVal,
-        due: b.dueDate || b.due_date || b.due || 'N/A',
-        status: (b.status || (balanceVal <= 0 ? 'PAID' : 'UNPAID')).toUpperCase(),
+        due: dueDateStr || 'N/A',
+        status: computedStatus,
         email: (b.email || st.email || b.stakeholderEmail || b.occupant?.email || '').trim(),
         stakeholderEmail: (b.email || st.email || b.stakeholderEmail || b.occupant?.email || '').trim()
       }

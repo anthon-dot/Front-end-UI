@@ -451,13 +451,48 @@
                 </div>
               </div>
 
-              <!-- Total Advance Amount (if Advance Payment) -->
-              <div v-if="activeCategory === 'ADVANCE_PAYMENT'" class="flex flex-col gap-1.5 p-4 bg-amber-50/40 border border-amber-200/80 rounded-xl relative z-1">
+              <!-- Total Advance Amount (if Advance Payment) - READ-ONLY DISPLAY CALCULATED FROM STALL (3 MONTHS) -->
+              <div v-if="activeCategory === 'ADVANCE_PAYMENT'" class="flex flex-col gap-2 p-4 bg-amber-50/60 border border-amber-200/90 rounded-xl relative z-1">
                 <div class="flex items-center justify-between">
-                  <label class="text-xs font-bold text-slate-800">Total required advance amount <span class="text-rose-500">*</span></label>
-                  <span v-if="selectedStakeholder" class="text-xs text-slate-500">Paid so far: ₱{{ Number(selectedStakeholder?.advanceBalance || 0).toLocaleString() }}</span>
+                  <label class="text-xs font-bold text-amber-950 uppercase tracking-wider flex items-center gap-1.5">
+                    <i class="pi pi-calculator text-amber-600"></i>
+                    Total required advance amount <span class="text-rose-500">*</span>
+                  </label>
+                  <span v-if="selectedStakeholder" class="text-xs font-semibold text-slate-600">
+                    Paid so far: <strong class="text-emerald-700">₱{{ Number(selectedStakeholder?.advanceBalance || selectedStakeholder?.advance_balance || 0).toLocaleString() }}</strong>
+                  </span>
                 </div>
-                <InputNumber v-model="form.totalAdvanceAmount" mode="currency" currency="PHP" locale="en-PH" class="w-full" placeholder="₱ 0.00" />
+
+                <!-- Display box showing 3 months advance baseline -->
+                <div class="flex items-center justify-between bg-white border border-amber-300 rounded-xl px-4 py-3 shadow-inner">
+                  <div class="flex flex-col">
+                    <div class="flex items-baseline gap-2">
+                      <span class="text-xl font-black text-amber-950">
+                        ₱{{ Number(form.totalAdvanceAmount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+                      </span>
+                      <span class="text-xs font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md">
+                        3 Months Advance
+                      </span>
+                    </div>
+                    <span class="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                      <i class="pi pi-shop text-xs text-amber-600"></i>
+                      {{ selectedStakeholderStallSummary }}
+                    </span>
+                  </div>
+                  <Tag
+                    :value="remainingAdvanceBalance <= 0 && selectedStakeholder ? 'FULL ADVANCE PAID' : '3-MO BASELINE'"
+                    :severity="remainingAdvanceBalance <= 0 && selectedStakeholder ? 'success' : 'warn'"
+                    rounded
+                    class="text-[10px] font-bold tracking-wider"
+                  />
+                </div>
+
+                <div v-if="selectedStakeholder && Number(form.totalAdvanceAmount || 0) > 0" class="text-xs text-slate-600 flex justify-between items-center pt-1.5 border-t border-amber-200/70">
+                  <span class="font-medium">Remaining advance payment balance:</span>
+                  <strong :class="remainingAdvanceBalance > 0 ? 'text-amber-800' : 'text-emerald-700'" class="font-bold">
+                    ₱{{ remainingAdvanceBalance.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+                  </strong>
+                </div>
               </div>
 
               <!-- Select Billing Statement (if Contract Stall Payment) -->
@@ -771,6 +806,7 @@ import { useToast } from 'primevue/usetoast'
 import api, { normalizeRecord } from '../services/api'
 import { fetchPayments, createPayment } from '../services/paymentService'
 import { fetchBillings } from '../services/billingService'
+import { fetchStalls } from '../services/stallService'
 import TreasurerMenu from '../components/TreasurerMenu.vue'
 import SearchField from '../components/SearchField.vue'
 import DataTable from 'primevue/datatable'
@@ -791,6 +827,7 @@ const isSubmitting = ref(false)
 const payments = ref([])
 const stakeholders = ref([])
 const billings = ref([])
+const stalls = ref([])
 
 const tableSearch = ref('')
 
@@ -861,7 +898,8 @@ onMounted(async () => {
     await Promise.all([
       loadPayments(),
       loadStakeholders(),
-      loadBillings()
+      loadBillings(),
+      loadStalls()
     ])
   } finally {
     loading.value = false
@@ -930,6 +968,47 @@ async function loadBillings() {
     billings.value = await fetchBillings()
   } catch (error) { console.error(error) }
 }
+
+async function loadStalls() {
+  try {
+    const raw = await fetchStalls()
+    stalls.value = (raw || []).map(normalizeRecord)
+  } catch (error) { console.error(error) }
+}
+
+function getStakeholderStall(s) {
+  if (!s) return null
+  if (s.occupant?.stall) return normalizeRecord(s.occupant.stall)
+  if (s.stall) return normalizeRecord(s.stall)
+  if (s.selectedStall) return normalizeRecord(s.selectedStall)
+  const sId = s.selectedStallId || s.selected_stall_id
+  if (sId && stalls.value && stalls.value.length > 0) {
+    const match = stalls.value.find(st => String(st.id) === String(sId))
+    if (match) return match
+  }
+  return null
+}
+
+const selectedStakeholderStall = computed(() => {
+  return getStakeholderStall(selectedStakeholder.value)
+})
+
+const selectedStakeholderStallSummary = computed(() => {
+  const st = selectedStakeholderStall.value
+  if (!st) {
+    return '2-month advance payment calculation baseline'
+  }
+  const stNo = st.stallNo || st.stall_no || st.number || '—'
+  const rent = Number(st.monthlyRent || st.monthly_rent || st.rent || 1500)
+  return `Calculated for Stall #${stNo} (₱${rent.toLocaleString('en-PH', { minimumFractionDigits: 2 })}/mo × 2 months)`
+})
+
+const remainingAdvanceBalance = computed(() => {
+  if (!selectedStakeholder.value) return 0
+  const total = Number(form.value.totalAdvanceAmount || 0)
+  const paid = Number(selectedStakeholder.value.advanceBalance || selectedStakeholder.value.advance_balance || 0)
+  return Math.max(total - paid, 0)
+})
 
 // Helper to reliably resolve a stakeholder object for table display
 function getStakeholder(data) {
@@ -1198,9 +1277,15 @@ function selectStakeholderForType(s, type) {
   form.value.receiptNo = generateReceiptNo(type)
 
   if (type === 'ADVANCE_PAYMENT') {
-    form.value.totalAdvanceAmount = s.totalAdvanceAmount ? Number(s.totalAdvanceAmount) : null
-    const remaining = Math.max(Number(s.totalAdvanceAmount || 0) - Number(s.advanceBalance || 0), 0)
-    form.value.amount = remaining > 0 ? remaining : null
+    const stall = getStakeholderStall(s)
+    const monthlyRent = Number(stall?.monthlyRent || stall?.monthly_rent || stall?.rent || 1500)
+    // 2 months advance payment required baseline from selected stall or stakeholder record
+    const recordedTotal = Number(s.totalAdvanceAmount || s.total_advance_amount || 0)
+    const required2Months = recordedTotal > 0 ? recordedTotal : (monthlyRent * 2)
+    form.value.totalAdvanceAmount = required2Months
+    const paidSoFar = Number(s.advanceBalance || s.advance_balance || 0)
+    const remaining = Math.max(required2Months - paidSoFar, 0)
+    form.value.amount = remaining > 0 ? remaining : required2Months
     selectedBillingId.value = null
   } else if (type === 'RENT_PAYMENT') {
     form.value.totalAdvanceAmount = null
@@ -1319,7 +1404,7 @@ const confirmBtnLabel = computed(() => {
 const submitButtonText = computed(() => {
   if (!selectedStakeholder.value) return 'Select a payee'
   if (activeCategory.value === 'ADVANCE_PAYMENT' && (!form.value.totalAdvanceAmount || Number(form.value.totalAdvanceAmount) <= 0)) {
-    return 'Enter total advance'
+    return 'Select payee with stall'
   }
   if (!form.value.amount || Number(form.value.amount) <= 0) return 'Enter amount'
   if (activeCategory.value === 'RENT_PAYMENT' && selectedStakeholderBillings.value.length > 0 && !selectedBillingId.value) {
@@ -1357,8 +1442,8 @@ async function recordPayment() {
       toast.add({
         severity: 'warn',
         summary: 'Total Advance Required',
-        detail: 'Please enter the total required advance amount.',
-        life: 3500
+        detail: 'Selected stakeholder has no assigned stall or 2-month advance baseline calculated yet.',
+        life: 4000
       })
       return
     }

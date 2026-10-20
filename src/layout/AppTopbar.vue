@@ -35,11 +35,13 @@ const userInitials = computed(() => {
 
 const portalHomeRoute = computed(() => {
     switch (userRole.value) {
-        case 'ADMIN':
+        case 'ADMIN': return '/admin/dashboard';
         case 'MARKET_SUPERVISOR': return '/supervisor';
+        case 'MAYOR': return '/mayor';
         case 'TREASURER': return '/treasurer';
-        case 'BPLO_OFFICE': return '/bplo';
-        case 'ENDORSING_OFFICE': return '/endorsing';
+        case 'COLLECTOR_INSPECTOR': return '/collector';
+        case 'VENDOR':
+        case 'APPLICANT':
         case 'STAKEHOLDER': return '/stakeholder';
         default: return '/';
     }
@@ -50,9 +52,9 @@ const currentRouteMeta = computed(() => {
     if (path.startsWith('/admin')) {
         const seg = path.replace('/admin', '').replace(/^\//, '') || 'Dashboard';
         return {
-            portal: 'Market Supervisor',
+            portal: 'System Administrator',
             page: seg.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Dashboard',
-            icon: 'pi pi-shield'
+            icon: 'pi pi-cog'
         };
     }
     if (path.startsWith('/supervisor')) {
@@ -63,28 +65,28 @@ const currentRouteMeta = computed(() => {
             icon: 'pi pi-shopping-bag'
         };
     }
+    if (path.startsWith('/mayor')) {
+        const seg = path.replace('/mayor', '').replace(/^\//, '') || 'Dashboard';
+        return {
+            portal: 'Municipal Mayor',
+            page: seg.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Dashboard',
+            icon: 'pi pi-crown'
+        };
+    }
     if (path.startsWith('/treasurer')) {
         const seg = path.replace('/treasurer', '').replace(/^\//, '') || 'Dashboard';
         return {
-            portal: 'Treasurer',
+            portal: 'Municipal Treasurer',
             page: seg.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Dashboard',
             icon: 'pi pi-wallet'
         };
     }
-    if (path.startsWith('/bplo')) {
-        const seg = path.replace('/bplo', '').replace(/^\//, '') || 'Dashboard';
+    if (path.startsWith('/collector') || path.startsWith('/inspector')) {
+        const seg = path.replace('/collector', '').replace('/inspector', '').replace(/^\//, '') || 'Operations';
         return {
-            portal: 'BPLO',
-            page: seg.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Dashboard',
-            icon: 'pi pi-check-circle'
-        };
-    }
-    if (path.startsWith('/endorsing')) {
-        const seg = path.replace('/endorsing', '').replace(/^\//, '') || 'Dashboard';
-        return {
-            portal: 'Endorsing',
-            page: seg.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Dashboard',
-            icon: 'pi pi-check-circle'
+            portal: 'Field Collector & Inspector',
+            page: seg.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Operations',
+            icon: 'pi pi-qrcode'
         };
     }
     if (path.startsWith('/stakeholder') || path === '/stalls' || path === '/requirements' || path === '/application-progress') {

@@ -143,7 +143,14 @@
         <AuditLogsView v-else-if="route.name === 'AdminAuditLogs'" :rows="filteredAuditLogs" />
         <LoginHistoryView v-else-if="route.name === 'AdminLoginHistory'" :rows="filteredLoginHistory" />
         <NotificationsView v-else-if="route.name === 'AdminNotifications'" :rows="filteredNotifications" />
-        <ReportsView v-else-if="isReportRoute" :state="state" :route-name="route.name" />
+        <MarketReports
+          v-else-if="isReportRoute && route.name !== 'AdminActivityReport'"
+          :state="state"
+          :initial-tab="reportInitialTab"
+          mode="admin"
+          @refresh="loadAdminData(true)"
+        />
+        <AuditLogsView v-else-if="route.name === 'AdminActivityReport'" :rows="filteredAuditLogs" />
         <MonitoringView v-else :rows="monitoringRows" :columns="monitoringColumns" />
       </template>
     </main>
@@ -311,6 +318,7 @@ import { useRoute } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import AdminMenu from '../components/AdminMenu.vue'
 import AdminStallMap from './AdminStallMap.vue'
+import MarketReports from '../components/reports/MarketReports.vue'
 import { normalizeWorkflowRole } from '../stores/auth'
 import api from '../services/api'
 import {
@@ -392,9 +400,11 @@ const pages = {
   AdminPayments: ['Payments', 'Read-only payment monitoring', 'pi pi-wallet'],
   AdminBilling: ['Billing', 'Read-only billing monitoring', 'pi pi-receipt'],
   AdminOccupancy: ['Occupancy', 'Read-only stall occupancy monitoring', 'pi pi-chart-pie'],
-  AdminRevenueReport: ['Revenue Report', 'Revenue reporting overview', 'pi pi-chart-line'],
+  AdminCollectionReport: ['Collection Report', 'Rental payments collected by the Treasurer’s Office', 'pi pi-wallet'],
+  AdminLiabilityReport: ['Liability Report', 'Rental obligations and unpaid balances of stakeholders', 'pi pi-exclamation-circle'],
+  AdminOccupancyReport: ['Stall Occupancy Report', 'Occupancy and assignment of stalls in the public market', 'pi pi-chart-pie'],
+  AdminRevenueReport: ['Collection Report', 'Rental payments collected by the Treasurer’s Office', 'pi pi-wallet'],
   AdminApplicationsReport: ['Applications Report', 'Application status reporting overview', 'pi pi-chart-bar'],
-  AdminOccupancyReport: ['Occupancy Report', 'Occupancy reporting overview', 'pi pi-chart-scatter'],
   AdminActivityReport: ['System Activity Report', 'System activity reporting overview', 'pi pi-list-check'],
   AdminAuditLogs: ['Audit Logs', 'Security and system activity trail', 'pi pi-lock'],
   AdminNotifications: ['Notifications', 'System notification monitoring', 'pi pi-bell'],
@@ -407,17 +417,23 @@ const page = computed(() => {
   return { title: data[0], subtitle: data[1], icon: data[2] }
 })
 
-const hasSearch = computed(() => !['AdminDashboard', 'AdminRoles', 'AdminSettings', 'AdminProfile', 'AdminStallMap'].includes(route.name))
+const hasSearch = computed(() => !['AdminDashboard', 'AdminRoles', 'AdminSettings', 'AdminProfile', 'AdminStallMap', 'AdminCollectionReport', 'AdminLiabilityReport', 'AdminOccupancyReport', 'AdminRevenueReport'].includes(route.name))
 const showFilterBar = computed(() => ['AdminUsers', 'AdminAuditLogs', 'AdminLoginHistory', 'AdminNotifications'].includes(route.name))
 const isReportRoute = computed(() => String(route.name).includes('Report'))
+const reportInitialTab = computed(() => {
+  if (route.name === 'AdminLiabilityReport') return 'liability'
+  if (route.name === 'AdminOccupancyReport') return 'occupancy'
+  return 'collection'
+})
 
 const baseRoleOptions = [
+  { label: 'System Administrator', value: 'ADMIN' },
   { label: 'Market Supervisor', value: 'MARKET_SUPERVISOR' },
-  { label: 'Administrator', value: 'ADMIN' },
+  { label: 'Municipal Mayor', value: 'MAYOR' },
   { label: 'Municipal Treasurer', value: 'TREASURER' },
-  { label: 'BPLO Office', value: 'BPLO_OFFICE' },
-  { label: 'Endorsing Office', value: 'ENDORSING_OFFICE' },
-  { label: 'Stakeholder / Applicant', value: 'STAKEHOLDER' }
+  { label: 'Field Collector / Inspector', value: 'COLLECTOR_INSPECTOR' },
+  { label: 'Active Vendor', value: 'VENDOR' },
+  { label: 'Applicant', value: 'APPLICANT' }
 ]
 
 function normalizeRoleForDialog(role) {
@@ -1442,11 +1458,13 @@ function formatRole(role) {
   if (!role) return 'Unassigned'
   const normalized = normalizeRoleForDialog(role)
   const map = {
+    ADMIN: 'System Administrator',
     MARKET_SUPERVISOR: 'Market Supervisor',
-    ADMIN: 'Administrator',
-    TREASURER: 'Treasurer',
-    BPLO_OFFICE: 'BPLO Office',
-    ENDORSING_OFFICE: 'Endorsing Office',
+    MAYOR: 'Municipal Mayor',
+    TREASURER: 'Municipal Treasurer',
+    COLLECTOR_INSPECTOR: 'Field Collector / Inspector',
+    VENDOR: 'Active Vendor',
+    APPLICANT: 'Applicant',
     STAKEHOLDER: 'Stakeholder'
   }
   return map[normalized] || formatEnum(normalized)
@@ -1648,35 +1666,6 @@ const NotificationsView = defineComponent({
   }
 })
 
-const ReportsView = defineComponent({
-  props: { state: Object, routeName: String },
-  setup(props) {
-    const reports = [
-      ['Monthly Revenue', money(props.state.payments.reduce((sum, row) => sum + Number(row.amount?.replace?.(/[^\d.-]/g, '') || 0), 0)), 'Financial'],
-      ['Outstanding Balances', props.state.billings.filter((row) => row.status !== 'PAID').length, 'Financial'],
-      ['Stall Occupancy', `${props.state.stalls.filter((s) => s.status === 'OCCUPIED').length}/${props.state.stalls.length}`, 'Market'],
-      ['Vacant Stalls', props.state.stalls.filter((s) => s.status === 'VACANT').length, 'Market'],
-      ['New Applications', props.state.applications.length, 'Stakeholder'],
-      ['Verified Stakeholders', props.state.stakeholders.filter((s) => s.verification === 'VERIFIED').length, 'Stakeholder'],
-      ['User Activity', props.state.auditLogs.length, 'System'],
-      ['Login Activity', props.state.loginHistory.length, 'System']
-    ]
-
-    return () => h('div', { class: 'report-grid' }, reports.map(([title, value, group]) =>
-      h(Card, null, {
-        title: () => title,
-        content: () => h('div', { class: 'report-card-body' }, [
-          h('small', group),
-          h('strong', value),
-          h('div', { class: 'table-actions' }, [
-            h(Button, { label: 'View Report', icon: 'pi pi-eye', size: 'small', outlined: true }),
-            h(Button, { label: 'Print', icon: 'pi pi-print', size: 'small', text: true })
-          ])
-        ])
-      })
-    ))
-  }
-})
 
 
 

@@ -117,68 +117,113 @@ async function createAccount() {
       ? cleanUsername
       : cleanUsername.toLowerCase().replace(/[^a-z0-9_.-]/g, '') + '@manticao.market'
 
-    // 1. Register account through Edge Function (email_confirm: true, bypasses email rate limit)
+    // 1. Authoritative backend registration (creates auth user, user_profiles, and stakeholder records)
+    let authenticated = false
     let registeredEmail = fallbackEmail
+
     try {
-      const { data: regData, error: regError } = await supabase.functions.invoke('approval-workflow', {
-        body: {
-          action: 'register',
-          username: cleanUsername,
-          password: password.value,
-          role: cleanUsername.toLowerCase() === 'admin' ? 'MARKET_SUPERVISOR' : 'STAKEHOLDER'
-        }
+      const { data: regRes } = await api.post('/auth/register', {
+        username: cleanUsername,
+        password: password.value,
+        email: fallbackEmail,
+        role: cleanUsername.toLowerCase() === 'admin' ? 'ADMIN' : 'APPLICANT'
       })
 
-      if (regError || regData?.error) {
-        const msg = regError?.message || regData?.error || ''
-        if (!msg.toLowerCase().includes('already')) {
-          throw new Error(msg || 'Registration failed. Please check your credentials.')
+      if (regRes?.token && regRes?.user) {
+        const roleToSet = cleanUsername.toLowerCase() === 'admin' ? 'ADMIN' : 'STAKEHOLDER'
+        authStore.setSession({
+          token: regRes.token,
+          role: roleToSet,
+          userId: regRes.user.id || '',
+          user: {
+            id: regRes.user.id,
+            username: cleanUsername,
+            role: roleToSet,
+            email: regRes.user.email || fallbackEmail
+          }
+        })
+        authenticated = true
+      } else if (regRes?.user?.email) {
+        registeredEmail = regRes.user.email
+      }
+    } catch (apiErr) {
+      console.warn('[AUTH] Backend /auth/register notice:', apiErr?.message)
+      // If backend returned a specific error like user already exists
+      if (apiErr?.response?.data?.error) {
+        throw new Error(apiErr.response.data.error)
+      }
+    }
+
+    // 2. If not already authenticated, log in via backend or Supabase
+    if (!authenticated) {
+      try {
+        const { data: loginRes } = await api.post('/auth/login', {
+          username: cleanUsername,
+          password: password.value
+        })
+
+        if (loginRes?.token && loginRes?.user) {
+          const roleToSet = cleanUsername.toLowerCase() === 'admin' ? 'ADMIN' : 'STAKEHOLDER'
+          authStore.setSession({
+            token: loginRes.token,
+            role: roleToSet,
+            userId: loginRes.user.id || '',
+            user: {
+              id: loginRes.user.id,
+              username: cleanUsername,
+              role: roleToSet,
+              email: loginRes.user.email
+            }
+          })
+          authenticated = true
         }
-      }
+      } catch (loginErr) {
+        // Fallback to Supabase direct sign-in
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email: registeredEmail,
+          password: password.value
+        })
 
-      if (regData?.email) {
-        registeredEmail = regData.email
+        if (signInError) {
+          if (String(signInError?.message || '').toLowerCase().includes('rate limit')) {
+            throw new Error('Supabase registration rate limit reached. Please wait a minute before trying again or sign in with an existing account.')
+          }
+          throw new Error(signInError.message || 'Account created, but could not sign in. Please log in from the Sign In page.')
+        }
+
+        const session = signInData.session
+        const user = signInData.user
+        const roleToSet = cleanUsername.toLowerCase() === 'admin' ? 'ADMIN' : 'STAKEHOLDER'
+
+        authStore.setSession({
+          token: session?.access_token || '',
+          role: roleToSet,
+          userId: user?.id || '',
+          user: {
+            id: user?.id,
+            username: cleanUsername,
+            role: roleToSet,
+            email: user?.email
+          }
+        })
+        authenticated = true
       }
-    } catch (edgeErr) {
-      console.warn('[AUTH] Edge function register error, falling back to direct sign-in:', edgeErr)
     }
 
-    // 2. Immediately sign in to obtain authenticated session token
-    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-      email: registeredEmail,
-      password: password.value
-    })
-
-    if (signInError) {
-      throw new Error(signInError.message || 'Account created, but could not sign in. Please log in from the Sign In page.')
-    }
-
-    const session = signInData.session
-    const user = signInData.user
-    const roleToSet = cleanUsername.toLowerCase() === 'admin' ? 'ADMIN' : 'STAKEHOLDER'
-
-    authStore.setSession({
-      token: session?.access_token || '',
-      role: roleToSet,
-      userId: user?.id || '',
-      user: {
-        id: user?.id,
-        username: cleanUsername,
-        role: roleToSet,
-        email: user?.email
-      }
-    })
-
-    // Route according to user role
-    if (roleToSet === 'ADMIN' || roleToSet === 'MARKET_SUPERVISOR') {
+    const currentRole = authStore.normalizedRole || 'STAKEHOLDER'
+    if (currentRole === 'ADMIN' || currentRole === 'MARKET_SUPERVISOR') {
       router.push('/supervisor')
     } else {
       router.push('/business-application')
     }
 
   } catch (error) {
-    errorMessage.value =
-      error.message || 'Failed to create account. Please try again.'
+    const rawMsg = String(error?.message || error || '')
+    if (rawMsg.includes('429') || rawMsg.toLowerCase().includes('rate limit') || rawMsg.toLowerCase().includes('too many requests')) {
+      errorMessage.value = 'Too many requests. Please wait 60 seconds before trying again, or proceed to the Sign In page if your account was already created.'
+    } else {
+      errorMessage.value = error.message || 'Failed to create account. Please try again.'
+    }
   } finally {
     isLoading.value = false
   }

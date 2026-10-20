@@ -68,8 +68,7 @@ const routes = [
   {
     path: "/admin/stall-map",
     name: "AdminStallMap",
-    component: () => import("../Admin/AdminView.vue"),
-    meta: { roles: ['ADMIN', 'MARKET_SUPERVISOR', 'SUPERVISOR', 'MARKETSUPERVISOR'] }
+    redirect: { name: "MSStalls", query: { view: "map" } }
   },
   {
     path: "/admin/stalls",
@@ -126,10 +125,21 @@ const routes = [
     meta: { roles: ['ADMIN', 'MARKET_SUPERVISOR', 'SUPERVISOR', 'MARKETSUPERVISOR'] }
   },
   {
-    path: "/admin/reports/revenue",
-    name: "AdminRevenueReport",
+    path: "/admin/reports/collection",
+    name: "AdminCollectionReport",
     component: () => import("../Admin/AdminView.vue"),
     meta: { roles: ['ADMIN', 'MARKET_SUPERVISOR', 'SUPERVISOR', 'MARKETSUPERVISOR'] }
+  },
+  {
+    path: "/admin/reports/liability",
+    name: "AdminLiabilityReport",
+    component: () => import("../Admin/AdminView.vue"),
+    meta: { roles: ['ADMIN', 'MARKET_SUPERVISOR', 'SUPERVISOR', 'MARKETSUPERVISOR'] }
+  },
+  {
+    path: "/admin/reports/revenue",
+    name: "AdminRevenueReport",
+    redirect: { name: "AdminCollectionReport" }
   },
   {
     path: "/admin/reports/applications",
@@ -151,7 +161,7 @@ const routes = [
   },
   {
     path: "/admin/reports",
-    redirect: { name: "AdminRevenueReport" }
+    redirect: { name: "AdminCollectionReport" }
   },
   {
     path: "/admin/audit-logs",
@@ -298,28 +308,52 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
-    path: '/endorsing',
-    name: 'Endorsing',
-    component: () => import('../EndorsingOfficeDashboard/EndorsingDashboard.vue'),
-    meta: { roles: ['ENDORSING_OFFICE', 'ENDORISING_OFFICE', 'ENDORSINGOFFICE', 'ENDORSING_OFFICER'] }
+    path: '/mayor',
+    name: 'Mayor',
+    component: () => import('../Mayor/MayorDashboard.vue'),
+    meta: { roles: ['ADMIN', 'MAYOR'] }
   },
   {
-    path: '/endorsing/approvals',
-    name: 'EndorsingApproval',
-    component: () => import('../EndorsingOfficeDashboard/EndorsingDashboard.vue'),
-    meta: { roles: ['ENDORSING_OFFICE', 'ENDORISING_OFFICE', 'ENDORSINGOFFICE', 'ENDORSING_OFFICER'] }
+    path: '/mayor/approvals',
+    name: 'MayorApprovals',
+    component: () => import('../Mayor/MayorDashboard.vue'),
+    meta: { roles: ['ADMIN', 'MAYOR'] }
+  },
+  {
+    path: '/mayor/revocations',
+    name: 'MayorRevocations',
+    component: () => import('../Mayor/MayorDashboard.vue'),
+    meta: { roles: ['ADMIN', 'MAYOR'] }
+  },
+  {
+    path: '/collector',
+    name: 'CollectorInspector',
+    component: () => import('../CollectorInspector/CollectorInspectorDashboard.vue'),
+    meta: { roles: ['ADMIN', 'COLLECTOR_INSPECTOR'] }
+  },
+  {
+    path: '/inspector',
+    redirect: '/collector'
+  },
+  {
+    path: '/collector/remittances',
+    redirect: '/collector'
+  },
+  {
+    path: '/inspector/inspections',
+    redirect: '/collector'
+  },
+  {
+    path: '/inspector/scan',
+    redirect: '/collector'
+  },
+  {
+    path: '/endorsing',
+    redirect: '/mayor'
   },
   {
     path: '/bplo',
-    name: 'BPLO',
-    component: () => import('../BPLODashboard/BPLODashboard.vue'),
-    meta: { roles: ['BPLO_OFFICE', 'BPLOOFFICE', 'BPLO'] }
-  },
-  {
-    path: '/bplo/approvals',
-    name: 'BPLOApproval',
-    component: () => import('../BPLODashboard/BPLODashboard.vue'),
-    meta: { roles: ['BPLO_OFFICE', 'BPLOOFFICE', 'BPLO'] }
+    redirect: '/supervisor'
   },
   {
     path: '/stakeholder/settings',

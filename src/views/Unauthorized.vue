@@ -20,9 +20,12 @@ const router = useRouter()
 function goHome() {
   const role = String(localStorage.getItem('role') || '').replace('ROLE_', '').toUpperCase()
 
-  // ADMIN & MARKET SUPERVISOR (MERGED)
+  if (role === 'ADMIN') {
+    router.push('/admin/dashboard')
+    return
+  }
+
   if (
-    role === 'ADMIN' ||
     role === 'MARKETSUPERVISOR' ||
     role === 'MARKET_SUPERVISOR' ||
     role === 'SUPERVISOR'
@@ -31,27 +34,22 @@ function goHome() {
     return
   }
 
+  if (role === 'MAYOR') {
+    router.push('/mayor')
+    return
+  }
+
   if (role === 'TREASURER') {
     router.push('/treasurer')
     return
   }
 
-  if (role === 'BPLO' || role === 'BPLOOFFICE' || role === 'BPLO_OFFICE') {
-    router.push('/bplo')
+  if (role === 'COLLECTOR_INSPECTOR' || role === 'COLLECTOR' || role === 'INSPECTOR') {
+    router.push('/collector')
     return
   }
 
-  if (
-    role === 'ENDORSINGOFFICE' ||
-    role === 'ENDORSING_OFFICE' ||
-    role === 'ENDORSING_OFFICER' ||
-    role === 'ENDORISING_OFFICE'
-  ) {
-    router.push('/endorsing')
-    return
-  }
-
-  router.push('/stakeholder')
+  router.push('/application-progress')
 }
 </script>
 

@@ -39,25 +39,6 @@
         </p>
 
         <!-- ========================= -->
-        <!-- STALL SELECTION -->
-        <!-- ========================= -->
-        <h3>Market Stall Selection</h3>
-        <div class="row">
-          <div class="field">
-            <label>Target Stall</label>
-            <select v-model="selectedStallId" class="stall-select">
-              <option :value="null">-- Select a Vacant Stall (Optional) --</option>
-              <option v-for="stall in availableStalls" :key="stall.id" :value="stall.id">
-                Stall {{ stall.stallNo || stall.number }} - {{ stall.section || stall.stallType || 'Standard' }} (₱{{ Number(stall.monthlyRent || 0).toLocaleString() }}/mo)
-              </option>
-            </select>
-            <small v-if="selectedStallDetails" class="stall-details-hint">
-              Selected: <strong>Stall {{ selectedStallDetails.stallNo }}</strong> ({{ selectedStallDetails.section || selectedStallDetails.stallType }}) - ₱{{ Number(selectedStallDetails.monthlyRent || 0).toLocaleString() }}/month
-            </small>
-          </div>
-        </div>
-
-        <!-- ========================= -->
         <!-- BUSINESS -->
         <!-- ========================= -->
         <h3>Business Information</h3>
@@ -112,6 +93,53 @@
           <div class="field">
             <label>Address</label>
             <input v-model="address" type="text" required />
+          </div>
+        </div>
+
+        <!-- ========================= -->
+        <!-- TARGET MARKET STALL -->
+        <!-- ========================= -->
+        <h3 class="section-title">Target Market Stall Selection</h3>
+        <p class="section-subtitle">
+          Select an available vacant market stall. Your choice establishes the baseline calculation for the required 2-month advance payment.
+        </p>
+
+        <div class="row">
+          <div class="field">
+            <label>Select Stall <span class="text-rose-500">*</span></label>
+            <select v-model="selectedStallId" class="stall-select-input" required>
+              <option :value="null" disabled>-- Choose an available market stall --</option>
+              <option v-for="st in availableStalls" :key="st.id" :value="st.id">
+                Stall #{{ st.stallNo }} &bull; {{ st.stallType }} &bull; ₱{{ Number(st.monthlyRent || 0).toLocaleString() }}/month
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Selected Stall Live 2-Month Advance Calculation Preview -->
+        <div v-if="chosenStallInfo" class="stall-calc-callout">
+          <div class="calc-icon-circle">
+            <i class="pi pi-calculator"></i>
+          </div>
+          <div class="calc-details">
+            <div class="calc-header-row">
+              <span class="calc-stall-name">Target Stall: <strong>Stall {{ chosenStallInfo.stallNo }}</strong> ({{ chosenStallInfo.stallType }})</span>
+              <span class="calc-badge">2 Months Advance</span>
+            </div>
+            <div class="calc-numbers-grid">
+              <div class="num-item">
+                <span class="lbl">Monthly Rental Rate</span>
+                <strong class="val">₱{{ Number(chosenStallInfo.monthlyRent || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 }) }} / mo</strong>
+              </div>
+              <div class="num-item">
+                <span class="lbl">Total Required Advance Amount (2 Mos)</span>
+                <strong class="val highlight">₱{{ (Number(chosenStallInfo.monthlyRent || 0) * 2).toLocaleString('en-PH', { minimumFractionDigits: 2 }) }}</strong>
+              </div>
+            </div>
+            <p class="calc-note">
+              <i class="pi pi-info-circle"></i>
+              Upon submission, Stall #{{ chosenStallInfo.stallNo }} will be <strong>Reserved</strong> for you (Occupant status: <strong>PENDING</strong>) until Mayor's Office approval, Treasurer advance payment recording, and Market Supervisor verification.
+            </p>
           </div>
         </div>
 
@@ -284,6 +312,7 @@ import { supabase } from '../config/supabase'
 import { useAuthStore } from '../stores/auth'
 import { useStakeholderStore } from '../stores/stakeholder'
 import { getStakeholderByUserId } from '../services/applicationService'
+import { fetchStalls } from '../services/stallService'
 import { systemMessage } from '../utils/systemMessage'
 
 const route = useRoute()
@@ -295,8 +324,21 @@ const stakeholderStore = useStakeholderStore()
 // FORM STATE
 // =========================
 const selectedStallId = ref(null)
-const availableStalls = ref([])
 const existingApplication = ref(null)
+const stallsList = ref([])
+
+const availableStalls = computed(() => {
+  return stallsList.value.filter(s => {
+    const isAvail = s.status === 'AVAILABLE' || s.status === 'VACANT'
+    const isCurrent = selectedStallId.value && Number(s.id) === Number(selectedStallId.value)
+    return isAvail || isCurrent
+  })
+})
+
+const chosenStallInfo = computed(() => {
+  if (!selectedStallId.value) return null
+  return stallsList.value.find(s => Number(s.id) === Number(selectedStallId.value)) || null
+})
 
 const businessName = ref('')
 const businessType = ref('')
@@ -324,11 +366,6 @@ const letterBrowseInput = ref(null)
 
 const isSubmitting = ref(false)
 const errorMessage = ref('')
-
-const selectedStallDetails = computed(() => {
-  if (!selectedStallId.value) return null
-  return availableStalls.value.find(s => String(s.id) === String(selectedStallId.value)) || null
-})
 
 function openCamera(type) {
   if (type === 'id') idCameraInput.value?.click()
@@ -376,30 +413,32 @@ function resetFile(type) {
 // =========================
 onMounted(async () => {
   try {
+    // 1. Fetch stalls
+    try {
+      const rawStalls = await fetchStalls()
+      stallsList.value = (rawStalls || []).map(s => ({
+        id: s.id,
+        stallNo: s.stall_no || s.stallNo || s.number,
+        stallType: s.stall_type || s.stallType || s.info || 'Standard Stall',
+        monthlyRent: Number(s.monthly_rent ?? s.monthlyRent ?? 1500),
+        status: String(s.status || 'AVAILABLE').toUpperCase()
+      }))
+    } catch (stErr) {
+      console.warn('[BusinessApplication] Stalls loading notice:', stErr)
+    }
+
+    // 2. Check query parameter
+    if (route.query.stallId) {
+      selectedStallId.value = Number(route.query.stallId)
+    }
+
     let currentUserId = authStore.resolvedUserId || localStorage.getItem('userId')
     if (!currentUserId || currentUserId === 'null' || currentUserId === 'undefined') {
       const { data: { session } } = await supabase.auth.getSession()
       currentUserId = session?.user?.id
     }
 
-    // 1. Load vacant / available stalls
-    try {
-      const { data: stalls } = await supabase
-        .from('stalls')
-        .select('*')
-        .order('stall_no', { ascending: true })
-
-      if (stalls && stalls.length > 0) {
-        availableStalls.value = stalls.filter(s => String(s.status || '').toUpperCase() !== 'OCCUPIED')
-      }
-    } catch (_) {}
-
-    // Check query stallId
-    if (route.query.stallId) {
-      selectedStallId.value = Number(route.query.stallId)
-    }
-
-    // 2. Check if user already submitted an application
+    // Check if user already submitted an application
     if (currentUserId) {
       const existing = await getStakeholderByUserId(currentUserId)
       if (existing) {
@@ -422,6 +461,7 @@ onMounted(async () => {
     console.warn('[BusinessApplication] init warning:', err.message)
   }
 })
+
 
 // =========================
 // SUBMIT APPLICATION
@@ -454,9 +494,10 @@ async function submitApplication() {
     formData.append('contact',      contact.value)
     formData.append('email',        email.value)
     formData.append('address',      address.value)
-    if (selectedStallId.value) {
-      formData.append('stallId', String(selectedStallId.value))
+    if (!selectedStallId.value) {
+      throw new Error('Please select an available market stall for your rental application.')
     }
+    formData.append('stallId', String(selectedStallId.value))
     if (!existingApplication.value) {
       if (!idFile.value) {
         throw new Error('Please take a photo or upload your Valid Government ID.');
@@ -480,7 +521,6 @@ async function submitApplication() {
     }
 
     // Non-blocking confirmation email dispatch so UI confirms submission immediately
-    const targetStall = selectedStallDetails.value?.stallNo ? String(selectedStallDetails.value.stallNo) : ''
     void (async () => {
       try {
         const { sendApplicationProgressNotification } = await import('../services/emailNotificationService')
@@ -492,9 +532,8 @@ async function submitApplication() {
           status: 'SUBMITTED',
           title: 'Application Received & Queued for Review',
           message: 'Your commercial market stall application has been successfully received. It is now queued for Treasurer review and advance payment assessment.',
-          remarks: targetStall ? `Selected Stall: ${targetStall}` : 'Open commercial stall allocation',
-          referenceNo: response.data?.id ? `APP-${response.data.id}` : undefined,
-          stallNo: targetStall
+          remarks: 'Application submitted for municipal market review',
+          referenceNo: response.data?.id ? `APP-${response.data.id}` : undefined
         })
       } catch (eErr) {
         console.warn('[BusinessApplication] Confirmation email dispatch warning:', eErr)

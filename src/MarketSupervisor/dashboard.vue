@@ -267,6 +267,20 @@
                   </button>
 
                   <!-- Approve Button: Enabled ONLY when canApprove(app) is true -->
+                  <!-- Quick Assign Stall Button for applicants without stall -->
+                  <button
+                    v-if="!app.selectedStall && !app.occupant"
+                    type="button"
+                    class="btn-assign-quick"
+                    style="padding: 6px 11px; font-size: 11px; font-weight: 700; border-radius: 8px; background: #eef2ff; color: #4338ca; border: 1px solid #c7d2fe; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: all 0.15s;"
+                    @click.stop="openQuickAssignModal(app)"
+                    title="Assign a vacant stall to this applicant"
+                  >
+                    <i class="pi pi-building"></i>
+                    <span>Assign Stall</span>
+                  </button>
+
+                  <!-- Approve Button: Enabled ONLY when canApprove(app) is true -->
                   <button
                     v-if="canApprove(app)"
                     type="button"
@@ -353,13 +367,23 @@
         <div class="mt-6 pt-6 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
           <!-- Selected Stall -->
           <div class="bg-white p-3.5 rounded-xl border border-slate-100 shadow-sm">
-            <span class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Target Stall</span>
+            <div class="flex items-center justify-between mb-1">
+              <span class="block text-xs font-bold text-slate-400 uppercase tracking-wider">Target Stall</span>
+              <button
+                type="button"
+                class="text-xs font-bold text-indigo-600 hover:text-indigo-800 inline-flex items-center gap-1 cursor-pointer"
+                @click="openQuickAssignModal(selected)"
+              >
+                <i class="pi pi-building"></i>
+                {{ selected.selectedStall ? 'Change Stall' : 'Assign Stall' }}
+              </button>
+            </div>
             <p class="text-sm font-bold text-indigo-600 truncate">
               <span v-if="selected.selectedStall">
-                Stall {{ selected.selectedStall.stallNo || selected.selectedStall.stall_no }} - {{ selected.selectedStall.stallType || selected.selectedStall.stall_type }}
+                Stall {{ selected.selectedStall.stallNo || selected.selectedStall.stall_no || selected.selectedStall.number }} - {{ selected.selectedStall.stallType || selected.selectedStall.stall_type || selected.selectedStall.type || 'Standard Stall' }}
               </span>
-              <span v-else class="text-slate-400 font-normal">
-                No specific stall requested
+              <span v-else class="text-slate-400 font-normal text-xs italic">
+                No stall assigned yet
               </span>
             </p>
           </div>
@@ -494,6 +518,14 @@
 
           <div class="flex items-center gap-2">
             <Button
+              v-if="!selected.selectedStall"
+              label="Assign Stall"
+              icon="pi pi-building"
+              severity="info"
+              outlined
+              @click="openQuickAssignModal(selected)"
+            />
+            <Button
               v-if="canApprove(selected)"
               label="Approve Application"
               icon="pi pi-check"
@@ -502,6 +534,131 @@
               @click="approveMarketSupervisor(selected)"
             />
             <Button label="Close" icon="pi pi-times" text @click="close" class="text-slate-600" />
+          </div>
+        </div>
+      </template>
+    </Dialog>
+
+    <!-- QUICK ASSIGN STALL DIALOG -->
+    <Dialog
+      v-model:visible="showAssignStallModal"
+      modal
+      header="Assign Stall to Applicant"
+      :style="{ width: '48vw', maxWidth: '650px' }"
+      :breakpoints="{ '960px': '70vw', '641px': '95vw' }"
+      class="modern-dialog"
+    >
+      <div v-if="selectedApplicantForStall" class="p-4 bg-slate-50 rounded-xl border border-slate-100">
+        <!-- Applicant summary banner -->
+        <div class="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200 mb-4 shadow-sm">
+          <div class="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-black">
+            {{ (selectedApplicantForStall.firstName || '').charAt(0) }}{{ (selectedApplicantForStall.lastName || '').charAt(0) }}
+          </div>
+          <div>
+            <h4 class="font-bold text-slate-800 text-sm">
+              {{ selectedApplicantForStall.lastName }}, {{ selectedApplicantForStall.firstName }}
+            </h4>
+            <p class="text-xs text-slate-500">
+              {{ selectedApplicantForStall.businessName || 'Business Applicant' }} &bull; {{ selectedApplicantForStall.contact || 'No contact' }}
+            </p>
+          </div>
+        </div>
+
+        <!-- Vacant stall search input -->
+        <div class="mb-3">
+          <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">
+            Choose from Available Vacant Stalls ({{ vacantStallsList.length }})
+          </label>
+          <div class="relative">
+            <input
+              v-model="stallAssignmentSearch"
+              type="text"
+              placeholder="Filter by stall number, section, or type..."
+              class="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-500"
+            />
+            <span
+              v-if="stallAssignmentSearch"
+              class="absolute right-2.5 top-2 text-xs text-slate-400 cursor-pointer"
+              @click="stallAssignmentSearch = ''"
+            >✕</span>
+          </div>
+        </div>
+
+        <!-- Vacant stalls list -->
+        <div v-if="vacantStallsList.length === 0" class="p-6 text-center text-slate-400 bg-white rounded-xl border border-slate-200">
+          <i class="pi pi-info-circle text-2xl text-amber-500 block mb-1"></i>
+          <span class="text-xs font-semibold">No vacant stalls available in the registry.</span>
+        </div>
+
+        <div v-else-if="filteredVacantStalls.length === 0" class="p-4 text-center text-slate-400 bg-white rounded-xl border border-slate-200 text-xs">
+          No vacant stalls matching "{{ stallAssignmentSearch }}"
+        </div>
+
+        <div v-else class="max-h-60 overflow-y-auto space-y-2 pr-1">
+          <div
+            v-for="st in filteredVacantStalls"
+            :key="st.id"
+            class="p-3 bg-white rounded-xl border cursor-pointer transition-all flex items-center justify-between"
+            :class="chosenStallId === st.id ? 'border-indigo-600 bg-indigo-50/50 shadow-sm' : 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50'"
+            @click="selectStallToAssign(st)"
+          >
+            <div class="flex items-center gap-3">
+              <div
+                class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs"
+                :class="chosenStallId === st.id ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'"
+              >
+                #{{ st.number || st.stallNo || st.stall_no }}
+              </div>
+              <div>
+                <strong class="text-xs text-slate-800 block">
+                  Stall {{ st.number || st.stallNo || st.stall_no }} &bull; {{ st.type || st.stallType || st.stall_type || 'Standard Stall' }}
+                </strong>
+                <span class="text-[11px] text-slate-500">
+                  {{ st.info || st.section || 'General Market Section' }}
+                </span>
+              </div>
+            </div>
+            <div class="text-right">
+              <strong class="text-xs text-emerald-600 block">
+                ₱{{ Number(st.rent || st.monthlyRent || st.monthly_rent || 0).toLocaleString() }}/mo
+              </strong>
+              <span
+                v-if="chosenStallId === st.id"
+                class="text-[10px] font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-full inline-block"
+              >
+                Selected
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="flex items-center justify-between w-full">
+          <button
+            type="button"
+            class="text-xs text-indigo-600 hover:underline flex items-center gap-1 cursor-pointer font-semibold"
+            @click="goToStallManagementForApplicant(selectedApplicantForStall)"
+          >
+            <i class="pi pi-map"></i>
+            Open in Stall Management (Map View)
+          </button>
+          <div class="flex items-center gap-2">
+            <Button
+              label="Cancel"
+              icon="pi pi-times"
+              text
+              @click="showAssignStallModal = false"
+              class="text-slate-600"
+            />
+            <Button
+              label="Confirm & Assign Stall"
+              icon="pi pi-check"
+              severity="success"
+              :disabled="!chosenStallId || isAssigningStall"
+              :loading="isAssigningStall"
+              @click="confirmQuickAssignStall"
+            />
           </div>
         </div>
       </template>
@@ -557,6 +714,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useConfirm } from 'primevue/useconfirm'
 import api from '../services/api'
 import { API_ORIGIN } from '../config/apiConfig'
@@ -566,6 +724,7 @@ import Dialog from 'primevue/dialog'
 import Tag from 'primevue/tag'
 import { systemMessage } from '../utils/systemMessage'
 
+const router = useRouter()
 const confirm = useConfirm()
 
 // State
@@ -575,6 +734,13 @@ const isLoading = ref(false)
 const showModal = ref(false)
 const selected = ref({})
 const isApproving = ref(false)
+
+// Quick Stall Assignment State
+const showAssignStallModal = ref(false)
+const selectedApplicantForStall = ref(null)
+const chosenStallId = ref(null)
+const isAssigningStall = ref(false)
+const stallAssignmentSearch = ref('')
 
 // Controls
 const currentTab = ref('PENDING')
@@ -586,6 +752,102 @@ const previewDoc = ref(null)
 const loadedImageUrls = ref({})
 const loadingImages = ref({})
 const imageFailed = ref({})
+
+// Quick assign vacant stalls computation
+const vacantStallsList = computed(() => {
+  return (stalls.value || []).filter((s) => {
+    const st = String(s.status || '').toUpperCase()
+    return st === 'VACANT' || st === 'AVAILABLE'
+  })
+})
+
+const filteredVacantStalls = computed(() => {
+  const list = vacantStallsList.value
+  const q = stallAssignmentSearch.value.trim().toLowerCase()
+  if (!q) return list
+  return list.filter((s) => {
+    const num = String(s.number || s.stallNo || s.stall_no || '').toLowerCase()
+    const type = String(s.type || s.stallType || s.stall_type || '').toLowerCase()
+    const info = String(s.info || s.section || '').toLowerCase()
+    return num.includes(q) || type.includes(q) || info.includes(q)
+  })
+})
+
+function openQuickAssignModal(app) {
+  selectedApplicantForStall.value = app
+  chosenStallId.value = null
+  stallAssignmentSearch.value = ''
+  showAssignStallModal.value = true
+}
+
+function selectStallToAssign(stall) {
+  chosenStallId.value = stall.id
+}
+
+async function confirmQuickAssignStall() {
+  if (!chosenStallId.value || !selectedApplicantForStall.value) {
+    systemMessage.warn('Please select a vacant stall to assign.', 'Selection Required')
+    return
+  }
+
+  isAssigningStall.value = true
+  try {
+    const { allocateOccupant } = await import('../services/stallService')
+    const app = selectedApplicantForStall.value
+    const targetStall = stalls.value.find((s) => s.id === chosenStallId.value)
+    const stallNum = targetStall?.number || targetStall?.stallNo || chosenStallId.value
+
+    await allocateOccupant(chosenStallId.value, app.id)
+
+    systemMessage.success(
+      `Stall #${stallNum} successfully assigned to ${app.firstName || ''} ${app.lastName || ''}!`,
+      'Stall Assigned'
+    )
+
+    showAssignStallModal.value = false
+
+    // Update in applications
+    const index = applications.value.findIndex((a) => a.id === app.id)
+    if (index !== -1) {
+      applications.value[index] = {
+        ...applications.value[index],
+        selectedStall: targetStall,
+        selectedStallId: chosenStallId.value,
+        marketApprovalStatus: 'APPROVED',
+        marketSupervisorApproved: true
+      }
+    }
+
+    if (selected.value?.id === app.id) {
+      selected.value = {
+        ...selected.value,
+        selectedStall: targetStall,
+        selectedStallId: chosenStallId.value,
+        marketApprovalStatus: 'APPROVED',
+        marketSupervisorApproved: true
+      }
+    }
+
+    await refreshData()
+  } catch (err) {
+    console.error(err)
+    systemMessage.error(err.message || 'Failed to assign stall', 'Assignment Failed')
+  } finally {
+    isAssigningStall.value = false
+  }
+}
+
+function goToStallManagementForApplicant(app) {
+  showAssignStallModal.value = false
+  showModal.value = false
+  router.push({
+    name: 'MSStalls',
+    query: {
+      assignStakeholderId: app?.id,
+      view: 'map'
+    }
+  })
+}
 
 // ===================================
 // DATA LOADING
@@ -779,17 +1041,28 @@ async function approveMarketSupervisor(app) {
   if (!app || isApproving.value) return
   const applicantName = `${app.firstName || ''} ${app.lastName || ''}`.trim() || 'this applicant'
 
+  // Resolve target stall ID
+  const targetStallId = app.selectedStallId || app.selected_stall_id || app.selectedStall?.id || app.occupant?.stall?.id || app.occupant?.stall_id
+  const targetStall = stalls.value.find((s) => String(s.id) === String(targetStallId))
+  const stallNum = targetStall?.number || targetStall?.stallNo || app.selectedStall?.stallNo || app.occupant?.stall?.stallNo || ''
+
+  if (!targetStallId) {
+    systemMessage.info(`Please assign a market stall to ${applicantName} to approve and create their contract.`, 'Stall Assignment Required')
+    openQuickAssignModal(app)
+    return
+  }
+
   confirm.require({
-    header: 'Confirm Market Supervisor Approval',
-    message: `Are you sure you want to approve the application for ${applicantName}? This verifies advance-payment compliance and forwards the application to BPLO.`,
+    header: 'Confirm Market Supervisor Approval & Stall Assignment',
+    message: `Are you sure you want to approve ${applicantName}, officially assign Stall #${stallNum || targetStallId}, and auto-generate their digital lease contract?`,
     icon: 'pi pi-check-circle',
-    acceptLabel: 'Approve Application',
+    acceptLabel: 'Approve & Create Contract',
     rejectLabel: 'Cancel',
     acceptClass: 'p-button-success',
     accept: async () => {
       isApproving.value = true
       try {
-        const response = await api.put(`/stakeholders/${app.id}/market-approve`)
+        const response = await api.put(`/stakeholders/${app.id}/market-approve`, { stallId: targetStallId })
         const updated = response.data
 
         const index = applications.value.findIndex((a) => a.id === app.id)
@@ -797,6 +1070,8 @@ async function approveMarketSupervisor(app) {
           applications.value[index] = {
             ...applications.value[index],
             ...updated,
+            selectedStall: targetStall,
+            selectedStallId: targetStallId,
             marketApprovalStatus: 'APPROVED',
             marketSupervisorApproved: true
           }
@@ -806,6 +1081,8 @@ async function approveMarketSupervisor(app) {
           selected.value = {
             ...selected.value,
             ...updated,
+            selectedStall: targetStall,
+            selectedStallId: targetStallId,
             marketApprovalStatus: 'APPROVED',
             marketSupervisorApproved: true
           }
@@ -822,15 +1099,15 @@ async function approveMarketSupervisor(app) {
               stage: 'MARKET_SUPERVISOR',
               status: 'APPROVED',
               title: 'Market Supervisor Approval Granted',
-              message: 'Your application has been verified and approved by the Market Supervisor. It has now progressed to BPLO business permit validation.',
-              remarks: 'Compliance verified by Market Supervisor.'
+              message: `Your application has been verified and approved by the Market Supervisor. Stall #${stallNum || ''} has been officially assigned with an active digital lease contract. Your application has proceeded to BPLO business permit validation.`,
+              remarks: `Assigned Stall: #${stallNum || ''}. Lease contract initiated.`
             })
           } catch (eErr) {
             console.warn('[MarketSupervisor] Email dispatch warning:', eErr)
           }
         })()
 
-        systemMessage.success(`Application for ${applicantName} successfully approved and notified via email!`, 'Application Approved')
+        systemMessage.success(`Application for ${applicantName} approved, Stall #${stallNum || ''} assigned, and digital lease contract created!`, 'Approved & Contract Created')
         await refreshData()
       } catch (error) {
         console.error('[Dashboard] Approval failed:', error)

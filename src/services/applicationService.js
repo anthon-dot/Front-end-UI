@@ -100,6 +100,13 @@ export async function getStakeholderByUserId(userId) {
     if (!normalized.stall && normalized.occupant?.stall) {
       normalized.stall = normalized.occupant.stall
     }
+    if (!normalized.stall && (normalized.selectedStallId || normalized.selected_stall_id)) {
+      try {
+        const targetId = Number(normalized.selectedStallId || normalized.selected_stall_id)
+        const { data: stRec } = await supabase.from('stalls').select('*').eq('id', targetId).maybeSingle()
+        if (stRec) normalized.stall = normalizeRecord(stRec)
+      } catch (_) {}
+    }
 
     // Look for Hazard-Free Stall Confirmation document
     const sid = normalized.stakeholderId || normalized.id
@@ -338,11 +345,25 @@ export async function uploadHazardFreeDocument(file, stakeholderId, applicationI
         hazard_free_document_url: publicUrl
       }).eq('id', Number(stakeholderId))
     } catch (_) {}
+
+    try {
+      await supabase.from('stakeholder_applications').update({
+        hazard_free_confirmed: true,
+        hazard_free_document_url: publicUrl
+      }).eq('stakeholder_id', Number(stakeholderId))
+    } catch (_) {}
   }
 
   if (applicationId) {
     try {
       await supabase.from('business_applications').update({
+        hazard_free_confirmed: true,
+        hazard_free_document_url: publicUrl
+      }).eq('id', Number(applicationId))
+    } catch (_) {}
+
+    try {
+      await supabase.from('stakeholder_applications').update({
         hazard_free_confirmed: true,
         hazard_free_document_url: publicUrl
       }).eq('id', Number(applicationId))
@@ -363,43 +384,56 @@ export async function uploadHazardFreeDocument(file, stakeholderId, applicationI
         hazard_free_confirmed: true,
         hazard_free_document_url: publicUrl
       }).eq('user_id', userId)
+
+      await supabase.from('stakeholder_applications').update({
+        hazard_free_confirmed: true,
+        hazard_free_document_url: publicUrl
+      }).eq('user_id', userId)
+    }
+  } catch (_) {}
+
+  // Sync with Express backend endpoint
+  try {
+    const targetId = applicationId || stakeholderId
+    if (targetId) {
+      await api.put(`/applications/${targetId}/hazard-free`, { documentUrl: publicUrl })
     }
   } catch (_) {}
 
   return { publicUrl, fileName: file.name }
 }
 
-export async function endorseApplication(id, stakeholderId = null) {
+export async function endorseApplication(id, remarks = 'Supervisor endorsed to Mayor for executive review.', stakeholderId = null) {
   const targetStakeholderId = stakeholderId || id
 
   try {
     await supabase.from('stakeholders').update({
-      final_endorsed: true,
-      endorsing_approved: true,
-      endorsement_status: 'APPROVED',
-      endorsing_status: 'ENDORSED',
-      final_status: 'APPROVED',
-      endorsed_at: new Date().toISOString(),
-      application_status: 'PENDING_BUSINESS_PERMIT_PAYMENT'
+      market_supervisor_approved: true,
+      market_approval_status: 'APPROVED',
+      application_status: 'PENDING_MAYOR_APPROVAL'
     }).eq('id', targetStakeholderId)
   } catch (_) {}
 
   try {
     await supabase.from('business_applications').update({
-      endorsement_status: 'APPROVED',
-      endorsing_status: 'ENDORSED',
-      final_status: 'APPROVED',
-      endorsed_at: new Date().toISOString(),
-      application_status: 'PENDING_BUSINESS_PERMIT_PAYMENT'
+      market_supervisor_approved: true,
+      market_approval_status: 'APPROVED',
+      application_status: 'PENDING_MAYOR_APPROVAL'
     }).eq('id', id)
   } catch (_) {}
 
   try {
-    const { data, error } = await supabase.functions.invoke('approval-workflow/final-endorse', {
-      body: { stakeholderId: targetStakeholderId }
-    })
-    if (error) console.warn('[endorseApplication] edge function warning:', error)
-  } catch (err) {}
+    await supabase.from('stakeholder_applications').update({
+      market_supervisor_approved: true,
+      market_supervisor_approved_at: new Date().toISOString(),
+      status: 'PENDING_MAYOR_APPROVAL',
+      current_holding_office: 'Office of the Mayor'
+    }).eq('id', id)
+  } catch (_) {}
+
+  try {
+    await api.put(`/applications/${id}/supervisor-review`, { approved: true, remarks })
+  } catch (_) {}
 
   // Non-blocking notification dispatch
   void (async () => {
@@ -407,11 +441,11 @@ export async function endorseApplication(id, stakeholderId = null) {
       const { sendApplicationProgressNotification } = await import('./emailNotificationService')
       await sendApplicationProgressNotification({
         stakeholderId: targetStakeholderId,
-        stage: 'ENDORSEMENT',
+        stage: 'SUPERVISOR',
         status: 'APPROVED',
-        title: 'Final Mayoral Endorsement Approved',
-        message: 'Your application has received final executive endorsement. Please proceed to the Municipal Treasurer Office to settle your business permit fee and activate your commercial lease contract.',
-        remarks: 'Official endorsement granted.'
+        title: 'Market Supervisor Endorsement Granted',
+        message: 'Your application has been endorsed by the Market Supervisor and routed to the Municipal Mayor for LOI decision.',
+        remarks
       })
     } catch (eErr) {
       console.warn('[endorseApplication] Email dispatch warning:', eErr)
@@ -426,30 +460,28 @@ export async function rejectEndorsement(id, remarks = '', stakeholderId = null) 
 
   try {
     await supabase.from('stakeholders').update({
-      final_endorsed: false,
-      endorsing_approved: false,
-      endorsement_status: 'REJECTED',
-      endorsing_status: 'REJECTED',
-      final_status: 'REJECTED',
-      endorsement_remarks: remarks,
-      application_status: 'REJECTED'
+      market_supervisor_approved: false,
+      market_approval_status: 'REJECTED',
+      application_status: 'SUPERVISOR_REJECTED'
     }).eq('id', targetStakeholderId)
   } catch (_) {}
 
   try {
     await supabase.from('business_applications').update({
-      endorsement_status: 'REJECTED',
-      endorsing_status: 'REJECTED',
-      final_status: 'REJECTED',
-      endorsement_remarks: remarks,
-      application_status: 'REJECTED'
+      market_approval_status: 'REJECTED',
+      application_status: 'SUPERVISOR_REJECTED'
     }).eq('id', id)
   } catch (_) {}
 
   try {
-    await supabase.functions.invoke('approval-workflow/reject', {
-      body: { stakeholderId: targetStakeholderId, stage: 'ENDORSEMENT', remarks }
-    })
+    await supabase.from('stakeholder_applications').update({
+      status: 'SUPERVISOR_REJECTED',
+      current_holding_office: 'Market Supervisor'
+    }).eq('id', id)
+  } catch (_) {}
+
+  try {
+    await api.put(`/applications/${id}/supervisor-review`, { approved: false, remarks })
   } catch (_) {}
 
   // Non-blocking notification dispatch
@@ -458,10 +490,10 @@ export async function rejectEndorsement(id, remarks = '', stakeholderId = null) 
       const { sendApplicationProgressNotification } = await import('./emailNotificationService')
       await sendApplicationProgressNotification({
         stakeholderId: targetStakeholderId,
-        stage: 'ENDORSEMENT',
+        stage: 'SUPERVISOR',
         status: 'REJECTED',
-        title: 'Application Disapproved by Endorsing Office',
-        message: 'Your application was not approved during final endorsement review.',
+        title: 'Application Rejected by Market Supervisor',
+        message: 'Your application was not approved during Market Supervisor review.',
         remarks
       })
     } catch (eErr) {
@@ -472,96 +504,163 @@ export async function rejectEndorsement(id, remarks = '', stakeholderId = null) 
   return { success: true }
 }
 
-export async function approveByBPLO(id, stakeholderId = null) {
+export async function approveByMayor(id, remarks = 'Approved for municipal stall rights and advance rental payment.', stakeholderId = null) {
   const targetStakeholderId = stakeholderId || id
 
   try {
     await supabase.from('stakeholders').update({
-      bplo_approved: true,
-      bplo_status: 'APPROVED',
-      application_status: 'PENDING_ENDORSING_OFFICE_APPROVAL'
+      final_endorsed: true,
+      endorsing_approved: true,
+      endorsement_status: 'APPROVED',
+      application_status: 'PENDING_TREASURER_PAYMENT'
     }).eq('id', targetStakeholderId)
   } catch (_) {}
 
   try {
     await supabase.from('business_applications').update({
-      bplo_status: 'APPROVED',
-      application_status: 'PENDING_ENDORSING_OFFICE_APPROVAL'
+      endorsement_status: 'APPROVED',
+      application_status: 'PENDING_TREASURER_PAYMENT'
     }).eq('id', id)
   } catch (_) {}
 
   try {
-    const { data, error } = await supabase.functions.invoke('approval-workflow/bplo-approve', {
-      body: { stakeholderId: targetStakeholderId }
-    })
-    if (error) console.warn('[approveByBPLO] edge function warning:', error)
-  } catch (err) {}
+    await supabase.from('stakeholder_applications').update({
+      mayor_decision: 'APPROVED',
+      mayor_approved_at: new Date().toISOString(),
+      mayor_remarks: remarks,
+      status: 'PENDING_TREASURER_PAYMENT',
+      current_holding_office: "Treasurer's Office"
+    }).eq('id', id)
+  } catch (_) {}
 
-  // Non-blocking notification dispatch
+  try {
+    await api.put(`/applications/${id}/mayor-review`, { approved: true, remarks })
+  } catch (_) {}
+
   void (async () => {
     try {
       const { sendApplicationProgressNotification } = await import('./emailNotificationService')
       await sendApplicationProgressNotification({
         stakeholderId: targetStakeholderId,
-        stage: 'BPLO',
+        stage: 'MAYOR',
         status: 'APPROVED',
-        title: 'BPLO Business Permit Validation Approved',
-        message: 'Your commercial requirements and hazard-free stall compliance have been validated by BPLO. Your application is forwarded to the Endorsing Office for final executive approval.',
-        remarks: 'BPLO business compliance verified.'
-      })
-    } catch (eErr) {
-      console.warn('[approveByBPLO] Email dispatch warning:', eErr)
-    }
-  })()
-
-  return { success: true }
-}
-
-export async function rejectByBPLO(id, remarks = '', stakeholderId = null) {
-  const targetStakeholderId = stakeholderId || id
-
-  try {
-    await supabase.from('stakeholders').update({
-      bplo_approved: false,
-      bplo_status: 'REJECTED',
-      application_status: 'REJECTED',
-      notes: remarks
-    }).eq('id', targetStakeholderId)
-  } catch (_) {}
-
-  try {
-    await supabase.from('business_applications').update({
-      bplo_status: 'REJECTED',
-      application_status: 'REJECTED',
-      remarks
-    }).eq('id', id)
-  } catch (_) {}
-
-  try {
-    await supabase.functions.invoke('approval-workflow/reject', {
-      body: { stakeholderId: targetStakeholderId, stage: 'BPLO', remarks }
-    })
-  } catch (_) {}
-
-  // Non-blocking notification dispatch
-  void (async () => {
-    try {
-      const { sendApplicationProgressNotification } = await import('./emailNotificationService')
-      await sendApplicationProgressNotification({
-        stakeholderId: targetStakeholderId,
-        stage: 'BPLO',
-        status: 'REJECTED',
-        title: 'BPLO Business Permit Verification Disapproved',
-        message: 'Your application was not approved during BPLO business permit validation.',
+        title: 'Municipal Mayor Approved LOI',
+        message: 'The Municipal Mayor has approved your Letter of Intent. Please proceed to the Municipal Treasurer to pay your Stall Rights and 2-Month Advance Rent.',
         remarks
       })
     } catch (eErr) {
-      console.warn('[rejectByBPLO] Email dispatch warning:', eErr)
+      console.warn('[approveByMayor] Email dispatch warning:', eErr)
     }
   })()
 
   return { success: true }
 }
+
+export async function rejectByMayor(id, remarks = '', stakeholderId = null) {
+  const targetStakeholderId = stakeholderId || id
+
+  try {
+    await supabase.from('stakeholders').update({
+      final_endorsed: false,
+      endorsing_approved: false,
+      endorsement_status: 'REJECTED',
+      application_status: 'MAYOR_REJECTED'
+    }).eq('id', targetStakeholderId)
+  } catch (_) {}
+
+  try {
+    await supabase.from('business_applications').update({
+      endorsement_status: 'REJECTED',
+      application_status: 'MAYOR_REJECTED'
+    }).eq('id', id)
+  } catch (_) {}
+
+  try {
+    await supabase.from('stakeholder_applications').update({
+      mayor_decision: 'REJECTED',
+      mayor_remarks: remarks,
+      status: 'MAYOR_REJECTED',
+      current_holding_office: 'Office of the Mayor'
+    }).eq('id', id)
+  } catch (_) {}
+
+  try {
+    await api.put(`/applications/${id}/mayor-review`, { approved: false, remarks })
+  } catch (_) {}
+
+  void (async () => {
+    try {
+      const { sendApplicationProgressNotification } = await import('./emailNotificationService')
+      await sendApplicationProgressNotification({
+        stakeholderId: targetStakeholderId,
+        stage: 'MAYOR',
+        status: 'REJECTED',
+        title: 'Application Disapproved by Municipal Mayor',
+        message: 'Your application was not approved during executive Mayoral review.',
+        remarks
+      })
+    } catch (eErr) {
+      console.warn('[rejectByMayor] Email dispatch warning:', eErr)
+    }
+  })()
+
+  return { success: true }
+}
+
+export async function verifyStallByInspector(id, checklist = {}, stakeholderId = null) {
+  const targetStakeholderId = stakeholderId || id
+
+  try {
+    await supabase.from('stakeholders').update({
+      hazard_free_confirmed: checklist.status !== 'FAILED',
+      application_status: checklist.status === 'FAILED' ? 'PENDING_INSPECTION' : 'INSPECTION_PASSED'
+    }).eq('id', targetStakeholderId)
+  } catch (_) {}
+
+  try {
+    await supabase.from('business_applications').update({
+      hazard_free_confirmed: checklist.status !== 'FAILED',
+      application_status: checklist.status === 'FAILED' ? 'PENDING_INSPECTION' : 'INSPECTION_PASSED'
+    }).eq('id', id)
+  } catch (_) {}
+
+  try {
+    await api.put(`/applications/${id}/inspector-verify`, checklist)
+  } catch (_) {}
+
+  void (async () => {
+    try {
+      const { sendApplicationProgressNotification } = await import('./emailNotificationService')
+      await sendApplicationProgressNotification({
+        stakeholderId: targetStakeholderId,
+        stage: 'INSPECTOR',
+        status: checklist.status || 'PASSED',
+        title: checklist.status === 'FAILED' ? 'Stall Setup Inspection Requires Rectification' : 'Physical Stall Setup Inspection Passed',
+        message: checklist.status === 'FAILED'
+          ? 'Field inspector noted items requiring correction before business permit processing.'
+          : 'Your physical stall setup has passed safety and sanitation inspection. Business permit eligibility unlocked.',
+        remarks: checklist.remarks || ''
+      })
+    } catch (eErr) {
+      console.warn('[verifyStallByInspector] Email dispatch warning:', eErr)
+    }
+  })()
+
+  return { success: true }
+}
+
+export async function activateVendor(id, remarks = '') {
+  try {
+    const res = await api.put(`/applications/${id}/activate-vendor`, { remarks })
+    return res.data || { success: true }
+  } catch (err) {
+    throw err
+  }
+}
+
+// Backwards-compatible aliases
+export const approveByBPLO = (id, stakeholderId = null) => verifyStallByInspector(id, { electricalClearance: true, structuralClearance: true, fireSafetyClearance: true, sanitationClearance: true, status: 'PASSED', remarks: 'Physical stall inspection approved.' }, stakeholderId);
+export const rejectByBPLO = (id, remarks = '', stakeholderId = null) => verifyStallByInspector(id, { status: 'FAILED', remarks }, stakeholderId);
 
 export function isDashboardReady(stakeholder, requirements = null) {
   if (!stakeholder) return false
@@ -633,6 +732,10 @@ export default {
   getApplications,
   endorseApplication,
   rejectEndorsement,
+  approveByMayor,
+  rejectByMayor,
+  verifyStallByInspector,
+  activateVendor,
   approveByBPLO,
   rejectByBPLO,
   isDashboardReady,

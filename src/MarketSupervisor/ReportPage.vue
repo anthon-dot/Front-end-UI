@@ -469,6 +469,114 @@
               </table>
             </div>
           </div>
+
+          <!-- DETAILED STALL OCCUPANCY & ASSIGNMENT TABLE -->
+          <div class="filter-bar-card" style="margin-top: 1.5rem;">
+            <div class="filter-group">
+              <div class="search-wrap">
+                <i class="pi pi-search search-icon"></i>
+                <input
+                  v-model="stallOccupancySearch"
+                  type="text"
+                  placeholder="Search stall no., occupant, business, section..."
+                  class="filter-input"
+                />
+                <button
+                  v-if="stallOccupancySearch"
+                  class="clear-btn"
+                  @click="stallOccupancySearch = ''"
+                  title="Clear search"
+                >
+                  <i class="pi pi-times"></i>
+                </button>
+              </div>
+
+              <div class="select-wrap">
+                <label class="select-label"><i class="pi pi-filter"></i> Occupancy Filter:</label>
+                <select v-model="stallOccupancyFilter" class="filter-select">
+                  <option value="ALL">All Stalls (Full Inventory)</option>
+                  <option value="OCCUPIED">Occupied / Assigned Only</option>
+                  <option value="AVAILABLE">Available / Vacant Only</option>
+                  <option value="UNAVAILABLE">Maintenance / Off-Market</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="filter-status-info">
+              Showing <strong>{{ filteredDetailedStalls.length }}</strong> of <strong>{{ detailedStallsList.length }}</strong> stalls
+            </div>
+          </div>
+
+          <div class="table-card print-card">
+            <div class="table-header">
+              <div>
+                <h2>Stall Occupancy & Tenant Assignment Registry</h2>
+                <p>Individual stall tracking, assigned stakeholders, rental fees, and lease validity</p>
+              </div>
+            </div>
+
+            <div class="table-wrapper">
+              <table class="report-table">
+                <thead>
+                  <tr>
+                    <th>Stall No</th>
+                    <th>Section / Type</th>
+                    <th>Monthly Rent</th>
+                    <th>Occupancy Status</th>
+                    <th>Assigned Stakeholder / Occupant</th>
+                    <th>Business Name</th>
+                    <th>Contract Ref</th>
+                    <th>Lease Period</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="st in filteredDetailedStalls" :key="st.id || st.stallNo">
+                    <td>
+                      <span class="stall-ref-badge" style="font-weight: 700; color: #0284c7;">
+                        <i class="pi pi-shop"></i> {{ st.stallNo }}
+                      </span>
+                    </td>
+                    <td>{{ st.section }}</td>
+                    <td><strong>{{ formatCurrency(st.monthlyRent) }}</strong></td>
+                    <td>
+                      <span
+                        class="status-pill"
+                        :class="{
+                          'green': st.status === 'OCCUPIED',
+                          'blue': st.status === 'AVAILABLE',
+                          'amber': st.status === 'MAINTENANCE' || st.status === 'UNAVAILABLE'
+                        }"
+                      >
+                        {{ st.status }}
+                      </span>
+                    </td>
+                    <td>
+                      <strong v-if="st.occupantName && st.occupantName !== 'Available / Unassigned'">
+                        {{ st.occupantName }}
+                      </strong>
+                      <span v-else style="color: #94a3b8; font-style: italic;">
+                        Available / Unassigned
+                      </span>
+                    </td>
+                    <td>{{ st.businessName || '—' }}</td>
+                    <td>
+                      <span v-if="st.contractNo && st.contractNo !== 'None'" class="contract-code-badge">
+                        {{ st.contractNo }}
+                      </span>
+                      <span v-else style="color: #94a3b8;">None</span>
+                    </td>
+                    <td style="font-size: 12px; color: #64748b;">
+                      {{ st.leasePeriod || '—' }}
+                    </td>
+                  </tr>
+
+                  <tr v-if="filteredDetailedStalls.length === 0">
+                    <td colspan="8" class="empty-cell">No stalls matching the criteria.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </section>
 
         <!-- ======================================================== -->
@@ -1291,6 +1399,64 @@ const sectionBreakdown = computed(() => {
   })
 })
 
+const stallOccupancySearch = ref('')
+const stallOccupancyFilter = ref('ALL')
+
+const detailedStallsList = computed(() => {
+  return stallsList.value.map(st => {
+    const sNo = st.stallNo || st.stall_no || st.number || ''
+    const matchedContract = contractsList.value.find(c => {
+      const cStall = c.stallNo || c.stall || ''
+      return (cStall && cStall === sNo) || (c.stallId && String(c.stallId) === String(st.id))
+    })
+    const matchedStakeholder = stakeholdersList.value.find(s => {
+      return (s.stall && s.stall === sNo) || (s.selectedStallId && String(s.selectedStallId) === String(st.id))
+    })
+
+    const occupant = st.occupant
+    const occName = matchedStakeholder?.name || matchedContract?.stakeholder ||
+      (occupant?.stakeholder ? [occupant.stakeholder.firstName, occupant.stakeholder.lastName].filter(Boolean).join(' ') : occupant?.name) || ''
+
+    const busName = matchedStakeholder?.business || matchedContract?.business || occupant?.stakeholder?.businessName || ''
+    const normStat = String(st.status || '').toUpperCase()
+    const isOccupied = ['OCCUPIED', 'RENTED', 'ASSIGNED'].includes(normStat) || Boolean(occName)
+
+    return {
+      ...st,
+      stallNo: sNo,
+      section: st.stallType || st.stall_type || st.type || st.info || 'General Commercial',
+      monthlyRent: Number(st.monthlyRent || st.monthly_rent || 0),
+      status: isOccupied ? 'OCCUPIED' : (normStat === 'UNAVAILABLE' || normStat === 'MAINTENANCE' ? 'MAINTENANCE' : 'AVAILABLE'),
+      occupantName: isOccupied ? (occName || 'Assigned Stakeholder') : 'Available / Unassigned',
+      businessName: busName || (isOccupied ? 'Active Lessee' : '—'),
+      contractNo: matchedContract?.contractNo || matchedContract?.ref || (isOccupied ? `CON-${sNo}` : 'None'),
+      leasePeriod: matchedContract?.startDate && matchedContract?.endDate ? `${matchedContract.startDate} to ${matchedContract.endDate}` : (isOccupied ? 'Active Lease' : '—')
+    }
+  })
+})
+
+const filteredDetailedStalls = computed(() => {
+  const q = stallOccupancySearch.value.trim().toLowerCase()
+  return detailedStallsList.value.filter(st => {
+    if (q) {
+      const match =
+        st.stallNo?.toLowerCase().includes(q) ||
+        st.section?.toLowerCase().includes(q) ||
+        st.occupantName?.toLowerCase().includes(q) ||
+        st.businessName?.toLowerCase().includes(q)
+      if (!match) return false
+    }
+
+    if (stallOccupancyFilter.value !== 'ALL') {
+      if (stallOccupancyFilter.value === 'OCCUPIED' && st.status !== 'OCCUPIED') return false
+      if (stallOccupancyFilter.value === 'AVAILABLE' && st.status !== 'AVAILABLE') return false
+      if (stallOccupancyFilter.value === 'UNAVAILABLE' && st.status !== 'MAINTENANCE') return false
+    }
+
+    return true
+  })
+})
+
 // ==========================================
 // EXPORTS: EXCEL & PDF & PRINT
 // ==========================================
@@ -1330,12 +1496,25 @@ function exportOccupancyToExcel() {
     'Monthly Rent Potential (PHP)': s.potentialRent
   }))
 
+  const stallsData = filteredDetailedStalls.value.map(st => ({
+    'Stall Number': st.stallNo,
+    'Section / Type': st.section,
+    'Monthly Rent (PHP)': st.monthlyRent,
+    'Occupancy Status': st.status,
+    'Assigned Stakeholder / Occupant': st.occupantName,
+    'Business Name': st.businessName,
+    'Contract Ref': st.contractNo,
+    'Lease Period': st.leasePeriod
+  }))
+
   const worksheet = XLSX.utils.json_to_sheet(data)
+  const stallsWorksheet = XLSX.utils.json_to_sheet(stallsData)
   const workbook = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Stall Capacity')
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Capacity by Section')
+  XLSX.utils.book_append_sheet(workbook, stallsWorksheet, 'Assigned Stalls Registry')
   XLSX.writeFile(
     workbook,
-    `Market_Supervisor_Stall_Capacity_${new Date().toISOString().slice(0, 10)}.xlsx`
+    `Market_Supervisor_Stall_Occupancy_${new Date().toISOString().slice(0, 10)}.xlsx`
   )
 }
 

@@ -155,14 +155,8 @@ const baseItems = [
   {
     id: 'stalls',
     label: 'Stall Management',
-    icon: 'pi pi-building',
+    icon: 'pi pi-map-marker',
     routeName: 'MSStalls'
-  },
-  {
-    id: 'stall-map',
-    label: 'Stall Map',
-    icon: 'pi pi-map',
-    routeName: 'AdminStallMap'
   },
   {
     id: 'archive',

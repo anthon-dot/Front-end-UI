@@ -117,8 +117,7 @@ const sections = [
   {
     label: 'Market Management',
     items: [
-      { label: 'Stall Management', icon: 'pi pi-th-large', routeName: 'MSStalls' },
-      { label: 'Stall Map', icon: 'pi pi-map', routeName: 'AdminStallMap' },
+      { label: 'Stall Management', icon: 'pi pi-map-marker', routeName: 'MSStalls' },
       { label: 'Stalls', icon: 'pi pi-building', routeName: 'AdminStalls' },
       { label: 'Stall Types', icon: 'pi pi-tags', routeName: 'AdminStallTypes' },
       { label: 'Rental Rates', icon: 'pi pi-money-bill', routeName: 'AdminRentalRates' },
@@ -140,9 +139,9 @@ const sections = [
   {
     label: 'Reports',
     items: [
-      { label: 'Revenue', icon: 'pi pi-chart-line', routeName: 'AdminRevenueReport' },
-      { label: 'Applications', icon: 'pi pi-chart-bar', routeName: 'AdminApplicationsReport' },
-      { label: 'Occupancy', icon: 'pi pi-chart-scatter', routeName: 'AdminOccupancyReport' },
+      { label: 'Collection Report', icon: 'pi pi-wallet', routeName: 'AdminCollectionReport' },
+      { label: 'Liability Report', icon: 'pi pi-exclamation-circle', routeName: 'AdminLiabilityReport' },
+      { label: 'Stall Occupancy', icon: 'pi pi-chart-pie', routeName: 'AdminOccupancyReport' },
       { label: 'System Activity', icon: 'pi pi-list-check', routeName: 'AdminActivityReport' }
     ]
   },

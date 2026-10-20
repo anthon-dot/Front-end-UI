@@ -111,7 +111,7 @@ select:focus {
 /* ================= STATS CHIPS ================= */
 .stats-overview {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 16px;
   margin-bottom: 20px;
 }
@@ -773,6 +773,18 @@ tr:hover td {
   background: #dbeafe;
 }
 
+.btn-approve-row {
+  background: #ea580c;
+  color: #ffffff;
+  border: 1px solid #c2410c;
+  font-weight: 700;
+}
+
+.btn-approve-row:hover {
+  background: #c2410c;
+  color: #ffffff;
+}
+
 .btn-edit {
   background: #f1f5f9;
   color: #334155;
@@ -1124,6 +1136,48 @@ tr:hover td {
   color: #166534;
   background: #dcfce7;
   border: 1px solid #bbf7d0;
+  padding: 2px 7px;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+
+.badge-awaiting {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #1e40af;
+  background: #dbeafe;
+  border: 1px solid #bfdbfe;
+  padding: 2px 7px;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+
+.badge-reassign {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #854d0e;
+  background: #fef9c3;
+  border: 1px solid #fef08a;
+  padding: 2px 7px;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+
+.badge-paid {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #047857;
+  background: #d1fae5;
+  border: 1px solid #a7f3d0;
   padding: 2px 7px;
   border-radius: 999px;
   text-transform: uppercase;
@@ -2446,6 +2500,52 @@ tr:hover td {
 
 .btn-pick-map:hover {
   background: #c2410c;
+}
+
+/* ================= VIEW MODE TOGGLE (MAP & STALL MERGE) ================= */
+.sm-view-mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  background: #f1f5f9;
+  padding: 3px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  gap: 2px;
+}
+
+.sm-view-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+}
+
+.sm-view-btn i {
+  font-size: 13px;
+}
+
+.sm-view-btn:hover {
+  color: #1e293b;
+}
+
+.sm-view-btn.active {
+  background: #ffffff;
+  color: #4f46e5;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.map-full-view .map-viewport {
+  height: calc(100vh - 280px);
+  min-height: 600px;
 }
 
 

@@ -12,36 +12,84 @@ const { layoutState } = useLayout();
 const baseModel = computed(() => {
     const role = authStore.normalizedRole;
 
-    if (role === 'MARKET_SUPERVISOR' || role === 'ADMIN') {
+    if (role === 'MAYOR') {
+        return [
+            {
+                label: 'EXECUTIVE OFFICE',
+                items: [
+                    { label: 'Mayor Dashboard', icon: 'pi pi-fw pi-home', to: '/mayor' },
+                    { label: 'LOI Approvals', icon: 'pi pi-fw pi-file-edit', to: '/mayor/approvals' },
+                    { label: 'Lease Revocations', icon: 'pi pi-fw pi-shield', to: '/mayor/revocations' },
+                    { label: 'Market Stalls', icon: 'pi pi-fw pi-map-marker', to: '/stalls' }
+                ]
+            }
+        ];
+    }
+
+    if (role === 'COLLECTOR_INSPECTOR') {
+        return [
+            {
+                label: 'FIELD OPERATIONS',
+                items: [
+                    { label: 'Field Dashboard', icon: 'pi pi-fw pi-home', to: '/collector' },
+                    { label: 'Daily Collections', icon: 'pi pi-fw pi-wallet', to: '/collector' },
+                    { label: 'Treasury Remittances', icon: 'pi pi-fw pi-send', to: '/collector' }
+                ]
+            },
+            {
+                label: 'INSPECTIONS & SAFETY',
+                items: [
+                    { label: 'Stall Setup Inspections', icon: 'pi pi-fw pi-check-square', to: '/collector' },
+                    { label: 'QR Permit Scanner', icon: 'pi pi-fw pi-qrcode', to: '/collector' },
+                    { label: 'Market Stalls Map', icon: 'pi pi-fw pi-map-marker', to: '/stalls' }
+                ]
+            }
+        ];
+    }
+
+    if (role === 'MARKET_SUPERVISOR') {
         return [
             {
                 label: 'OVERVIEW',
                 items: [
-                    { label: 'Supervisor Dashboard', icon: 'pi pi-fw pi-home', to: '/supervisor' },
-                    { label: 'Admin Analytics', icon: 'pi pi-fw pi-chart-line', to: '/admin/dashboard' }
+                    { label: 'Supervisor Dashboard', icon: 'pi pi-fw pi-home', to: '/supervisor' }
                 ]
             },
             {
                 label: 'OPERATIONS & STALLS',
                 items: [
-                    { label: 'Stall Management', icon: 'pi pi-fw pi-th-large', to: '/supervisor/stalls' },
-                    { label: 'Stall Map', icon: 'pi pi-fw pi-map', to: '/admin/stall-map' },
-                    { label: 'Master Stalls', icon: 'pi pi-fw pi-building', to: '/admin/stalls' },
-                    { label: 'Stall Types', icon: 'pi pi-fw pi-tags', to: '/admin/stall-types' },
-                    { label: 'Rental Rates', icon: 'pi pi-fw pi-dollar', to: '/admin/rental-rates' },
-                    { label: 'Contracts', icon: 'pi pi-fw pi-file-edit', to: '/supervisor/contracts' },
+                    { label: 'Stall Management', icon: 'pi pi-fw pi-map-marker', to: '/supervisor/stalls' },
+                    { label: 'Contracts of Lease', icon: 'pi pi-fw pi-file-edit', to: '/supervisor/contracts' },
                     { label: 'Archive Records', icon: 'pi pi-fw pi-inbox', to: '/supervisor/archive' }
                 ]
             },
             {
-                label: 'MONITORING & FINANCIALS',
+                label: 'REPORTS & MONITORING',
                 items: [
-                    { label: 'Applications', icon: 'pi pi-fw pi-file-edit', to: '/admin/applications' },
-                    { label: 'Stakeholders', icon: 'pi pi-fw pi-id-card', to: '/admin/stakeholders' },
+                    { label: 'Supervisor Reports', icon: 'pi pi-fw pi-chart-bar', to: '/supervisor/reports' },
+                    { label: 'Occupancy Overview', icon: 'pi pi-fw pi-chart-pie', to: '/admin/occupancy' }
+                ]
+            }
+        ];
+    }
+
+    if (role === 'ADMIN') {
+        return [
+            {
+                label: 'OVERVIEW',
+                items: [
+                    { label: 'Admin Analytics', icon: 'pi pi-fw pi-chart-line', to: '/admin/dashboard' },
+                    { label: 'Supervisor Dashboard', icon: 'pi pi-fw pi-home', to: '/supervisor' }
+                ]
+            },
+            {
+                label: 'CONFIG & FORMULAS',
+                items: [
+                    { label: 'Rental Rates', icon: 'pi pi-fw pi-dollar', to: '/admin/rental-rates' },
+                    { label: 'Master Stalls', icon: 'pi pi-fw pi-building', to: '/admin/stalls' },
+                    { label: 'Stall Types', icon: 'pi pi-fw pi-tags', to: '/admin/stall-types' },
                     { label: 'Contracts Registry', icon: 'pi pi-fw pi-file', to: '/admin/contracts' },
-                    { label: 'Occupancy', icon: 'pi pi-fw pi-chart-pie', to: '/admin/occupancy' },
-                    { label: 'Payments', icon: 'pi pi-fw pi-wallet', to: '/admin/payments' },
-                    { label: 'Billing', icon: 'pi pi-fw pi-receipt', to: '/admin/billing' }
+                    { label: 'Billing & Payments', icon: 'pi pi-fw pi-wallet', to: '/admin/payments' }
                 ]
             },
             {
@@ -53,15 +101,9 @@ const baseModel = computed(() => {
                 ]
             },
             {
-                label: 'REPORTS & SECURITY',
+                label: 'SECURITY & SETTINGS',
                 items: [
-                    { label: 'Supervisor Reports', icon: 'pi pi-fw pi-chart-bar', to: '/supervisor/reports' },
-                    { label: 'Revenue Report', icon: 'pi pi-fw pi-chart-line', to: '/admin/reports/revenue' },
-                    { label: 'Applications Report', icon: 'pi pi-fw pi-chart-bar', to: '/admin/reports/applications' },
-                    { label: 'Occupancy Report', icon: 'pi pi-fw pi-percentage', to: '/admin/reports/occupancy' },
-                    { label: 'System Activity', icon: 'pi pi-fw pi-list-check', to: '/admin/reports/system-activity' },
                     { label: 'Audit Logs', icon: 'pi pi-fw pi-book', to: '/admin/audit-logs' },
-                    { label: 'Notifications', icon: 'pi pi-fw pi-bell', to: '/admin/notifications' },
                     { label: 'System Settings', icon: 'pi pi-fw pi-cog', to: '/admin/settings' }
                 ]
             }
@@ -96,36 +138,12 @@ const baseModel = computed(() => {
         ];
     }
 
-    if (role === 'BPLO_OFFICE') {
-        return [
-            {
-                label: 'OVERVIEW',
-                items: [
-                    { label: 'Dashboard', icon: 'pi pi-fw pi-home', to: '/bplo' },
-                    { label: 'Approvals', icon: 'pi pi-fw pi-check-circle', to: '/bplo/approvals' }
-                ]
-            }
-        ];
-    }
-
-    if (role === 'ENDORSING_OFFICE') {
-        return [
-            {
-                label: 'OVERVIEW',
-                items: [
-                    { label: 'Dashboard', icon: 'pi pi-fw pi-home', to: '/endorsing' },
-                    { label: 'Approvals', icon: 'pi pi-fw pi-check-circle', to: '/endorsing/approvals' }
-                ]
-            }
-        ];
-    }
-
-    // STAKEHOLDER / TENANT
+    // STAKEHOLDER (APPLICANT / ACTIVE VENDOR)
     return [
         {
             label: 'MY PORTAL',
             items: [
-                { label: 'Dashboard', icon: 'pi pi-fw pi-home', to: '/stakeholder' },
+                { label: 'Tenancy Dashboard', icon: 'pi pi-fw pi-home', to: '/stakeholder' },
                 { label: 'Payment History', icon: 'pi pi-fw pi-wallet', to: '/stakeholder/payments' },
                 { label: 'Market Stalls', icon: 'pi pi-fw pi-shop', to: '/stalls' },
                 { label: 'Settings & Profile', icon: 'pi pi-fw pi-cog', to: '/stakeholder/settings' }
@@ -135,6 +153,7 @@ const baseModel = computed(() => {
             label: 'APPLICATION',
             items: [
                 { label: 'Application Progress', icon: 'pi pi-fw pi-hourglass', to: '/application-progress' },
+                { label: 'Initial Fee Payment', icon: 'pi pi-fw pi-dollar', to: '/applicant-fee' },
                 { label: 'Requirements', icon: 'pi pi-fw pi-file-check', to: '/requirements' }
             ]
         }
