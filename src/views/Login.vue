@@ -301,9 +301,9 @@ async function onSubmit() {
     } else if (status === 403) {
       console.error('[AUTH] ❌ 403 Forbidden — account may be locked or backend CORS/security config issue.')
     } else if (status === 500) {
-      console.error('[AUTH] ❌ 500 Server Error — check Render logs. Likely: DB connection failure, AdminSeeder crash, or JWT secret missing.', body)
+      console.error('[AUTH] ❌ 500 Server Error — check Supabase logs and database connectivity.', body)
     } else if (!status) {
-      console.error('[AUTH] ❌ Network error — backend unreachable. Check Render service status and VITE_API_URL.')
+      console.error('[AUTH] ❌ Network error — Supabase unreachable. Check network connection and Supabase URL.')
     } else {
       console.error('[AUTH] ❌ Login error', { status, body, message })
     }
