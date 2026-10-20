@@ -19,6 +19,7 @@
       </button>
 
       <nav class="nav-links" aria-label="Primary navigation">
+        <a href="#market-map" @click="closeMenu">Market Map</a>
         <a href="#services" @click="closeMenu">Services</a>
         <a href="#why" @click="closeMenu">Why us</a>
         <a href="#testimonials" @click="closeMenu">Stories</a>
@@ -51,8 +52,11 @@
           </p>
 
           <div class="hero-actions">
-            <router-link to="/stalls" class="btn primary">View Stall List</router-link>
-            <router-link to="/create-account" class="btn secondary">Start Application</router-link>
+            <a href="#market-map" class="btn primary">
+              <i class="pi pi-map-marker"></i> Explore Market Map
+            </a>
+            <router-link to="/stalls" class="btn secondary">View Stall List</router-link>
+            <router-link to="/create-account" class="btn ghost-cta">Start Application</router-link>
           </div>
         </div>
 
@@ -119,6 +123,11 @@
           <strong>{{ stat.prefix }}{{ stat.value }}{{ stat.suffix }}</strong>
           <span>{{ stat.label }}</span>
         </div>
+      </section>
+
+      <!-- INTERACTIVE MARKET STALL MAP SECTION -->
+      <section id="market-map" class="content-section section-reveal" aria-label="Interactive Market Stall Map">
+        <LandingMarketMap />
       </section>
 
       <section id="services" class="content-section split-section section-reveal">
@@ -222,6 +231,7 @@
         <p>Modern rental management for public market operations.</p>
       </div>
       <nav>
+        <a href="#market-map">Market Map</a>
         <a href="#services">Services</a>
         <a href="#why">Why us</a>
         <a href="#faq">FAQ</a>
@@ -233,6 +243,7 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import LandingMarketMap from '../components/LandingMarketMap.vue'
 
 const menuOpen = ref(false)
 const activeFaq = ref(0)

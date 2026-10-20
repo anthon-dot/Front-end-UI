@@ -44,11 +44,13 @@ export async function authenticateToken(req, res, next) {
     let resolvedRole = (profile?.role || user.user_metadata?.role || 'APPLICANT').toUpperCase();
     if (resolvedRole === 'TREASURER' || resolvedRole === 'ROLE_TREASURER') resolvedRole = ROLES.TREASURER;
     if (resolvedRole === 'MARKET_SUPERVISOR' || resolvedRole === 'ROLE_MARKET_SUPERVISOR' || resolvedRole === 'SUPERVISOR') resolvedRole = ROLES.MARKET_SUPERVISOR;
-    if (resolvedRole === 'MAYOR' || resolvedRole === 'ROLE_MAYOR' || resolvedRole === 'ENDORSING' || resolvedRole === 'ENDORSING_OFFICE') resolvedRole = ROLES.MAYOR;
-    if (resolvedRole === 'COLLECTOR' || resolvedRole === 'INSPECTOR' || resolvedRole === 'COLLECTOR_INSPECTOR') resolvedRole = ROLES.COLLECTOR_INSPECTOR;
+    if (resolvedRole === 'MAYOR' || resolvedRole === 'ROLE_MAYOR') resolvedRole = ROLES.MAYOR;
+    if (resolvedRole === 'BPLO' || resolvedRole === 'ROLE_BPLO' || resolvedRole === 'BPLO_OFFICE' || resolvedRole === 'BPLO_STAFF') resolvedRole = ROLES.BPLO;
+    if (resolvedRole === 'ENDORSING' || resolvedRole === 'ROLE_ENDORSING' || resolvedRole === 'ENDORSING_OFFICE' || resolvedRole === 'ENDORSING_OFFICER') resolvedRole = ROLES.ENDORSING_OFFICE;
+    if (resolvedRole === 'COLLECTOR') resolvedRole = ROLES.COLLECTOR;
+    if (resolvedRole === 'INSPECTOR' || resolvedRole === 'COLLECTOR_INSPECTOR') resolvedRole = ROLES.COLLECTOR_INSPECTOR;
     if (resolvedRole === 'ADMIN' || resolvedRole === 'ROLE_ADMIN') resolvedRole = ROLES.ADMIN;
     if (resolvedRole === 'STAKEHOLDER' || resolvedRole === 'TENANT') resolvedRole = ROLES.VENDOR;
-    if (resolvedRole === 'BPLO' || resolvedRole === 'BPLO_OFFICE') resolvedRole = ROLES.COLLECTOR_INSPECTOR;
 
     req.user = {
       id: user.id,

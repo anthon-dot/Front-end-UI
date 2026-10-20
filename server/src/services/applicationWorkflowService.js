@@ -1,6 +1,7 @@
 import { supabase } from '../config/supabase.js';
 import { APPLICATION_STATUS, STALL_STATUS, CONTRACT_STATUS, ROLES } from '../config/constants.js';
 import { calculateInitialFeesForStall } from './rentalCalculationService.js';
+import { generateMORESCOClearancePDF } from '../utils/pdfGenerator.js';
 import { logAudit } from '../middleware/auditLogger.js';
 
 /**
@@ -251,8 +252,77 @@ export async function mayorReviewApplication(applicationId, { approved, remarks,
 }
 
 /**
+ * Step 3.5: Endorsing Office Review & Endorsement (Configurable Role)
+ */
+export async function endorsingOfficeReviewApplication(applicationId, { approved, remarks, officerId, officerName }) {
+  const { data: app, error: appErr } = await supabase
+    .from('stakeholder_applications')
+    .select('*, stakeholder:stakeholders(*)')
+    .eq('id', Number(applicationId))
+    .single();
+
+  if (appErr || !app) throw new Error('Application not found.');
+
+  const nextStatus = approved ? APPLICATION_STATUS.PENDING_MAYOR_APPROVAL : APPLICATION_STATUS.ENDORSING_REJECTED;
+  const holdingOffice = approved ? "Mayor's Office" : "Endorsing Office";
+
+  await supabase
+    .from('stakeholder_applications')
+    .update({
+      status: nextStatus,
+      endorsing_status: approved ? 'ENDORSED' : 'REJECTED',
+      endorsing_approved_at: new Date().toISOString(),
+      endorsing_remarks: remarks,
+      current_holding_office: holdingOffice,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', Number(applicationId));
+
+  await supabase
+    .from('stakeholders')
+    .update({
+      endorsing_approved: approved,
+      final_endorsed: approved,
+      endorsement_status: approved ? 'APPROVED' : 'REJECTED',
+      endorsement_remarks: remarks,
+      application_status: nextStatus
+    })
+    .eq('id', app.stakeholder_id);
+
+  if (!approved) {
+    await supabase
+      .from('stalls')
+      .update({ status: STALL_STATUS.AVAILABLE, updated_at: new Date().toISOString() })
+      .eq('id', app.stall_id);
+  }
+
+  await supabase.from('approval_history').insert({
+    stakeholder_id: app.stakeholder_id,
+    application_id: app.id,
+    stage: 'ENDORSING_OFFICE_REVIEW',
+    status: approved ? 'ENDORSED' : 'REJECTED',
+    action_by: officerId,
+    actor_name: officerName || 'Endorsing Officer',
+    actor_role: ROLES.ENDORSING_OFFICE,
+    remarks
+  });
+
+  await logAudit({
+    userId: officerId,
+    role: ROLES.ENDORSING_OFFICE,
+    action: 'REVIEW_ENDORSEMENT',
+    entityName: 'stakeholder_applications',
+    entityId: app.id,
+    details: { approved, nextStatus, remarks }
+  });
+
+  return { success: true, status: nextStatus, endorsed: approved };
+}
+
+/**
  * Step 4: Field Market Collector / Inspector Physical Stall Setup Verification
  * Inspector inspects stall setup (electrical, structural, fire safety, sanitation).
+ * On PASS -> Moves to BPLO Office for Business Permit Fee Assessment.
  */
 export async function inspectorVerifyStall(applicationId, {
   inspectorId,
@@ -273,8 +343,8 @@ export async function inspectorVerifyStall(applicationId, {
   if (appErr || !app) throw new Error('Application not found.');
 
   const isPassed = status === 'PASSED' && electricalClearance && structuralClearance && fireSafetyClearance && sanitationClearance;
-  const nextStatus = isPassed ? APPLICATION_STATUS.BUSINESS_PERMIT_ELIGIBLE : APPLICATION_STATUS.PENDING_INSPECTION;
-  const holdingOffice = isPassed ? 'Market Administration / Business Permit Processing' : 'Field Inspector';
+  const nextStatus = isPassed ? APPLICATION_STATUS.PENDING_BPLO_ASSESSMENT : APPLICATION_STATUS.PENDING_INSPECTION;
+  const holdingOffice = isPassed ? 'BPLO Office' : 'Field Inspector';
 
   // 1. Insert into stall_inspections table
   const { error: inspErr } = await supabase.from('stall_inspections').insert({
@@ -338,15 +408,243 @@ export async function inspectorVerifyStall(applicationId, {
     status: nextStatus,
     inspectionPassed: isPassed,
     message: isPassed
-      ? 'Physical stall setup verified. Business permit processing step now eligible.'
+      ? 'Physical stall setup verified. Forwarded to BPLO Office for Business Permit fee assessment.'
       : 'Stall inspection recorded with pending deficiencies.'
   };
 }
 
 /**
+ * Step 4.1: BPLO Assesses Business Permit Fee
+ * BPLO reviews line of business, determines fee, and forwards payable to Treasurer.
+ */
+export async function bploAssessBusinessPermitFee(applicationId, {
+  assessedAmount = 1500.00,
+  remarks = '',
+  bploUserId,
+  bploUserName
+}) {
+  const { data: app, error: appErr } = await supabase
+    .from('stakeholder_applications')
+    .select('*, stakeholder:stakeholders(*)')
+    .eq('id', Number(applicationId))
+    .single();
+
+  if (appErr || !app) throw new Error('Application not found.');
+  if (!app.hazard_free_confirmed) {
+    throw new Error('Cannot assess business permit fee: Physical stall setup inspection has not passed.');
+  }
+
+  const feeAmount = Number(assessedAmount) || 1500.00;
+  const nextStatus = APPLICATION_STATUS.PENDING_BPLO_PAYMENT;
+  const holdingOffice = "Treasurer's Office";
+
+  await supabase
+    .from('stakeholder_applications')
+    .update({
+      status: nextStatus,
+      business_permit_fee_assessed: feeAmount,
+      business_permit_assessed_by: bploUserId,
+      business_permit_assessed_at: new Date().toISOString(),
+      bplo_status: 'ASSESSED',
+      bplo_remarks: remarks,
+      current_holding_office: holdingOffice,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', Number(applicationId));
+
+  await supabase
+    .from('stakeholders')
+    .update({
+      business_permit_fee_assessed: feeAmount,
+      bplo_status: 'ASSESSED',
+      application_status: nextStatus
+    })
+    .eq('id', app.stakeholder_id);
+
+  // Notify Treasurer that Business Permit fee has been assessed and is payable
+  await supabase.from('notifications').insert({
+    target_role: ROLES.TREASURER,
+    title: 'Business Permit Fee Ready for Collection',
+    message: `BPLO assessed ₱${feeAmount.toLocaleString('en-PH', { minimumFractionDigits: 2 })} Business Permit Fee for ${app.stakeholder.business_name}. Ready for Treasury collection.`,
+    notification_type: 'BPLO_FEE_ASSESSED',
+    related_entity_type: 'stakeholder_applications',
+    related_entity_id: String(app.id)
+  });
+
+  await supabase.from('approval_history').insert({
+    stakeholder_id: app.stakeholder_id,
+    application_id: app.id,
+    stage: 'BPLO_FEE_ASSESSMENT',
+    status: 'ASSESSED',
+    action_by: bploUserId,
+    actor_name: bploUserName || 'BPLO Staff',
+    actor_role: ROLES.BPLO,
+    remarks: `Business permit fee assessed: ₱${feeAmount}. ${remarks}`
+  });
+
+  await logAudit({
+    userId: bploUserId,
+    role: ROLES.BPLO,
+    action: 'ASSESS_BUSINESS_PERMIT_FEE',
+    entityName: 'stakeholder_applications',
+    entityId: app.id,
+    details: { feeAmount, status: nextStatus }
+  });
+
+  return {
+    success: true,
+    status: nextStatus,
+    assessedAmount: feeAmount,
+    message: `Business Permit Fee of ₱${feeAmount} assessed. Forwarded to Treasury for payment collection.`
+  };
+}
+
+/**
+ * Step 4.2: BPLO Releases Business Permit
+ * Pre-condition: Treasurer MUST have confirmed payment of Business Permit Fee!
+ */
+export async function bploReleaseBusinessPermit(applicationId, {
+  permitNo,
+  remarks = '',
+  bploUserId,
+  bploUserName
+}) {
+  const { data: app, error: appErr } = await supabase
+    .from('stakeholder_applications')
+    .select('*, stakeholder:stakeholders(*)')
+    .eq('id', Number(applicationId))
+    .single();
+
+  if (appErr || !app) throw new Error('Application not found.');
+
+  // Crucial Business Rule: BPLO must not release business permit before payment confirmation
+  if (!app.business_permit_fee_paid && !app.stakeholder.business_permit_fee_paid) {
+    throw new Error('Cannot release business permit: Fee payment has not been confirmed by the Municipal Treasurer.');
+  }
+
+  const generatedPermitNo = permitNo || `BP-${new Date().getFullYear()}-${Date.now().toString().slice(-5)}`;
+  const nextStatus = APPLICATION_STATUS.BUSINESS_PERMIT_RELEASED;
+  const holdingOffice = 'Market Administration';
+
+  await supabase
+    .from('stakeholder_applications')
+    .update({
+      status: nextStatus,
+      business_permit_released: true,
+      business_permit_no: generatedPermitNo,
+      business_permit_released_at: new Date().toISOString(),
+      business_permit_released_by: bploUserId,
+      bplo_status: 'RELEASED',
+      bplo_approved_at: new Date().toISOString(),
+      bplo_remarks: remarks,
+      current_holding_office: holdingOffice,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', Number(applicationId));
+
+  await supabase
+    .from('stakeholders')
+    .update({
+      bplo_approved: true,
+      bplo_status: 'RELEASED',
+      application_status: nextStatus
+    })
+    .eq('id', app.stakeholder_id);
+
+  // Notify Market Administration that business permit is released
+  await supabase.from('notifications').insert({
+    target_role: ROLES.MARKET_SUPERVISOR,
+    title: 'Business Permit Released',
+    message: `Business Permit #${generatedPermitNo} released by BPLO for ${app.stakeholder.business_name}. Stakeholder is now eligible for final Vendor Activation.`,
+    notification_type: 'BPLO_PERMIT_RELEASED',
+    related_entity_type: 'stakeholder_applications',
+    related_entity_id: String(app.id)
+  });
+
+  await supabase.from('approval_history').insert({
+    stakeholder_id: app.stakeholder_id,
+    application_id: app.id,
+    stage: 'BPLO_PERMIT_RELEASE',
+    status: 'RELEASED',
+    action_by: bploUserId,
+    actor_name: bploUserName || 'BPLO Staff',
+    actor_role: ROLES.BPLO,
+    remarks: `Business permit #${generatedPermitNo} officially released. ${remarks}`
+  });
+
+  await logAudit({
+    userId: bploUserId,
+    role: ROLES.BPLO,
+    action: 'RELEASE_BUSINESS_PERMIT',
+    entityName: 'stakeholder_applications',
+    entityId: app.id,
+    details: { businessPermitNo: generatedPermitNo, status: nextStatus }
+  });
+
+  return {
+    success: true,
+    status: nextStatus,
+    businessPermitNo: generatedPermitNo,
+    message: `Business Permit #${generatedPermitNo} successfully released. Application ready for final Vendor Activation.`
+  };
+}
+
+/**
+ * Generates and stores the MORESCO Utility Clearance Certificate
+ */
+export async function generateMorescoUtilityClearance(applicationId) {
+  const { data: app, error: appErr } = await supabase
+    .from('stakeholder_applications')
+    .select('*, stakeholder:stakeholders(*), stall:stalls(*)')
+    .eq('id', Number(applicationId))
+    .single();
+
+  if (appErr || !app) throw new Error('Application not found.');
+
+  const vendorName = `${app.stakeholder.first_name} ${app.stakeholder.last_name}`;
+  const clearanceNo = `CLR-MORESCO-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
+
+  const pdfBuffer = await generateMORESCOClearancePDF({
+    clearanceNo,
+    vendorName,
+    businessName: app.stakeholder.business_name,
+    stallNo: app.stall.stall_no,
+    stallType: app.stall.stall_type,
+    issueDate: new Date().toISOString().split('T')[0]
+  });
+
+  const storagePath = `clearances/${clearanceNo}.pdf`;
+  try {
+    await supabase.storage.from('uploads').upload(storagePath, pdfBuffer, {
+      contentType: 'application/pdf',
+      upsert: true
+    });
+  } catch (_) {}
+
+  await supabase
+    .from('stakeholder_applications')
+    .update({
+      moresco_clearance_url: storagePath,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', Number(applicationId));
+
+  return {
+    clearanceNo,
+    storagePath,
+    pdfBuffer
+  };
+}
+
+/**
  * Step 5: Final Stakeholder Activation as Active Vendor
- * Condition check: Initial fees paid + Contract executed + Physical inspection passed.
- * Upgrades user to VENDOR, activates occupant, sets stall OCCUPIED, schedules recurring monthly billing.
+ * Condition checks:
+ * 1. Initial fees paid (advance rent + stall rights)
+ * 2. Contract of lease executed
+ * 3. Physical stall setup inspected & passed
+ * 4. Business Permit fee paid to Treasury
+ * 5. Business Permit released by BPLO
+ * ONLY when all conditions are satisfied does the vendor become ACTIVE_VENDOR and enter recurring monthly billing.
  */
 export async function activateVendorAndCompleteApplication(applicationId, {
   authorizedBy,
@@ -361,6 +659,31 @@ export async function activateVendorAndCompleteApplication(applicationId, {
 
   if (appErr || !app) throw new Error('Application not found.');
 
+  const stakeholder = app.stakeholder;
+
+  // Prerequisite 1: Initial advance rental & stall rights confirmed paid
+  const initialFeesPaid = stakeholder.advance_payment_paid || stakeholder.advance_payment_completed || app.amount_paid > 0;
+  if (!initialFeesPaid) {
+    throw new Error('Cannot activate vendor: Initial advance rental and stall rights fees have not been confirmed by the Treasurer.');
+  }
+
+  // Prerequisite 2: Physical stall setup inspection passed
+  if (!app.hazard_free_confirmed && !stakeholder.hazard_free_confirmed) {
+    throw new Error('Cannot activate vendor: Physical stall inspection has not passed.');
+  }
+
+  // Prerequisite 3: Business permit fee paid
+  const bpFeePaid = app.business_permit_fee_paid || stakeholder.business_permit_fee_paid;
+  if (!bpFeePaid) {
+    throw new Error('Cannot activate vendor: Business Permit Fee payment has not been confirmed by the Treasurer.');
+  }
+
+  // Prerequisite 4: Business permit released by BPLO
+  const bpReleased = app.business_permit_released || stakeholder.bplo_approved;
+  if (!bpReleased) {
+    throw new Error('Cannot activate vendor: Business permit has not been officially released by BPLO.');
+  }
+
   // 1. Mark application COMPLETED
   await supabase
     .from('stakeholder_applications')
@@ -372,7 +695,7 @@ export async function activateVendorAndCompleteApplication(applicationId, {
     })
     .eq('id', Number(applicationId));
 
-  // 2. Mark stakeholder verified
+  // 2. Mark stakeholder verified & active vendor
   await supabase
     .from('stakeholders')
     .update({
@@ -432,7 +755,7 @@ export async function activateVendorAndCompleteApplication(applicationId, {
     action_by: authorizedBy,
     actor_name: 'Market Administration',
     actor_role: authorizedRole,
-    remarks: remarks || 'All prerequisites completed. Stakeholder promoted to Active Vendor.'
+    remarks: remarks || 'All operational compliance checks, fees, inspections, and permits verified. Promoted to Active Vendor.'
   });
 
   await logAudit({

@@ -186,10 +186,10 @@ async function handleSelectStall(cleanUrl, data) {
   if (!rawStallId) throw new Error('Stall ID is required.');
   const targetStallId = Number(rawStallId);
 
-  // 1. Fetch stall info to compute 3 months advance baseline
+  // 1. Fetch stall info to compute 2 months advance baseline (Blueprint requirement)
   const { data: st } = await supabase.from('stalls').select('*').eq('id', targetStallId).maybeSingle();
   const monthlyRent = Number(st?.monthly_rent ?? st?.monthlyRent ?? 1500);
-  const totalAdvance = monthlyRent * 3;
+  const totalAdvance = monthlyRent * 2;
 
   // 2. Free up any previous stall reserved by this stakeholder if changed
   try {

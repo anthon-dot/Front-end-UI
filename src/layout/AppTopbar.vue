@@ -39,6 +39,10 @@ const portalHomeRoute = computed(() => {
         case 'MARKET_SUPERVISOR': return '/supervisor';
         case 'MAYOR': return '/mayor';
         case 'TREASURER': return '/treasurer';
+        case 'BPLO':
+        case 'BPLO_STAFF': return '/bplo';
+        case 'ENDORSING_OFFICE': return '/endorsing';
+        case 'COLLECTOR':
         case 'COLLECTOR_INSPECTOR': return '/collector';
         case 'VENDOR':
         case 'APPLICANT':
@@ -63,6 +67,22 @@ const currentRouteMeta = computed(() => {
             portal: 'Market Supervisor',
             page: seg.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Dashboard',
             icon: 'pi pi-shopping-bag'
+        };
+    }
+    if (path.startsWith('/bplo')) {
+        const seg = path.replace('/bplo', '').replace(/^\//, '') || 'Business Permit Review';
+        return {
+            portal: 'BPLO Office',
+            page: seg.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Business Permit Review',
+            icon: 'pi pi-briefcase'
+        };
+    }
+    if (path.startsWith('/endorsing')) {
+        const seg = path.replace('/endorsing', '').replace(/^\//, '') || 'Application Endorsements';
+        return {
+            portal: 'Endorsing Office',
+            page: seg.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Application Endorsements',
+            icon: 'pi pi-verified'
         };
     }
     if (path.startsWith('/mayor')) {

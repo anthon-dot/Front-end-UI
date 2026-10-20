@@ -1,27 +1,57 @@
 import { supabase } from '../config/supabase.js';
 
 /**
- * Service for calculating dynamic stall rates and required initial fees
+ * Pure helper for calculating dynamic stall rates and required initial fees
  * Blueprint formula: Stall Rights Fee + Two (2) Months Advance Rent
  */
-export async function calculateInitialFeesForStall(stallId) {
-  // 1. Fetch stall details
-  const { data: stall, error: stallErr } = await supabase
-    .from('stalls')
-    .select('*, section:sections(*)')
-    .eq('id', Number(stallId))
-    .single();
+export function computeInitialFees({ monthlyRent = 1500, stallRightsFee = 5000, advanceMonths = 2, penaltyPercent = 0 } = {}) {
+  const advanceRent = Number(monthlyRent) * Number(advanceMonths);
+  const penaltyAmount = penaltyPercent > 0 ? (Number(monthlyRent) * (Number(penaltyPercent) / 100)) : 0;
+  const totalInitialDue = Number(stallRightsFee) + advanceRent + penaltyAmount;
 
-  if (stallErr || !stall) {
-    throw new Error(`Stall #${stallId} not found for rental rate calculation.`);
+  return {
+    advanceMonths: Number(advanceMonths),
+    advanceRent,
+    advanceRentAmount: advanceRent,
+    stallRightsFee: Number(stallRightsFee),
+    penaltyAmount,
+    totalInitialDue,
+    totalInitialAmount: totalInitialDue
+  };
+}
+
+/**
+ * Service for calculating dynamic stall rates and required initial fees
+ * Supports stall ID lookup or direct stall object input.
+ */
+export async function calculateInitialFeesForStall(stallIdOrObj, customSettings = null) {
+  let stall;
+  let settings = customSettings;
+
+  if (typeof stallIdOrObj === 'object' && stallIdOrObj !== null) {
+    stall = stallIdOrObj;
+  } else {
+    // 1. Fetch stall details
+    const { data, error: stallErr } = await supabase
+      .from('stalls')
+      .select('*, section:sections(*)')
+      .eq('id', Number(stallIdOrObj))
+      .single();
+
+    if (stallErr || !data) {
+      throw new Error(`Stall #${stallIdOrObj} not found for rental rate calculation.`);
+    }
+    stall = data;
+
+    if (!settings) {
+      const { data: s } = await supabase
+        .from('system_settings')
+        .select('*')
+        .eq('id', 1)
+        .maybeSingle();
+      settings = s;
+    }
   }
-
-  // 2. Fetch system settings or default rate formula
-  const { data: settings } = await supabase
-    .from('system_settings')
-    .select('*')
-    .eq('id', 1)
-    .maybeSingle();
 
   const isOldCategory = stall.rate_category === 'OLD' || stall.section?.rate_category === 'OLD';
   const defaultStallRights = isOldCategory
@@ -44,7 +74,9 @@ export async function calculateInitialFeesForStall(stallId) {
     monthlyRent,
     advanceMonths,
     stallRightsFee,
+    advanceRent: advanceRentAmount,
     advanceRentAmount,
+    totalInitialDue: totalInitialAmount,
     totalInitialAmount
   };
 }

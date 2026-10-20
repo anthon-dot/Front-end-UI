@@ -45,8 +45,35 @@
             <td><span :class="badge(app.finalStatus)">{{ app.finalStatus || 'PENDING' }}</span></td>
             <td class="row-actions">
               <button class="btn ghost" type="button" @click="selected = app">View</button>
-              <button class="btn primary" type="button" :disabled="!canDecide(app)" @click="approve(app)">Approve</button>
-              <button class="btn danger" type="button" :disabled="!canDecide(app)" @click="openReject(app)">Reject</button>
+              <button
+                v-if="!app.bploStatus || app.bploStatus === 'PENDING' || app.applicationStatus === 'PENDING_BPLO_ASSESSMENT'"
+                class="btn primary"
+                type="button"
+                @click="openAssess(app)"
+              >
+                Assess Fee
+              </button>
+              <button
+                v-else-if="!app.businessPermitFeePaid && !app.business_permit_fee_paid"
+                class="btn ghost"
+                type="button"
+                disabled
+                title="Waiting for Treasurer payment confirmation"
+                style="font-size:0.78rem;opacity:0.75"
+              >
+                Awaiting Payment
+              </button>
+              <button
+                v-else-if="app.bploStatus !== 'RELEASED'"
+                class="btn primary"
+                type="button"
+                style="background:#059669;border-color:#059669;color:#fff"
+                @click="releasePermit(app)"
+              >
+                Release Permit
+              </button>
+              <span v-else class="badge approved">Released</span>
+              <button class="btn danger" type="button" :disabled="app.bploStatus === 'RELEASED'" @click="openReject(app)">Reject</button>
             </td>
           </tr>
           <tr v-if="paginated.length === 0">
@@ -62,13 +89,15 @@
       <button class="btn ghost" type="button" :disabled="page === pageCount" @click="page++">Next</button>
     </div>
 
+    <!-- Details Modal -->
     <div v-if="selected" class="modal-backdrop" @click.self="selected = null">
       <div class="modal">
         <header><h3>{{ fullName(selected) }}</h3><button class="x" @click="selected = null">x</button></header>
         <dl>
           <div><dt>Business</dt><dd>{{ selected.businessName }}</dd></div>
           <div><dt>Type</dt><dd>{{ selected.businessType }}</dd></div>
-          <div><dt>Endorsed by</dt><dd>{{ selected.endorsedBy || '-' }}</dd></div>
+          <div><dt>Assessed Fee</dt><dd>₱{{ Number(selected.businessPermitFeeAssessed || selected.business_permit_fee_assessed || 0).toLocaleString() }}</dd></div>
+          <div><dt>Fee Payment</dt><dd>{{ (selected.businessPermitFeePaid || selected.business_permit_fee_paid) ? 'Confirmed Paid (Treasury)' : 'Pending Payment' }}</dd></div>
           <div><dt>Address</dt><dd>{{ selected.address }}</dd></div>
           <div class="documents-section">
             <dt style="font-size:0.95rem;font-weight:700;color:#0f172a;margin-bottom:8px">Uploaded Documents</dt>
@@ -113,57 +142,54 @@
                 <!-- Hazard-Free Stall Confirmation -->
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">
                   <div>
-                    <strong style="display:block;font-size:0.88rem;color:#1e293b">Hazard-Free Stall Confirmation</strong>
-                    <small style="color:#64748b">{{ selected.hazardFreeFileName || 'Hazard-Free Certificate' }}</small>
+                    <strong style="display:block;font-size:0.88rem;color:#1e293b">Hazard-Free Stall Setup Inspection</strong>
+                    <small style="color:#64748b">{{ selected.hazardFreeFileName || 'Inspection Certificate' }}</small>
                   </div>
                   <div style="display:flex;align-items:center;gap:8px">
                     <span v-if="selected.hazardFreeConfirmed || selected.hazardFreeDocumentUrl" class="badge approved">Verified</span>
                     <span v-else class="badge pending">Pending</span>
-                    <a
-                      v-if="selected.hazardFreeDocumentUrl"
-                      :href="selected.hazardFreeDocumentUrl"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style="color:#2563eb;font-weight:700;font-size:0.85rem;text-decoration:underline;display:inline-flex;align-items:center;gap:4px"
-                    >
-                      View Doc ↗
-                    </a>
                   </div>
                 </div>
-
-                <!-- Additional Documents if any -->
-                <template v-if="selected.documents && selected.documents.length">
-                  <div
-                    v-for="d in selected.documents.filter(doc => !['VALID_ID', 'APPLICATION_LETTER', 'HAZARD_FREE_CONFIRMATION', 'HAZARD_FREE_CERTIFICATE'].includes(doc.document_type))"
-                    :key="d.id"
-                    style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px"
-                  >
-                    <div>
-                      <strong style="display:block;font-size:0.88rem;color:#1e293b">{{ (d.document_type || 'Document').replace(/_/g, ' ') }}</strong>
-                      <small style="color:#64748b">{{ d.file_name }}</small>
-                    </div>
-                    <a
-                      :href="d.file_path"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style="color:#2563eb;font-weight:700;font-size:0.85rem;text-decoration:underline"
-                    >
-                      View ↗
-                    </a>
-                  </div>
-                </template>
               </div>
             </dd>
           </div>
-          <div><dt>Remarks</dt><dd>{{ selected.remarks || selected.endorsementRemarks || '-' }}</dd></div>
+          <div><dt>Remarks</dt><dd>{{ selected.remarks || selected.bploRemarks || selected.bplo_remarks || '-' }}</dd></div>
         </dl>
       </div>
     </div>
 
+    <!-- Fee Assessment Modal -->
+    <div v-if="assessing" class="modal-backdrop" @click.self="assessing = null">
+      <form class="modal" @submit.prevent="submitAssessment">
+        <header>
+          <h3>Assess Business Permit Fee</h3>
+          <button class="x" type="button" @click="assessing = null">x</button>
+        </header>
+        <p style="font-size:0.88rem;color:#64748b;margin-bottom:12px">
+          Applicant: <strong>{{ fullName(assessing) }}</strong> — Business: <strong>{{ assessing.businessName }}</strong> ({{ assessing.businessType }})
+        </p>
+        <div style="display:grid;gap:12px;margin-bottom:16px">
+          <div>
+            <label style="display:block;font-size:0.85rem;font-weight:600;margin-bottom:4px">Assessed Business Permit Fee (₱)</label>
+            <input v-model.number="feeAmount" type="number" min="0" step="50" class="control" required style="width:100%" />
+          </div>
+          <div>
+            <label style="display:block;font-size:0.85rem;font-weight:600;margin-bottom:4px">Assessment Remarks</label>
+            <textarea v-model="remarks" class="remarks" rows="3" placeholder="Enter line of business inspection remarks..."></textarea>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn ghost" type="button" @click="assessing = null">Cancel</button>
+          <button class="btn primary" type="submit">Save Assessment & Forward to Treasury</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Rejection Modal -->
     <div v-if="rejecting" class="modal-backdrop" @click.self="rejecting = null">
       <form class="modal" @submit.prevent="reject">
-        <header><h3>Reject final approval</h3><button class="x" type="button" @click="rejecting = null">x</button></header>
-        <textarea v-model="remarks" class="remarks" rows="4" placeholder="Remarks"></textarea>
+        <header><h3>Reject application</h3><button class="x" type="button" @click="rejecting = null">x</button></header>
+        <textarea v-model="remarks" class="remarks" rows="4" placeholder="Remarks for rejection"></textarea>
         <div class="modal-actions">
           <button class="btn ghost" type="button" @click="rejecting = null">Cancel</button>
           <button class="btn danger" type="submit">Reject</button>
@@ -175,7 +201,7 @@
 
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
-import { approveByBPLO, getApplications, rejectByBPLO } from '../services/applicationService'
+import { bploAssessFee, bploReleasePermit, getApplications, rejectByBPLO } from '../services/applicationService'
 import SearchField from '../components/SearchField.vue'
 
 const applications = ref([])
@@ -185,7 +211,9 @@ const filter = ref('READY')
 const page = ref(1)
 const perPage = 8
 const selected = ref(null)
+const assessing = ref(null)
 const rejecting = ref(null)
+const feeAmount = ref(1500)
 const remarks = ref('')
 const toast = ref({ text: '', type: 'success' })
 
@@ -206,7 +234,7 @@ async function load() {
 const filtered = computed(() => {
   const term = search.value.trim().toLowerCase()
   return applications.value.filter((app) => {
-    const ready = app.marketApprovalStatus === 'APPROVED' && (app.bploStatus || 'PENDING') === 'PENDING'
+    const ready = (app.bploStatus || 'PENDING') === 'PENDING' || (app.businessPermitFeePaid && app.bploStatus !== 'RELEASED')
     const statusMatch = filter.value === 'ALL' || (filter.value === 'READY' ? ready : (app.bploStatus || 'PENDING') === filter.value)
     const textMatch = !term || fullName(app).toLowerCase().includes(term) || String(app.businessName || '').toLowerCase().includes(term)
     return statusMatch && textMatch
@@ -216,17 +244,30 @@ const filtered = computed(() => {
 const pageCount = computed(() => Math.max(1, Math.ceil(filtered.value.length / perPage)))
 const paginated = computed(() => filtered.value.slice((page.value - 1) * perPage, page.value * perPage))
 
-function canDecide(app) {
-  return app.marketApprovalStatus === 'APPROVED' && (app.bploStatus || 'PENDING') === 'PENDING'
+function openAssess(app) {
+  assessing.value = app
+  feeAmount.value = Number(app.businessPermitFeeAssessed || app.business_permit_fee_assessed || 1500)
+  remarks.value = ''
 }
 
-async function approve(app) {
+async function submitAssessment() {
   try {
-    await approveByBPLO(app.id, app.stakeholderId || app.id)
-    showToast('Application approved by BPLO and sent to the Endorsing Office.')
+    await bploAssessFee(assessing.value.id, feeAmount.value, remarks.value, assessing.value.stakeholderId || assessing.value.id)
+    showToast(`Business Permit Fee of ₱${feeAmount.value.toLocaleString()} assessed. Forwarded to Treasury.`)
+    assessing.value = null
     await load()
   } catch (error) {
-    showToast(error.message || 'BPLO approval failed', 'error')
+    showToast(error.message || 'Fee assessment failed', 'error')
+  }
+}
+
+async function releasePermit(app) {
+  try {
+    await bploReleasePermit(app.id, null, 'Business permit released by BPLO', app.stakeholderId || app.id)
+    showToast('Business Permit successfully released!')
+    await load()
+  } catch (error) {
+    showToast(error.message || 'Permit release failed', 'error')
   }
 }
 
@@ -239,10 +280,10 @@ async function reject() {
   try {
     await rejectByBPLO(rejecting.value.id, remarks.value, rejecting.value.stakeholderId || rejecting.value.id)
     rejecting.value = null
-    showToast('Application rejected by BPLO.')
+    showToast('Application rejected.')
     await load()
   } catch (error) {
-    showToast(error.message || 'BPLO rejection failed', 'error')
+    showToast(error.message || 'Rejection failed', 'error')
   }
 }
 

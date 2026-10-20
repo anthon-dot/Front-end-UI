@@ -658,9 +658,54 @@ export async function activateVendor(id, remarks = '') {
   }
 }
 
-// Backwards-compatible aliases
-export const approveByBPLO = (id, stakeholderId = null) => verifyStallByInspector(id, { electricalClearance: true, structuralClearance: true, fireSafetyClearance: true, sanitationClearance: true, status: 'PASSED', remarks: 'Physical stall inspection approved.' }, stakeholderId);
-export const rejectByBPLO = (id, remarks = '', stakeholderId = null) => verifyStallByInspector(id, { status: 'FAILED', remarks }, stakeholderId);
+export async function endorseByEndorsingOffice(id, remarks = 'Application endorsed by Endorsing Office.', stakeholderId = null) {
+  try {
+    const res = await api.put(`/applications/${id}/endorsing-review`, { approved: true, remarks })
+    return res.data || { success: true }
+  } catch (err) {
+    throw err
+  }
+}
+
+export async function rejectByEndorsingOffice(id, remarks = '', stakeholderId = null) {
+  try {
+    const res = await api.put(`/applications/${id}/endorsing-review`, { approved: false, remarks })
+    return res.data || { success: true }
+  } catch (err) {
+    throw err
+  }
+}
+
+export async function bploAssessFee(id, assessedAmount = 1500, remarks = '', stakeholderId = null) {
+  try {
+    const res = await api.put(`/applications/${id}/bplo-assess`, { assessedAmount, remarks })
+    return res.data || { success: true }
+  } catch (err) {
+    throw err
+  }
+}
+
+export async function bploReleasePermit(id, permitNo = null, remarks = '', stakeholderId = null) {
+  try {
+    const res = await api.put(`/applications/${id}/bplo-release`, { permitNo, remarks })
+    return res.data || { success: true }
+  } catch (err) {
+    throw err
+  }
+}
+
+export const approveByBPLO = async (id, stakeholderId = null) => {
+  try {
+    return await bploReleasePermit(id, null, 'Approved and released by BPLO', stakeholderId);
+  } catch (err) {
+    // If not yet assessed or paid, fallback to assess
+    return await bploAssessFee(id, 1500, 'Assessed by BPLO', stakeholderId);
+  }
+};
+
+export const rejectByBPLO = async (id, remarks = '', stakeholderId = null) => {
+  return await verifyStallByInspector(id, { status: 'FAILED', remarks }, stakeholderId);
+};
 
 export function isDashboardReady(stakeholder, requirements = null) {
   if (!stakeholder) return false

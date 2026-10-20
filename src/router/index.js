@@ -349,11 +349,15 @@ const routes = [
   },
   {
     path: '/endorsing',
-    redirect: '/mayor'
+    name: 'EndorsingDashboard',
+    component: () => import('../EndorsingOfficeDashboard/EndorsingDashboard.vue'),
+    meta: { roles: ['ADMIN', 'ENDORSING_OFFICE'] }
   },
   {
     path: '/bplo',
-    redirect: '/supervisor'
+    name: 'BPLODashboard',
+    component: () => import('../BPLODashboard/BPLODashboard.vue'),
+    meta: { roles: ['ADMIN', 'BPLO', 'BPLO_STAFF'] }
   },
   {
     path: '/stakeholder/settings',

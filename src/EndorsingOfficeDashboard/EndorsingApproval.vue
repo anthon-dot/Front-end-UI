@@ -175,7 +175,7 @@
 
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
-import { endorseApplication, getApplications, rejectEndorsement } from '../services/applicationService'
+import { endorseByEndorsingOffice, getApplications, rejectByEndorsingOffice } from '../services/applicationService'
 import SearchField from '../components/SearchField.vue'
 
 const applications = ref([])
@@ -227,8 +227,8 @@ function canReject(app) {
 
 async function endorse(app) {
   try {
-    await endorseApplication(app.id, app.stakeholderId || app.id)
-    showToast('Application endorsed for business permit payment.')
+    await endorseByEndorsingOffice(app.id, 'Endorsed by Endorsing Office', app.stakeholderId || app.id)
+    showToast('Application endorsed successfully.')
     await load()
   } catch (error) {
     showToast(error.message || 'Endorsement failed', 'error')
@@ -242,7 +242,7 @@ function openReject(app) {
 
 async function reject() {
   try {
-    await rejectEndorsement(rejecting.value.id, remarks.value, rejecting.value.stakeholderId || rejecting.value.id)
+    await rejectByEndorsingOffice(rejecting.value.id, remarks.value, rejecting.value.stakeholderId || rejecting.value.id)
     rejecting.value = null
     showToast('Endorsement rejected.')
     await load()

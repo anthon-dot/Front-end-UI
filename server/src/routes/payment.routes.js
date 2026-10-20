@@ -9,7 +9,7 @@ const router = Router();
 router.get('/', authenticateToken, listPayments);
 router.get('/receipts/:receiptNo', authenticateToken, getReceipt);
 
-// Only Treasurer & Staff can record payments
-router.post('/', authenticateToken, requireRole(ROLES.TREASURER, ROLES.COLLECTOR_INSPECTOR), createPayment);
+// Only Treasurer & Authorized Collectors can record payments
+router.post('/', authenticateToken, requireRole(ROLES.TREASURER, ROLES.COLLECTOR_INSPECTOR, ROLES.COLLECTOR, ROLES.ADMIN), createPayment);
 
 export default router;

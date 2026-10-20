@@ -1,12 +1,12 @@
 import { supabase } from '../config/supabase.js';
 import { PERMIT_STATUS, APPLICATION_STATUS, STALL_STATUS, ROLES } from '../config/constants.js';
 import { generatePermitIntegrityHash } from '../utils/crypto.js';
-import { generatePermitPDF } from '../utils/pdfGenerator.js';
+import { generatePermitPDF, generateMORESCOClearancePDF } from '../utils/pdfGenerator.js';
 import { generatePermitQRCode } from '../utils/qrGenerator.js';
 import { logAudit } from '../middleware/auditLogger.js';
 
 /**
- * Generates an official digital occupancy permit with QR verification
+ * Generates an official digital occupancy permit with QR verification and MORESCO utility clearance
  */
 export async function issueOccupancyPermit({ applicationId, issuedBy }) {
   // 1. Fetch application with related stakeholder, contract, and stall
@@ -61,7 +61,7 @@ export async function issueOccupancyPermit({ applicationId, issuedBy }) {
 
   const { verificationUrl } = await generatePermitQRCode({ permitNo, integrityHash });
 
-  // Generate PDF document
+  // Generate Permit PDF document
   const pdfBuffer = await generatePermitPDF({
     permitNo,
     vendorName,
@@ -73,7 +73,7 @@ export async function issueOccupancyPermit({ applicationId, issuedBy }) {
     integrityHash
   });
 
-  // Upload to Supabase Storage
+  // Upload Permit PDF to Supabase Storage
   const storagePath = `permits/${permitNo}.pdf`;
   try {
     await supabase.storage.from('uploads').upload(storagePath, pdfBuffer, {
@@ -81,6 +81,28 @@ export async function issueOccupancyPermit({ applicationId, issuedBy }) {
       upsert: true
     });
   } catch (_) {}
+
+  // Generate MORESCO Utility Clearance Certificate
+  const clearanceNo = `CLR-MORESCO-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
+  let morescoPath = null;
+  try {
+    const morescoPdfBuffer = await generateMORESCOClearancePDF({
+      clearanceNo,
+      vendorName,
+      businessName: stakeholder.business_name,
+      stallNo: stall.stall_no,
+      stallType: stall.stall_type,
+      issueDate
+    });
+
+    morescoPath = `clearances/${clearanceNo}.pdf`;
+    await supabase.storage.from('uploads').upload(morescoPath, morescoPdfBuffer, {
+      contentType: 'application/pdf',
+      upsert: true
+    });
+  } catch (mErr) {
+    console.warn('[permitService] MORESCO clearance generation notice:', mErr.message);
+  }
 
   // Upsert Occupancy Permit record
   const { data: permit, error: pErr } = await supabase
@@ -103,15 +125,19 @@ export async function issueOccupancyPermit({ applicationId, issuedBy }) {
 
   if (pErr) throw pErr;
 
-  // Activate Stall Occupancy & Vendor Status
+  // 19. The stall becomes OCCUPIED_PENDING_VERIFICATION when lease is active and physical setup is required
   await supabase
     .from('stalls')
-    .update({ status: STALL_STATUS.OCCUPIED, occupant_id: occupant.id, updated_at: new Date().toISOString() })
+    .update({
+      status: STALL_STATUS.OCCUPIED_PENDING_VERIFICATION,
+      occupant_id: occupant.id,
+      updated_at: new Date().toISOString()
+    })
     .eq('id', stall.id);
 
   await supabase
     .from('occupants')
-    .update({ status: 'ACTIVE', occupancy_date: issueDate })
+    .update({ status: 'PENDING_VERIFICATION', occupancy_date: issueDate })
     .eq('id', occupant.id);
 
   await supabase
@@ -119,24 +145,23 @@ export async function issueOccupancyPermit({ applicationId, issuedBy }) {
     .update({ status: 'ACTIVE' })
     .eq('id', contract.id);
 
-  await supabase
-    .from('stakeholders')
-    .update({
-      verified_tenant: true,
-      application_status: APPLICATION_STATUS.COMPLETED,
-      onboarding_status: 'FULLY_ONBOARDED'
-    })
-    .eq('id', stakeholder.id);
-
+  // Update application to PENDING_INSPECTION (awaiting physical setup & inspection)
   await supabase
     .from('stakeholder_applications')
     .update({
-      status: APPLICATION_STATUS.COMPLETED,
+      status: APPLICATION_STATUS.PENDING_INSPECTION,
+      current_holding_office: 'Field Inspector',
       permit_issued_at: new Date().toISOString(),
-      completed_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     })
     .eq('id', applicationId);
+
+  await supabase
+    .from('stakeholders')
+    .update({
+      application_status: APPLICATION_STATUS.PENDING_INSPECTION
+    })
+    .eq('id', stakeholder.id);
 
   await logAudit({
     userId: issuedBy,
@@ -144,10 +169,13 @@ export async function issueOccupancyPermit({ applicationId, issuedBy }) {
     action: 'ISSUE_OCCUPANCY_PERMIT',
     entityName: 'occupancy_permits',
     entityId: permit.id,
-    details: { permitNo, vendorName, stallNo: stall.stall_no }
+    details: { permitNo, vendorName, stallNo: stall.stall_no, clearanceNo }
   });
 
-  return permit;
+  return {
+    ...permit,
+    morescoClearanceUrl: morescoPath
+  };
 }
 
 /**

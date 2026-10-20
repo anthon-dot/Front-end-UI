@@ -35,6 +35,9 @@ export function requireStaff(req, res, next) {
     ROLES.MAYOR,
     ROLES.TREASURER,
     ROLES.COLLECTOR_INSPECTOR,
+    ROLES.COLLECTOR,
+    ROLES.BPLO,
+    ROLES.ENDORSING_OFFICE,
     ROLES.ADMIN
   ];
   return requireRole(...staffRoles)(req, res, next);
@@ -55,6 +58,9 @@ export function requireOwnerOrStaff(getOwnerUserIdFn) {
       ROLES.MAYOR,
       ROLES.TREASURER,
       ROLES.COLLECTOR_INSPECTOR,
+      ROLES.COLLECTOR,
+      ROLES.BPLO,
+      ROLES.ENDORSING_OFFICE,
       ROLES.ADMIN
     ];
     if (staffRoles.includes(req.user.role)) {

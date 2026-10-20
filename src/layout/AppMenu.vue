@@ -103,8 +103,36 @@ const baseModel = computed(() => {
             {
                 label: 'SECURITY & SETTINGS',
                 items: [
+                    { label: 'BPLO Portal', icon: 'pi pi-fw pi-briefcase', to: '/bplo' },
+                    { label: 'Endorsing Office', icon: 'pi pi-fw pi-check-circle', to: '/endorsing' },
                     { label: 'Audit Logs', icon: 'pi pi-fw pi-book', to: '/admin/audit-logs' },
                     { label: 'System Settings', icon: 'pi pi-fw pi-cog', to: '/admin/settings' }
+                ]
+            }
+        ];
+    }
+
+    if (role === 'BPLO' || role === 'BPLO_STAFF') {
+        return [
+            {
+                label: 'BPLO OPERATIONS',
+                items: [
+                    { label: 'BPLO Dashboard', icon: 'pi pi-fw pi-briefcase', to: '/bplo' },
+                    { label: 'Business Permit Review', icon: 'pi pi-fw pi-file-edit', to: '/bplo' },
+                    { label: 'Market Stalls Map', icon: 'pi pi-fw pi-map-marker', to: '/stalls' }
+                ]
+            }
+        ];
+    }
+
+    if (role === 'ENDORSING_OFFICE') {
+        return [
+            {
+                label: 'ENDORSING OFFICE',
+                items: [
+                    { label: 'Endorsement Dashboard', icon: 'pi pi-fw pi-check-circle', to: '/endorsing' },
+                    { label: 'Application Endorsements', icon: 'pi pi-fw pi-file-edit', to: '/endorsing' },
+                    { label: 'Market Stalls Map', icon: 'pi pi-fw pi-map-marker', to: '/stalls' }
                 ]
             }
         ];

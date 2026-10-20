@@ -218,3 +218,89 @@ export async function generateReceiptPDF({
 
   return Buffer.from(doc.output('arraybuffer'));
 }
+
+/**
+ * Generates an official MORESCO-1 Utility Clearance Certificate PDF
+ */
+export async function generateMORESCOClearancePDF({
+  clearanceNo,
+  vendorName,
+  businessName,
+  stallNo,
+  stallType,
+  issueDate,
+  municipality = 'Municipality of Manticao',
+  supervisorName = 'Market Supervisor',
+  mayorName = 'Hon. Municipal Mayor'
+}) {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+  // Border frame
+  doc.setDrawColor(30, 64, 175);
+  doc.setLineWidth(1.2);
+  doc.rect(15, 15, 180, 267);
+  doc.setLineWidth(0.4);
+  doc.rect(17, 17, 176, 263);
+
+  // Header
+  doc.setFontSize(10);
+  doc.text('REPUBLIC OF THE PHILIPPINES', 105, 30, { align: 'center' });
+  doc.text('PROVINCE OF MISAMIS ORIENTAL', 105, 35, { align: 'center' });
+  doc.setFont('helvetica', 'bold');
+  doc.text(municipality.toUpperCase(), 105, 40, { align: 'center' });
+  doc.text('OFFICE OF THE MARKET SUPERVISOR & PUBLIC ENTERPRISE', 105, 45, { align: 'center' });
+
+  doc.setLineWidth(0.5);
+  doc.line(25, 50, 185, 50);
+
+  // Title
+  doc.setFontSize(16);
+  doc.setTextColor(30, 64, 175);
+  doc.text('MORESCO-1 UTILITY CLEARANCE CERTIFICATE', 105, 62, { align: 'center' });
+  doc.setFontSize(10);
+  doc.setTextColor(220, 38, 38);
+  doc.text(`Clearance Ref No: ${clearanceNo}`, 105, 68, { align: 'center' });
+
+  doc.setTextColor(15, 23, 42);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+
+  const certText = `TO WHOM IT MAY CONCERN / MORESCO-1 CONSUMER SERVICES:
+
+THIS IS TO CERTIFY that ${vendorName.toUpperCase()}, operating under the registered trade name "${businessName.toUpperCase()}", is a duly approved and registered lessee of:
+
+STALL NO. ${stallNo} (${(stallType || 'Commercial').toUpperCase()})
+Public Market of Manticao, Misamis Oriental
+
+FURTHER CERTIFIES THAT:
+1. The lessee has executed an official 3-Year Contract of Lease with the Municipal Government of Manticao.
+2. Initial rental obligations and stall rights fees have been verified and confirmed by the Municipal Treasury Office.
+3. The Municipal Market Administration hereby issues this OFFICIAL CLEARANCE granting authorization to apply for and install electric service connection with MORESCO-1 (Misamis Oriental I Rural Electric Service Cooperative, Inc.) for the aforementioned stall.
+
+This clearance is issued upon the request of the lessee for electric service utility installation and energization purposes.`;
+
+  const lines = doc.splitTextToSize(certText, 160);
+  doc.text(lines, 25, 82);
+
+  doc.text(`Issued this ${issueDate || new Date().toISOString().split('T')[0]} at Manticao, Misamis Oriental, Philippines.`, 25, 175);
+
+  // Signatures
+  const sigY = 220;
+  doc.setFont('helvetica', 'bold');
+  doc.text('RECOMMENDING APPROVAL:', 30, sigY);
+  doc.text('APPROVED BY:', 130, sigY);
+
+  doc.line(30, sigY + 20, 85, sigY + 20);
+  doc.line(130, sigY + 20, 185, sigY + 20);
+
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text(supervisorName, 30, sigY + 25);
+  doc.text('Market Supervisor', 30, sigY + 29);
+
+  doc.text(mayorName, 130, sigY + 25);
+  doc.text('Municipal Mayor', 130, sigY + 29);
+
+  return Buffer.from(doc.output('arraybuffer'));
+}
+

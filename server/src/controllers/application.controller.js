@@ -3,6 +3,10 @@ import {
   supervisorReviewApplication,
   mayorReviewApplication,
   inspectorVerifyStall,
+  endorsingOfficeReviewApplication,
+  bploAssessBusinessPermitFee,
+  bploReleaseBusinessPermit,
+  generateMorescoUtilityClearance,
   activateVendorAndCompleteApplication
 } from '../services/applicationWorkflowService.js';
 import { supabase } from '../config/supabase.js';
@@ -232,6 +236,85 @@ export async function activateVendor(req, res, next) {
       message: result.message,
       ...result
     });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function endorsingReview(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { approved, remarks } = req.body;
+
+    const result = await endorsingOfficeReviewApplication(id, {
+      approved: Boolean(approved),
+      remarks: remarks || '',
+      officerId: req.user.id,
+      officerName: req.user.profile?.full_name || 'Endorsing Officer'
+    });
+
+    return res.json({
+      success: true,
+      message: approved ? 'Application successfully endorsed.' : 'Application rejected by Endorsing Office.',
+      ...result
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function bploAssessFee(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { assessedAmount, remarks } = req.body;
+
+    const result = await bploAssessBusinessPermitFee(id, {
+      assessedAmount: assessedAmount ? Number(assessedAmount) : 1500.00,
+      remarks: remarks || '',
+      bploUserId: req.user.id,
+      bploUserName: req.user.profile?.full_name || 'BPLO Staff'
+    });
+
+    return res.json({
+      success: true,
+      message: result.message,
+      ...result
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function bploReleasePermit(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { permitNo, remarks } = req.body;
+
+    const result = await bploReleaseBusinessPermit(id, {
+      permitNo,
+      remarks: remarks || '',
+      bploUserId: req.user.id,
+      bploUserName: req.user.profile?.full_name || 'BPLO Staff'
+    });
+
+    return res.json({
+      success: true,
+      message: result.message,
+      ...result
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getMorescoClearance(req, res, next) {
+  try {
+    const { id } = req.params;
+    const result = await generateMorescoUtilityClearance(id);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=MORESCO_Clearance_${result.clearanceNo}.pdf`);
+    return res.send(result.pdfBuffer);
   } catch (err) {
     next(err);
   }
