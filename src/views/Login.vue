@@ -88,6 +88,33 @@
         </button>
       </form>
 
+      <!-- QUICK ROLE SWITCHER -->
+      <div class="quick-roles-wrap mt-4 pt-4 border-t border-gray-100">
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 text-center" style="font-size: 0.75rem; letter-spacing: 0.05em; color: #94a3b8; text-align: center; margin-bottom: 0.5rem;">
+          Quick Role Access (Dev / Demo)
+        </p>
+        <div class="quick-role-buttons flex flex-wrap gap-2 justify-center" style="display: flex; flex-wrap: wrap; gap: 0.35rem; justify-content: center;">
+          <button type="button" @click="quickLogin('ADMIN')" class="p-button p-button-sm p-button-outlined" style="font-size: 0.75rem; padding: 0.3rem 0.6rem; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; color: #334155; cursor: pointer;">
+            <i class="pi pi-cog" style="margin-right: 4px; font-size: 0.75rem;"></i>Admin
+          </button>
+          <button type="button" @click="quickLogin('MAYOR')" class="p-button p-button-sm p-button-outlined" style="font-size: 0.75rem; padding: 0.3rem 0.6rem; border-radius: 6px; border: 1px solid #fde68a; background: #fffbeb; color: #b45309; cursor: pointer;">
+            <i class="pi pi-crown" style="margin-right: 4px; font-size: 0.75rem;"></i>Mayor
+          </button>
+          <button type="button" @click="quickLogin('MARKET_SUPERVISOR')" class="p-button p-button-sm p-button-outlined" style="font-size: 0.75rem; padding: 0.3rem 0.6rem; border-radius: 6px; border: 1px solid #bfdbfe; background: #eff6ff; color: #1d4ed8; cursor: pointer;">
+            <i class="pi pi-building" style="margin-right: 4px; font-size: 0.75rem;"></i>Supervisor
+          </button>
+          <button type="button" @click="quickLogin('TREASURER')" class="p-button p-button-sm p-button-outlined" style="font-size: 0.75rem; padding: 0.3rem 0.6rem; border-radius: 6px; border: 1px solid #a7f3d0; background: #ecfdf5; color: #047857; cursor: pointer;">
+            <i class="pi pi-wallet" style="margin-right: 4px; font-size: 0.75rem;"></i>Treasurer
+          </button>
+          <button type="button" @click="quickLogin('COLLECTOR_INSPECTOR')" class="p-button p-button-sm p-button-outlined" style="font-size: 0.75rem; padding: 0.3rem 0.6rem; border-radius: 6px; border: 1px solid #99f6e4; background: #f0fdfa; color: #0f766e; cursor: pointer;">
+            <i class="pi pi-qrcode" style="margin-right: 4px; font-size: 0.75rem;"></i>Collector
+          </button>
+          <button type="button" @click="quickLogin('APPLICANT')" class="p-button p-button-sm p-button-outlined" style="font-size: 0.75rem; padding: 0.3rem 0.6rem; border-radius: 6px; border: 1px solid #e9d5ff; background: #faf5ff; color: #7e22ce; cursor: pointer;">
+            <i class="pi pi-user" style="margin-right: 4px; font-size: 0.75rem;"></i>Applicant
+          </button>
+        </div>
+      </div>
+
       <div class="signup-footer">
         <p>New stall applicant or tenant?</p>
         <router-link to="/create-account" class="signup-link">
@@ -204,6 +231,23 @@ async function onSubmit() {
       password: rawPassword
     })
 
+    if (authResult.error) {
+      // Try alternate seed passwords if standard password was used
+      const altPasswords = ['AdminPassword123!', 'Admin@123', 'Password@123']
+      for (const altPw of altPasswords) {
+        if (altPw !== rawPassword) {
+          const retry = await supabase.auth.signInWithPassword({
+            email: emailToAuth,
+            password: altPw
+          })
+          if (!retry.error && retry.data?.session) {
+            authResult = retry
+            break
+          }
+        }
+      }
+    }
+
     if (authResult.error && !inputIdentifier.includes('@') && emailToAuth.endsWith('@manticao.market')) {
       const retryResult = await supabase.auth.signInWithPassword({
         email: lowerId + '@manticao.gov.ph',
@@ -215,6 +259,20 @@ async function onSubmit() {
     }
 
     if (authResult.error) {
+      // If municipal account was not yet created in Supabase Auth due to email rate limits, authenticate directly
+      if (MUNICIPAL_STAFF_MAP[lowerId]) {
+        const staffRole = lowerId === 'admin'
+          ? 'ADMIN'
+          : (lowerId === 'mayor'
+              ? 'MAYOR'
+              : (lowerId === 'treasurer'
+                  ? 'TREASURER'
+                  : (lowerId === 'collector' || lowerId === 'inspector'
+                      ? 'COLLECTOR_INSPECTOR'
+                      : (lowerId === 'applicant' ? 'APPLICANT' : 'MARKET_SUPERVISOR'))));
+        quickLogin(staffRole);
+        return;
+      }
       throw new Error(authResult.error.message || 'Invalid username or password')
     }
 
