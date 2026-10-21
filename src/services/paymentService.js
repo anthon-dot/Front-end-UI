@@ -82,19 +82,34 @@ export async function createPayment(payload) {
     }
   }
 
-  // 2b. If ADVANCE_PAYMENT, update stakeholder advance balance
-  if (payload.paymentType === 'ADVANCE_PAYMENT' && stakeholderId) {
+  // 2b. If ADVANCE_PAYMENT or ADVANCE_RENT, update stakeholder advance balance and insert advance_credits record
+  const isAdvancePayment = payload.paymentType === 'ADVANCE_PAYMENT' || payload.paymentType === 'ADVANCE_RENT'
+  if (isAdvancePayment && stakeholderId) {
     try {
+      const amountVal = Number(payload.amount || 0)
+      // Record in advance_credits table
+      try {
+        await supabase.from('advance_credits').insert({
+          stakeholder_id: Number(stakeholderId),
+          original_amount: amountVal,
+          available_amount: amountVal,
+          status: 'AVAILABLE',
+          originating_payment_id: data?.id || null
+        })
+      } catch (advErr) {
+        console.warn('[paymentService] advance_credits insert note:', advErr)
+      }
+
       const { data: sData, error: sFetchErr } = await supabase.from('stakeholders').select('*').eq('id', stakeholderId).single()
       if (!sFetchErr && sData) {
         const curAdvance = Number(sData.advance_balance || 0)
-        const newAdvance = curAdvance + Number(payload.amount || 0)
+        const newAdvance = curAdvance + amountVal
         const totalAdv = Number(payload.totalAdvanceAmount || sData.total_advance_amount || newAdvance)
         
         const updatePayload = {
           advance_balance: newAdvance,
           total_advance_amount: totalAdv,
-          advance_payment_paid: newAdvance >= totalAdv,
+          advance_payment_paid: true,
           advance_payment_completed: newAdvance >= totalAdv
         }
         if (sData.advance_payment_amount !== undefined) {
@@ -110,6 +125,13 @@ export async function createPayment(payload) {
           await supabase.from('stakeholders').update({ advance_balance: newAdvance }).eq('id', stakeholderId)
         }
 
+        // Update stakeholder_applications
+        try {
+          await supabase.from('stakeholder_applications').update({
+            initial_advance_rent_paid: true
+          }).or(`stakeholder_id.eq.${stakeholderId}${sData.user_id ? `,user_id.eq.${sData.user_id}` : ''}`)
+        } catch (_) {}
+
         // Non-blocking advance notification dispatch
         void (async () => {
           try {
@@ -119,7 +141,7 @@ export async function createPayment(payload) {
               stage: 'TREASURER',
               status: 'ADVANCE_PAID',
               title: 'Advance Rental Payment Recorded',
-              message: `Your advance payment of ₱${Number(payload.amount || 0).toLocaleString()} has been officially credited. Your balance is ₱${newAdvance.toLocaleString()}. Your application has proceeded to Market Supervisor review.`,
+              message: `Your advance payment of ₱${amountVal.toLocaleString()} has been officially credited. Your balance is ₱${newAdvance.toLocaleString()}. Your application has proceeded to Market Supervisor review.`,
               remarks: `Advance credit: ₱${newAdvance.toLocaleString()}`
             })
           } catch (eErr) {
@@ -130,6 +152,15 @@ export async function createPayment(payload) {
     } catch (sErr) {
       console.warn('[paymentService] Could not update stakeholder advance status:', sErr)
     }
+  }
+
+  // 2b.1 If STALL_RIGHTS_FEE, record on stakeholder and application
+  if (payload.paymentType === 'STALL_RIGHTS_FEE' && stakeholderId) {
+    try {
+      await supabase.from('stakeholder_applications').update({
+        initial_rights_fee_paid: true
+      }).eq('stakeholder_id', Number(stakeholderId))
+    } catch (_) {}
   }
 
   // 2c. If APPLICATION_FEE, record payment details without premature client-side activation

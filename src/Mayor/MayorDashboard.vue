@@ -568,6 +568,17 @@
         </p>
 
         <div class="mb-4">
+          <label class="block text-xs font-semibold text-gray-700 uppercase mb-1">Signed LOI Document / Reference # *</label>
+          <input
+            v-model="signedDocumentRef"
+            type="text"
+            class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 mb-2"
+            placeholder="e.g., LOI-MANTICAO-2026-001 or physical resolution ref #"
+          />
+          <span class="text-[11px] text-gray-500">Authorized staff records Mayor's decision based on the signed Letter of Intent.</span>
+        </div>
+
+        <div class="mb-4">
           <label class="block text-xs font-semibold text-gray-700 uppercase mb-1">Mayoral Remarks / Executive Directive</label>
           <textarea
             v-model="decisionRemarks"
@@ -715,6 +726,7 @@ const showRevokeModal = ref(false);
 const selectedApp = ref(null);
 const selectedRevocation = ref(null);
 const decisionRemarks = ref('');
+const signedDocumentRef = ref('');
 const revocationReason = ref('');
 
 const pendingApplications = computed(() => {
@@ -797,12 +809,14 @@ async function fetchData() {
 function openApprovalDialog(app) {
   selectedApp.value = app;
   decisionRemarks.value = 'Approved for municipal stall rights and 2-month advance rental payment.';
+  signedDocumentRef.value = `LOI-${app?.application_no || app?.id || Date.now().toString().slice(-6)}`;
   showApprovalModal.value = true;
 }
 
 function openRejectDialog(app) {
   selectedApp.value = app;
   decisionRemarks.value = '';
+  signedDocumentRef.value = '';
   showRejectModal.value = true;
 }
 
@@ -815,7 +829,10 @@ async function submitMayorDecision(approved) {
       `/applications/${selectedApp.value.id}/mayor-review`,
       {
         approved,
-        remarks: decisionRemarks.value
+        decision: approved ? 'APPROVED' : 'REJECTED',
+        remarks: decisionRemarks.value,
+        signedDocumentRef: signedDocumentRef.value,
+        approverName: authStore.user?.name || 'Office of the Municipal Mayor'
       },
       { headers }
     );

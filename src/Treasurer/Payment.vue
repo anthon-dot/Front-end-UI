@@ -463,15 +463,15 @@
                   </span>
                 </div>
 
-                <!-- Display box showing 3 months advance baseline -->
+                <!-- Display box showing 2 months advance baseline -->
                 <div class="flex items-center justify-between bg-white border border-amber-300 rounded-xl px-4 py-3 shadow-inner">
                   <div class="flex flex-col">
                     <div class="flex items-baseline gap-2">
                       <span class="text-xl font-black text-amber-950">
                         ₱{{ Number(form.totalAdvanceAmount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
                       </span>
-                      <span class="text-xs font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md">
-                        3 Months Advance
+                      <span class="text-xs font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md">
+                        2 Months Advance Rent
                       </span>
                     </div>
                     <span class="text-xs text-slate-500 mt-1 flex items-center gap-1">
@@ -480,7 +480,7 @@
                     </span>
                   </div>
                   <Tag
-                    :value="remainingAdvanceBalance <= 0 && selectedStakeholder ? 'FULL ADVANCE PAID' : '3-MO BASELINE'"
+                    :value="remainingAdvanceBalance <= 0 && selectedStakeholder ? 'FULL ADVANCE PAID' : '2-MO BASELINE'"
                     :severity="remainingAdvanceBalance <= 0 && selectedStakeholder ? 'success' : 'warn'"
                     rounded
                     class="text-[10px] font-bold tracking-wider"
@@ -1439,11 +1439,12 @@ async function recordPayment() {
       return
     }
 
-    if (activeCategory.value === 'ADVANCE_PAYMENT' && !selectedStakeholder.value.treasurerApproved) {
+    const appStatus = String(selectedStakeholder.value?.application_status || selectedStakeholder.value?.applicationStatus || '').toUpperCase()
+    if (activeCategory.value === 'ADVANCE_PAYMENT' && ['REJECTED', 'MAYOR_REJECTED', 'SUPERVISOR_REJECTED', 'CANCELLED'].includes(appStatus)) {
       toast.add({
         severity: 'error',
-        summary: 'Approval Required',
-        detail: 'This stakeholder must be approved by the Treasurer before advance payment can be recorded.',
+        summary: 'Application Disapproved',
+        detail: 'Cannot record advance rental credit for a disapproved or cancelled application.',
         life: 4500
       })
       return

@@ -228,14 +228,29 @@
 								</td>
 
 								<td>
-									<span class="status-badge" :class="String(c.status || 'ACTIVE').toLowerCase()">
-										<i :class="getStatusIcon(c.status)" style="font-size: 10px;"></i>
-										{{ c.status || 'ACTIVE' }}
-									</span>
+									<div style="display: flex; flex-direction: column; gap: 4px;">
+										<span class="status-badge" :class="String(c.status || 'ACTIVE').toLowerCase()">
+											<i :class="getStatusIcon(c.status)" style="font-size: 10px;"></i>
+											{{ c.status || 'ACTIVE' }}
+										</span>
+										<span v-if="isContractInitialPaymentsVerified(c)" style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700; display: inline-block;">
+											✓ Fees Paid
+										</span>
+										<span v-else style="background: #fffbeb; color: #b45309; border: 1px solid #fde68a; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700; display: inline-block;">
+											⏳ Fees Pending
+										</span>
+										<span v-if="c.signed_at || (c.signed_by_lgu && c.signed_by_stakeholder)" style="background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700; display: inline-block;">
+											✓ Signed
+										</span>
+										<span v-else style="background: #fdf2f8; color: #be185d; border: 1px solid #fbcfe8; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700; display: inline-block;">
+											⏳ Unsigned
+										</span>
+									</div>
 								</td>
 
 								<td class="actions">
-									<div class="action-row">
+									<div class="action-row" style="flex-wrap: wrap; gap: 4px;">
+										<!-- View & Print -->
 										<button
 											class="btn-small btn-secondary"
 											@click="openViewContract(c)"
@@ -245,6 +260,31 @@
 											View & Print
 										</button>
 
+										<!-- Sign Agreement (if unsigned) -->
+										<button
+											v-if="!c.signed_at && (!c.signed_by_lgu || !c.signed_by_stakeholder) && String(c.status).toUpperCase() !== 'REVOKED' && String(c.status).toUpperCase() !== 'TERMINATED'"
+											class="btn-small"
+											style="background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;"
+											@click="signContractAction(c)"
+											title="Record Lessee and Market Supervisor authorized signatures"
+										>
+											<i class="pi pi-pencil"></i>
+											Sign
+										</button>
+
+										<!-- Activate Lease (Confirmed Decision 1: Only activates after payments + signing) -->
+										<button
+											v-if="String(c.status).toUpperCase() !== 'ACTIVE' && String(c.status).toUpperCase() !== 'REVOKED' && String(c.status).toUpperCase() !== 'TERMINATED' && String(c.status).toUpperCase() !== 'ARCHIVED'"
+											class="btn-small"
+											style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; font-weight: 700;"
+											@click="activateContractAction(c)"
+											title="Verify requirements and activate lease"
+										>
+											<i class="pi pi-check-circle"></i>
+											Activate
+										</button>
+
+										<!-- Edit Contract -->
 										<button
 											class="btn-small btn-outline"
 											@click="openEditModal(c)"
@@ -254,6 +294,19 @@
 											Edit
 										</button>
 
+										<!-- Revoke Contract (Confirmed Decision: Human authorized decision, never automatic) -->
+										<button
+											v-if="String(c.status).toUpperCase() === 'ACTIVE'"
+											class="btn-small btn-danger"
+											style="background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca;"
+											@click="revokeContractAction(c)"
+											title="Record authorized contract revocation order"
+										>
+											<i class="pi pi-ban"></i>
+											Revoke
+										</button>
+
+										<!-- Terminate Contract -->
 										<button
 											v-if="String(c.status).toUpperCase() === 'ACTIVE'"
 											class="btn-small btn-danger"
@@ -263,6 +316,7 @@
 											Terminate
 										</button>
 
+										<!-- Archive Contract -->
 										<button
 											v-if="String(c.status).toUpperCase() !== 'ARCHIVED'"
 											class="btn-small btn-archive"
@@ -1318,6 +1372,129 @@ async function restoreContract(contract) {
 	contract.isArchived = false
 	saveContractsToStorage()
 	systemMessage.success(`${refName} has been restored to active contracts!`, 'Contract Restored')
+}
+
+function isContractInitialPaymentsVerified(c) {
+	if (!c) return false
+	if (c.initial_payments_verified || c.initialPaymentsVerified) return true
+	const sh = getContractStakeholder(c)
+	if (sh) {
+		const hasAdv = Boolean(sh.advance_payment_paid || sh.advancePaymentPaid || Number(sh.advance_balance || sh.advanceBalance || 0) > 0)
+		const hasRights = Boolean(sh.applicant_fee_paid || sh.applicantFeePaid || sh.treasurer_paid || sh.treasurerPaid)
+		if (hasAdv && hasRights) return true
+	}
+	return false
+}
+
+async function signContractAction(c) {
+	const refName = c.contractNo || c.ref || 'this contract'
+	const confirmed = await systemMessage.confirm(
+		`Record authorized signatures for ${refName}? This confirms both the Lessee and the Market Supervisor have executed the lease agreement.`,
+		{
+			title: 'Sign Lease Contract',
+			acceptLabel: 'Confirm Signatures',
+			rejectLabel: 'Cancel'
+		}
+	)
+	if (!confirmed) return
+
+	try {
+		if (c.id) {
+			await api.post(`/contracts/${c.id}/sign`, { signedByStakeholder: true, signedByLgu: true })
+		}
+		c.signed_by_stakeholder = true
+		c.signed_by_lgu = true
+		c.signed_at = new Date().toISOString()
+		saveContractsToStorage()
+		systemMessage.success(`Signatures for ${refName} recorded successfully!`, 'Contract Signed')
+	} catch (err) {
+		console.error('Sign error:', err)
+		systemMessage.error(err.message || 'Failed to record signatures.', 'Sign Failed')
+	}
+}
+
+async function activateContractAction(c) {
+	const refName = c.contractNo || c.ref || 'this contract'
+	const sh = getContractStakeholder(c)
+	const shName = getContractStakeholderName(c)
+
+	// Check verified payments
+	const paymentsVerified = isContractInitialPaymentsVerified(c)
+	const isSigned = Boolean(c.signed_at || (c.signed_by_lgu && c.signed_by_stakeholder))
+
+	if (!paymentsVerified) {
+		const proceed = await systemMessage.confirm(
+			`Initial payments (Stall rights fee and 2-month advance rental) have not yet been flagged as verified by the Municipal Treasurer. Would you like to check and verify them now?`,
+			{
+				title: 'Initial Payments Verification',
+				acceptLabel: 'Verify & Continue',
+				rejectLabel: 'Cancel',
+				isDanger: false
+			}
+		)
+		if (!proceed) return
+	}
+
+	const confirmed = await systemMessage.confirm(
+		`Are you sure you want to ACTIVATE lease contract ${refName} for ${shName}? This will confirm stall occupancy and generate initial billing statements.`,
+		{
+			title: 'Activate Lease Contract',
+			acceptLabel: 'Activate Contract',
+			rejectLabel: 'Cancel'
+		}
+	)
+	if (!confirmed) return
+
+	try {
+		const res = await api.post(`/contracts/${c.id}/activate`, { forceSigning: !isSigned })
+		if (res.data?.activated || res.data?.success) {
+			c.status = 'ACTIVE'
+			c.initial_payments_verified = true
+			c.signed_by_stakeholder = true
+			c.signed_by_lgu = true
+			c.signed_at = new Date().toISOString()
+			saveContractsToStorage()
+			systemMessage.success(
+				`Contract ${refName} successfully activated! Stall status updated to OCCUPIED and automated billing schedule initialized.`,
+				'Lease Activated'
+			)
+			await refresh()
+		} else {
+			const missing = res.data?.missingConditions?.join('\n• ') || res.data?.error || 'Prerequisites not met'
+			systemMessage.error(`Cannot activate contract:\n• ${missing}`, 'Activation Blocked')
+		}
+	} catch (err) {
+		console.error('Activation error:', err)
+		systemMessage.error(err.message || 'Failed to activate contract.', 'Activation Error')
+	}
+}
+
+async function revokeContractAction(c) {
+	const refName = c.contractNo || c.ref || 'this contract'
+	const stallNum = getContractStallNo(c)
+	const confirmed = await systemMessage.confirm(
+		`Are you sure you want to REVOKE lease contract ${refName}? This authorized administrative decision will terminate the lease, release Stall #${stallNum} back to AVAILABLE, and preserve all financial audit records.`,
+		{
+			title: 'Authorize Contract Revocation',
+			isDanger: true,
+			acceptLabel: 'Authorize Revocation',
+			rejectLabel: 'Cancel'
+		}
+	)
+	if (!confirmed) return
+
+	try {
+		await api.post(`/contracts/${c.id}/revoke`, {
+			reason: 'Authorized contract revocation due to lease violation / prolonged delinquency.'
+		})
+		c.status = 'REVOKED'
+		saveContractsToStorage()
+		systemMessage.warn(`Contract ${refName} has been REVOKED and Stall #${stallNum} released.`, 'Contract Revoked')
+		await refresh()
+	} catch (err) {
+		console.error('Revocation error:', err)
+		systemMessage.error(err.message || 'Failed to revoke contract.', 'Revocation Failed')
+	}
 }
 
 function printContract() {

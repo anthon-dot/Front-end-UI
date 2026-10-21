@@ -331,6 +331,17 @@
               />
             </div>
 
+            <!-- Overdue Notice Banner if any notices exist -->
+            <div v-if="stakeholderNoticesList.length > 0" class="notice-callout warning" style="border-left: 4px solid #ef4444; background: #fff1f2; margin-bottom: 1rem;">
+              <i class="pi pi-exclamation-triangle" style="color: #dc2626;"></i>
+              <div>
+                <strong style="color: #b91c1c;">Official Notice on Record:</strong>
+                <span style="color: #7f1d1d; display: block; margin-top: 2px;">
+                  You have {{ stakeholderNoticesList.length }} formal notice(s) issued regarding outstanding arrears. Please review your statements in the Billing tab and coordinate with the Municipal Treasurer.
+                </span>
+              </div>
+            </div>
+
             <div class="notice-callout">
               <i class="pi pi-info-circle"></i>
               <div>
@@ -349,8 +360,8 @@
                 <span class="detail-val" style="color: #d97706;">{{ formattedNextDueDate }}</span>
               </div>
               <div class="detail-item">
-                <span class="detail-label">Advance Deposit</span>
-                <span class="detail-val">{{ formatCurrency(advanceDeposit) }}</span>
+                <span class="detail-label">Advance Rent Credit</span>
+                <span class="detail-val" style="color: #059669; font-weight: 700;">{{ formatCurrency(availableAdvanceCredit) }}</span>
               </div>
               <div class="detail-item">
                 <span class="detail-label">Treasurer Verification</span>
@@ -504,6 +515,67 @@
           <i class="pi pi-info-circle"></i>
           <div>
             <strong>Payment Instructions:</strong> All municipal stall rentals must be settled in cash at the <strong>Municipal Treasurer's Office, Manticao Municipal Hall</strong>. Present your statement number or official stall number. Once cashier processes your payment, the official receipt will immediately update your statement status.
+          </div>
+        </div>
+
+        <!-- Available Advance Rent Credit Card -->
+        <div style="background: linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%); border: 1px solid #bbf7d0; border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <i class="pi pi-wallet" style="color: #059669; font-size: 1.25rem;"></i>
+              <strong style="color: #065f46; font-size: 1.05rem;">Available Advance Rental Credit:</strong>
+            </div>
+            <p style="margin: 0.35rem 0 0; color: #334155; font-size: 0.85rem; max-width: 600px;">
+              Your 2-month advance rental deposit is held as an available financial credit. You may request the Municipal Treasurer to allocate this credit towards any generated statement balance.
+            </p>
+          </div>
+          <div style="text-align: right;">
+            <span style="font-size: 0.75rem; text-transform: uppercase; color: #047857; font-weight: 700; display: block;">Credit Balance</span>
+            <span style="font-size: 1.6rem; font-weight: 800; color: #059669;">{{ formatCurrency(availableAdvanceCredit) }}</span>
+          </div>
+        </div>
+
+        <!-- Official Notices from Municipal Market Administration -->
+        <div v-if="stakeholderNoticesList.length > 0" style="background: #fffbeb; border: 1px solid #fde68a; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <i class="pi pi-exclamation-triangle" style="color: #d97706; font-size: 1.2rem;"></i>
+              <strong style="color: #92400e; font-size: 1rem;">Official Municipal Notices Issued</strong>
+            </div>
+            <Tag :value="`${stakeholderNoticesList.length} Active Notice(s)`" severity="warn" size="small" />
+          </div>
+
+          <div class="sakai-table-wrap" style="background: #ffffff; border-radius: 6px; overflow: hidden;">
+            <table class="sakai-table">
+              <thead>
+                <tr>
+                  <th>Notice Type</th>
+                  <th>Date Issued</th>
+                  <th>Overdue Balance Snapshot</th>
+                  <th>Issued By</th>
+                  <th>Status</th>
+                  <th>Remarks</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="n in stakeholderNoticesList" :key="n.id">
+                  <td>
+                    <Tag
+                      :value="formatNoticeType(n.noticeType || n.notice_type)"
+                      :severity="getNoticeSeverity(n.noticeType || n.notice_type)"
+                      size="small"
+                    />
+                  </td>
+                  <td>{{ formatDate(n.issuedAt || n.issued_at) }}</td>
+                  <td style="font-weight: 700; color: #dc2626;">{{ formatCurrency(n.totalArrears || n.total_arrears || 0) }}</td>
+                  <td>{{ n.issuedByName || n.issued_by_name || 'Market Administration' }}</td>
+                  <td>
+                    <Tag :value="n.status || 'DELIVERED'" severity="info" size="small" />
+                  </td>
+                  <td style="font-size: 0.85rem; color: #475569;">{{ n.remarks || 'Please settle balance at Treasurer counter.' }}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -1000,6 +1072,8 @@ const allPayments = ref([])
 const contractsList = ref([])
 const officialDocuments = ref([])
 const notifications = ref([])
+const advanceCreditsList = ref([])
+const stakeholderNoticesList = ref([])
 
 // Modals
 const showContractModal = ref(false)
@@ -1154,15 +1228,36 @@ const monthlyRentRate = computed(() => {
   )
 })
 
-const advanceDeposit = computed(() => {
+const availableAdvanceCredit = computed(() => {
+  if (advanceCreditsList.value.length > 0) {
+    return advanceCreditsList.value.reduce((sum, ac) => sum + Number(ac.availableAmount ?? ac.available_amount ?? 0), 0)
+  }
   return Number(
     assignedOccupant.value?.advanceBalance ||
     assignedOccupant.value?.advance_balance ||
     stakeholderProfile.value?.advanceBalance ||
     stakeholderProfile.value?.advance_balance ||
-    3000
+    0
   )
 })
+
+const advanceDeposit = computed(() => availableAdvanceCredit.value)
+
+function formatNoticeType(val) {
+  if (!val) return 'Notice'
+  const upper = String(val).toUpperCase()
+  if (upper === 'FIRST_NOTICE') return '1st Overdue Notice'
+  if (upper === 'SECOND_NOTICE') return '2nd Notice of Arrears'
+  if (upper === 'FINAL_DEMAND' || upper === 'FINAL_NOTICE') return 'Final Demand Notice'
+  return val
+}
+
+function getNoticeSeverity(val) {
+  const upper = String(val || '').toUpperCase()
+  if (upper.includes('FINAL')) return 'danger'
+  if (upper.includes('SECOND')) return 'warn'
+  return 'info'
+}
 
 const outstandingBalance = computed(() => {
   if (billingsList.value.length > 0) {
@@ -1576,6 +1671,19 @@ async function loadAllData(background = false) {
 
     // 7. Load Notifications
     await loadNotificationsData(stId)
+
+    // 8. Load Advance Credits & Notices (Confirmed Decisions 2 & 4)
+    if (stId) {
+      try {
+        const { data: acRes } = await api.get(`/advance-credits/stakeholder/${stId}`)
+        if (Array.isArray(acRes)) advanceCreditsList.value = acRes
+      } catch (_) {}
+
+      try {
+        const { data: nRes } = await api.get(`/notices/stakeholder/${stId}`)
+        if (Array.isArray(nRes)) stakeholderNoticesList.value = nRes
+      } catch (_) {}
+    }
 
   } catch (error) {
     console.warn('[StakeholderDashboard] Data load error:', error)

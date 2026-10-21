@@ -282,18 +282,50 @@
                 </template>
               </Column>
 
-              <!-- 7. Status -->
-              <Column field="status" header="Status" style="min-width: 110px;">
+              <!-- 7. Status & 2-Month Grace Period indicator -->
+              <Column field="status" header="Status" style="min-width: 140px;">
                 <template #body="{ data }">
-                  <Tag :value="data.status" :severity="getStatusSeverity(data.status)" rounded class="font-bold px-3 py-1" />
+                  <div class="flex flex-col gap-1">
+                    <Tag :value="data.status" :severity="getStatusSeverity(data.status)" rounded class="font-bold px-3 py-1" />
+                    <span v-if="data.isWithinGracePeriod" class="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded text-center">
+                      Grace Period (Day {{ data.daysPastDue }}/60)
+                    </span>
+                    <span v-else-if="data.status === 'OVERDUE'" class="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded text-center">
+                      60+ Days (Notice Eligible)
+                    </span>
+                  </div>
                 </template>
               </Column>
 
               <!-- 8. Actions -->
-              <Column header="Actions" alignFrozen="right" :frozen="true" class="text-right" style="min-width: 190px;">
+              <Column header="Actions" alignFrozen="right" :frozen="true" class="text-right" style="min-width: 250px;">
                 <template #body="{ data }">
                   <div class="flex items-center justify-end gap-1.5">
-                    <!-- Collect Payment Button (if unpaid or partial) -->
+                    <!-- Allocate Advance Credit Button -->
+                    <Button 
+                      v-if="data.status !== 'PAID'"
+                      label="Credit" 
+                      icon="pi pi-wallet" 
+                      size="small" 
+                      severity="help"
+                      class="!py-1 !px-2.5 !text-xs font-bold"
+                      title="Allocate existing 2-month advance credit without double-counting cash"
+                      @click="openAllocateModal(data)"
+                    />
+
+                    <!-- Quick Daily / Partial Collection Button -->
+                    <Button 
+                      v-if="data.status !== 'PAID'"
+                      label="Daily" 
+                      icon="pi pi-calendar-plus" 
+                      size="small" 
+                      severity="warn"
+                      class="!py-1 !px-2.5 !text-xs font-bold"
+                      title="Record quick daily cash collection"
+                      @click="openDailyModal(data)"
+                    />
+
+                    <!-- Collect Regular Payment Button -->
                     <Button 
                       v-if="data.status !== 'PAID'"
                       label="Pay" 
@@ -405,6 +437,14 @@
             <div class="flex items-center gap-2">
               <Button 
                 v-if="selectedBill && selectedBill.status !== 'PAID'"
+                icon="pi pi-wallet" 
+                label="Apply Credit" 
+                severity="help" 
+                size="small" 
+                @click="detailsDialogVisible = false; openAllocateModal(selectedBill)" 
+              />
+              <Button 
+                v-if="selectedBill && selectedBill.status !== 'PAID'"
                 icon="pi pi-send" 
                 label="Send Reminder" 
                 severity="info" 
@@ -425,6 +465,148 @@
         </template>
       </Dialog>
 
+      <!-- ALLOCATE ADVANCE CREDIT MODAL (Confirmed Decision 2: Allocated without counting as duplicate cash revenue) -->
+      <Dialog
+        v-model:visible="showAllocateModal"
+        modal
+        header="Allocate 2-Month Advance Rental Credit"
+        :style="{ width: '480px', maxWidth: '95vw' }"
+        :dismissableMask="true"
+      >
+        <div v-if="allocateTargetBill" class="space-y-4 pt-2">
+          <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-3.5 text-xs text-indigo-900 leading-relaxed">
+            <div class="font-bold mb-1 flex items-center gap-1.5 text-indigo-950">
+              <i class="pi pi-info-circle text-indigo-600"></i>
+              Non-Revenue Advance Credit Allocation
+            </div>
+            Applying existing advance rental credit offsets this bill's balance directly. It is <strong>NOT</strong> recorded as new cash collection in daily treasury reports.
+          </div>
+
+          <div class="space-y-2 text-sm bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+            <div class="flex justify-between">
+              <span class="text-slate-500">Payee / Lessee:</span>
+              <span class="font-bold text-slate-800">{{ allocateTargetBill.stakeholder }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-500">Target Statement:</span>
+              <span class="font-mono font-bold text-slate-700">{{ allocateTargetBill.id }} ({{ formatPeriod(allocateTargetBill.period) }})</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-500">Statement Balance:</span>
+              <span class="font-bold text-rose-600">₱{{ Number(allocateTargetBill.balance || 0).toLocaleString() }}</span>
+            </div>
+            <div class="flex justify-between pt-2 border-t border-slate-200">
+              <span class="text-slate-500">Available Advance Credit:</span>
+              <span class="font-black text-emerald-700">₱{{ Number(availableAdvanceCredit || 0).toLocaleString() }}</span>
+            </div>
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="block text-xs font-bold text-slate-700 uppercase">Amount to Allocate (₱) *</label>
+            <input
+              v-model.number="allocateAmount"
+              type="number"
+              min="1"
+              :max="Math.min(allocateTargetBill.balance || 0, availableAdvanceCredit || 0)"
+              class="w-full border border-slate-300 rounded-xl p-2.5 text-base font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <span class="text-[11px] text-slate-400">Cannot exceed remaining bill balance or available credit.</span>
+          </div>
+
+          <div v-if="availableAdvanceCredit <= 0" class="text-xs text-amber-700 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
+            This stakeholder has no available advance credit on record. You can collect regular payments via the Pay button.
+          </div>
+        </div>
+
+        <template #footer>
+          <div class="flex justify-end gap-2 w-full pt-3">
+            <Button label="Cancel" severity="secondary" outlined size="small" @click="showAllocateModal = false" />
+            <Button
+              label="Confirm Allocation"
+              icon="pi pi-check"
+              severity="help"
+              size="small"
+              :loading="isAllocating"
+              :disabled="isAllocating || allocateAmount <= 0 || availableAdvanceCredit <= 0"
+              @click="submitAllocateCredit"
+            />
+          </div>
+        </template>
+      </Dialog>
+
+      <!-- QUICK DAILY / PARTIAL COLLECTION MODAL -->
+      <Dialog
+        v-model:visible="showDailyModal"
+        modal
+        header="Record Daily Market Collection"
+        :style="{ width: '480px', maxWidth: '95vw' }"
+        :dismissableMask="true"
+      >
+        <div v-if="dailyTargetBill" class="space-y-4 pt-2">
+          <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900 leading-relaxed">
+            Record actual daily partial payments (e.g., ₱100 daily towards a ₱3,000 monthly rent). Each micro-payment immediately decrements the bill's outstanding balance.
+          </div>
+
+          <div class="space-y-2 text-sm bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+            <div class="flex justify-between">
+              <span class="text-slate-500">Payee:</span>
+              <span class="font-bold text-slate-800">{{ dailyTargetBill.stakeholder }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-500">Current Balance:</span>
+              <span class="font-black text-rose-600">₱{{ Number(dailyTargetBill.balance || 0).toLocaleString() }}</span>
+            </div>
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="block text-xs font-bold text-slate-700 uppercase">Collection Amount (₱) *</label>
+            <input
+              v-model.number="dailyAmount"
+              type="number"
+              min="1"
+              :max="dailyTargetBill.balance || 99999"
+              class="w-full border border-slate-300 rounded-xl p-2.5 text-base font-bold text-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              placeholder="e.g. 100"
+            />
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="block text-xs font-bold text-slate-700 uppercase">Official Receipt # (O.R.) *</label>
+            <input
+              v-model="dailyReceiptNo"
+              type="text"
+              class="w-full border border-slate-300 rounded-xl p-2.5 text-sm font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              placeholder="OR-DLY-..."
+            />
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="block text-xs font-bold text-slate-700 uppercase">Collector Notes / Field Route</label>
+            <input
+              v-model="dailyNotes"
+              type="text"
+              class="w-full border border-slate-300 rounded-xl p-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              placeholder="Daily field collector route notes"
+            />
+          </div>
+        </div>
+
+        <template #footer>
+          <div class="flex justify-end gap-2 w-full pt-3">
+            <Button label="Cancel" severity="secondary" outlined size="small" @click="showDailyModal = false" />
+            <Button
+              label="Save Daily Collection"
+              icon="pi pi-check"
+              severity="success"
+              size="small"
+              :loading="isSubmittingDaily"
+              :disabled="isSubmittingDaily || dailyAmount <= 0 || !dailyReceiptNo"
+              @click="submitDailyCollection"
+            />
+          </div>
+        </template>
+      </Dialog>
+
     </main>
   </div>
 </template>
@@ -433,6 +615,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
+import api from '../services/api'
 import { fetchBillings as getBillingsApi, sendBillingNotification } from '../services/billingService'
 import TreasurerMenu from '../components/TreasurerMenu.vue'
 import SearchField from '../components/SearchField.vue'
@@ -456,6 +639,21 @@ const activeFilter = ref('ALL') // ALL, PAST_DUE, THIS_MONTH, ADVANCE, UNPAID, P
 // Dialog state
 const detailsDialogVisible = ref(false)
 const selectedBill = ref(null)
+
+// Advance Credit Allocation Dialog state
+const showAllocateModal = ref(false)
+const allocateTargetBill = ref(null)
+const allocateAmount = ref(0)
+const availableAdvanceCredit = ref(0)
+const isAllocating = ref(false)
+
+// Daily Collection Dialog state
+const showDailyModal = ref(false)
+const dailyTargetBill = ref(null)
+const dailyAmount = ref(100)
+const dailyReceiptNo = ref('')
+const dailyNotes = ref('')
+const isSubmittingDaily = ref(false)
 
 const now = new Date()
 const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -489,13 +687,23 @@ async function fetchBillings() {
 
       const dueDateStr = b.dueDate || b.due_date || b.due || null
       let computedStatus = (b.status || '').toUpperCase()
+      let daysPastDue = 0
+      let isWithinGracePeriod = false
+
       if (balanceVal <= 0) {
         computedStatus = 'PAID'
       } else {
         const todayStr = new Date().toISOString().split('T')[0]
-        const isPastDue = dueDateStr && todayStr > dueDateStr
-        if (isPastDue) {
-          computedStatus = 'OVERDUE'
+        const isPastDueDate = dueDateStr && todayStr > dueDateStr
+        if (isPastDueDate) {
+          daysPastDue = Math.floor((Date.now() - new Date(dueDateStr).getTime()) / (1000 * 60 * 60 * 24))
+          // Confirmed Decision 4: 2-month grace period (60 days)
+          if (daysPastDue > 60) {
+            computedStatus = 'OVERDUE'
+          } else {
+            isWithinGracePeriod = true
+            computedStatus = paidVal > 0 ? 'PARTIALLY_PAID' : 'UNPAID'
+          }
         } else if (paidVal > 0 && balanceVal > 0) {
           computedStatus = 'PARTIALLY_PAID'
         } else if (!computedStatus || computedStatus === 'OVERDUE') {
@@ -518,6 +726,8 @@ async function fetchBillings() {
         balance: balanceVal,
         due: dueDateStr || 'N/A',
         status: computedStatus,
+        daysPastDue,
+        isWithinGracePeriod,
         email: (b.email || st.email || b.stakeholderEmail || b.occupant?.email || '').trim(),
         stakeholderEmail: (b.email || st.email || b.stakeholderEmail || b.occupant?.email || '').trim()
       }
@@ -832,6 +1042,121 @@ function collectPayment(row) {
 function openBillDetails(row) {
   selectedBill.value = row
   detailsDialogVisible.value = true
+}
+
+/* =========================
+   ADVANCE CREDIT ALLOCATION
+========================= */
+async function openAllocateModal(row) {
+  allocateTargetBill.value = row
+  availableAdvanceCredit.value = 0
+  allocateAmount.value = 0
+  showAllocateModal.value = true
+
+  const shId = row.stakeholderId || row.occupant?.stakeholder_id || row.occupant?.stakeholderId
+  if (!shId) return
+
+  try {
+    const res = await api.get(`/advance-credits/stakeholder/${shId}`)
+    const credits = Array.isArray(res.data) ? res.data : []
+    const totalAvail = credits.reduce((sum, c) => sum + Number(c.available_amount ?? c.availableAmount ?? 0), 0)
+    
+    // Fallback to stakeholder advance_balance if advance_credits table has not yet populated
+    if (totalAvail <= 0) {
+      const shRes = await api.get(`/stakeholders/${shId}`)
+      const shBal = Number(shRes.data?.advance_balance ?? shRes.data?.advanceBalance ?? 0)
+      availableAdvanceCredit.value = shBal
+    } else {
+      availableAdvanceCredit.value = totalAvail
+    }
+
+    allocateAmount.value = Math.min(Number(row.balance || 0), availableAdvanceCredit.value)
+  } catch (err) {
+    console.warn('Error loading advance credits:', err)
+  }
+}
+
+async function submitAllocateCredit() {
+  if (!allocateTargetBill.value || allocateAmount.value <= 0) return
+  isAllocating.value = true
+
+  try {
+    const res = await api.post('/advance-credits/allocate', {
+      billingId: allocateTargetBill.value.rawId || allocateTargetBill.value.id,
+      amount: allocateAmount.value,
+      stakeholderId: allocateTargetBill.value.stakeholderId,
+      authorizedByName: 'Municipal Treasurer'
+    })
+
+    toast.add({
+      severity: 'success',
+      summary: 'Advance Credit Applied',
+      detail: `Successfully allocated ₱${allocateAmount.value.toLocaleString()} to ${allocateTargetBill.value.id}. Balance updated.`,
+      life: 5000
+    })
+
+    showAllocateModal.value = false
+    allocateTargetBill.value = null
+    await fetchBillings()
+  } catch (err) {
+    console.error('Failed to allocate credit:', err)
+    toast.add({
+      severity: 'error',
+      summary: 'Allocation Failed',
+      detail: err.message || 'Could not allocate advance credit.',
+      life: 4500
+    })
+  } finally {
+    isAllocating.value = false
+  }
+}
+
+/* =========================
+   DAILY MICRO COLLECTIONS
+========================= */
+function openDailyModal(row) {
+  dailyTargetBill.value = row
+  dailyAmount.value = Math.min(100, Number(row.balance || 100))
+  dailyReceiptNo.value = `OR-DLY-${Date.now().toString().slice(-6)}`
+  dailyCollectorName.value = 'Daily Market Collector'
+  dailyNotes.value = `Daily collection for Stall ${row.stallNo || 'WS'}`
+  showDailyModal.value = true
+}
+
+async function submitDailyCollection() {
+  if (!dailyTargetBill.value || dailyAmount.value <= 0) return
+  isSubmittingDaily.value = true
+
+  try {
+    await api.post('/collections/daily', {
+      billingId: dailyTargetBill.value.rawId || dailyTargetBill.value.id,
+      amount: dailyAmount.value,
+      receiptNo: dailyReceiptNo.value,
+      collectorName: dailyCollectorName.value,
+      notes: dailyNotes.value
+    })
+
+    toast.add({
+      severity: 'success',
+      summary: 'Daily Collection Recorded',
+      detail: `Recorded ₱${dailyAmount.value.toLocaleString()} (Receipt: ${dailyReceiptNo.value}) for ${dailyTargetBill.value.id}.`,
+      life: 5000
+    })
+
+    showDailyModal.value = false
+    dailyTargetBill.value = null
+    await fetchBillings()
+  } catch (err) {
+    console.error('Failed to record daily collection:', err)
+    toast.add({
+      severity: 'error',
+      summary: 'Collection Error',
+      detail: err.message || 'Could not record daily collection.',
+      life: 4500
+    })
+  } finally {
+    isSubmittingDaily.value = false
+  }
 }
 
 /* =========================

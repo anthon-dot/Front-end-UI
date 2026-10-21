@@ -110,9 +110,8 @@ export async function ensureBillingsForVerifiedTenants({ force = false } = {}) {
 
         let iterYear = startYear
         let iterMonth = startMonth
-        let curAdvance = Number(occ.advance_balance ?? stakeholder?.advance_balance ?? 0)
 
-        // Generate billing up to the current active billing cycle (never future phantom bills)
+        // Generate billing up to current active billing cycle (never future phantom bills)
         while (true) {
           const monthOffset = (iterYear - currentYear) * 12 + (iterMonth - currentMonth)
           if (monthOffset > 0) break // Stop after current month
@@ -123,30 +122,16 @@ export async function ensureBillingsForVerifiedTenants({ force = false } = {}) {
           if (!existingPeriodMap.has(billingPeriod)) {
             // Due date: 5th of that billing month
             const dueDateStr = `${iterYear}-${String(iterMonth).padStart(2, '0')}-05`
-            const isPastDue = todayDate > dueDateStr
+            const dueDateObj = new Date(dueDateStr)
+            const msDiff = Date.now() - dueDateObj.getTime()
+            const daysPastDue = Math.floor(msDiff / (1000 * 60 * 60 * 24))
+
+            // Confirmed Client Rule #4: 2-month grace period (60 days) before flagging overdue
+            const isOverdue = daysPastDue > 60
             const billingNo = `BILL-${Date.now().toString().slice(-6)}${Math.floor(Math.random() * 1000)}`
 
-            let paidAmount = 0
-            let balance = rentAmount
-            let status = 'UNPAID'
-
-            if (curAdvance <= 0) {
-              paidAmount = 0
-              balance = rentAmount
-              status = isPastDue ? 'OVERDUE' : 'UNPAID'
-            } else if (curAdvance >= rentAmount) {
-              // Full advance credit allocated
-              paidAmount = rentAmount
-              balance = 0
-              status = 'PAID'
-              curAdvance = curAdvance - rentAmount
-            } else {
-              // Partial advance credit allocated
-              paidAmount = curAdvance
-              balance = rentAmount - curAdvance
-              status = isPastDue ? 'OVERDUE' : 'PARTIALLY_PAID'
-              curAdvance = 0
-            }
+            // Confirmed Client Rule #2: Advance rent is held as credit; NOT automatically consumed
+            const status = isOverdue ? 'OVERDUE' : 'UNPAID'
 
             await supabase.from('billings').insert({
               occupant_id: occ.id,
@@ -154,27 +139,19 @@ export async function ensureBillingsForVerifiedTenants({ force = false } = {}) {
               billing_no: billingNo,
               billing_period: billingPeriod,
               total_amount: rentAmount,
-              paid_amount: paidAmount,
-              balance: balance,
+              paid_amount: 0,
+              balance: rentAmount,
               due_date: dueDateStr,
               status: status
             })
 
-            console.log(`[billingService] Generated billing invoice ${billingNo} (${billingPeriod}) for occupant ${occ.id} (Status: ${status}, Advance Credit Applied: ₱${paidAmount})`)
+            console.log(`[billingService] Generated billing invoice ${billingNo} (${billingPeriod}) for occupant ${occ.id} (Status: ${status}, 60-day Grace Period Observed)`)
           }
 
           iterMonth++
           if (iterMonth > 12) {
             iterMonth = 1
             iterYear++
-          }
-        }
-
-        // Update remaining advance balance on occupant and stakeholder if credit was applied
-        if (Number(occ.advance_balance || 0) !== curAdvance) {
-          await supabase.from('occupants').update({ advance_balance: curAdvance }).eq('id', occ.id)
-          if (stakeholder?.id) {
-            await supabase.from('stakeholders').update({ advance_balance: curAdvance }).eq('id', stakeholder.id)
           }
         }
       } catch (innerErr) {
@@ -495,9 +472,241 @@ export async function sendBillingNotification(billingIdentifier, opts = {}) {
   return { success: true, stakeholderId, targetEmail }
 }
 
+/**
+ * Confirmed Client Rule #2: Allocate held advance rent credit to a specific bill
+ * Does NOT double-count as newly collected cash revenue.
+ */
+export async function allocateAdvanceCreditToBill({ billingId, amount, stakeholderId = null, authorizedByName = 'Treasurer' }) {
+  const allocAmount = Number(amount)
+  if (isNaN(allocAmount) || allocAmount <= 0) throw new Error('Valid allocation amount is required')
+
+  // 1. Fetch billing
+  const { data: bill, error: billErr } = await supabase
+    .from('billings')
+    .select('*, occupant:occupants(id, stakeholder_id)')
+    .eq('id', Number(billingId))
+    .single()
+
+  if (billErr || !bill) throw new Error('Billing statement not found')
+  if (allocAmount > Number(bill.balance)) {
+    throw new Error(`Allocation amount (₱${allocAmount.toLocaleString()}) exceeds bill balance (₱${Number(bill.balance).toLocaleString()})`)
+  }
+
+  const resolvedStakeholderId = stakeholderId || bill.occupant?.stakeholder_id
+  if (!resolvedStakeholderId) throw new Error('Stakeholder reference not found for this bill')
+
+  // 2. Fetch available advance credit
+  const { data: credits, error: credErr } = await supabase
+    .from('advance_credits')
+    .select('*')
+    .eq('stakeholder_id', Number(resolvedStakeholderId))
+    .eq('status', 'AVAILABLE')
+    .gt('available_amount', 0)
+    .order('id', { ascending: true })
+
+  let availableCreditRecord = credits?.[0]
+  if (!availableCreditRecord) {
+    // Check stakeholders.advance_balance fallback
+    const { data: sh } = await supabase.from('stakeholders').select('advance_balance').eq('id', Number(resolvedStakeholderId)).maybeSingle()
+    if (!sh || Number(sh.advance_balance || 0) < allocAmount) {
+      throw new Error(`Insufficient available advance credit balance (Available: ₱${Number(sh?.advance_balance || 0).toLocaleString()})`)
+    }
+    // Create an advance_credits record if missing
+    const { data: newCred } = await supabase.from('advance_credits').insert({
+      stakeholder_id: Number(resolvedStakeholderId),
+      original_amount: Number(sh.advance_balance),
+      available_amount: Number(sh.advance_balance),
+      status: 'AVAILABLE'
+    }).select().single()
+    availableCreditRecord = newCred
+  }
+
+  if (Number(availableCreditRecord.available_amount) < allocAmount) {
+    throw new Error(`Insufficient available advance credit (₱${Number(availableCreditRecord.available_amount).toLocaleString()} available)`)
+  }
+
+  // 3. Insert credit_allocations record
+  await supabase.from('credit_allocations').insert({
+    advance_credit_id: availableCreditRecord.id,
+    billing_id: Number(billingId),
+    allocated_amount: allocAmount,
+    authorized_name: authorizedByName,
+    notes: `Allocated ₱${allocAmount} from Advance Rent Credit to ${bill.billing_no || `BILL-${bill.id}`}`
+  })
+
+  // 4. Update advance_credits available balance
+  const remainingCred = Number(availableCreditRecord.available_amount) - allocAmount
+  await supabase.from('advance_credits').update({
+    available_amount: remainingCred,
+    status: remainingCred <= 0 ? 'DEPLETED' : 'AVAILABLE'
+  }).eq('id', availableCreditRecord.id)
+
+  // Sync stakeholders.advance_balance
+  await supabase.from('stakeholders').update({ advance_balance: remainingCred }).eq('id', Number(resolvedStakeholderId))
+
+  // 5. Update billing statement balance & status
+  const newPaid = Number(bill.paid_amount || 0) + allocAmount
+  const newBal = Math.max(Number(bill.total_amount || 0) - newPaid, 0)
+  const newStatus = newBal <= 0 ? 'PAID' : 'PARTIALLY_PAID'
+
+  const { data: updatedBill, error: updErr } = await supabase.from('billings').update({
+    paid_amount: newPaid,
+    balance: newBal,
+    status: newStatus
+  }).eq('id', Number(billingId)).select().single()
+
+  if (updErr) throw updErr
+
+  // 6. Audit log
+  try {
+    await supabase.from('audit_logs').insert({
+      action: 'ALLOCATE_ADVANCE_CREDIT',
+      entity_name: 'billings',
+      entity_id: String(billingId),
+      details: { billingId, allocatedAmount: allocAmount, remainingCredit: remainingCred, newBalance: newBal }
+    })
+  } catch (_) {}
+
+  return {
+    success: true,
+    allocatedAmount: allocAmount,
+    remainingCredit: remainingCred,
+    updatedBill: normalizeRecord(updatedBill)
+  }
+}
+
+/**
+ * Confirmed Client Rule: Record daily / partial rental collection with receipt reference
+ */
+export async function recordDailyCollection({
+  billingId,
+  amount,
+  receiptNo,
+  paymentDate = null,
+  collectorName = 'Cashier/Collector',
+  notes = ''
+}) {
+  const payAmount = Number(amount)
+  if (isNaN(payAmount) || payAmount <= 0) throw new Error('Valid collection amount is required')
+  const rNo = receiptNo || `OR-${Date.now().toString().slice(-8)}`
+
+  // 1. Fetch billing
+  const { data: bill, error: billErr } = await supabase
+    .from('billings')
+    .select('*, occupant:occupants(id, stakeholder_id)')
+    .eq('id', Number(billingId))
+    .single()
+
+  if (billErr || !bill) throw new Error('Billing record not found')
+
+  const stakeholderId = bill.occupant?.stakeholder_id
+  if (!stakeholderId) throw new Error('Stakeholder reference not found for this bill')
+
+  // 2. Insert payment transaction
+  const { data: payment, error: payErr } = await supabase.from('payments').insert({
+    stakeholder_id: stakeholderId,
+    billing_id: Number(billingId),
+    amount: payAmount,
+    payment_type: 'RENT_PAYMENT',
+    receipt_no: rNo,
+    reference_no: notes || 'Daily collection payment',
+    cashier_name: collectorName,
+    payment_date: paymentDate || new Date().toISOString()
+  }).select().single()
+
+  if (payErr) throw payErr
+
+  // 3. Atomically update billing statement balance & status
+  const newPaid = Number(bill.paid_amount || 0) + payAmount
+  const newBal = Math.max(Number(bill.total_amount || 0) - newPaid, 0)
+  const newStatus = newBal <= 0 ? 'PAID' : 'PARTIALLY_PAID'
+
+  const { data: updatedBill, error: updErr } = await supabase.from('billings').update({
+    paid_amount: newPaid,
+    balance: newBal,
+    status: newStatus
+  }).eq('id', Number(billingId)).select().single()
+
+  if (updErr) throw updErr
+
+  return {
+    success: true,
+    payment: normalizeRecord(payment),
+    updatedBill: normalizeRecord(updatedBill),
+    newBalance: newBal
+  }
+}
+
+/**
+ * Confirmed Client Rule #4: Fetch notices
+ */
+export async function fetchNotices(contractId = null) {
+  let query = supabase.from('notices').select('*, contract:contracts(*, stall:stalls(*)), stakeholder:stakeholders(*)')
+  if (contractId) query = query.eq('contract_id', Number(contractId))
+  const { data, error } = await query.order('id', { ascending: false })
+  if (error) {
+    console.warn('[billingService] Could not fetch notices:', error)
+    return []
+  }
+  return (data || []).map(normalizeRecord)
+}
+
+/**
+ * Confirmed Client Rule #4: Issue overdue notice (1st, 2nd, or Final Demand Notice)
+ * Never automatically evicts or revokes.
+ */
+export async function issueOverdueNotice({
+  contractId,
+  stakeholderId,
+  billingIds = [],
+  noticeType = 'FIRST_NOTICE',
+  balanceSnapshot = 0,
+  daysOverdue = 60,
+  notes = '',
+  issuerName = 'Office of the Market Supervisor'
+}) {
+  const noticeNo = `NOTIF-${noticeType.slice(0, 3)}-${Date.now().toString().slice(-6)}`
+
+  const { data, error } = await supabase.from('notices').insert({
+    notice_no: noticeNo,
+    contract_id: Number(contractId),
+    stakeholder_id: Number(stakeholderId),
+    billing_ids: billingIds,
+    notice_type: noticeType,
+    days_overdue: Number(daysOverdue),
+    balance_snapshot: Number(balanceSnapshot),
+    issuer_name: issuerName,
+    notes: notes,
+    issued_at: new Date().toISOString()
+  }).select().single()
+
+  if (error) throw error
+
+  // Send in-app notification to stakeholder
+  try {
+    const typeLabel = noticeType === 'FINAL_DEMAND' ? 'Final Demand Notice' : (noticeType === 'SECOND_NOTICE' ? 'Second Delinquency Notice' : 'First Notice of Overdue Rental')
+    await supabase.from('notifications').insert({
+      stakeholder_id: Number(stakeholderId),
+      title: `${typeLabel} Issued`,
+      message: `An official ${typeLabel} (${noticeNo}) has been issued regarding outstanding rental arrears of ₱${Number(balanceSnapshot).toLocaleString()}. Please settle your account with the Municipal Treasury immediately.`,
+      priority: 'HIGH',
+      notification_type: 'OVERDUE_NOTICE',
+      related_record_type: 'NOTICES',
+      related_record_id: data.id
+    })
+  } catch (_) {}
+
+  return normalizeRecord(data)
+}
+
 export default {
   ensureBillingsForVerifiedTenants,
   fetchBillings,
-  sendBillingNotification
+  sendBillingNotification,
+  allocateAdvanceCreditToBill,
+  recordDailyCollection,
+  fetchNotices,
+  issueOverdueNotice
 }
+
 

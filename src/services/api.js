@@ -1262,6 +1262,143 @@ const api = {
       }
     }
 
+    // 15. Delinquency & Arrears Monitoring (Strict 60-day / 2-month Grace Period)
+    if (cleanUrl === 'delinquency/flagged' || cleanUrl === 'reports/delinquency') {
+      try {
+        const { data: bList, error } = await supabase
+          .from('billings')
+          .select('*, occupant:occupants(*, stakeholder:stakeholders(*)), contract:contracts(*, stall:stalls(*))')
+          .gt('balance', 0)
+          .order('due_date', { ascending: true })
+
+        if (error) throw error
+
+        const now = Date.now()
+        const contractMap = {}
+
+        for (const b of (bList || [])) {
+          const dueDate = b.due_date ? new Date(b.due_date).getTime() : 0
+          if (!dueDate || dueDate >= now) continue // Not yet due
+
+          const daysPastDue = Math.floor((now - dueDate) / (1000 * 60 * 60 * 24))
+          // Confirmed Decision 4: Apply the 2-month grace period (60 days)
+          if (daysPastDue <= 60) continue // Still within the 2-month grace period
+
+          const cId = b.contract_id || b.contract?.id || `OCC-${b.occupant_id}`
+          const sName = [b.occupant?.stakeholder?.first_name, b.occupant?.stakeholder?.last_name].filter(Boolean).join(' ') ||
+            b.contract?.stakeholder_name || 'Assigned Stakeholder'
+          const stNo = b.contract?.stall?.stall_no || b.stall_no || '—'
+
+          if (!contractMap[cId]) {
+            contractMap[cId] = {
+              contractId: b.contract_id || b.contract?.id,
+              contractNo: b.contract?.contract_no || `CON-${b.contract_id}`,
+              vendorName: sName,
+              stakeholderId: b.occupant?.stakeholder_id || b.occupant?.stakeholder?.id,
+              stallNo: stNo,
+              overdueBalance: 0,
+              maxDaysOverdue: 0,
+              unpaidBills: [],
+              gracePeriodMonths: 2,
+              gracePeriodExpired: true
+            }
+          }
+
+          const bal = Number(b.balance || 0)
+          contractMap[cId].overdueBalance += bal
+          if (daysPastDue > contractMap[cId].maxDaysOverdue) {
+            contractMap[cId].maxDaysOverdue = daysPastDue
+          }
+          contractMap[cId].unpaidBills.push({
+            billingId: b.id,
+            billingNo: b.billing_no,
+            dueDate: b.due_date,
+            balance: bal,
+            daysPastDue
+          })
+        }
+
+        const flaggedList = Object.values(contractMap).map(c => ({
+          ...c,
+          overdueBalanceFormatted: `₱${c.overdueBalance.toLocaleString()}`,
+          isCriticalRevocationRisk: c.maxDaysOverdue > 90
+        }))
+
+        return {
+          data: {
+            flaggedContracts: flaggedList,
+            totalDelinquentCount: flaggedList.length,
+            totalArrearsAmount: flaggedList.reduce((sum, c) => sum + c.overdueBalance, 0)
+          }
+        }
+      } catch (dErr) {
+        console.warn('[api.get /delinquency/flagged] Error:', dErr)
+        return { data: { flaggedContracts: [], totalDelinquentCount: 0, totalArrearsAmount: 0 } }
+      }
+    }
+
+    // 16. Advance Credits
+    if (cleanUrl === 'advance-credits' || cleanUrl.startsWith('advance-credits/')) {
+      try {
+        let q = supabase
+          .from('advance_credits')
+          .select('*, stakeholder:stakeholders(*)')
+          .order('id', { ascending: false })
+
+        if (cleanUrl.startsWith('advance-credits/stakeholder/')) {
+          const shId = cleanUrl.replace('advance-credits/stakeholder/', '')
+          q = q.eq('stakeholder_id', Number(shId))
+        }
+
+        const { data, error } = await q
+        if (error) throw error
+        return { data: normalizeRecord(data || []) }
+      } catch (acErr) {
+        console.warn('[api.get /advance-credits] Notice:', acErr)
+        return { data: [] }
+      }
+    }
+
+    // 17. Overdue Notices
+    if (cleanUrl === 'notices' || cleanUrl.startsWith('notices/')) {
+      try {
+        let q = supabase
+          .from('notices')
+          .select('*, contract:contracts(*), stakeholder:stakeholders(*)')
+          .order('issued_at', { ascending: false })
+
+        if (cleanUrl.startsWith('notices/contract/')) {
+          const cId = cleanUrl.replace('notices/contract/', '')
+          q = q.eq('contract_id', Number(cId))
+        } else if (cleanUrl.startsWith('notices/stakeholder/')) {
+          const sId = cleanUrl.replace('notices/stakeholder/', '')
+          q = q.eq('stakeholder_id', Number(sId))
+        }
+
+        const { data, error } = await q
+        if (error) throw error
+        return { data: normalizeRecord(data || []) }
+      } catch (nErr) {
+        console.warn('[api.get /notices] Notice:', nErr)
+        return { data: [] }
+      }
+    }
+
+    // 18. Credit Allocations
+    if (cleanUrl === 'credit-allocations') {
+      try {
+        const { data, error } = await supabase
+          .from('credit_allocations')
+          .select('*, advance_credit:advance_credits(*), billing:billings(*)')
+          .order('allocated_at', { ascending: false })
+        if (error) throw error
+        return { data: normalizeRecord(data || []) }
+      } catch (caErr) {
+        console.warn('[api.get /credit-allocations] Notice:', caErr)
+        return { data: [] }
+      }
+    }
+
     return rawAxios.get(url, config);
   },
 
@@ -2489,6 +2626,7 @@ const api = {
         } catch (_) {}
       }
 
+      // Confirmed Decision 1: Contracts start as PENDING_APPROVAL / PENDING_SIGNATURE until initial payments and contract signing are satisfied
       const insertPayload = {
         contract_no: contractNo,
         start_date: data.startDate || data.start_date || null,
@@ -2496,9 +2634,13 @@ const api = {
         monthly_rent: data.monthlyRent ?? data.monthly_rent ?? 0,
         billing_frequency: data.billingFrequency || data.billing_frequency || 'MONTHLY',
         terms: data.terms || '',
-        status: data.status || 'ACTIVE',
+        status: data.status || 'PENDING_APPROVAL',
         occupant_id: occupantId ? Number(occupantId) : null,
-        stall_id: stallId ? Number(stallId) : null
+        stall_id: stallId ? Number(stallId) : null,
+        initial_payments_verified: Boolean(data.initialPaymentsVerified || data.initial_payments_verified),
+        signed_by_stakeholder: Boolean(data.signedByStakeholder || data.signed_by_stakeholder),
+        signed_by_lgu: Boolean(data.signedByLgu || data.signed_by_lgu),
+        lease_term_years: Number(data.leaseTermYears || data.lease_term_years || 3)
       };
 
       try {
@@ -2509,25 +2651,26 @@ const api = {
           .single();
         if (error) throw error;
 
+        // Confirmed Decision 1: Stall remains RESERVED (not OCCUPIED) during contract preparation
         if (stallId && occupantId) {
           try {
-            await supabase.from('stalls').update({ status: 'OCCUPIED', occupant_id: Number(occupantId) }).eq('id', Number(stallId));
+            await supabase.from('stalls').update({ status: 'RESERVED', occupant_id: Number(occupantId) }).eq('id', Number(stallId));
           } catch (_) {}
         } else if (stallId) {
           try {
-            await supabase.from('stalls').update({ status: 'OCCUPIED' }).eq('id', Number(stallId));
+            await supabase.from('stalls').update({ status: 'RESERVED' }).eq('id', Number(stallId));
           } catch (_) {}
         }
 
         if (occupantId && newContract?.id) {
           try {
-            await supabase.from('occupants').update({ contract_id: newContract.id, status: 'ACTIVE' }).eq('id', Number(occupantId));
+            await supabase.from('occupants').update({ contract_id: newContract.id, status: 'PENDING' }).eq('id', Number(occupantId));
           } catch (_) {}
         }
 
         if (stakeholderId) {
           try {
-            await supabase.from('stakeholders').update({ onboarding_status: 'CONTRACT_CREATED' }).eq('id', Number(stakeholderId));
+            await supabase.from('stakeholders').update({ onboarding_status: 'CONTRACT_PREPARED' }).eq('id', Number(stakeholderId));
           } catch (_) {}
         }
 
@@ -2564,6 +2707,255 @@ const api = {
 
         return { data: fallbackContract };
       }
+    }
+
+    // 9.1 Contract Signing (Stakeholder & LGU Authorized Signatures)
+    if (cleanUrl.startsWith('contracts/') && cleanUrl.endsWith('/sign')) {
+      const cId = cleanUrl.split('/')[1];
+      const nowIso = new Date().toISOString();
+      const signedByStakeholder = data?.signedByStakeholder !== undefined ? Boolean(data.signedByStakeholder) : true;
+      const signedByLgu = data?.signedByLgu !== undefined ? Boolean(data.signedByLgu) : true;
+
+      const { data: updated, error } = await supabase
+        .from('contracts')
+        .update({
+          signed_by_stakeholder: signedByStakeholder,
+          signed_by_lgu: signedByLgu,
+          signed_at: nowIso,
+          status: 'PENDING_APPROVAL'
+        })
+        .eq('id', Number(cId))
+        .select('*, occupant:occupants(*, stakeholder:stakeholders(*)), stall:stalls(*)')
+        .single();
+
+      if (error) throw error;
+      invalidateApiCache('contracts|occupants|stalls');
+      return { data: normalizeRecord(updated) };
+    }
+
+    // 9.2 Contract Activation Gate (Confirmed Decision 1: Only activates after initial payments AND contract signing)
+    if (cleanUrl.startsWith('contracts/') && cleanUrl.endsWith('/activate')) {
+      const cId = cleanUrl.split('/')[1];
+      const { data: cRec, error: cErr } = await supabase
+        .from('contracts')
+        .select('*, occupant:occupants(*, stakeholder:stakeholders(*)), stall:stalls(*)')
+        .eq('id', Number(cId))
+        .single();
+
+      if (cErr || !cRec) throw new Error('Contract not found.');
+
+      const shId = cRec.occupant?.stakeholder_id || cRec.occupant?.stakeholder?.id || cRec.stakeholder_id;
+      const stallId = cRec.stall_id;
+
+      // Verification checks
+      const missingConditions = [];
+
+      // 1. Check initial payments (Stall Rights fee + 2 months advance rent)
+      let initialPaymentsVerified = cRec.initial_payments_verified;
+      if (!initialPaymentsVerified && shId) {
+        // Query payments or advance_credits or stakeholder flags
+        const { data: sh } = await supabase.from('stakeholders').select('*').eq('id', shId).maybeSingle();
+        const { data: advList } = await supabase.from('advance_credits').select('id, available_amount').eq('stakeholder_id', shId);
+        const { data: payList } = await supabase.from('payments').select('payment_type, amount').eq('stakeholder_id', shId);
+
+        const hasAdvance = (advList && advList.length > 0) || (sh && (sh.advance_payment_paid || Number(sh.advance_balance || 0) > 0)) ||
+          (payList && payList.some(p => p.payment_type === 'ADVANCE_PAYMENT' || p.payment_type === 'ADVANCE_RENT'));
+        const hasRightsFee = (sh && (sh.applicant_fee_paid || sh.treasurer_paid)) ||
+          (payList && payList.some(p => p.payment_type === 'STALL_RIGHTS_FEE' || p.payment_type === 'APPLICATION_FEE'));
+
+        if (hasAdvance && hasRightsFee) {
+          initialPaymentsVerified = true;
+          await supabase.from('contracts').update({ initial_payments_verified: true }).eq('id', Number(cId));
+        }
+      }
+
+      if (!initialPaymentsVerified) {
+        missingConditions.push('Initial payments not verified (Stall rights fee and 2-month advance rental required).');
+      }
+
+      // 2. Check contract signatures
+      const isSigned = (cRec.signed_by_stakeholder && cRec.signed_by_lgu) || cRec.signed_at || Boolean(data?.forceSigning);
+      if (!isSigned) {
+        missingConditions.push('Contract signatures missing (Both Lessee and Market Supervisor must sign).');
+      }
+
+      // 3. Check stall availability (ensure no other ACTIVE lease)
+      if (stallId) {
+        const { data: activeOthers } = await supabase
+          .from('contracts')
+          .select('id, contract_no')
+          .eq('stall_id', stallId)
+          .eq('status', 'ACTIVE')
+          .neq('id', Number(cId));
+        if (activeOthers && activeOthers.length > 0) {
+          missingConditions.push(`Stall #${cRec.stall?.stall_no || stallId} already has an active lease (${activeOthers[0].contract_no}).`);
+        }
+      }
+
+      if (missingConditions.length > 0) {
+        return {
+          data: {
+            activated: false,
+            success: false,
+            error: 'Contract cannot be activated until all prerequisites are met.',
+            missingConditions
+          }
+        };
+      }
+
+      // ACTIVATE
+      const nowIso = new Date().toISOString();
+      const { data: activatedContract, error: actErr } = await supabase
+        .from('contracts')
+        .update({
+          status: 'ACTIVE',
+          activated_at: nowIso,
+          initial_payments_verified: true,
+          signed_by_stakeholder: true,
+          signed_by_lgu: true,
+          signed_at: cRec.signed_at || nowIso
+        })
+        .eq('id', Number(cId))
+        .select('*, occupant:occupants(*, stakeholder:stakeholders(*)), stall:stalls(*)')
+        .single();
+
+      if (actErr) throw actErr;
+
+      // Update stall to OCCUPIED
+      if (stallId) {
+        await supabase.from('stalls').update({ status: 'OCCUPIED', occupant_id: cRec.occupant_id }).eq('id', stallId);
+      }
+
+      // Update occupant to ACTIVE
+      if (cRec.occupant_id) {
+        await supabase.from('occupants').update({ status: 'ACTIVE', is_archived: false }).eq('id', cRec.occupant_id);
+      }
+
+      // Update stakeholder status
+      if (shId) {
+        await supabase.from('stakeholders').update({
+          application_status: 'FULLY_APPROVED',
+          onboarding_status: 'ACTIVE_VENDOR',
+          verified_tenant: true
+        }).eq('id', shId);
+      }
+
+      // Log to audit_logs
+      try {
+        await supabase.from('audit_logs').insert({
+          action: 'CONTRACT_ACTIVATED',
+          entity_type: 'contracts',
+          entity_id: String(cId),
+          change_summary: `Contract ${cRec.contract_no} activated after verifying initial payments and signatures.`
+        });
+      } catch (_) {}
+
+      // Generate billing statement schedule
+      try {
+        const { ensureBillingsForVerifiedTenants } = await import('./billingService');
+        await ensureBillingsForVerifiedTenants();
+      } catch (_) {}
+
+      invalidateApiCache('contracts|occupants|stalls|stakeholders|billings');
+      return {
+        data: {
+          activated: true,
+          success: true,
+          contract: normalizeRecord(activatedContract)
+        }
+      };
+    }
+
+    // 9.3 Contract Revocation (Confirmed Decision: Requires authorized decision; never automatic)
+    if ((cleanUrl.startsWith('contracts/') && cleanUrl.endsWith('/revoke')) || cleanUrl === 'delinquency/mayor-revocation') {
+      const cId = cleanUrl === 'delinquency/mayor-revocation' ? (data?.contractId || data?.contract_id) : cleanUrl.split('/')[1];
+      const reason = data?.reason || data?.remarks || 'Authorized municipal lease revocation';
+      const nowIso = new Date().toISOString();
+
+      const { data: cRec } = await supabase
+        .from('contracts')
+        .select('*, stall:stalls(*), occupant:occupants(*)')
+        .eq('id', Number(cId))
+        .maybeSingle();
+
+      const { data: revoked, error } = await supabase
+        .from('contracts')
+        .update({
+          status: 'REVOKED',
+          revocation_reason: reason,
+          revoked_at: nowIso
+        })
+        .eq('id', Number(cId))
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Release stall back to AVAILABLE
+      if (cRec?.stall_id) {
+        await supabase.from('stalls').update({ status: 'AVAILABLE', occupant_id: null }).eq('id', cRec.stall_id);
+      }
+
+      // Set occupant to REVOKED / archived
+      if (cRec?.occupant_id) {
+        await supabase.from('occupants').update({ status: 'REVOKED', is_archived: true }).eq('id', cRec.occupant_id);
+      }
+
+      // Log to audit_logs
+      try {
+        await supabase.from('audit_logs').insert({
+          action: 'CONTRACT_REVOKED',
+          entity_type: 'contracts',
+          entity_id: String(cId),
+          change_summary: `Contract ${cRec?.contract_no || cId} revoked. Reason: ${reason}`
+        });
+      } catch (_) {}
+
+      invalidateApiCache('contracts|occupants|stalls|stakeholders|billings');
+      return { data: { success: true, revoked: normalizeRecord(revoked) } };
+    }
+
+    // 9.4 Advance Credit Allocation (Confirmed Decision 2: Allocated without counting as duplicate cash revenue)
+    if (cleanUrl === 'advance-credits/allocate') {
+      const { allocateAdvanceCreditToBill } = await import('./billingService');
+      const res = await allocateAdvanceCreditToBill({
+        billingId: data?.billingId || data?.billing_id,
+        amount: data?.amount,
+        stakeholderId: data?.stakeholderId || data?.stakeholder_id,
+        authorizedByName: data?.authorizedByName || 'Municipal Treasurer'
+      });
+      invalidateApiCache('billings|advance-credits|credit-allocations');
+      return { data: res };
+    }
+
+    // 9.5 Daily & Partial Payment Collection
+    if (cleanUrl === 'collections/daily' || cleanUrl === 'payments/daily') {
+      const { recordDailyCollection } = await import('./billingService');
+      const res = await recordDailyCollection({
+        billingId: data?.billingId || data?.billing_id,
+        amount: data?.amount,
+        receiptNo: data?.receiptNo || data?.receipt_no,
+        collectorName: data?.collectorName || data?.collector_name || 'Daily Market Collector',
+        notes: data?.notes
+      });
+      invalidateApiCache('billings|payments|collections');
+      return { data: res };
+    }
+
+    // 9.6 Overdue Notices Issuance
+    if (cleanUrl === 'notices' || cleanUrl === 'notices/issue') {
+      const { issueOverdueNotice } = await import('./billingService');
+      const res = await issueOverdueNotice({
+        contractId: data?.contractId || data?.contract_id,
+        stakeholderId: data?.stakeholderId || data?.stakeholder_id,
+        noticeType: data?.noticeType || data?.notice_type || 'FIRST_NOTICE',
+        totalArrears: data?.totalArrears || data?.total_arrears || 0,
+        unpaidBillingIds: data?.unpaidBillingIds || data?.unpaid_billing_ids || [],
+        remarks: data?.remarks,
+        issuedByName: data?.issuedByName || data?.issued_by_name || 'Market Administration'
+      });
+      invalidateApiCache('notices');
+      return { data: res };
     }
 
     return rawAxios.post(url, data, config);
@@ -2626,17 +3018,22 @@ const api = {
 
     if (cleanUrl.startsWith('applications/') && cleanUrl.endsWith('/mayor-review')) {
       const appId = cleanUrl.split('/')[1];
-      const { decision, remarks } = data || {};
-      const isApproved = decision === 'APPROVED';
+      const { decision, approved, remarks, signedDocumentUrl, signed_document_url, signedDocumentRef, approverName } = data || {};
+      const isApproved = decision === 'APPROVED' || approved === true;
+      const decValue = isApproved ? 'APPROVED' : 'REJECTED';
       const nextStatus = isApproved ? 'PENDING_TREASURER_PAYMENT' : 'MAYOR_REJECTED';
+      const docRef = signedDocumentUrl || signed_document_url || signedDocumentRef || null;
       const { data: { user } } = await supabase.auth.getUser();
+      const approver = approverName || user?.user_metadata?.name || user?.user_metadata?.full_name || 'Office of the Municipal Mayor';
 
       const { data: updatedApp, error: appErr } = await supabase
         .from('stakeholder_applications')
         .update({
           status: nextStatus,
-          mayor_decision: decision,
+          mayor_decision: decValue,
           mayor_approved_at: new Date().toISOString(),
+          mayor_approved_by: approver,
+          mayor_signed_document_url: docRef,
           mayor_remarks: remarks || null,
           current_holding_office: isApproved ? 'Municipal Treasury' : 'Office of the Mayor'
         })
@@ -2650,7 +3047,7 @@ const api = {
         await supabase.from('stakeholders').update({
           final_endorsed: isApproved,
           endorsing_approved: isApproved,
-          endorsement_status: decision,
+          endorsement_status: decValue,
           endorsement_remarks: remarks || null,
           application_status: nextStatus
         }).eq('id', updatedApp.stakeholder_id);
@@ -2660,11 +3057,11 @@ const api = {
             stakeholder_id: updatedApp.stakeholder_id,
             application_id: Number(appId),
             stage: 'MAYOR_OFFICE',
-            status: decision,
+            status: decValue,
             action_by: user?.id || null,
-            actor_name: user?.user_metadata?.name || 'Office of the Mayor',
+            actor_name: approver,
             actor_role: 'MAYOR',
-            remarks: remarks || null
+            remarks: remarks || (docRef ? `LOI approved with signed document reference: ${docRef}` : null)
           });
         } catch (_) {}
       }

@@ -623,7 +623,7 @@ async function confirmInlineStallSelection() {
     toast.add({
       severity: 'success',
       summary: 'Stall Reserved',
-      detail: 'Target market stall selected! 3-month advance payment baseline calculated and occupant status set to PENDING.',
+      detail: 'Target market stall selected! 2-month advance payment baseline calculated and occupant status set to PENDING.',
       life: 4500
     })
 
@@ -669,7 +669,7 @@ async function confirmStallSelection() {
     toast.add({
       severity: 'success',
       summary: 'Stall Reserved',
-      detail: 'Target market stall selected! 3-month advance payment baseline updated.',
+      detail: 'Target market stall selected! 2-month advance payment baseline updated.',
       life: 4000
     })
 
