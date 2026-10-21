@@ -38,18 +38,7 @@ export function normalizeWorkflowRole(role) {
     TENANT: 'STAKEHOLDER',
     VENDOR: 'STAKEHOLDER',
     APPLICANT: 'STAKEHOLDER',
-    USER: 'STAKEHOLDER',
-    // BPLO Office
-    BPLO: 'BPLO',
-    BPLOOFFICE: 'BPLO',
-    BPLO_OFFICE: 'BPLO',
-    BPLO_STAFF: 'BPLO',
-    // Endorsing Office
-    ENDORSING: 'ENDORSING_OFFICE',
-    ENDORSINGOFFICE: 'ENDORSING_OFFICE',
-    ENDORSING_OFFICER: 'ENDORSING_OFFICE',
-    ENDORSING_OFFICE: 'ENDORSING_OFFICE',
-    ENDORISING_OFFICE: 'ENDORSING_OFFICE'
+    USER: 'STAKEHOLDER'
   }
 
   return aliases[normalized] || normalized

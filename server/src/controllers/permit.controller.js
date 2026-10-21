@@ -16,7 +16,7 @@ export async function issuePermit(req, res, next) {
 
     return res.status(201).json({
       success: true,
-      message: 'Occupancy permit officially issued with QR verification and MORESCO utility clearance prepared. Physical setup and inspection may proceed.',
+      message: 'Occupancy permit officially issued with QR verification. Physical setup and inspection may proceed.',
       permit
     });
   } catch (err) {

@@ -109,12 +109,6 @@
           <button type="button" @click="quickLogin('COLLECTOR_INSPECTOR')" class="p-button p-button-sm p-button-outlined" style="font-size: 0.75rem; padding: 0.3rem 0.6rem; border-radius: 6px; border: 1px solid #99f6e4; background: #f0fdfa; color: #0f766e; cursor: pointer;">
             <i class="pi pi-qrcode" style="margin-right: 4px; font-size: 0.75rem;"></i>Collector
           </button>
-          <button type="button" @click="quickLogin('BPLO')" class="p-button p-button-sm p-button-outlined" style="font-size: 0.75rem; padding: 0.3rem 0.6rem; border-radius: 6px; border: 1px solid #fed7aa; background: #fff7ed; color: #c2410c; cursor: pointer;">
-            <i class="pi pi-briefcase" style="margin-right: 4px; font-size: 0.75rem;"></i>BPLO
-          </button>
-          <button type="button" @click="quickLogin('ENDORSING_OFFICE')" class="p-button p-button-sm p-button-outlined" style="font-size: 0.75rem; padding: 0.3rem 0.6rem; border-radius: 6px; border: 1px solid #e2e8f0; background: #f1f5f9; color: #475569; cursor: pointer;">
-            <i class="pi pi-check-circle" style="margin-right: 4px; font-size: 0.75rem;"></i>Endorsing
-          </button>
           <button type="button" @click="quickLogin('APPLICANT')" class="p-button p-button-sm p-button-outlined" style="font-size: 0.75rem; padding: 0.3rem 0.6rem; border-radius: 6px; border: 1px solid #e9d5ff; background: #faf5ff; color: #7e22ce; cursor: pointer;">
             <i class="pi pi-user" style="margin-right: 4px; font-size: 0.75rem;"></i>Applicant
           </button>
@@ -177,8 +171,6 @@ function quickLogin(targetRole) {
   else if (targetRole === 'MARKET_SUPERVISOR') router.push('/supervisor')
   else if (targetRole === 'MAYOR') router.push('/mayor')
   else if (targetRole === 'TREASURER') router.push('/treasurer')
-  else if (targetRole === 'BPLO' || targetRole === 'BPLO_STAFF') router.push('/bplo')
-  else if (targetRole === 'ENDORSING_OFFICE') router.push('/endorsing')
   else if (targetRole === 'COLLECTOR_INSPECTOR') router.push('/collector')
   else router.push('/application-progress')
 }
@@ -193,9 +185,6 @@ const MUNICIPAL_STAFF_MAP = {
   mayor: 'mayor@manticao.gov.ph',
   municipal_mayor: 'mayor@manticao.gov.ph',
   treasurer: 'treasurer@manticao.gov.ph',
-  bplo: 'bplo@manticao.gov.ph',
-  endorsing: 'endorsing@manticao.gov.ph',
-  endorsing_office: 'endorsing@manticao.gov.ph',
   collector: 'collector@manticao.gov.ph',
   inspector: 'collector@manticao.gov.ph',
   collector_inspector: 'collector@manticao.gov.ph',
@@ -287,13 +276,9 @@ async function onSubmit() {
               ? 'MAYOR'
               : (lowerId === 'treasurer'
                   ? 'TREASURER'
-                  : (lowerId === 'bplo'
-                      ? 'BPLO'
-                      : (lowerId === 'endorsing' || lowerId === 'endorsing_office'
-                          ? 'ENDORSING_OFFICE'
-                          : (lowerId === 'collector' || lowerId === 'inspector'
-                              ? 'COLLECTOR_INSPECTOR'
-                              : (lowerId === 'applicant' ? 'APPLICANT' : 'MARKET_SUPERVISOR'))))));
+                  : (lowerId === 'collector' || lowerId === 'inspector'
+                      ? 'COLLECTOR_INSPECTOR'
+                      : (lowerId === 'applicant' ? 'APPLICANT' : 'MARKET_SUPERVISOR'))));
         quickLogin(staffRole);
         return;
       }
@@ -373,19 +358,7 @@ async function onSubmit() {
       return
     }
 
-    // BPLO
-    if (role === 'BPLO' || role === 'BPLO_STAFF') {
-      console.log('[AUTH] ✅ BPLO — navigating to /bplo')
-      router.push('/bplo')
-      return
-    }
 
-    // ENDORSING OFFICE
-    if (role === 'ENDORSING_OFFICE') {
-      console.log('[AUTH] ✅ ENDORSING_OFFICE — navigating to /endorsing')
-      router.push('/endorsing')
-      return
-    }
 
     // STAKEHOLDER (APPLICANT / ACTIVE VENDOR)
     if (role === 'STAKEHOLDER' || role === 'APPLICANT' || role === 'VENDOR') {

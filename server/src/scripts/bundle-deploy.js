@@ -2,7 +2,6 @@ import fs from 'fs';
 import path from 'path';
 
 const m1 = fs.readFileSync('supabase/migrations/20261020_complete_manticao_migration.sql', 'utf8');
-const m2 = fs.readFileSync('supabase/migrations/20261021_bplo_endorsing_moresco_update.sql', 'utf8');
 const seed = fs.readFileSync('supabase/seed.sql', 'utf8');
 const seedAdmin = fs.readFileSync('supabase/seed_admin.sql', 'utf8');
 
@@ -34,8 +33,6 @@ const fullSql = [
   '-- Executes Schema, Migrations, Storage Buckets, Seed Data, and Auth Users',
   '-- ==============================================================================\n',
   m1,
-  '\n-- ==============================================================================\n-- STAGE 2: BPLO & MORESCO EXTENSIONS\n-- ==============================================================================\n',
-  m2,
   storageSql,
   '\n-- ==============================================================================\n-- STAGE 4: MARKET & STALL SEED DATA\n-- ==============================================================================\n',
   seed,

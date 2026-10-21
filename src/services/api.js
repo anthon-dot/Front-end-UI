@@ -1581,9 +1581,6 @@ const api = {
         mayor: 'mayor@manticao.gov.ph',
         municipal_mayor: 'mayor@manticao.gov.ph',
         treasurer: 'treasurer@manticao.gov.ph',
-        bplo: 'bplo@manticao.gov.ph',
-        endorsing: 'endorsing@manticao.gov.ph',
-        endorsing_office: 'endorsing@manticao.gov.ph',
         collector: 'collector@manticao.gov.ph',
         inspector: 'collector@manticao.gov.ph',
         collector_inspector: 'collector@manticao.gov.ph',
@@ -2185,11 +2182,9 @@ const api = {
         if (sh) {
           const hasAdvance = Boolean(sh.advance_rent_paid || sh.advance_payment_paid || Number(sh.advance_balance || 0) > 0);
           const hasStall = Boolean(sh.selected_stall_id);
-          const hasBplo = Boolean(sh.bplo_approved || sh.bplo_status === 'APPROVED');
-          const hasEndorsement = Boolean(sh.final_endorsed || sh.endorsement_status === 'APPROVED' || sh.endorsing_approved);
-          const hasPermitFee = Boolean(sh.applicant_fee_paid || sh.application_form_paid || sh.treasurer_paid);
+          const hasInitialFees = Boolean(sh.applicant_fee_paid || sh.application_form_paid || sh.treasurer_paid);
 
-          if (hasAdvance && hasStall && hasBplo && hasEndorsement && hasPermitFee) {
+          if (hasAdvance && hasStall && hasInitialFees) {
             const stallId = Number(sh.selected_stall_id);
             const { data: occ } = await supabase.from('occupants').select('id').eq('stakeholder_id', Number(stakeholderId)).maybeSingle();
             if (occ?.id) {
@@ -2212,7 +2207,7 @@ const api = {
             }
             return { data: { activated: true, stakeholderId, stallId } };
           }
-          return { data: { activated: false, reason: 'Pending required approvals or fees', checks: { hasAdvance, hasStall, hasBplo, hasEndorsement, hasPermitFee } } };
+          return { data: { activated: false, reason: 'Pending required initial fees or stall assignment', checks: { hasAdvance, hasStall, hasInitialFees } } };
         }
       }
       return { data: { activated: false } };
@@ -3118,68 +3113,7 @@ const api = {
       return { data: normalizeRecord(updatedApp) };
     }
 
-    if (cleanUrl.startsWith('applications/') && cleanUrl.endsWith('/bplo-assess')) {
-      const appId = cleanUrl.split('/')[1];
-      const { feeAmount, remarks } = data || {};
 
-      const { data: updatedApp, error: appErr } = await supabase
-        .from('stakeholder_applications')
-        .update({
-          business_permit_fee_assessed: Number(feeAmount || 0),
-          bplo_remarks: remarks || null,
-          status: 'PENDING_BPLO_PAYMENT',
-          current_holding_office: 'Municipal Treasury'
-        })
-        .eq('id', Number(appId))
-        .select()
-        .single();
-
-      if (appErr) throw appErr;
-
-      if (updatedApp?.stakeholder_id) {
-        await supabase.from('stakeholders').update({
-          business_permit_fee_assessed: Number(feeAmount || 0)
-        }).eq('id', updatedApp.stakeholder_id);
-      }
-
-      invalidateApiCache('applications|stakeholders');
-      return { data: normalizeRecord(updatedApp) };
-    }
-
-    if (cleanUrl.startsWith('applications/') && cleanUrl.endsWith('/bplo-release')) {
-      const appId = cleanUrl.split('/')[1];
-      const { permitNo } = data || {};
-      const generatedPermitNo = permitNo || `BP-2026-${Date.now().toString().slice(-6)}`;
-
-      const { data: updatedApp, error: appErr } = await supabase
-        .from('stakeholder_applications')
-        .update({
-          business_permit_released: true,
-          business_permit_released_at: new Date().toISOString(),
-          business_permit_no: generatedPermitNo,
-          status: 'BUSINESS_PERMIT_RELEASED',
-          bplo_status: 'RELEASED',
-          current_holding_office: 'Office of the Mayor'
-        })
-        .eq('id', Number(appId))
-        .select()
-        .single();
-
-      if (appErr) throw appErr;
-
-      if (updatedApp?.stakeholder_id) {
-        await supabase.from('stakeholders').update({
-          business_permit_released: true,
-          business_permit_released_at: new Date().toISOString(),
-          business_permit_no: generatedPermitNo,
-          bplo_approved: true,
-          bplo_status: 'RELEASED'
-        }).eq('id', updatedApp.stakeholder_id);
-      }
-
-      invalidateApiCache('applications|stakeholders|permits');
-      return { data: normalizeRecord(updatedApp) };
-    }
 
     if (cleanUrl.startsWith('applications/') && cleanUrl.endsWith('/activate-vendor')) {
       const appId = cleanUrl.split('/')[1];

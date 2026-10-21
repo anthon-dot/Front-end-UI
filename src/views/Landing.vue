@@ -281,12 +281,12 @@
           </div>
 
           <div class="contact-card">
-            <div class="contact-icon bg-amber"><i class="pi pi-briefcase"></i></div>
-            <h4>Business Permit & Licensing (BPLO)</h4>
-            <p>Business permit fee assessment, verification & permit release.</p>
+            <div class="contact-icon bg-amber"><i class="pi pi-crown"></i></div>
+            <h4>Office of the Municipal Mayor</h4>
+            <p>Executive review, LOI authorization & lease agreement approvals.</p>
             <div class="contact-info">
-              <span><i class="pi pi-phone"></i> (088) 555-0145</span>
-              <span><i class="pi pi-envelope"></i> bplo@manticao.gov.ph</span>
+              <span><i class="pi pi-phone"></i> (088) 555-0110</span>
+              <span><i class="pi pi-envelope"></i> mayor@manticao.gov.ph</span>
               <span><i class="pi pi-clock"></i> Mon - Fri, 8:00 AM - 5:00 PM</span>
             </div>
           </div>
@@ -392,7 +392,7 @@ const features = [
   {
     icon: '04',
     title: 'Review Workflow',
-    text: 'Support market supervisor, BPLO, endorsing, and treasurer handoffs.'
+    text: 'Support market supervisor, mayor, field inspector, and treasurer handoffs.'
   }
 ]
 

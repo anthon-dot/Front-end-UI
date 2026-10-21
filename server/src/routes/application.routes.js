@@ -8,12 +8,8 @@ import {
   listApplications,
   getApplicationById,
   supervisorReview,
-  endorsingReview,
   mayorReview,
   inspectorVerify,
-  bploAssessFee,
-  bploReleasePermit,
-  getMorescoClearance,
   activateVendor
 } from '../controllers/application.controller.js';
 
@@ -40,12 +36,8 @@ router.get('/:id', authenticateToken, getApplicationById);
 
 // Workflow review & validation endpoints
 router.put('/:id/supervisor-review', authenticateToken, requireRole(ROLES.MARKET_SUPERVISOR, ROLES.ADMIN), supervisorReview);
-router.put('/:id/endorsing-review', authenticateToken, requireRole(ROLES.ENDORSING_OFFICE, ROLES.ADMIN), endorsingReview);
 router.put('/:id/mayor-review', authenticateToken, requireRole(ROLES.MAYOR, ROLES.ADMIN), mayorReview);
 router.put('/:id/inspector-verify', authenticateToken, requireRole(ROLES.COLLECTOR_INSPECTOR, ROLES.MARKET_SUPERVISOR, ROLES.ADMIN), inspectorVerify);
-router.put('/:id/bplo-assess', authenticateToken, requireRole(ROLES.BPLO, ROLES.ADMIN), bploAssessFee);
-router.put('/:id/bplo-release', authenticateToken, requireRole(ROLES.BPLO, ROLES.ADMIN), bploReleasePermit);
-router.get('/:id/moresco-clearance', authenticateToken, getMorescoClearance);
 router.put('/:id/activate-vendor', authenticateToken, requireRole(ROLES.MARKET_SUPERVISOR, ROLES.ADMIN), activateVendor);
 
 export default router;

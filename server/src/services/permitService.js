@@ -1,12 +1,12 @@
 import { supabase } from '../config/supabase.js';
 import { PERMIT_STATUS, APPLICATION_STATUS, STALL_STATUS, ROLES } from '../config/constants.js';
 import { generatePermitIntegrityHash } from '../utils/crypto.js';
-import { generatePermitPDF, generateMORESCOClearancePDF } from '../utils/pdfGenerator.js';
+import { generatePermitPDF } from '../utils/pdfGenerator.js';
 import { generatePermitQRCode } from '../utils/qrGenerator.js';
 import { logAudit } from '../middleware/auditLogger.js';
 
 /**
- * Generates an official digital occupancy permit with QR verification and MORESCO utility clearance
+ * Generates an official digital occupancy permit with QR verification
  */
 export async function issueOccupancyPermit({ applicationId, issuedBy }) {
   // 1. Fetch application with related stakeholder, contract, and stall
@@ -82,28 +82,6 @@ export async function issueOccupancyPermit({ applicationId, issuedBy }) {
     });
   } catch (_) {}
 
-  // Generate MORESCO Utility Clearance Certificate
-  const clearanceNo = `CLR-MORESCO-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
-  let morescoPath = null;
-  try {
-    const morescoPdfBuffer = await generateMORESCOClearancePDF({
-      clearanceNo,
-      vendorName,
-      businessName: stakeholder.business_name,
-      stallNo: stall.stall_no,
-      stallType: stall.stall_type,
-      issueDate
-    });
-
-    morescoPath = `clearances/${clearanceNo}.pdf`;
-    await supabase.storage.from('uploads').upload(morescoPath, morescoPdfBuffer, {
-      contentType: 'application/pdf',
-      upsert: true
-    });
-  } catch (mErr) {
-    console.warn('[permitService] MORESCO clearance generation notice:', mErr.message);
-  }
-
   // Upsert Occupancy Permit record
   const { data: permit, error: pErr } = await supabase
     .from('occupancy_permits')
@@ -169,12 +147,11 @@ export async function issueOccupancyPermit({ applicationId, issuedBy }) {
     action: 'ISSUE_OCCUPANCY_PERMIT',
     entityName: 'occupancy_permits',
     entityId: permit.id,
-    details: { permitNo, vendorName, stallNo: stall.stall_no, clearanceNo }
+    details: { permitNo, vendorName, stallNo: stall.stall_no }
   });
 
   return {
-    ...permit,
-    morescoClearanceUrl: morescoPath
+    ...permit
   };
 }
 

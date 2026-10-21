@@ -372,7 +372,7 @@ function canApprove(item) {
   if (!item) return false
   if (item.treasurerApproved === true || item.treasurer_approved === true) return false
   const appStatus = String(item.applicationStatus || '').toUpperCase()
-  if (['COMPLETED', 'FULLY_APPROVED', 'REJECTED', 'APPROVED', 'PENDING_MARKET_SUPERVISOR_APPROVAL', 'PENDING_BPLO_APPROVAL'].includes(appStatus)) return false
+  if (['COMPLETED', 'FULLY_APPROVED', 'REJECTED', 'APPROVED', 'PENDING_MARKET_SUPERVISOR_APPROVAL'].includes(appStatus)) return false
   return true
 }
 

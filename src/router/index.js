@@ -348,18 +348,6 @@ const routes = [
     redirect: '/collector'
   },
   {
-    path: '/endorsing',
-    name: 'EndorsingDashboard',
-    component: () => import('../EndorsingOfficeDashboard/EndorsingDashboard.vue'),
-    meta: { roles: ['ADMIN', 'ENDORSING_OFFICE'] }
-  },
-  {
-    path: '/bplo',
-    name: 'BPLODashboard',
-    component: () => import('../BPLODashboard/BPLODashboard.vue'),
-    meta: { roles: ['ADMIN', 'BPLO', 'BPLO_STAFF'] }
-  },
-  {
     path: '/stakeholder/settings',
     name: 'StakeholderSettings',
     component: () => import('../Stakeholder/Settings.vue'),

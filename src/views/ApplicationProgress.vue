@@ -208,8 +208,8 @@
           <p>
             {{
               hasHazardFreeDoc
-                ? 'Your Hazard-Free Stall Confirmation has been recorded and submitted for BPLO and Endorsing Office validation.'
-                : 'Steps 1–5 have been approved! Please upload your Hazard-Free Stall Confirmation so BPLO and Endorsing Office can proceed with final business permit verification.'
+                ? 'Your Hazard-Free Stall Confirmation has been recorded and submitted for Market Inspector verification.'
+                : 'Steps 1–5 have been approved! Please upload your Hazard-Free Stall Confirmation so the Market Inspector and Supervisor can proceed with stall setup verification.'
             }}
           </p>
           <small v-if="hazardDocInfo" class="hazard-doc-filename">
@@ -357,7 +357,7 @@
 
           <div class="hazard-instructions">
             <p>
-              Please upload the official document confirming that your occupied stall is free from electrical, structural, fire, and health hazards. This confirmation is reviewed by the <strong>BPLO</strong> and <strong>Endorsing Office</strong>.
+              Please upload the official document confirming that your occupied stall is free from electrical, structural, fire, and health hazards. This confirmation is reviewed by the <strong>Market Inspector</strong> and <strong>Market Supervisor</strong>.
             </p>
           </div>
 
@@ -835,7 +835,7 @@ async function submitHazardFreeFile() {
     toast.add({
       severity: 'success',
       summary: 'Hazard-Free Confirmation Uploaded',
-      detail: 'Document has been recorded and submitted to BPLO & Endorsing Office.',
+      detail: 'Document has been recorded and submitted to Market Inspector & Supervisor.',
       life: 4500
     })
 

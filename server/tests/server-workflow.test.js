@@ -2,7 +2,6 @@ import assert from 'assert';
 import { calculateInitialFeesForStall } from '../src/services/rentalCalculationService.js';
 import { generatePermitIntegrityHash, generateReceiptIntegrityHash } from '../src/utils/crypto.js';
 import { generatePermitQRCode } from '../src/utils/qrGenerator.js';
-import { generateMORESCOClearancePDF } from '../src/utils/pdfGenerator.js';
 import { ROLES, APPLICATION_STATUS, STALL_STATUS, CONTRACT_STATUS, BILLING_STATUS, PAYMENT_TYPES } from '../src/config/constants.js';
 
 /**
@@ -44,7 +43,7 @@ async function runAll17SystemTests() {
   // ---------------------------------------------------------------------------
   // 1. Authentication and role permissions
   // ---------------------------------------------------------------------------
-  test('1', 'Authentication and Role Permissions: All 10 Principal Roles Configured', () => {
+  test('1', 'Authentication and Role Permissions: All Core System Roles Configured', () => {
     const requiredRoles = [
       'APPLICANT',
       'VENDOR',
@@ -53,9 +52,6 @@ async function runAll17SystemTests() {
       'TREASURER',
       'COLLECTOR',
       'COLLECTOR_INSPECTOR',
-      'BPLO',
-      'BPLO_STAFF',
-      'ENDORSING_OFFICE',
       'ADMIN'
     ];
 
@@ -70,10 +66,7 @@ async function runAll17SystemTests() {
       ROLES.TREASURER,
       ROLES.MAYOR,
       ROLES.COLLECTOR,
-      ROLES.COLLECTOR_INSPECTOR,
-      ROLES.BPLO,
-      ROLES.BPLO_STAFF,
-      ROLES.ENDORSING_OFFICE
+      ROLES.COLLECTOR_INSPECTOR
     ];
     assert(!staffRoles.includes(ROLES.APPLICANT), 'APPLICANT must never have staff privileges.');
     assert(!staffRoles.includes(ROLES.VENDOR), 'VENDOR must never have staff privileges.');
@@ -236,7 +229,7 @@ async function runAll17SystemTests() {
   // ---------------------------------------------------------------------------
   // 8. Occupancy permit generation and QR verification
   // ---------------------------------------------------------------------------
-  await testAsync('8', 'Occupancy Permit & QR Verification: Deterministic Hash, QR & MORESCO', async () => {
+  await testAsync('8', 'Occupancy Permit & QR Verification: Deterministic Hash & QR Route', async () => {
     const permitData = {
       permitNo: 'MNT-PERMIT-2026-0001',
       vendorName: 'Maria Santos',
@@ -256,42 +249,30 @@ async function runAll17SystemTests() {
 
     assert(qrDataUrl.startsWith('data:image/png;base64,'), 'QR code must be a valid Data URL.');
     assert(verificationUrl.includes('verify-permit'), 'Verification URL must point to public verification route.');
-
-    // MORESCO utility clearance PDF generation
-    const morescoPdf = await generateMORESCOClearancePDF({
-      vendorName: 'Maria Santos',
-      stallNo: 'DS-05',
-      businessName: 'Santos Meat & Poultry',
-      businessType: 'Meat Shop',
-      permitNo: permitData.permitNo,
-      issueDate: '2026-10-21'
-    });
-    assert(morescoPdf instanceof Buffer && morescoPdf.length > 500, 'MORESCO clearance PDF must be generated.');
   });
 
   // ---------------------------------------------------------------------------
   // 9. Physical inspection and vendor activation checks
   // ---------------------------------------------------------------------------
-  test('9', 'Inspection & Vendor Activation: Strict 4-Check Gatekeeper Before Promotion', () => {
+  test('9', 'Inspection & Vendor Activation: Contract, Treasury Payment, and Physical Inspection Verification', () => {
     let stallState = STALL_STATUS.OCCUPIED_PENDING_VERIFICATION;
     assert.strictEqual(stallState, 'OCCUPIED_PENDING_VERIFICATION', 'Stall must start in verification stage.');
 
     const checks = {
       hasExecutedContract: true,
-      hasInitialReceipt: true,
-      inspectionPassed: true,
-      businessPermitPaidAndReleased: false // Not yet paid
+      hasInitialReceipt: false, // Not yet verified paid
+      inspectionPassed: true
     };
 
     function canActivateVendor(c) {
-      return Boolean(c.hasExecutedContract && c.hasInitialReceipt && c.inspectionPassed && c.businessPermitPaidAndReleased);
+      return Boolean(c.hasExecutedContract && c.hasInitialReceipt && c.inspectionPassed);
     }
 
-    assert.strictEqual(canActivateVendor(checks), false, 'Cannot activate vendor before BPLO payment and release.');
+    assert.strictEqual(canActivateVendor(checks), false, 'Cannot activate vendor before Treasury payment confirmation.');
 
-    // Complete BPLO payment and release
-    checks.businessPermitPaidAndReleased = true;
-    assert.strictEqual(canActivateVendor(checks), true, 'All 4 checks met: Vendor can now be activated.');
+    // Confirm Treasury payment
+    checks.hasInitialReceipt = true;
+    assert.strictEqual(canActivateVendor(checks), true, 'All core requirements met: Vendor can now be activated.');
   });
 
   // ---------------------------------------------------------------------------
