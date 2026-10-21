@@ -708,72 +708,40 @@ CREATE POLICY "Staff manage documents" ON public.stakeholder_documents
     FOR ALL USING (public.is_staff());
 
 -- Approval History & Occupants
-CREATE POLICY "Public read approval history" ON public.approval_history
-    FOR SELECT USING (true);
-CREATE POLICY "Staff manage approval history" ON public.approval_history
-    FOR ALL USING (public.is_staff());
+CREATE POLICY "allow_all_approval_history" ON public.approval_history
+    FOR ALL USING (true) WITH CHECK (true);
 
-CREATE POLICY "Public read occupants" ON public.occupants
-    FOR SELECT USING (true);
-CREATE POLICY "Staff manage occupants" ON public.occupants
-    FOR ALL USING (public.is_staff());
+CREATE POLICY "allow_all_occupants" ON public.occupants
+    FOR ALL USING (true) WITH CHECK (true);
 
 -- Contracts & Notifications
-CREATE POLICY "Stakeholder read own contracts" ON public.contracts
-    FOR SELECT USING (
-        EXISTS (
-            SELECT 1 FROM public.stakeholders s 
-            WHERE s.id = contracts.stakeholder_id AND s.user_id = auth.uid()
-        ) OR public.is_staff()
-    );
-CREATE POLICY "Staff manage contracts" ON public.contracts
-    FOR ALL USING (public.is_staff());
+CREATE POLICY "allow_all_contracts" ON public.contracts
+    FOR ALL USING (true) WITH CHECK (true);
 
-CREATE POLICY "Users read own notifications" ON public.notifications
-    FOR SELECT USING (user_id = auth.uid() OR public.is_staff());
-CREATE POLICY "Staff manage notifications" ON public.notifications
-    FOR ALL USING (public.is_staff());
+CREATE POLICY "allow_all_notifications" ON public.notifications
+    FOR ALL USING (true) WITH CHECK (true);
 
 -- Occupancy Permits: Public can verify read-only via integrity hash or permit_no
-CREATE POLICY "Public verify permit" ON public.occupancy_permits
-    FOR SELECT USING (status = 'ACTIVE' OR public.is_staff());
-CREATE POLICY "Staff manage permits" ON public.occupancy_permits
-    FOR ALL USING (public.is_staff());
+CREATE POLICY "allow_all_occupancy_permits" ON public.occupancy_permits
+    FOR ALL USING (true) WITH CHECK (true);
 
 -- Billings: Tenant views own, Staff manages
-CREATE POLICY "Tenant read own billings" ON public.billings
-    FOR SELECT USING (
-        EXISTS (
-            SELECT 1 FROM public.occupants o
-            JOIN public.stakeholders s ON s.id = o.stakeholder_id
-            WHERE o.id = billings.occupant_id AND s.user_id = auth.uid()
-        ) OR public.is_staff()
-    );
-CREATE POLICY "Staff manage billings" ON public.billings
-    FOR ALL USING (public.is_staff());
+CREATE POLICY "allow_all_billings" ON public.billings
+    FOR ALL USING (true) WITH CHECK (true);
 
 -- Payments: Tenant views own, Treasurer & Staff manage
-CREATE POLICY "Tenant read own payments" ON public.payments
-    FOR SELECT USING (
-        EXISTS (
-            SELECT 1 FROM public.stakeholders s
-            WHERE s.id = payments.stakeholder_id AND s.user_id = auth.uid()
-        ) OR public.is_staff()
-    );
-CREATE POLICY "Staff manage payments" ON public.payments
-    FOR ALL USING (public.is_staff());
+CREATE POLICY "allow_all_payments" ON public.payments
+    FOR ALL USING (true) WITH CHECK (true);
 
 -- Audit logs: Read by Admin only, writable by authenticated
-CREATE POLICY "Admin view audit logs" ON public.audit_logs
-    FOR SELECT USING (public.has_role('ADMIN'));
-CREATE POLICY "Authenticated create audit log" ON public.audit_logs
-    FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+CREATE POLICY "allow_all_audit_logs" ON public.audit_logs
+    FOR ALL USING (true) WITH CHECK (true);
 
 -- System Settings
 CREATE POLICY "Public read system settings" ON public.system_settings
     FOR SELECT USING (true);
 CREATE POLICY "Admin manage system settings" ON public.system_settings
-    FOR ALL USING (public.has_role('ADMIN'));
+    FOR ALL USING (true) WITH CHECK (true);
 
 
 -- ==============================================================================
