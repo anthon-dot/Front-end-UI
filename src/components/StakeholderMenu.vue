@@ -142,30 +142,53 @@ const items = [
     section: 'overview'
   },
   {
-    id: 'application-status',
-    label: 'Application Status',
-    icon: 'pi pi-hourglass',
-    route: '/application-progress'
-  },
-  {
-    id: 'upload-documents',
-    label: 'Upload Documents',
-    icon: 'pi pi-upload',
-    route: '/requirements'
-  },
-  {
-    id: 'stall-contract',
-    label: 'My Stall & Contract',
+    id: 'my-application',
+    label: 'My Application',
     icon: 'pi pi-file-edit',
+    route: '/stakeholder',
+    section: 'application'
+  },
+  {
+    id: 'my-stall',
+    label: 'My Stall',
+    icon: 'pi pi-shop',
     route: '/stakeholder',
     section: 'stall'
   },
   {
-    id: 'billing-payments',
-    label: 'Billing & Payments',
-    icon: 'pi pi-wallet',
-    route: '/stakeholder/payments',
+    id: 'my-contract',
+    label: 'My Contract',
+    icon: 'pi pi-id-card',
+    route: '/stakeholder',
+    section: 'contracts'
+  },
+  {
+    id: 'my-bills',
+    label: 'My Bills',
+    icon: 'pi pi-receipt',
+    route: '/stakeholder',
     section: 'billing'
+  },
+  {
+    id: 'payment-history',
+    label: 'Payment History',
+    icon: 'pi pi-history',
+    route: '/stakeholder',
+    section: 'payments'
+  },
+  {
+    id: 'advance-credit',
+    label: 'Advance Credit',
+    icon: 'pi pi-wallet',
+    route: '/stakeholder',
+    section: 'advance-credit'
+  },
+  {
+    id: 'business-permit-fee',
+    label: 'Business Permit Fee',
+    icon: 'pi pi-shield',
+    route: '/stakeholder',
+    section: 'business-permit-fee'
   },
   {
     id: 'notifications',
@@ -175,10 +198,11 @@ const items = [
     section: 'notifications'
   },
   {
-    id: 'account-settings',
-    label: 'Account Settings',
-    icon: 'pi pi-cog',
-    route: '/stakeholder/settings'
+    id: 'my-profile',
+    label: 'My Profile',
+    icon: 'pi pi-user',
+    route: '/stakeholder',
+    section: 'profile'
   }
 ]
 

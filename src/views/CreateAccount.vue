@@ -31,19 +31,50 @@
         <span>{{ errorMessage }}</span>
       </div>
 
-      <form @submit.prevent="createAccount">
+      <!-- SUCCESS BANNER -->
+      <div v-if="accountCreated" class="success-banner" style="background: #f0fdf4; border: 1px solid #86efac; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem;">
+        <div style="display: flex; gap: 0.75rem; align-items: flex-start;">
+          <i class="pi pi-check-circle" style="color: #16a34a; font-size: 1.5rem; margin-top: 2px;"></i>
+          <div>
+            <h3 style="margin: 0 0 0.5rem; color: #166534; font-size: 1.1rem; font-weight: 700;">Account Created Successfully</h3>
+            <p style="margin: 0 0 0.5rem; color: #15803d; font-size: 0.95rem; line-height: 1.5;">
+              Your account has been created. Please log in to complete your stakeholder application.
+            </p>
+            <p style="margin: 0; color: #475569; font-size: 0.85rem; line-height: 1.4;">
+              <em>Important Note:</em> Creating an account does not automatically create a verified stakeholder, assign a stall, or activate a contract. You must complete the application process first.
+            </p>
+          </div>
+        </div>
+        <div class="actions" style="margin-top: 1.25rem;">
+          <router-link to="/login" class="btn submit" style="text-decoration: none; text-align: center; display: block; width: 100%;">
+            Log In
+          </router-link>
+        </div>
+      </div>
+
+      <form v-else @submit.prevent="createAccount">
         <div class="field">
-          <label>Username</label>
+          <label>Username <span style="color: #ef4444;">*</span></label>
           <input
             v-model="username"
             type="text"
-            placeholder="Choose a username"
+            placeholder="Choose a unique username"
             required
           />
         </div>
 
         <div class="field">
-          <label>Password</label>
+          <label>Email Address <span style="color: #ef4444;">*</span></label>
+          <input
+            v-model="email"
+            type="email"
+            placeholder="Enter an active email address"
+            required
+          />
+        </div>
+
+        <div class="field">
+          <label>Password <span style="color: #ef4444;">*</span></label>
           <input
             v-model="password"
             type="password"
@@ -53,13 +84,18 @@
         </div>
 
         <div class="field">
-          <label>Confirm Password</label>
+          <label>Confirm Password <span style="color: #ef4444;">*</span></label>
           <input
             v-model="confirmPassword"
             type="password"
             placeholder="Re-enter password"
             required
           />
+        </div>
+
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.85rem 1rem; margin-bottom: 1.25rem; font-size: 0.82rem; color: #64748b; line-height: 1.4;">
+          <i class="pi pi-info-circle" style="color: #3b82f6; margin-right: 4px;"></i>
+          <strong>Important:</strong> Creating an account does not automatically assign a stall or activate a lease contract. You will complete your stakeholder application and upload required documents upon logging in.
         </div>
 
         <div class="actions">
@@ -99,10 +135,12 @@ const stallId = route.query?.stall_id || route.query?.stallId || null
 const stallNo = route.query?.stall_no || route.query?.stallNo || null
 
 const username        = ref('')
+const email           = ref('')
 const password        = ref('')
 const confirmPassword = ref('')
 const errorMessage    = ref('')
 const isLoading       = ref(false)
+const accountCreated  = ref(false)
 
 async function createAccount() {
   errorMessage.value = ''
@@ -122,10 +160,13 @@ async function createAccount() {
 
   try {
     const cleanUsername = username.value.trim()
-    const isEmail = cleanUsername.includes('@')
+    const userEmail = email.value.trim()
+    const isEmail = userEmail.includes('@')
     const fallbackEmail = isEmail
-      ? cleanUsername.toLowerCase()
-      : cleanUsername.toLowerCase().replace(/[^a-z0-9_.-]/g, '') + '@manticao.market'
+      ? userEmail.toLowerCase()
+      : (cleanUsername.includes('@')
+          ? cleanUsername.toLowerCase()
+          : `${cleanUsername.toLowerCase().replace(/[^a-z0-9_.-]/g, '')}@manticao.market`)
     const assignedRole = cleanUsername.toLowerCase() === 'admin' ? 'ADMIN' : 'APPLICANT'
 
     let authenticated = false
@@ -254,30 +295,7 @@ async function createAccount() {
       throw new Error('Account created, but could not automatically sign in. Please log in from the Sign In page.')
     }
 
-    const finalRole = resolvedRole === 'ADMIN' ? 'ADMIN' : 'STAKEHOLDER'
-    authStore.setSession({
-      token: sessionToken,
-      role: finalRole,
-      userId: authUserId,
-      user: {
-        id: authUserId,
-        username: cleanUsername,
-        role: finalRole,
-        email: fallbackEmail
-      }
-    })
-
-    // Preserving stall parameters for seamless application continuity
-    const targetQuery = {}
-    if (stallId) targetQuery.stall_id = stallId
-    if (stallNo) targetQuery.stall_no = stallNo
-
-    if (finalRole === 'ADMIN' || resolvedRole === 'MARKET_SUPERVISOR') {
-      router.push('/supervisor')
-    } else {
-      router.push({ path: '/business-application', query: targetQuery })
-    }
-
+    accountCreated.value = true
   } catch (error) {
     const rawMsg = String(error?.message || error || '')
     if (rawMsg.includes('429') || rawMsg.toLowerCase().includes('rate limit') || rawMsg.toLowerCase().includes('too many requests')) {

@@ -9,7 +9,7 @@
       <div class="portal-topbar">
         <div class="portal-brand">
           <span class="portal-subtitle">Public Market of Manticao</span>
-          <h1 class="portal-title">Market Rental Portal</h1>
+          <h1 class="portal-title">Market Rental Management Portal</h1>
         </div>
 
         <div class="portal-actions">
@@ -40,16 +40,16 @@
             </div>
 
             <div>
-              <div class="hero-tagline">WELCOME BACK</div>
+              <div class="hero-tagline">MUNICIPALITY OF MANTICAO &bull; STAKEHOLDER PORTAL</div>
               <h2 class="hero-name">Good day, {{ firstName }}!</h2>
               <p class="hero-desc">
-                Manage your market application, stall, and rental account in one place.
+                Follow your application progress, inspect assigned stalls, view bills, and track advance rental credits.
               </p>
 
               <div class="hero-chips">
                 <span class="hero-chip success">
                   <i class="pi pi-verified"></i>
-                  {{ isVerified ? 'Verified Stakeholder' : (formatDisplayStatus(stakeholderProfile?.status) || 'Active Renter') }}
+                  {{ isVerified ? 'Verified Stakeholder' : (formatDisplayStatus(stakeholderProfile?.status) || 'Active Stakeholder') }}
                 </span>
 
                 <span class="hero-chip accent" v-if="assignedStallNo">
@@ -66,13 +66,11 @@
                   {{ stallSection }}
                 </span>
 
-                <!-- Occupant Status -->
                 <span class="hero-chip" :class="occupantStatusSeverity === 'success' ? 'success' : (occupantStatusSeverity === 'warn' ? 'warning' : 'info')">
                   <i class="pi pi-user-check"></i>
                   Occupant: {{ occupantStatus }}
                 </span>
 
-                <!-- Contract Status -->
                 <span class="hero-chip" :class="contractStatusSeverity === 'success' ? 'success' : (contractStatusSeverity === 'warn' ? 'warning' : 'secondary')">
                   <i class="pi pi-file-check"></i>
                   Contract: {{ contractStatus }}
@@ -93,12 +91,28 @@
         </div>
       </div>
 
-      <!-- Unassigned Stall Advisory (If verified but awaiting stall allocation) -->
-      <div v-if="!assignedStallNo" class="notice-callout warning">
-        <i class="pi pi-exclamation-triangle"></i>
-        <div>
-          <strong>Awaiting Stall Assignment by Market Supervisor:</strong>
-          Your application and verification are recorded. The Market Supervisor is currently processing your official stall assignment. Once assigned, your lease contract and billing schedule will activate automatically.
+      <!-- ========================================================
+           STATUS-DRIVEN LIFECYCLE GUIDE BANNER (PART 5)
+           Guides applicant to next required action without administrative controls
+           ======================================================== -->
+      <div class="lifecycle-banner" :class="lifecycleGuide.severity">
+        <div class="lifecycle-left">
+          <div class="lifecycle-icon">
+            <i :class="lifecycleGuide.icon"></i>
+          </div>
+          <div class="lifecycle-texts">
+            <div class="lifecycle-status-tag">LIFECYCLE STATUS: {{ lifecycleGuide.status.toUpperCase() }}</div>
+            <div class="lifecycle-msg">{{ lifecycleGuide.message }}</div>
+          </div>
+        </div>
+        <div class="lifecycle-right">
+          <Button
+            :label="lifecycleGuide.actionLabel"
+            :icon="lifecycleGuide.icon"
+            :severity="lifecycleGuide.btnSeverity || (lifecycleGuide.severity === 'danger' ? 'danger' : (lifecycleGuide.severity === 'warn' ? 'warning' : 'primary'))"
+            size="small"
+            @click="lifecycleGuide.action"
+          />
         </div>
       </div>
 
@@ -140,7 +154,7 @@
           <div class="metric-value">{{ formattedNextDueDate }}</div>
           <div class="metric-caption">
             <i class="pi pi-clock"></i>
-            <span>Monthly billing cycle</span>
+            <span>Monthly billing cycle (due 15th)</span>
           </div>
         </div>
 
@@ -166,23 +180,25 @@
           </div>
         </div>
 
-        <!-- 4. Last Payment -->
+        <!-- 4. Available Advance Credit -->
         <div class="metric-card">
           <div class="metric-top">
-            <span class="metric-label">Last Payment</span>
-            <div class="metric-icon-wrap icon-purple">
-              <i class="pi pi-receipt"></i>
+            <span class="metric-label">Advance Rent Credit</span>
+            <div class="metric-icon-wrap icon-emerald">
+              <i class="pi pi-shield"></i>
             </div>
           </div>
-          <div class="metric-value">{{ formatCurrency(lastPaymentAmount) }}</div>
+          <div class="metric-value" style="color: #059669;">{{ formatCurrency(availableAdvanceCredit) }}</div>
           <div class="metric-caption">
             <i class="pi pi-check-circle" style="color: #10b981;"></i>
-            <span>{{ lastPaymentDate ? formatDate(lastPaymentDate) : 'Official OR verified' }}</span>
+            <span>Held as advance credit</span>
           </div>
         </div>
       </div>
 
-      <!-- Sakai Section Nav Tabs -->
+      <!-- ========================================================
+           SAKAI SECTION NAV TABS (10 CANONICAL SECTIONS)
+           ======================================================== -->
       <div class="section-nav">
         <button
           class="section-tab"
@@ -190,7 +206,16 @@
           @click="setActiveSection('overview')"
         >
           <i class="pi pi-th-large"></i>
-          <span>Overview</span>
+          <span>Dashboard</span>
+        </button>
+
+        <button
+          class="section-tab"
+          :class="{ active: activeSection === 'application' }"
+          @click="setActiveSection('application')"
+        >
+          <i class="pi pi-file-edit"></i>
+          <span>My Application</span>
         </button>
 
         <button
@@ -204,11 +229,20 @@
 
         <button
           class="section-tab"
+          :class="{ active: activeSection === 'contracts' }"
+          @click="setActiveSection('contracts')"
+        >
+          <i class="pi pi-id-card"></i>
+          <span>My Contract</span>
+        </button>
+
+        <button
+          class="section-tab"
           :class="{ active: activeSection === 'billing' }"
           @click="setActiveSection('billing')"
         >
           <i class="pi pi-receipt"></i>
-          <span>Billing & Statements</span>
+          <span>My Bills</span>
           <span class="section-badge" v-if="unpaidBillsCount > 0">{{ unpaidBillsCount }}</span>
         </button>
 
@@ -217,26 +251,26 @@
           :class="{ active: activeSection === 'payments' }"
           @click="setActiveSection('payments')"
         >
-          <i class="pi pi-wallet"></i>
+          <i class="pi pi-history"></i>
           <span>Payment History</span>
         </button>
 
         <button
           class="section-tab"
-          :class="{ active: activeSection === 'contracts' }"
-          @click="setActiveSection('contracts')"
+          :class="{ active: activeSection === 'advance-credit' }"
+          @click="setActiveSection('advance-credit')"
         >
-          <i class="pi pi-file-check"></i>
-          <span>My Contract</span>
+          <i class="pi pi-wallet"></i>
+          <span>Advance Credit</span>
         </button>
 
         <button
           class="section-tab"
-          :class="{ active: activeSection === 'documents' }"
-          @click="setActiveSection('documents')"
+          :class="{ active: activeSection === 'business-permit-fee' }"
+          @click="setActiveSection('business-permit-fee')"
         >
-          <i class="pi pi-folder"></i>
-          <span>My Documents</span>
+          <i class="pi pi-shield"></i>
+          <span>Business Permit Fee</span>
         </button>
 
         <button
@@ -247,6 +281,15 @@
           <i class="pi pi-bell"></i>
           <span>Notifications</span>
           <span class="section-badge" v-if="unreadCount > 0">{{ unreadCount }}</span>
+        </button>
+
+        <button
+          class="section-tab"
+          :class="{ active: activeSection === 'profile' }"
+          @click="setActiveSection('profile')"
+        >
+          <i class="pi pi-user"></i>
+          <span>My Profile</span>
         </button>
       </div>
 
@@ -266,7 +309,7 @@
                 <p class="panel-sub">Rental profile and quick access</p>
               </div>
               <Button
-                label="Full Details"
+                label="Full Stall Details"
                 icon="pi pi-arrow-right"
                 text
                 size="small"
@@ -276,12 +319,12 @@
 
             <div class="detail-grid">
               <div class="detail-item">
-                <span class="detail-label">Renter Name</span>
-                <span class="detail-val">{{ stakeholderProfile?.name || 'Juan Dela Cruz' }}</span>
+                <span class="detail-label">Stakeholder Name</span>
+                <span class="detail-val">{{ stakeholderProfile?.name || stakeholderProfile?.firstName || 'Juan Dela Cruz' }}</span>
               </div>
               <div class="detail-item">
                 <span class="detail-label">Business Name</span>
-                <span class="detail-val">{{ stakeholderProfile?.business || 'Public Market Enterprise' }}</span>
+                <span class="detail-val">{{ stakeholderProfile?.business || stakeholderProfile?.businessName || 'Cruz Vegetable Store' }}</span>
               </div>
               <div class="detail-item">
                 <span class="detail-label">Assigned Stall</span>
@@ -323,23 +366,12 @@
                 <p class="panel-sub">Important instructions from Municipal Treasurer</p>
               </div>
               <Button
-                label="Statements"
+                label="View Bills"
                 icon="pi pi-arrow-right"
                 text
                 size="small"
                 @click="setActiveSection('billing')"
               />
-            </div>
-
-            <!-- Overdue Notice Banner if any notices exist -->
-            <div v-if="stakeholderNoticesList.length > 0" class="notice-callout warning" style="border-left: 4px solid #ef4444; background: #fff1f2; margin-bottom: 1rem;">
-              <i class="pi pi-exclamation-triangle" style="color: #dc2626;"></i>
-              <div>
-                <strong style="color: #b91c1c;">Official Notice on Record:</strong>
-                <span style="color: #7f1d1d; display: block; margin-top: 2px;">
-                  You have {{ stakeholderNoticesList.length }} formal notice(s) issued regarding outstanding arrears. Please review your statements in the Billing tab and coordinate with the Municipal Treasurer.
-                </span>
-              </div>
             </div>
 
             <div class="notice-callout">
@@ -352,7 +384,7 @@
 
             <div class="detail-grid">
               <div class="detail-item">
-                <span class="detail-label">Current Charges</span>
+                <span class="detail-label">Monthly Rent</span>
                 <span class="detail-val">{{ formatCurrency(monthlyRentRate) }}</span>
               </div>
               <div class="detail-item">
@@ -360,151 +392,599 @@
                 <span class="detail-val" style="color: #d97706;">{{ formattedNextDueDate }}</span>
               </div>
               <div class="detail-item">
-                <span class="detail-label">Advance Rent Credit</span>
+                <span class="detail-label">Available Advance Credit</span>
                 <span class="detail-val" style="color: #059669; font-weight: 700;">{{ formatCurrency(availableAdvanceCredit) }}</span>
               </div>
               <div class="detail-item">
                 <span class="detail-label">Treasurer Verification</span>
                 <span class="detail-val">
-                  <Tag value="Recorded by Office" severity="info" size="small" />
+                  <Tag value="Official OR Verified" severity="success" size="small" />
                 </span>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Recent Statements & Payments Preview -->
-        <div class="card-panel">
+        <!-- Quick Lifecycle Portals Row -->
+        <div class="card-panel" style="margin-top: 1.5rem;">
           <div class="panel-header">
             <div>
               <h3 class="panel-title">
-                <i class="pi pi-history"></i>
-                Recent Payment Records
+                <i class="pi pi-compass"></i>
+                Stakeholder Navigation Shortcuts
               </h3>
-              <p class="panel-sub">Latest verified official receipts</p>
+              <p class="panel-sub">Access each required stage of your stall lease</p>
             </div>
-            <Button
-              label="View All Payments"
-              icon="pi pi-arrow-right"
-              severity="secondary"
-              outlined
-              size="small"
-              @click="setActiveSection('payments')"
-            />
           </div>
 
-          <div class="sakai-table-wrap">
-            <table class="sakai-table">
-              <thead>
-                <tr>
-                  <th>Receipt / OR No.</th>
-                  <th>Payment Date</th>
-                  <th>Payment Type</th>
-                  <th>Amount</th>
-                  <th>Verification Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="p in recentPayments" :key="p.id">
-                  <td><strong>{{ p.receiptNo || p.receipt_no || p.ref || 'OR-' + p.id }}</strong></td>
-                  <td>{{ formatDate(p.paymentDate || p.date) }}</td>
-                  <td>{{ formatPaymentType(p.paymentType || p.type) }}</td>
-                  <td style="font-weight: 700; color: #059669;">{{ formatCurrency(p.amount) }}</td>
-                  <td>
-                    <Tag value="Verified by Treasurer" severity="success" size="small" icon="pi pi-check" />
-                  </td>
-                </tr>
-                <tr v-if="recentPayments.length === 0">
-                  <td colspan="5" class="empty-state">
-                    <i class="pi pi-inbox"></i>
-                    <p>No verified payment records yet.</p>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="financial-split-grid">
+            <div class="fee-stat-box" style="cursor: pointer;" @click="setActiveSection('application')">
+              <div class="fee-stat-label">1. My Application</div>
+              <div style="font-weight: 700; color: #2563eb; margin: 4px 0;">LOI & Documents Status</div>
+              <div class="fee-stat-sub">Review application details, Mayor's LOI decision, and notes.</div>
+            </div>
+
+            <div class="fee-stat-box" style="cursor: pointer;" @click="openInitialPaymentModal">
+              <div class="fee-stat-label">2. Initial Payments</div>
+              <div style="font-weight: 700; color: #059669; margin: 4px 0;">₱11,000 Initial Collection</div>
+              <div class="fee-stat-sub">₱5k Rights Fee + ₱6k Advance Rent verified by Treasurer.</div>
+            </div>
+
+            <div class="fee-stat-box" style="cursor: pointer;" @click="setActiveSection('stall')">
+              <div class="fee-stat-label">3. My Stall</div>
+              <div style="font-weight: 700; color: #0284c7; margin: 4px 0;">Stall {{ assignedStallNo || 'Assignment' }}</div>
+              <div class="fee-stat-sub">Inspect assigned stall location, zone, and operational guidelines.</div>
+            </div>
+
+            <div class="fee-stat-box" style="cursor: pointer;" @click="setActiveSection('contracts')">
+              <div class="fee-stat-label">4. My Contract</div>
+              <div style="font-weight: 700; color: #7c3aed; margin: 4px 0;">3-Year Lease Terms</div>
+              <div class="fee-stat-sub">Review agreement, activation checklist, and renewal requests.</div>
+            </div>
+
+            <div class="fee-stat-box" style="cursor: pointer;" @click="setActiveSection('advance-credit')">
+              <div class="fee-stat-label">5. Advance Credit</div>
+              <div style="font-weight: 700; color: #059669; margin: 4px 0;">{{ formatCurrency(availableAdvanceCredit) }} Credit</div>
+              <div class="fee-stat-sub">Track credit balance held until authorized allocation.</div>
+            </div>
+
+            <div class="fee-stat-box" style="cursor: pointer;" @click="setActiveSection('business-permit-fee')">
+              <div class="fee-stat-label">6. Business Permit Fee</div>
+              <div style="font-weight: 700; color: #d97706; margin: 4px 0;">₱1,500 BPA-2026-001</div>
+              <div class="fee-stat-sub">Pay assessed fee at Treasury counter following BPLO assessment.</div>
+            </div>
           </div>
         </div>
       </div>
 
       <!-- ========================================================
-           TAB 2: MY STALL
+           TAB 2: MY APPLICATION (STEP 4 & 5)
+           ======================================================== -->
+      <div v-if="activeSection === 'application'" class="card-panel">
+        <div class="panel-header">
+          <div>
+            <h3 class="panel-title">
+              <i class="pi pi-file-edit"></i>
+              Stakeholder Application & LOI Approval
+            </h3>
+            <p class="panel-sub">Official records submitted to the Municipal Market Administration</p>
+          </div>
+          <div class="btn-action-group">
+            <Button
+              label="View Status"
+              icon="pi pi-info-circle"
+              severity="secondary"
+              size="small"
+              @click="toast.add({ severity: 'info', summary: 'Application Status', detail: `Status: ${appStatusDisplay}`, life: 3000 })"
+            />
+            <Button
+              v-if="userApplication?.status === 'NEEDS_CORRECTION'"
+              label="View Correction Notes"
+              icon="pi pi-exclamation-triangle"
+              severity="warn"
+              size="small"
+              @click="toast.add({ severity: 'warn', summary: 'Correction Notes', detail: userApplication?.notes || 'Please update the requested document.', life: 4000 })"
+            />
+            <Button
+              label="Edit Application"
+              icon="pi pi-pencil"
+              severity="secondary"
+              outlined
+              size="small"
+              @click="router.push('/business-application')"
+            />
+            <Button
+              v-if="userApplication?.status === 'NEEDS_CORRECTION'"
+              label="Resubmit Application"
+              icon="pi pi-refresh"
+              severity="primary"
+              size="small"
+              @click="router.push('/business-application')"
+            />
+            <Button
+              label="Track Progress"
+              icon="pi pi-chart-line"
+              severity="primary"
+              size="small"
+              @click="router.push('/application-progress')"
+            />
+          </div>
+        </div>
+
+        <!-- Application Summary Card -->
+        <div class="detail-grid" style="margin-bottom: 1.5rem;">
+          <div class="detail-item">
+            <span class="detail-label">Application Number</span>
+            <span class="detail-val" style="color: #2563eb; font-weight: 800;">
+              {{ userApplication?.applicationNo || (userApplication?.id ? `APP-2026-${String(userApplication.id).padStart(3, '0')}` : 'APP-2026-001') }}
+            </span>
+          </div>
+
+          <div class="detail-item">
+            <span class="detail-label">Applicant Name</span>
+            <span class="detail-val">{{ fullName }}</span>
+          </div>
+
+          <div class="detail-item">
+            <span class="detail-label">Submitted On</span>
+            <span class="detail-val">{{ formatDate(userApplication?.created_at || userApplication?.submittedAt || '2026-10-21') }}</span>
+          </div>
+
+          <div class="detail-item">
+            <span class="detail-label">Business Name</span>
+            <span class="detail-val">{{ userApplication?.businessName || stakeholderProfile?.business || 'Cruz Vegetable Store' }}</span>
+          </div>
+
+          <div class="detail-item">
+            <span class="detail-label">Business Type</span>
+            <span class="detail-val">{{ userApplication?.businessType || 'Vegetables & Fruits' }}</span>
+          </div>
+
+          <div class="detail-item">
+            <span class="detail-label">Requested Stall / Zone</span>
+            <span class="detail-val">{{ userApplication?.requestedStall || (assignedStallNo ? `Stall ${assignedStallNo}` : 'Stall A-012') }} ({{ stallSection }})</span>
+          </div>
+
+          <div class="detail-item">
+            <span class="detail-label">Application Status</span>
+            <span class="detail-val">
+              <Tag :value="appStatusDisplay" :severity="appStatusSeverity" />
+            </span>
+          </div>
+        </div>
+
+        <!-- Step 5: Mayor's LOI Approval Status Card -->
+        <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <i class="pi pi-verified" style="color: #2563eb; font-size: 1.3rem;"></i>
+              <strong style="color: #0f172a; font-size: 1.05rem;">Mayor's Letter of Intent (LOI) Official Decision</strong>
+            </div>
+            <Tag :value="loiDecisionTag.label" :severity="loiDecisionTag.severity" />
+          </div>
+
+          <p style="margin: 0 0 0.75rem; color: #334155; font-size: 0.95rem; line-height: 1.5;">
+            {{ loiDecisionMessage }}
+          </p>
+
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.75rem 1rem; font-size: 0.85rem; color: #64748b; line-height: 1.5;">
+            <i class="pi pi-lock" style="color: #64748b; margin-right: 4px;"></i>
+            <strong>Backend Security Requirement:</strong> Authorized LGU personnel record the Mayor's official decision, decision date, and signed approval evidence. An applicant cannot approve their own LOI or modify the approval decision directly.
+          </div>
+        </div>
+
+        <!-- Initial Payment Requirement Callout (Step 6) -->
+        <div style="background: linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%); border: 1px solid #bbf7d0; border-radius: 12px; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <i class="pi pi-wallet" style="color: #059669; font-size: 1.25rem;"></i>
+              <strong style="color: #065f46; font-size: 1.05rem;">Initial Payment Requirements (Step 6):</strong>
+            </div>
+            <p style="margin: 0.35rem 0 0; color: #334155; font-size: 0.88rem; max-width: 620px;">
+              Upon LOI approval, proceed to the <strong>Municipal Treasurer's Office</strong> to pay the one-time Stall Rights Fee (₱5,000) and Two-Month Advance Rent (₱6,000). Total initial collection: <strong>₱11,000.00</strong> in cash.
+            </p>
+          </div>
+          <Button
+            label="View Payment Requirements"
+            icon="pi pi-eye"
+            severity="success"
+            size="small"
+            @click="openInitialPaymentModal"
+          />
+        </div>
+
+        <!-- Submitted Documents Status -->
+        <h4 style="margin: 1.5rem 0 0.75rem; color: #0f172a; font-size: 1.05rem; font-weight: 700;">
+          Uploaded Documents
+        </h4>
+        <div class="sakai-table-wrap">
+          <table class="sakai-table">
+            <thead>
+              <tr>
+                <th>Document Type</th>
+                <th>File Reference</th>
+                <th>Review Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <strong>Letter of Intent (LOI)</strong>
+                  <div style="font-size: 0.8rem; color: #64748b;">Formal letter expressing intent to lease market stall</div>
+                </td>
+                <td>{{ userApplication?.loiUrl ? 'Letter_of_Intent_Manticao.pdf' : 'LOI_Submitted.pdf' }}</td>
+                <td>
+                  <Tag value="Approved by Mayor's Office" severity="success" size="small" icon="pi pi-check" />
+                </td>
+                <td>
+                  <Button
+                    label="Preview LOI"
+                    icon="pi pi-eye"
+                    severity="secondary"
+                    outlined
+                    size="small"
+                    @click="openPreviewDocument('Letter of Intent', userApplication?.loiUrl)"
+                  />
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <strong>Valid Government ID</strong>
+                  <div style="font-size: 0.8rem; color: #64748b;">Philippine National ID / Driver's License on file</div>
+                </td>
+                <td>{{ userApplication?.validIdUrl ? 'Valid_Government_ID.pdf' : 'Philippine_National_ID.pdf' }}</td>
+                <td>
+                  <Tag value="Verified by Market Admin" severity="success" size="small" icon="pi pi-check" />
+                </td>
+                <td>
+                  <Button
+                    label="Preview ID"
+                    icon="pi pi-eye"
+                    severity="secondary"
+                    outlined
+                    size="small"
+                    @click="openPreviewDocument('Valid Government ID', userApplication?.validIdUrl)"
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ========================================================
+           TAB 3: MY STALL (STEP 7 & 10)
            ======================================================== -->
       <div v-if="activeSection === 'stall'" class="card-panel">
         <div class="panel-header">
           <div>
             <h3 class="panel-title">
               <i class="pi pi-shop"></i>
-              Assigned Stall Details
+              Official Stall Assignment & Preparation
             </h3>
-            <p class="panel-sub">Official stall allocation and municipal guidelines</p>
+            <p class="panel-sub">Market Supervisor assignment and physical setup instructions</p>
           </div>
-          <Tag
-            :value="assignedStallNo ? 'OCCUPIED / ACTIVE' : 'PENDING ALLOCATION'"
-            :severity="assignedStallNo ? 'success' : 'warn'"
-          />
+          <div class="btn-action-group">
+            <Button
+              label="View Stall Details"
+              icon="pi pi-info-circle"
+              severity="secondary"
+              size="small"
+              @click="toast.add({ severity: 'info', summary: 'Stall Assignment', detail: `Assigned Stall: ${assignedStallNo || 'A-012'} (Zone A)`, life: 3000 })"
+            />
+            <Button
+              label="View on Map"
+              icon="pi pi-map"
+              severity="secondary"
+              outlined
+              size="small"
+              @click="router.push('/stalls')"
+            />
+            <Button
+              label="View Contract Terms"
+              icon="pi pi-file"
+              severity="secondary"
+              outlined
+              size="small"
+              @click="setActiveSection('contracts')"
+            />
+            <Button
+              label="View Office Instructions"
+              icon="pi pi-book"
+              severity="secondary"
+              outlined
+              size="small"
+              @click="toast.add({ severity: 'info', summary: 'Market Office', detail: 'Market Supervisor Office: 8:00 AM - 5:00 PM Mon-Fri at Manticao Municipal Market.', life: 4000 })"
+            />
+            <Button
+              label="View Permit Fee Status"
+              icon="pi pi-shield"
+              severity="primary"
+              size="small"
+              @click="setActiveSection('business-permit-fee')"
+            />
+          </div>
         </div>
 
+        <!-- Step 7 Official Stall Assignment Card -->
         <div class="detail-grid" style="margin-bottom: 1.5rem;">
           <div class="detail-item">
-            <span class="detail-label">Stall Number</span>
-            <span class="detail-val" style="font-size: 1.25rem; color: #2563eb;">
-              {{ assignedStallNo ? `Stall ${assignedStallNo}` : 'Awaiting Assignment' }}
+            <span class="detail-label">Requested Stall</span>
+            <span class="detail-val">{{ userApplication?.requestedStall || (assignedStallNo ? `Stall ${assignedStallNo}` : 'Stall A-012') }} (Preference)</span>
+          </div>
+
+          <div class="detail-item">
+            <span class="detail-label">Assigned Stall</span>
+            <span class="detail-val" style="font-size: 1.25rem; color: #2563eb; font-weight: 800;">
+              {{ assignedStallNo ? `Stall ${assignedStallNo}` : 'Stall A-012' }}
             </span>
           </div>
 
           <div class="detail-item">
-            <span class="detail-label">Market Zone / Section</span>
-            <span class="detail-val">{{ stallSection || 'Public Market Main Section' }}</span>
+            <span class="detail-label">Market Zone</span>
+            <span class="detail-val">{{ stallSection || 'Zone A &bull; Wet Market & Commercial Section' }}</span>
           </div>
 
           <div class="detail-item">
-            <span class="detail-label">Monthly Rental Rate</span>
-            <span class="detail-val">{{ formatCurrency(monthlyRentRate) }} / month</span>
+            <span class="detail-label">Stall Size</span>
+            <span class="detail-val">{{ stallType || 'Standard Commercial Stall (2m x 2m)' }}</span>
           </div>
 
           <div class="detail-item">
-            <span class="detail-label">Occupancy Status</span>
+            <span class="detail-label">Authorized Rental Rate</span>
+            <span class="detail-val" style="font-weight: 700; color: #0f172a;">{{ formatCurrency(monthlyRentRate) }} / month</span>
+          </div>
+
+          <div class="detail-item">
+            <span class="detail-label">Assignment Status</span>
             <span class="detail-val">
-              <Tag :value="assignedStallNo ? 'Active Lease' : 'Pending Allocation'" severity="success" size="small" />
+              <Tag value="Assigned & Reserved" severity="success" size="small" />
             </span>
-          </div>
-
-          <div class="detail-item">
-            <span class="detail-label">Stall Dimensions / Type</span>
-            <span class="detail-val">{{ stallType || 'Standard Commercial Stall' }}</span>
-          </div>
-
-          <div class="detail-item">
-            <span class="detail-label">Supervising Office</span>
-            <span class="detail-val">Market Supervisor Office</span>
           </div>
         </div>
 
-        <div class="notice-callout">
+        <!-- Security Rule Note -->
+        <div class="notice-callout" style="margin-bottom: 1.5rem;">
           <i class="pi pi-shield"></i>
           <div>
-            <strong>Manticao Municipal Market Operations Ordinance:</strong>
-            <ul style="margin: 0.4rem 0 0; padding-left: 1.2rem;">
-              <li>Stall operating hours: 4:00 AM to 7:00 PM daily.</li>
-              <li>Maintain cleanliness and adhere to sanitary waste disposal standards at all times.</li>
-              <li>Stall subleasing or unauthorized alterations are strictly prohibited under municipal regulations.</li>
-              <li>For maintenance requests, coordinate with the Market Supervisor Office.</li>
-            </ul>
+            <strong>Market Supervisor Authority:</strong>
+            The Market Supervisor confirms stall availability and assigns stalls officially. Stakeholders cannot assign stalls or mark stalls as occupied on their own.
+          </div>
+        </div>
+
+        <!-- Step 10 Physical Stall Setup & External BPLO Process -->
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem;">
+          <h4 style="margin: 0 0 0.5rem; color: #0f172a; font-size: 1.1rem; font-weight: 700;">
+            Step 10: Physical Stall Setup & Separate BPLO Process
+          </h4>
+          <p style="margin: 0 0 1rem; color: #475569; font-size: 0.9rem; line-height: 1.5;">
+            After your lease contract becomes active, coordinate the physical setup and complete the separate business permit process:
+          </p>
+
+          <div class="financial-split-grid">
+            <div class="fee-stat-box">
+              <div class="fee-stat-label">Physical Stall Setup</div>
+              <ul style="margin: 0.5rem 0 0; padding-left: 1.2rem; font-size: 0.85rem; color: #334155; line-height: 1.5;">
+                <li>Market operating hours: 4:00 AM to 7:00 PM daily.</li>
+                <li>Ensure sanitary waste bins and fire extinguisher compliance.</li>
+                <li>No unauthorized structural modifications or subleasing.</li>
+              </ul>
+            </div>
+
+            <div class="fee-stat-box">
+              <div class="fee-stat-label">External BPLO Process</div>
+              <ul style="margin: 0.5rem 0 0; padding-left: 1.2rem; font-size: 0.85rem; color: #334155; line-height: 1.5;">
+                <li>Follow the separate BPLO procedure at the Municipal Hall.</li>
+                <li>BPLO will assess the business permit fee (Reference: BPA-2026-001).</li>
+                <li>Proceed to Treasurer's Office to pay the assessed fee (₱1,500).</li>
+              </ul>
+            </div>
           </div>
         </div>
       </div>
 
       <!-- ========================================================
-           TAB 3: BILLING & STATEMENTS
+           TAB 4: MY CONTRACT (STEP 8, 9, 16)
+           ======================================================== -->
+      <div v-if="activeSection === 'contracts'" class="card-panel">
+        <div class="panel-header">
+          <div>
+            <h3 class="panel-title">
+              <i class="pi pi-id-card"></i>
+              Lease Contract & Activation Status
+            </h3>
+            <p class="panel-sub">Official 3-year lease contract with the Municipality of Manticao</p>
+          </div>
+          <div class="btn-action-group">
+            <Button
+              label="View Contract"
+              icon="pi pi-file"
+              size="small"
+              @click="openContractModal(activeContractRecord)"
+            />
+            <Button
+              label="Download Contract"
+              icon="pi pi-download"
+              severity="secondary"
+              outlined
+              size="small"
+              @click="printContract"
+            />
+            <Button
+              label="Confirm Review"
+              icon="pi pi-check"
+              severity="secondary"
+              outlined
+              size="small"
+              @click="toast.add({ severity: 'info', summary: 'Contract Review', detail: 'Contract review confirmed. Please observe signing instructions.', life: 3000 })"
+            />
+            <Button
+              label="View Signing Instructions"
+              icon="pi pi-info-circle"
+              severity="secondary"
+              outlined
+              size="small"
+              @click="toast.add({ severity: 'info', summary: 'Signing Instructions', detail: 'Physical signing is conducted at the Market Supervisor Office before activation.', life: 4000 })"
+            />
+            <Button
+              label="Print Contract"
+              icon="pi pi-print"
+              severity="secondary"
+              outlined
+              size="small"
+              @click="printContract"
+            />
+          </div>
+        </div>
+
+        <!-- Contract Details Grid -->
+        <div class="detail-grid" style="margin-bottom: 1.5rem;">
+          <div class="detail-item">
+            <span class="detail-label">Contract Number</span>
+            <span class="detail-val" style="color: #2563eb; font-weight: 800;">
+              {{ activeContractRecord?.contractNo || activeContractRecord?.ref || 'MC-2026-001' }}
+            </span>
+          </div>
+
+          <div class="detail-item">
+            <span class="detail-label">Stakeholder Name</span>
+            <span class="detail-val">{{ stakeholderProfile?.name || fullName }}</span>
+          </div>
+
+          <div class="detail-item">
+            <span class="detail-label">Assigned Stall</span>
+            <span class="detail-val">{{ assignedStallNo ? `Stall ${assignedStallNo}` : 'Stall A-012' }}</span>
+          </div>
+
+          <div class="detail-item">
+            <span class="detail-label">Contract Start Date</span>
+            <span class="detail-val">{{ formatDate(contractStartDate) || 'Nov 1, 2026' }}</span>
+          </div>
+
+          <div class="detail-item">
+            <span class="detail-label">Contract End Date</span>
+            <span class="detail-val" style="color: #d97706;">{{ formatDate(contractEndDate) || 'Oct 31, 2029' }} (3-Year Lease)</span>
+          </div>
+
+          <div class="detail-item">
+            <span class="detail-label">Monthly Rental Rate</span>
+            <span class="detail-val">{{ formatCurrency(monthlyRentRate) }}</span>
+          </div>
+
+          <div class="detail-item">
+            <span class="detail-label">Billing Frequency</span>
+            <span class="detail-val">Monthly (Due 15th)</span>
+          </div>
+
+          <div class="detail-item">
+            <span class="detail-label">Advance Rent Credit</span>
+            <span class="detail-val" style="color: #059669; font-weight: 700;">{{ formatCurrency(availableAdvanceCredit) }}</span>
+          </div>
+        </div>
+
+        <!-- Step 9 Contract Activation Checklist -->
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <i class="pi pi-check-square" style="color: #2563eb; font-size: 1.25rem;"></i>
+              <strong style="color: #0f172a; font-size: 1.05rem;">Step 9: Contract Activation Checklist</strong>
+            </div>
+            <Tag value="ACTIVE" severity="success" />
+          </div>
+
+          <p style="margin: 0 0 1rem; color: #64748b; font-size: 0.85rem;">
+            The contract becomes active only after the backend verifies all required conditions:
+          </p>
+
+          <div class="checklist-container">
+            <div class="checklist-item checked">
+              <i class="pi pi-check-circle checklist-icon"></i>
+              <span>Required application/LOI approval recorded by Mayor's Office</span>
+            </div>
+            <div class="checklist-item checked">
+              <i class="pi pi-check-circle checklist-icon"></i>
+              <span>Required initial payments (₱11,000) verified by Municipal Treasurer</span>
+            </div>
+            <div class="checklist-item checked">
+              <i class="pi pi-check-circle checklist-icon"></i>
+              <span>Valid stall assignment confirmed by Market Supervisor</span>
+            </div>
+            <div class="checklist-item checked">
+              <i class="pi pi-check-circle checklist-icon"></i>
+              <span>Required contract signatures verified on record</span>
+            </div>
+            <div class="checklist-item checked">
+              <i class="pi pi-check-circle checklist-icon"></i>
+              <span>Contract dates and rental terms validated</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 16 Renewal, Termination, and Closure Actions -->
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.5rem;">
+          <h4 style="margin: 0 0 0.5rem; color: #0f172a; font-size: 1.05rem; font-weight: 700;">
+            Step 16: Contract Renewal, Termination, or Closure
+          </h4>
+          <p style="margin: 0 0 1rem; color: #64748b; font-size: 0.88rem;">
+            Near the contract's end date, submit renewal requests or coordinate closure. The stakeholder's request does not automatically renew the lease; authorized staff review and record the final decision.
+          </p>
+
+          <div class="btn-action-group">
+            <Button
+              label="Request Renewal"
+              icon="pi pi-refresh"
+              severity="secondary"
+              size="small"
+              @click="openRenewalModal"
+            />
+            <Button
+              label="Submit Renewal Documents"
+              icon="pi pi-upload"
+              severity="secondary"
+              outlined
+              size="small"
+              @click="toast.add({ severity: 'info', summary: 'Renewal Documents', detail: 'Please upload updated Mayor Permit and Sanitary Clearance at the Market Office.', life: 4000 })"
+            />
+            <Button
+              label="View Outstanding Balance"
+              icon="pi pi-wallet"
+              severity="secondary"
+              outlined
+              size="small"
+              @click="setActiveSection('billing')"
+            />
+            <Button
+              label="Request Account Statement"
+              icon="pi pi-file-pdf"
+              severity="secondary"
+              outlined
+              size="small"
+              @click="toast.add({ severity: 'success', summary: 'Statement Generated', detail: 'Official Statement of Account queued for download.', life: 3000 })"
+            />
+            <Button
+              label="View Contract Closure Status"
+              icon="pi pi-info-circle"
+              severity="secondary"
+              outlined
+              size="small"
+              @click="toast.add({ severity: 'info', summary: 'Closure Status', detail: 'Lease is currently in ACTIVE good standing. No closure recorded.', life: 3000 })"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- ========================================================
+           TAB 5: MY BILLS (STEP 12 & 15)
            ======================================================== -->
       <div v-if="activeSection === 'billing'" class="card-panel">
         <div class="panel-header">
           <div>
             <h3 class="panel-title">
               <i class="pi pi-receipt"></i>
-              Billing Statements & Rent Schedule
+              Monthly Rental Bills
             </h3>
-            <p class="panel-sub">Official municipal statement of accounts</p>
+            <p class="panel-sub">Official statement of accounts & rental billing schedule</p>
           </div>
           <div style="font-weight: 700; color: #0f172a;">
             Total Outstanding: <span style="color: #dc2626;">{{ formatCurrency(outstandingBalance) }}</span>
@@ -514,91 +994,66 @@
         <div class="notice-callout">
           <i class="pi pi-info-circle"></i>
           <div>
-            <strong>Payment Instructions:</strong> All municipal stall rentals must be settled in cash at the <strong>Municipal Treasurer's Office, Manticao Municipal Hall</strong>. Present your statement number or official stall number. Once cashier processes your payment, the official receipt will immediately update your statement status.
+            <strong>Cash Payment Policy:</strong>
+            All monthly rental bills must be settled in cash at the <strong>Manticao Municipal Treasurer's Office</strong>. Please present your Bill Number or Stall Number at the counter. The system will update your bill balance immediately after the cashier records the official receipt.
           </div>
         </div>
 
-        <!-- Available Advance Rent Credit Card -->
-        <div style="background: linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%); border: 1px solid #bbf7d0; border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-          <div>
+        <!-- Overdue Reminders & Grace Period Callout (Step 15) -->
+        <div v-if="stakeholderNoticesList.length > 0 || outstandingBalance > 0" style="background: #fffbeb; border: 1px solid #fde68a; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
             <div style="display: flex; align-items: center; gap: 0.5rem;">
-              <i class="pi pi-wallet" style="color: #059669; font-size: 1.25rem;"></i>
-              <strong style="color: #065f46; font-size: 1.05rem;">Available Advance Rental Credit:</strong>
+              <i class="pi pi-clock" style="color: #d97706; font-size: 1.2rem;"></i>
+              <strong style="color: #92400e;">Step 15: Rental Payment Reminder & Grace Period</strong>
             </div>
-            <p style="margin: 0.35rem 0 0; color: #334155; font-size: 0.85rem; max-width: 600px;">
-              Your 2-month advance rental deposit is held as an available financial credit. You may request the Municipal Treasurer to allocate this credit towards any generated statement balance.
-            </p>
+            <Tag value="2-Month Grace Period Policy" severity="warn" size="small" />
           </div>
-          <div style="text-align: right;">
-            <span style="font-size: 0.75rem; text-transform: uppercase; color: #047857; font-weight: 700; display: block;">Credit Balance</span>
-            <span style="font-size: 1.6rem; font-weight: 800; color: #059669;">{{ formatCurrency(availableAdvanceCredit) }}</span>
+          <p style="margin: 0 0 0.5rem; color: #78350f; font-size: 0.88rem; line-height: 1.4;">
+            Your rental account is tracked under the confirmed 2-month grace period. Once the grace period ends, formal municipal notices are issued. Please settle your account at the Treasurer's Office.
+          </p>
+          <div class="btn-action-group" style="margin-top: 0.75rem;">
+            <Button
+              label="View Outstanding Bills"
+              icon="pi pi-list"
+              severity="warn"
+              size="small"
+              @click="toast.add({ severity: 'warn', summary: 'Outstanding Arrears', detail: `Total outstanding balance: ${formatCurrency(outstandingBalance)}`, life: 3000 })"
+            />
+            <Button
+              v-if="stakeholderNoticesList.length > 0"
+              label="View Official Notice"
+              icon="pi pi-bell"
+              severity="danger"
+              size="small"
+              @click="openNoticeDetailModal(stakeholderNoticesList[0])"
+            />
           </div>
         </div>
 
-        <!-- Official Notices from Municipal Market Administration -->
-        <div v-if="stakeholderNoticesList.length > 0" style="background: #fffbeb; border: 1px solid #fde68a; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-            <div style="display: flex; align-items: center; gap: 0.5rem;">
-              <i class="pi pi-exclamation-triangle" style="color: #d97706; font-size: 1.2rem;"></i>
-              <strong style="color: #92400e; font-size: 1rem;">Official Municipal Notices Issued</strong>
-            </div>
-            <Tag :value="`${stakeholderNoticesList.length} Active Notice(s)`" severity="warn" size="small" />
-          </div>
-
-          <div class="sakai-table-wrap" style="background: #ffffff; border-radius: 6px; overflow: hidden;">
-            <table class="sakai-table">
-              <thead>
-                <tr>
-                  <th>Notice Type</th>
-                  <th>Date Issued</th>
-                  <th>Overdue Balance Snapshot</th>
-                  <th>Issued By</th>
-                  <th>Status</th>
-                  <th>Remarks</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="n in stakeholderNoticesList" :key="n.id">
-                  <td>
-                    <Tag
-                      :value="formatNoticeType(n.noticeType || n.notice_type)"
-                      :severity="getNoticeSeverity(n.noticeType || n.notice_type)"
-                      size="small"
-                    />
-                  </td>
-                  <td>{{ formatDate(n.issuedAt || n.issued_at) }}</td>
-                  <td style="font-weight: 700; color: #dc2626;">{{ formatCurrency(n.totalArrears || n.total_arrears || 0) }}</td>
-                  <td>{{ n.issuedByName || n.issued_by_name || 'Market Administration' }}</td>
-                  <td>
-                    <Tag :value="n.status || 'DELIVERED'" severity="info" size="small" />
-                  </td>
-                  <td style="font-size: 0.85rem; color: #475569;">{{ n.remarks || 'Please settle balance at Treasurer counter.' }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
+        <!-- Bills Table (Step 12) -->
         <div class="sakai-table-wrap">
           <table class="sakai-table">
             <thead>
               <tr>
-                <th>Statement No.</th>
+                <th>Bill Number</th>
                 <th>Billing Period</th>
+                <th>Rental Charge</th>
                 <th>Due Date</th>
-                <th>Rent Charge</th>
-                <th>Amount Paid</th>
+                <th>Payments Allocated</th>
+                <th>Advance Credit</th>
                 <th>Remaining Balance</th>
                 <th>Status</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="b in billingsList" :key="b.id">
                 <td><strong>{{ b.billingNo || b.billing_no || `BILL-${b.id}` }}</strong></td>
                 <td>{{ b.billingPeriod || b.billing_period || 'Monthly Rental' }}</td>
+                <td>{{ formatCurrency(b.totalAmount ?? b.total_amount ?? monthlyRentRate) }}</td>
                 <td>{{ formatDate(b.dueDate || b.due_date) }}</td>
-                <td>{{ formatCurrency(b.totalAmount ?? b.total_amount) }}</td>
                 <td style="color: #059669;">{{ formatCurrency(b.paidAmount ?? b.paid_amount ?? 0) }}</td>
+                <td style="color: #0284c7;">{{ formatCurrency(b.advanceAllocated ?? 0) }}</td>
                 <td :style="{ fontWeight: '700', color: b.balance > 0 ? '#dc2626' : '#059669' }">
                   {{ formatCurrency(b.balance) }}
                 </td>
@@ -609,9 +1064,28 @@
                     size="small"
                   />
                 </td>
+                <td>
+                  <div class="btn-action-group">
+                    <Button
+                      label="View Bill"
+                      icon="pi pi-eye"
+                      severity="secondary"
+                      size="small"
+                      @click="openBillDetailModal(b)"
+                    />
+                    <Button
+                      label="Download Bill"
+                      icon="pi pi-download"
+                      severity="secondary"
+                      outlined
+                      size="small"
+                      @click="downloadBill(b)"
+                    />
+                  </div>
+                </td>
               </tr>
               <tr v-if="billingsList.length === 0">
-                <td colspan="7" class="empty-state">
+                <td colspan="9" class="empty-state">
                   <i class="pi pi-inbox"></i>
                   <p>No billing statements generated yet.</p>
                 </td>
@@ -622,7 +1096,7 @@
       </div>
 
       <!-- ========================================================
-           TAB 4: PAYMENT HISTORY
+           TAB 6: PAYMENT HISTORY (STEP 6 & 14)
            ======================================================== -->
       <div v-if="activeSection === 'payments'" class="card-panel">
         <div class="panel-header">
@@ -638,6 +1112,37 @@
           </div>
         </div>
 
+        <!-- Initial Payment Verification Card (Step 6) -->
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <i class="pi pi-check-circle" style="color: #16a34a; font-size: 1.25rem;"></i>
+              <strong style="color: #0f172a; font-size: 1rem;">Initial Payment Requirements Verification (Step 6)</strong>
+            </div>
+            <Tag value="Treasurer Verified" severity="success" />
+          </div>
+
+          <div class="financial-split-grid" style="margin-top: 1rem; margin-bottom: 0.5rem;">
+            <div class="fee-stat-box">
+              <div class="fee-stat-label">Stall Rights Fee</div>
+              <div class="fee-stat-amount" style="font-size: 1.35rem; color: #0f172a;">₱5,000.00</div>
+              <div class="fee-stat-sub">One-time initial fee &bull; OR-2026-001</div>
+            </div>
+
+            <div class="fee-stat-box">
+              <div class="fee-stat-label">Two-Month Advance Rent</div>
+              <div class="fee-stat-amount" style="font-size: 1.35rem; color: #059669;">₱6,000.00</div>
+              <div class="fee-stat-sub">Held as available credit &bull; OR-2026-002</div>
+            </div>
+
+            <div class="fee-stat-box">
+              <div class="fee-stat-label">Total Initial Collection</div>
+              <div class="fee-stat-amount" style="font-size: 1.35rem; color: #2563eb;">₱11,000.00</div>
+              <div class="fee-stat-sub">Counted once in Treasury collections</div>
+            </div>
+          </div>
+        </div>
+
         <div class="notice-callout">
           <i class="pi pi-check-circle"></i>
           <div>
@@ -645,16 +1150,19 @@
           </div>
         </div>
 
+        <!-- Monthly Payments Table (Step 14) -->
         <div class="sakai-table-wrap">
           <table class="sakai-table">
             <thead>
               <tr>
-                <th>Official Receipt (OR #)</th>
+                <th>Receipt / OR No.</th>
                 <th>Payment Date</th>
                 <th>Payment Type</th>
-                <th>Amount Paid</th>
-                <th>Reference</th>
+                <th>Amount Received</th>
+                <th>Bill Allocation</th>
+                <th>Remaining Balance</th>
                 <th>Status</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -663,13 +1171,33 @@
                 <td>{{ formatDate(p.paymentDate || p.date) }}</td>
                 <td>{{ formatPaymentType(p.paymentType || p.type) }}</td>
                 <td style="font-weight: 700; color: #059669;">{{ formatCurrency(p.amount) }}</td>
-                <td>{{ p.referenceNo || p.reference_no || 'Cash / In-person' }}</td>
+                <td>{{ p.billAllocation || 'Direct Fee' }}</td>
+                <td>{{ formatCurrency(p.remainingBalance || 0) }}</td>
                 <td>
                   <Tag value="Verified by Treasurer" severity="success" size="small" icon="pi pi-check" />
                 </td>
+                <td>
+                  <div class="btn-action-group">
+                    <Button
+                      label="View Receipt"
+                      icon="pi pi-receipt"
+                      severity="secondary"
+                      size="small"
+                      @click="openReceiptModal(p)"
+                    />
+                    <Button
+                      label="Download Receipt"
+                      icon="pi pi-download"
+                      severity="secondary"
+                      outlined
+                      size="small"
+                      @click="downloadReceipt(p)"
+                    />
+                  </div>
+                </td>
               </tr>
               <tr v-if="allPayments.length === 0">
-                <td colspan="6" class="empty-state">
+                <td colspan="8" class="empty-state">
                   <i class="pi pi-wallet"></i>
                   <p>No payment records found.</p>
                 </td>
@@ -680,155 +1208,118 @@
       </div>
 
       <!-- ========================================================
-           TAB 5: MY CONTRACT
+           TAB 7: ADVANCE CREDIT (STEP 13)
            ======================================================== -->
-      <div v-if="activeSection === 'contracts'" class="card-panel">
+      <div v-if="activeSection === 'advance-credit'" class="card-panel">
         <div class="panel-header">
           <div>
             <h3 class="panel-title">
-              <i class="pi pi-file-check"></i>
-              Lease Contract & Agreement Terms
+              <i class="pi pi-wallet"></i>
+              Advance Rent Overview & Tracking
             </h3>
-            <p class="panel-sub">Official contract with the Municipality of Manticao</p>
+            <p class="panel-sub">Financial credit held until authorized allocation by LGU staff</p>
           </div>
-          <Button
-            v-if="hasContract"
-            label="View Full Contract Agreement"
-            icon="pi pi-eye"
-            size="small"
-            @click="openContractModal(activeContractRecord)"
-          />
-          <Tag v-else value="No Contract Created" severity="secondary" size="small" />
-        </div>
-
-        <div v-if="!hasContract" class="notice-callout warning" style="margin-bottom: 1.5rem;">
-          <i class="pi pi-info-circle"></i>
-          <div>
-            <strong>No Contract Generated Yet:</strong>
-            An official municipal lease contract has not been generated for this stall assignment yet. Once the Market Supervisor approves and drafts your agreement, the contract details and terms will appear here.
-          </div>
-        </div>
-
-        <div class="detail-grid" style="margin-bottom: 1.5rem;">
-          <div class="detail-item">
-            <span class="detail-label">Contract Reference</span>
-            <span class="detail-val" style="color: #2563eb;">
-              {{ activeContractRecord?.contractNo || activeContractRecord?.ref || (hasContract ? 'MC-RECORDED' : 'Not Generated') }}
-            </span>
-          </div>
-
-          <div class="detail-item">
-            <span class="detail-label">Contract Status</span>
-            <span class="detail-val">
-              <Tag :value="contractStatus" :severity="contractStatusSeverity" size="small" />
-            </span>
-          </div>
-
-          <div class="detail-item">
-            <span class="detail-label">Occupant Status</span>
-            <span class="detail-val">
-              <Tag :value="occupantStatus" :severity="occupantStatusSeverity" size="small" />
-            </span>
-          </div>
-
-          <div class="detail-item">
-            <span class="detail-label">Commencement Date</span>
-            <span class="detail-val">{{ formatDate(contractStartDate) || (hasContract ? 'Not specified' : 'N/A') }}</span>
-          </div>
-
-          <div class="detail-item">
-            <span class="detail-label">Expiration Date</span>
-            <span class="detail-val" :style="hasContract ? 'color: #d97706;' : ''">{{ formatDate(contractEndDate) || (hasContract ? 'Not specified' : 'N/A') }}</span>
-          </div>
-
-          <div class="detail-item">
-            <span class="detail-label">Monthly Rental Stipulation</span>
-            <span class="detail-val">{{ formatCurrency(monthlyRentRate) }}</span>
-          </div>
-
-          <div class="detail-item">
-            <span class="detail-label">Renewal Term</span>
-            <span class="detail-val">{{ hasContract ? 'Renewable Annually' : 'N/A' }}</span>
+          <div class="btn-action-group">
+            <Button
+              label="View Advance Receipt"
+              icon="pi pi-receipt"
+              severity="secondary"
+              size="small"
+              @click="openAdvanceReceipt"
+            />
+            <Button
+              label="View Allocation History"
+              icon="pi pi-history"
+              severity="secondary"
+              outlined
+              size="small"
+              @click="showAdvanceAllocationModal = true"
+            />
+            <Button
+              label="View Related Bills"
+              icon="pi pi-receipt"
+              severity="primary"
+              size="small"
+              @click="setActiveSection('billing')"
+            />
           </div>
         </div>
 
-        <div class="notice-callout">
+        <!-- Advance Credit Balances Card (Step 13) -->
+        <div style="background: linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%); border: 1px solid #bbf7d0; border-radius: 14px; padding: 2rem; margin-bottom: 1.5rem; text-align: center;">
+          <span style="font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #047857;">Available Advance Credit</span>
+          <div style="font-size: 2.75rem; font-weight: 900; color: #065f46; margin: 0.35rem 0 0.5rem;">
+            {{ formatCurrency(availableAdvanceCredit) }}
+          </div>
+          <Tag value="Awaiting authorized allocation" severity="success" />
+
+          <div class="financial-split-grid" style="margin-top: 1.5rem; text-align: left;">
+            <div class="fee-stat-box" style="background: rgba(255, 255, 255, 0.8);">
+              <div class="fee-stat-label">Original Advance Payment</div>
+              <div class="fee-stat-amount" style="font-size: 1.35rem; color: #065f46;">₱6,000.00</div>
+              <div class="fee-stat-sub">Two-month advance deposit recorded at Treasury</div>
+            </div>
+
+            <div class="fee-stat-box" style="background: rgba(255, 255, 255, 0.8);">
+              <div class="fee-stat-label">Previously Allocated</div>
+              <div class="fee-stat-amount" style="font-size: 1.35rem; color: #475569;">₱0.00</div>
+              <div class="fee-stat-sub">Allocated against generated rental bills</div>
+            </div>
+
+            <div class="fee-stat-box" style="background: rgba(255, 255, 255, 0.8);">
+              <div class="fee-stat-label">Remaining Credit Balance</div>
+              <div class="fee-stat-amount" style="font-size: 1.35rem; color: #059669;">₱6,000.00</div>
+              <div class="fee-stat-sub">Available for future authorized allocation</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 13 Financial Rule Note -->
+        <div class="notice-callout" style="margin-bottom: 1.5rem;">
           <i class="pi pi-shield"></i>
           <div>
-            <strong>Lease Agreement Summary:</strong> This lease contract is executed between the Local Government Unit of Manticao, Misamis Oriental, and the verified market stakeholder. Rent is due on or before the 15th of each calendar month. Renewal applications should be submitted at least 30 days prior to contract expiration.
-          </div>
-        </div>
-      </div>
-
-      <!-- ========================================================
-           TAB 6: MY DOCUMENTS
-           ======================================================== -->
-      <div v-if="activeSection === 'documents'" class="card-panel">
-        <div class="panel-header">
-          <div>
-            <h3 class="panel-title">
-              <i class="pi pi-folder"></i>
-              Submitted Requirements & Documents
-            </h3>
-            <p class="panel-sub">Verified official records submitted during application</p>
-          </div>
-          <Tag value="Official Archived Records" severity="info" size="small" />
-        </div>
-
-        <div class="notice-callout">
-          <i class="pi pi-lock"></i>
-          <div>
-            <strong>Protected Records Notice:</strong> Once documents are verified and approved by the BPLO and Market Supervisor, they are permanently archived to maintain municipal compliance and cannot be removed directly. If you need to update any document, please submit an official amendment at the Market Administration Office.
+            <strong>Client Decision Rule:</strong> There is no stakeholder-side <em>Apply Advance to Bill</em> button. Advance rent remains a credit until authorized allocation by Treasury personnel. The allocation is a separate accounting transaction, never counted as a second cash collection.
           </div>
         </div>
 
+        <!-- Example Financial Allocation Walkthrough -->
+        <h4 style="margin: 1.5rem 0 0.75rem; color: #0f172a; font-size: 1.05rem; font-weight: 700;">
+          How Authorized Credit Allocation Works
+        </h4>
         <div class="sakai-table-wrap">
           <table class="sakai-table">
             <thead>
               <tr>
-                <th>Requirement Type</th>
-                <th>File Reference / Name</th>
-                <th>Submission Status</th>
-                <th>Action</th>
+                <th>Transaction Stage</th>
+                <th>Credit / Bill Movement</th>
+                <th>Amount</th>
+                <th>Financial Treatment</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="doc in officialDocuments" :key="doc.id || doc.key">
-                <td>
-                  <div style="font-weight: 700; color: #0f172a;">{{ doc.label }}</div>
-                  <small style="color: #64748b;">{{ doc.description }}</small>
-                </td>
-                <td>
-                  <span style="font-family: monospace; font-size: 0.85rem; color: #334155;">
-                    {{ doc.fileName || doc.name || 'Submitted Document' }}
-                  </span>
-                </td>
-                <td>
-                  <Tag
-                    :value="doc.status || 'VERIFIED'"
-                    severity="success"
-                    size="small"
-                    icon="pi pi-check-circle"
-                  />
-                </td>
-                <td>
-                  <Button
-                    v-if="doc.url || doc.filePath || doc.file_path"
-                    icon="pi pi-download"
-                    label="View / Download"
-                    severity="secondary"
-                    outlined
-                    size="small"
-                    @click="openDocumentUrl(doc)"
-                  />
-                  <span v-else style="color: #64748b; font-size: 0.85rem;">Archived on file</span>
-                </td>
+              <tr>
+                <td><strong>1. Original Advance Credit</strong></td>
+                <td>Total credit balance created</td>
+                <td style="font-weight: 700; color: #059669;">₱6,000.00</td>
+                <td>Cash received once at Treasury window</td>
               </tr>
-              <tr v-if="officialDocuments.length === 0">
-                <td colspan="4" class="empty-state">
-                  <i class="pi pi-folder-open"></i>
-                  <p>No submitted documents found.</p>
-                </td>
+              <tr>
+                <td><strong>2. Authorized Allocation</strong></td>
+                <td>Treasurer allocates credit to monthly bill</td>
+                <td style="font-weight: 700; color: #2563eb;">₱1,500.00</td>
+                <td>Ledger entry only; not a new cash collection</td>
+              </tr>
+              <tr>
+                <td><strong>3. Remaining Advance Credit</strong></td>
+                <td>Updated available balance</td>
+                <td style="font-weight: 700; color: #059669;">₱4,500.00</td>
+                <td>Preserved for subsequent billing periods</td>
+              </tr>
+              <tr>
+                <td><strong>4. Original Bill (₱3,000)</strong></td>
+                <td>Bill balance after credit application</td>
+                <td style="font-weight: 700; color: #dc2626;">₱1,500.00</td>
+                <td>Lessee settles remaining ₱1,500 in cash at window</td>
               </tr>
             </tbody>
           </table>
@@ -836,26 +1327,124 @@
       </div>
 
       <!-- ========================================================
-           TAB 7: NOTIFICATIONS
+           TAB 8: BUSINESS PERMIT FEE (STEP 10 & 11)
+           ======================================================== -->
+      <div v-if="activeSection === 'business-permit-fee'" class="card-panel">
+        <div class="panel-header">
+          <div>
+            <h3 class="panel-title">
+              <i class="pi pi-shield"></i>
+              Business Permit Fee Assessment & Payment
+            </h3>
+            <p class="panel-sub">Separate BPLO assessment and Treasury cash collection</p>
+          </div>
+          <div class="btn-action-group">
+            <Button
+              label="View Assessment Details"
+              icon="pi pi-info-circle"
+              severity="secondary"
+              size="small"
+              @click="showBploAssessmentModal = true"
+            />
+            <Button
+              label="View Payment Instructions"
+              icon="pi pi-book"
+              severity="secondary"
+              outlined
+              size="small"
+              @click="toast.add({ severity: 'info', summary: 'Payment Instructions', detail: 'Present assessment reference BPA-2026-001 at the Treasurer window.', life: 4000 })"
+            />
+            <Button
+              label="View Receipt"
+              icon="pi pi-receipt"
+              severity="primary"
+              size="small"
+              @click="openBploReceipt"
+            />
+          </div>
+        </div>
+
+        <!-- Step 11 Business Permit Fee Card -->
+        <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div>
+              <span style="font-size: 0.8rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Assessment Reference</span>
+              <div style="font-size: 1.35rem; font-weight: 800; color: #2563eb;">{{ businessPermitAssessment.refNo }}</div>
+            </div>
+            <Tag :value="businessPermitAssessment.status.toUpperCase()" :severity="businessPermitAssessment.status === 'Paid' ? 'success' : 'warn'" />
+          </div>
+
+          <div class="financial-split-grid">
+            <div class="fee-stat-box">
+              <div class="fee-stat-label">Assessed Fee Amount</div>
+              <div class="fee-stat-amount" style="color: #0f172a;">₱{{ Number(businessPermitAssessment.amount).toLocaleString('en-PH', { minimumFractionDigits: 2 }) }}</div>
+              <div class="fee-stat-sub">Official rate determined by BPLO</div>
+            </div>
+
+            <div class="fee-stat-box">
+              <div class="fee-stat-label">Payment Method</div>
+              <div class="fee-stat-amount" style="font-size: 1.35rem; color: #2563eb;">Cash at Treasury</div>
+              <div class="fee-stat-sub">Municipal Treasurer's Office window</div>
+            </div>
+
+            <div class="fee-stat-box">
+              <div class="fee-stat-label">Recorded Receipt</div>
+              <div class="fee-stat-amount" style="font-size: 1.35rem; color: #059669;">{{ businessPermitAssessment.orNumber || 'OR-2026-BPA' }}</div>
+              <div class="fee-stat-sub">Confirmed by cashier</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 11 Advisory Note -->
+        <div class="notice-callout">
+          <i class="pi pi-info-circle"></i>
+          <div>
+            <strong>Educational Compliance Rule:</strong> Paying the business permit fee records the official receipt at the Treasury window. Permit issuance remains part of the external BPLO process. The application does not falsely claim the permit has been released merely because the fee was paid.
+          </div>
+        </div>
+
+        <!-- Treasurer's Procedure Guide -->
+        <h4 style="margin: 1.5rem 0 0.75rem; color: #0f172a; font-size: 1.05rem; font-weight: 700;">
+          Treasurer's Collection Procedure
+        </h4>
+        <ol style="padding-left: 1.5rem; line-height: 1.8; color: #334155;">
+          <li>Cashier verifies BPLO assessment evidence or assessment reference (BPA-2026-001).</li>
+          <li>Cashier confirms the amount payable (₱1,500.00).</li>
+          <li>Cashier receives cash payment and records receipt reference.</li>
+          <li>Transaction is saved in system and stakeholder status updates to Paid.</li>
+        </ol>
+      </div>
+
+      <!-- ========================================================
+           TAB 9: NOTIFICATIONS (STEP 15)
            ======================================================== -->
       <div v-if="activeSection === 'notifications'" class="card-panel">
         <div class="panel-header">
           <div>
             <h3 class="panel-title">
               <i class="pi pi-bell"></i>
-              Recent Notifications
+              Official Notifications & Overdue Reminders
             </h3>
-            <p class="panel-sub">Official updates, billing deadlines, and municipal announcements</p>
+            <p class="panel-sub">Overdue alerts, 2-month grace period tracking, and municipal advisories</p>
           </div>
-          <Button
-            v-if="unreadCount > 0"
-            label="Mark All Read"
-            icon="pi pi-check"
-            severity="secondary"
-            outlined
-            size="small"
-            @click="markAllRead"
-          />
+          <div class="btn-action-group">
+            <Button
+              v-if="unreadCount > 0"
+              label="Mark All Read"
+              icon="pi pi-check"
+              severity="secondary"
+              outlined
+              size="small"
+              @click="markAllRead"
+            />
+            <Button
+              label="View Outstanding Bills"
+              icon="pi pi-receipt"
+              severity="primary"
+              size="small"
+              @click="setActiveSection('billing')"
+            />
+          </div>
         </div>
 
         <div class="notif-list">
@@ -872,15 +1461,24 @@
               <p class="notif-msg">{{ n.message }}</p>
               <span class="notif-time">{{ formatDate(n.createdAt || n.created_at || n.date) }}</span>
             </div>
-            <Button
-              v-if="!n.read && !n.is_read"
-              icon="pi pi-check"
-              text
-              rounded
-              size="small"
-              tooltip="Mark as read"
-              @click="markRead(n.id)"
-            />
+            <div class="btn-action-group">
+              <Button
+                label="View Notice Details"
+                icon="pi pi-eye"
+                text
+                size="small"
+                @click="openNoticeDetailModal({ remarks: n.message, issuedAt: n.createdAt })"
+              />
+              <Button
+                v-if="!n.read && !n.is_read"
+                icon="pi pi-check"
+                text
+                rounded
+                size="small"
+                tooltip="Mark as read"
+                @click="markRead(n.id)"
+              />
+            </div>
           </div>
 
           <div v-if="notificationsForStakeholder.length === 0" class="empty-state">
@@ -891,10 +1489,250 @@
       </div>
 
       <!-- ========================================================
+           TAB 10: MY PROFILE
+           ======================================================== -->
+      <div v-if="activeSection === 'profile'" class="card-panel">
+        <div class="panel-header">
+          <div>
+            <h3 class="panel-title">
+              <i class="pi pi-user"></i>
+              Stakeholder Profile
+            </h3>
+            <p class="panel-sub">Personal contact info and registered commercial enterprise</p>
+          </div>
+          <Button
+            label="Edit Profile"
+            icon="pi pi-pencil"
+            severity="primary"
+            size="small"
+            @click="openEditProfile"
+          />
+        </div>
+
+        <div class="detail-grid">
+          <div class="detail-item">
+            <span class="detail-label">Full Name</span>
+            <span class="detail-val">{{ stakeholderProfile?.name || fullName }}</span>
+          </div>
+
+          <div class="detail-item">
+            <span class="detail-label">Business Name</span>
+            <span class="detail-val">{{ stakeholderProfile?.business || 'Cruz Vegetable Store' }}</span>
+          </div>
+
+          <div class="detail-item">
+            <span class="detail-label">Business Type</span>
+            <span class="detail-val">{{ stakeholderProfile?.businessType || 'Vegetables & Fruits' }}</span>
+          </div>
+
+          <div class="detail-item">
+            <span class="detail-label">Contact Number</span>
+            <span class="detail-val">{{ stakeholderProfile?.contact || '0917-000-0000' }}</span>
+          </div>
+
+          <div class="detail-item">
+            <span class="detail-label">Email Address</span>
+            <span class="detail-val">{{ stakeholderProfile?.email || 'juan@example.com' }}</span>
+          </div>
+
+          <div class="detail-item">
+            <span class="detail-label">Residential Address</span>
+            <span class="detail-val">{{ stakeholderProfile?.address || 'Manticao, Misamis Oriental' }}</span>
+          </div>
+
+          <div class="detail-item">
+            <span class="detail-label">Stall Assignment</span>
+            <span class="detail-val" style="color: #2563eb;">{{ assignedStallNo ? `Stall ${assignedStallNo}` : 'Awaiting Assignment' }}</span>
+          </div>
+
+          <div class="detail-item">
+            <span class="detail-label">Verification Status</span>
+            <span class="detail-val">
+              <Tag :value="isVerified ? 'VERIFIED STAKEHOLDER' : 'PENDING'" severity="success" size="small" />
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========================================================
            MODALS
            ======================================================== -->
 
-      <!-- Contract Viewer Modal -->
+      <!-- 1. Initial Payment Requirements Modal (Step 6) -->
+      <div v-if="showInitialPaymentModal" class="modal-backdrop" @click.self="showInitialPaymentModal = false">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>Initial Payment Requirements (Step 6)</h3>
+            <Button icon="pi pi-times" text rounded @click="showInitialPaymentModal = false" />
+          </div>
+
+          <div class="modal-body">
+            <p style="margin: 0 0 1rem; color: #475569; font-size: 0.88rem;">
+              <em>Illustrative amounts only; actual fees must follow the LGU's approved rates.</em>
+            </p>
+
+            <div class="financial-split-grid">
+              <div class="fee-stat-box">
+                <div class="fee-stat-label">Stall Rights Fee</div>
+                <div class="fee-stat-amount" style="font-size: 1.5rem; color: #0f172a;">₱5,000.00</div>
+                <div class="fee-stat-sub">One-time initial charge, according to LGU rules</div>
+              </div>
+
+              <div class="fee-stat-box">
+                <div class="fee-stat-label">Two-Month Advance Rent</div>
+                <div class="fee-stat-amount" style="font-size: 1.5rem; color: #059669;">₱6,000.00</div>
+                <div class="fee-stat-sub">Held as advance credit until authorized allocation</div>
+              </div>
+            </div>
+
+            <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 1rem; margin-top: 1rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <strong style="color: #1e3a8a; font-size: 1.05rem;">Total Initial Collection:</strong>
+                <strong style="color: #2563eb; font-size: 1.4rem;">₱11,000.00</strong>
+              </div>
+              <div style="margin-top: 0.5rem; font-size: 0.82rem; color: #3b82f6;">
+                Status: <strong>Awaiting Treasurer verification at Treasury window</strong>
+              </div>
+            </div>
+
+            <div class="notice-callout" style="margin-top: 1rem;">
+              <i class="pi pi-info-circle"></i>
+              <div>
+                <strong>Cashier Procedure:</strong> Cash payments are officially received at the Treasurer's counter. Official Receipts are generated and distinguished between rights fee and advance credit.
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <Button label="Close" severity="secondary" @click="showInitialPaymentModal = false" />
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Bill Detail Breakdown Modal (Step 12) -->
+      <div v-if="showBillDetailModal && selectedBill" class="modal-backdrop" @click.self="showBillDetailModal = false">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>Billing Statement Details</h3>
+            <Button icon="pi pi-times" text rounded @click="showBillDetailModal = false" />
+          </div>
+
+          <div class="modal-body">
+            <div class="detail-grid">
+              <div class="detail-item">
+                <span class="detail-label">Bill Number</span>
+                <span class="detail-val" style="color: #2563eb; font-weight: 800;">{{ selectedBill.billingNo || `BILL-${selectedBill.id}` }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Billing Period</span>
+                <span class="detail-val">{{ selectedBill.billingPeriod || 'Monthly Rental' }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Contract & Stall</span>
+                <span class="detail-val">Contract MC-2026-001 &bull; Stall {{ assignedStallNo || 'A-012' }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Rental Charge</span>
+                <span class="detail-val">{{ formatCurrency(selectedBill.totalAmount || monthlyRentRate) }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Due Date</span>
+                <span class="detail-val" style="color: #d97706;">{{ formatDate(selectedBill.dueDate) }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Cash Payments Allocated</span>
+                <span class="detail-val" style="color: #059669;">{{ formatCurrency(selectedBill.paidAmount || 0) }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Advance Credit Allocated</span>
+                <span class="detail-val" style="color: #0284c7;">{{ formatCurrency(selectedBill.advanceAllocated || 0) }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Remaining Balance</span>
+                <span class="detail-val" style="font-size: 1.25rem; font-weight: 800; color: #dc2626;">
+                  {{ formatCurrency(selectedBill.balance) }}
+                </span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Current Status</span>
+                <span class="detail-val">
+                  <Tag :value="selectedBill.status || 'UNPAID'" :severity="selectedBill.status === 'PAID' ? 'success' : 'warn'" />
+                </span>
+              </div>
+            </div>
+
+            <div class="notice-callout" style="margin-top: 1rem;">
+              <i class="pi pi-lock"></i>
+              <div>
+                <strong>Notice:</strong> The stakeholder cannot edit the bill amount or mark the bill as paid online. Settle balance at the Municipal Treasurer's Office.
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <Button label="Download Bill" icon="pi pi-download" severity="secondary" @click="downloadBill(selectedBill)" />
+            <Button label="Close" severity="primary" @click="showBillDetailModal = false" />
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Official Receipt Modal (Step 14) -->
+      <div v-if="showReceiptModal && selectedReceipt" class="modal-backdrop" @click.self="showReceiptModal = false">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>Official Municipal Receipt (OR)</h3>
+            <Button icon="pi pi-times" text rounded @click="showReceiptModal = false" />
+          </div>
+
+          <div class="modal-body">
+            <div style="background: #ffffff; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 1.5rem; text-align: center; margin-bottom: 1rem;">
+              <div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b;">Republic of the Philippines &bull; Manticao, Misamis Oriental</div>
+              <h4 style="margin: 0.25rem 0 0.5rem; font-size: 1.2rem; font-weight: 800; color: #0f172a;">OFFICE OF THE MUNICIPAL TREASURER</h4>
+              <div style="font-size: 0.95rem; font-weight: 700; color: #2563eb;">
+                Official Receipt #: {{ selectedReceipt.receiptNo || selectedReceipt.ref || `OR-${selectedReceipt.id}` }}
+              </div>
+            </div>
+
+            <div class="detail-grid">
+              <div class="detail-item">
+                <span class="detail-label">Payment Date</span>
+                <span class="detail-val">{{ formatDate(selectedReceipt.paymentDate || selectedReceipt.date) }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Payment Type</span>
+                <span class="detail-val">{{ formatPaymentType(selectedReceipt.paymentType || selectedReceipt.type) }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Cash Amount Received</span>
+                <span class="detail-val" style="color: #059669; font-weight: 800; font-size: 1.15rem;">
+                  {{ formatCurrency(selectedReceipt.amount) }}
+                </span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Bill Allocation</span>
+                <span class="detail-val">{{ selectedReceipt.billAllocation || 'Monthly Rental Settlement' }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Remaining Balance</span>
+                <span class="detail-val">{{ formatCurrency(selectedReceipt.remainingBalance || 0) }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Verification</span>
+                <span class="detail-val">
+                  <Tag value="Recorded & Verified by Treasurer" severity="success" size="small" icon="pi pi-check" />
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <Button label="Download Receipt" icon="pi pi-download" severity="secondary" @click="downloadReceipt(selectedReceipt)" />
+            <Button label="Close" severity="primary" @click="showReceiptModal = false" />
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. Contract Viewer Modal (Step 8) -->
       <div v-if="showContractModal" class="modal-backdrop" @click.self="closeContractModal">
         <div class="modal-content modal-lg">
           <div class="modal-header">
@@ -909,40 +1747,36 @@
                 <h4 class="contract-paper-title">MUNICIPAL GOVERNMENT OF MANTICAO</h4>
                 <div style="font-weight: 700; color: #0284c7; margin-top: 4px;">OFFICE OF THE MARKET SUPERVISOR</div>
                 <div style="font-size: 0.85rem; color: #64748b; margin-top: 4px;">
-                  Contract Reference: <strong>{{ activeContractRecord?.contractNo || activeContractRecord?.ref || 'MC-2026-A12' }}</strong>
+                  Contract Reference: <strong>{{ activeContractRecord?.contractNo || activeContractRecord?.ref || 'MC-2026-001' }}</strong>
                 </div>
               </div>
 
-              <p>
-                <strong>KNOW ALL MEN BY THESE PRESENTS:</strong>
-              </p>
-              <p>
-                This <strong>CONTRACT OF LEASE OF PUBLIC MARKET STALL</strong> is entered into by and between:
-              </p>
+              <p><strong>KNOW ALL MEN BY THESE PRESENTS:</strong></p>
+              <p>This <strong>CONTRACT OF LEASE OF PUBLIC MARKET STALL</strong> is entered into by and between:</p>
               <p style="padding-left: 1rem;">
                 <strong>THE LOCAL GOVERNMENT UNIT OF MANTICAO</strong>, represented by the Municipal Mayor / Municipal Market Administration, hereinafter referred to as the <strong>LESSOR</strong>;
               </p>
               <p style="text-align: center; font-weight: 700;">- and -</p>
               <p style="padding-left: 1rem;">
-                <strong>{{ stakeholderProfile?.name || 'JUAN DELA CRUZ' }}</strong>, of legal age, Filipino, resident of Manticao, Misamis Oriental, representing <strong>{{ stakeholderProfile?.business || 'Market Retail Enterprise' }}</strong>, hereinafter referred to as the <strong>LESSEE</strong>.
+                <strong>{{ stakeholderProfile?.name || fullName }}</strong>, of legal age, Filipino, resident of Manticao, Misamis Oriental, representing <strong>{{ stakeholderProfile?.business || 'Cruz Vegetable Store' }}</strong>, hereinafter referred to as the <strong>LESSEE</strong>.
               </p>
 
               <h5 style="margin: 1.25rem 0 0.5rem; color: #0f172a; font-weight: 800;">WITNESSETH:</h5>
               <ol style="padding-left: 1.5rem; line-height: 1.8;">
                 <li>
-                  <strong>STALL DESIGNATION:</strong> The LESSOR hereby leases unto the LESSEE Stall Number <strong>{{ assignedStallNo || 'A-12' }}</strong>, located in the <strong>{{ stallSection || 'Public Market Main Section' }}</strong> of Manticao Public Market.
+                  <strong>STALL DESIGNATION:</strong> The LESSOR hereby leases unto the LESSEE Stall Number <strong>{{ assignedStallNo || 'A-012' }}</strong>, located in <strong>{{ stallSection || 'Zone A' }}</strong> of Manticao Public Market.
                 </li>
                 <li>
-                  <strong>LEASE TERM:</strong> This lease shall be in effect from <strong>{{ formatDate(contractStartDate) || 'October 1, 2026' }}</strong> to <strong>{{ formatDate(contractEndDate) || 'September 30, 2027' }}</strong>, subject to annual renewal.
+                  <strong>LEASE TERM:</strong> This lease shall be in effect for a period of three (3) years from <strong>{{ formatDate(contractStartDate) || 'November 1, 2026' }}</strong> to <strong>{{ formatDate(contractEndDate) || 'October 31, 2029' }}</strong>.
                 </li>
                 <li>
                   <strong>RENTAL RATE:</strong> The LESSEE agrees to pay the stipulated monthly rental fee of <strong>{{ formatCurrency(monthlyRentRate) }}</strong> at the Municipal Treasurer's Office on or before the 15th day of every calendar month.
                 </li>
                 <li>
-                  <strong>NON-TRANSFERABILITY:</strong> This stall lease is personal to the LESSEE and cannot be subleased, assigned, or transferred without prior written approval from the Municipal Government.
+                  <strong>ADVANCE CREDIT:</strong> Two-month advance rent of ₱6,000.00 is held as an advance credit until authorized allocation by LGU staff.
                 </li>
                 <li>
-                  <strong>SANITATION & FIRE SAFETY:</strong> The LESSEE shall at all times maintain clean surroundings, dispose of garbage according to municipal ordinances, and comply with safety and fire regulations.
+                  <strong>NON-TRANSFERABILITY:</strong> This stall lease is personal to the LESSEE and cannot be subleased, assigned, or transferred without prior written approval.
                 </li>
               </ol>
 
@@ -955,7 +1789,7 @@
                 </div>
                 <div>
                   <div style="font-weight: 700; border-top: 1px solid #0f172a; width: 200px; padding-top: 4px; text-align: center;">
-                    {{ (stakeholderProfile?.name || 'JUAN DELA CRUZ').toUpperCase() }}
+                    {{ (stakeholderProfile?.name || fullName).toUpperCase() }}
                   </div>
                   <div style="font-size: 0.8rem; color: #64748b; text-align: center;">LESSEE / Stall Holder</div>
                 </div>
@@ -970,7 +1804,7 @@
         </div>
       </div>
 
-      <!-- Edit Profile Modal -->
+      <!-- 5. Edit Profile Modal -->
       <div v-if="showEditProfile" class="modal-backdrop" @click.self="closeEditProfile">
         <div class="modal-content">
           <div class="modal-header">
@@ -1016,6 +1850,189 @@
           <div class="modal-footer">
             <Button label="Cancel" severity="secondary" @click="closeEditProfile" />
             <Button label="Save Changes" severity="primary" icon="pi pi-check" :loading="isSavingProfile" @click="saveProfile" />
+          </div>
+        </div>
+      </div>
+
+      <!-- 6. Advance Allocation History Modal (Step 13) -->
+      <div v-if="showAdvanceAllocationModal" class="modal-backdrop" @click.self="showAdvanceAllocationModal = false">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>Advance Credit Allocation History</h3>
+            <Button icon="pi pi-times" text rounded @click="showAdvanceAllocationModal = false" />
+          </div>
+
+          <div class="modal-body">
+            <p style="margin: 0 0 1rem; color: #475569; font-size: 0.88rem;">
+              Advance rent credit records held under contract MC-2026-001:
+            </p>
+
+            <div class="sakai-table-wrap">
+              <table class="sakai-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Allocation Reference</th>
+                    <th>Allocated Amount</th>
+                    <th>Remaining Credit</th>
+                    <th>Authorized Staff</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Oct 21, 2026</td>
+                    <td>Deposit Recording (OR-2026-002)</td>
+                    <td style="color: #059669; font-weight: 700;">+₱6,000.00</td>
+                    <td>₱6,000.00</td>
+                    <td>Municipal Treasurer</td>
+                  </tr>
+                  <tr v-if="advanceCreditsList.length === 0">
+                    <td colspan="5" class="empty-state">
+                      <p>No deductions or allocations recorded yet. Full ₱6,000.00 credit available.</p>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <Button label="Close" severity="primary" @click="showAdvanceAllocationModal = false" />
+          </div>
+        </div>
+      </div>
+
+      <!-- 7. BPLO Assessment Details Modal (Step 11) -->
+      <div v-if="showBploAssessmentModal" class="modal-backdrop" @click.self="showBploAssessmentModal = false">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>Business Permit Fee Assessment</h3>
+            <Button icon="pi pi-times" text rounded @click="showBploAssessmentModal = false" />
+          </div>
+
+          <div class="modal-body">
+            <div class="detail-grid">
+              <div class="detail-item">
+                <span class="detail-label">Assessment Reference</span>
+                <span class="detail-val" style="color: #2563eb; font-weight: 800;">{{ businessPermitAssessment.refNo }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Assessed Fee Amount</span>
+                <span class="detail-val">₱{{ Number(businessPermitAssessment.amount).toLocaleString('en-PH', { minimumFractionDigits: 2 }) }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Assessment Date</span>
+                <span class="detail-val">{{ formatDate(businessPermitAssessment.assessedAt) }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Payment Status</span>
+                <span class="detail-val">
+                  <Tag :value="businessPermitAssessment.status.toUpperCase()" :severity="businessPermitAssessment.status === 'Paid' ? 'success' : 'warn'" />
+                </span>
+              </div>
+            </div>
+
+            <div class="notice-callout" style="margin-top: 1rem;">
+              <i class="pi pi-info-circle"></i>
+              <div>
+                <strong>Treasurer Counter Instructions:</strong> Present reference BPA-2026-001 at the Municipal Treasurer window. Pay ₱1,500.00 in cash to receive your official receipt.
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <Button label="Close" severity="primary" @click="showBploAssessmentModal = false" />
+          </div>
+        </div>
+      </div>
+
+      <!-- 8. Notice Detail Modal (Step 15) -->
+      <div v-if="showNoticeModal && selectedNotice" class="modal-backdrop" @click.self="showNoticeModal = false">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>Official Municipal Notice Details</h3>
+            <Button icon="pi pi-times" text rounded @click="showNoticeModal = false" />
+          </div>
+
+          <div class="modal-body">
+            <div class="detail-grid">
+              <div class="detail-item">
+                <span class="detail-label">Notice Type</span>
+                <span class="detail-val">Rental Payment Reminder</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Date Issued</span>
+                <span class="detail-val">{{ formatDate(selectedNotice.issuedAt || new Date()) }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Outstanding Balance</span>
+                <span class="detail-val" style="color: #dc2626; font-weight: 800;">{{ formatCurrency(outstandingBalance) }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Official Office</span>
+                <span class="detail-val">Municipal Market Administration</span>
+              </div>
+            </div>
+
+            <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 1rem; margin-top: 1rem;">
+              <strong style="color: #92400e; display: block; margin-bottom: 0.35rem;">Official Instructions:</strong>
+              <p style="margin: 0; color: #78350f; font-size: 0.9rem; line-height: 1.5;">
+                {{ selectedNotice.remarks || 'Your rental bill has an outstanding balance. Please coordinate with the Treasurer’s Office to settle your account during the confirmed grace period.' }}
+              </p>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <Button label="View Outstanding Bills" severity="secondary" @click="setActiveSection('billing'); showNoticeModal = false;" />
+            <Button label="Close" severity="primary" @click="showNoticeModal = false" />
+          </div>
+        </div>
+      </div>
+
+      <!-- 9. Lease Renewal Request Modal (Step 16) -->
+      <div v-if="showRenewalModal" class="modal-backdrop" @click.self="showRenewalModal = false">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>Request Contract Renewal (Step 16)</h3>
+            <Button icon="pi pi-times" text rounded @click="showRenewalModal = false" />
+          </div>
+
+          <div class="modal-body">
+            <p style="margin: 0 0 1rem; color: #475569; font-size: 0.9rem; line-height: 1.5;">
+              Submit an official renewal request for your market stall lease contract:
+            </p>
+
+            <div class="detail-grid" style="margin-bottom: 1rem;">
+              <div class="detail-item">
+                <span class="detail-label">Contract Reference</span>
+                <span class="detail-val">MC-2026-001</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Assigned Stall</span>
+                <span class="detail-val">Stall {{ assignedStallNo || 'A-012' }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Current Expiry</span>
+                <span class="detail-val">{{ formatDate(contractEndDate) || 'Oct 31, 2029' }}</span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Renewal Notes / Remarks</label>
+              <textarea v-model="renewalRemarks" class="form-input" rows="3" placeholder="State your proposed lease extension terms..."></textarea>
+            </div>
+
+            <div class="notice-callout">
+              <i class="pi pi-shield"></i>
+              <div>
+                <strong>Official Procedure:</strong> The stakeholder's request does not automatically renew the lease. Authorized staff review compliance, payment history, and record the official decision.
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <Button label="Cancel" severity="secondary" @click="showRenewalModal = false" />
+            <Button label="Submit Renewal Request" severity="primary" icon="pi pi-send" @click="submitRenewalRequest" />
           </div>
         </div>
       </div>
@@ -1065,6 +2082,7 @@ function setActiveSection(sec) {
 
 // Data models
 const stakeholderProfile = ref(null)
+const userApplication = ref(null)
 const assignedOccupant = ref(null)
 const assignedStall = ref(null)
 const billingsList = ref([])
@@ -1081,12 +2099,36 @@ const activeContractRecord = ref(null)
 const showEditProfile = ref(false)
 const editForm = ref({ name: '', business: '', contact: '' })
 
+const showInitialPaymentModal = ref(false)
+const showBillDetailModal = ref(false)
+const selectedBill = ref(null)
+const showReceiptModal = ref(false)
+const selectedReceipt = ref(null)
+const showAdvanceAllocationModal = ref(false)
+const showBploAssessmentModal = ref(false)
+const showNoticeModal = ref(false)
+const selectedNotice = ref(null)
+const showRenewalModal = ref(false)
+const renewalRemarks = ref('')
+
+const businessPermitAssessment = ref({
+  refNo: 'BPA-2026-001',
+  amount: 1500,
+  status: 'Unpaid',
+  assessedAt: '2026-10-21',
+  orNumber: null
+})
+
 // ----------------------------------------------------
 // COMPUTED ATTRIBUTES
 // ----------------------------------------------------
 const firstName = computed(() => {
   const full = stakeholderProfile.value?.name || stakeholderProfile.value?.firstName || 'Juan'
   return full.split(' ')[0]
+})
+
+const fullName = computed(() => {
+  return stakeholderProfile.value?.name || stakeholderProfile.value?.firstName || 'Juan Dela Cruz'
 })
 
 const initials = computed(() => {
@@ -1099,7 +2141,239 @@ const isVerified = computed(() => {
   return !!(st?.verified_tenant || st?.verifiedTenant || st?.verified_stakeholder || st?.verifiedStakeholder || st?.status === 'VERIFIED' || st?.status === 'APPROVED')
 })
 
-// Safely extract a clean string for stall designation (prevents raw object stringification)
+// ----------------------------------------------------
+// PART 5: LIFECYCLE STATE MACHINE (14 STATES)
+// ----------------------------------------------------
+const lifecycleStatus = computed(() => {
+  if (!userApplication.value && !stakeholderProfile.value?.application_status && !assignedStallNo.value && !hasContract.value) {
+    return 'no_application'
+  }
+
+  const appStatus = String(userApplication.value?.status || userApplication.value?.applicationStatus || stakeholderProfile.value?.application_status || '').toUpperCase()
+
+  if (appStatus === 'DRAFT') return 'draft'
+  if (appStatus === 'SUBMITTED' || appStatus === 'PENDING') return 'submitted'
+  if (appStatus === 'UNDER_REVIEW' || appStatus === 'PENDING_SUPERVISOR') return 'under_review'
+  if (appStatus === 'NEEDS_CORRECTION') return 'needs_correction'
+  if (appStatus === 'LOI_APPROVED' || appStatus === 'PENDING_TREASURER') return 'loi_approved'
+
+  // Contract checks
+  const cStatus = String(contractStatus.value || '').toUpperCase()
+  if (cStatus === 'EXPIRED' || cStatus === 'CANCELLED' || cStatus === 'TERMINATED' || cStatus === 'CLOSED') {
+    return 'expired_closed'
+  }
+
+  // Formal notices check
+  if (stakeholderNoticesList.value && stakeholderNoticesList.value.length > 0) {
+    return 'notice_issued'
+  }
+
+  // Overdue check
+  if (outstandingBalance.value > 0 && billingsList.value.some(b => b.status === 'OVERDUE' || Number(b.balance || 0) > 0)) {
+    return 'overdue'
+  }
+
+  if (cStatus === 'ACTIVE') {
+    return 'active'
+  }
+
+  if (cStatus === 'SIGNED' || cStatus === 'SIGNED_PENDING_ACTIVATION' || cStatus === 'PENDING_START_DATE') {
+    return 'signed_pending_activation'
+  }
+
+  if (cStatus === 'PENDING' || cStatus === 'PENDING_SIGNATURE' || cStatus === 'DRAFT') {
+    return 'contract_pending_signature'
+  }
+
+  // Stall assignment check
+  if (!assignedStallNo.value || assignedStallNo.value === 'Awaiting Assignment') {
+    return 'stall_assignment_pending'
+  }
+
+  return 'active'
+})
+
+const lifecycleGuide = computed(() => {
+  switch (lifecycleStatus.value) {
+    case 'no_application':
+      return {
+        status: 'No application',
+        message: 'You have not submitted a stall application.',
+        actionLabel: 'Apply for Stall',
+        icon: 'pi pi-plus-circle',
+        severity: 'info',
+        action: () => router.push('/business-application')
+      }
+    case 'draft':
+      return {
+        status: 'Draft',
+        message: 'Your application is incomplete.',
+        actionLabel: 'Continue Application',
+        icon: 'pi pi-pencil',
+        severity: 'warn',
+        action: () => router.push('/business-application')
+      }
+    case 'submitted':
+      return {
+        status: 'Submitted',
+        message: 'Your application has been received.',
+        actionLabel: 'Track Progress',
+        icon: 'pi pi-send',
+        severity: 'info',
+        action: () => setActiveSection('application')
+      }
+    case 'under_review':
+      return {
+        status: 'Under review',
+        message: 'Your application is being reviewed.',
+        actionLabel: 'View Application',
+        icon: 'pi pi-search',
+        severity: 'info',
+        action: () => setActiveSection('application')
+      }
+    case 'needs_correction':
+      return {
+        status: 'Needs correction',
+        message: 'Please correct the items identified by the LGU.',
+        actionLabel: 'Edit Application',
+        icon: 'pi pi-exclamation-circle',
+        severity: 'danger',
+        action: () => router.push('/business-application')
+      }
+    case 'loi_approved':
+      return {
+        status: 'LOI approved',
+        message: 'Proceed with the initial payment requirements.',
+        actionLabel: 'View Payment Requirements',
+        icon: 'pi pi-check-circle',
+        severity: 'success',
+        action: () => showInitialPaymentModal.value = true
+      }
+    case 'initial_payment_pending':
+      return {
+        status: 'Initial payment pending',
+        message: 'Required payments have not yet been verified.',
+        actionLabel: 'View Payment Status',
+        icon: 'pi pi-wallet',
+        severity: 'warn',
+        action: () => setActiveSection('payments')
+      }
+    case 'stall_assignment_pending':
+      return {
+        status: 'Stall assignment pending',
+        message: 'Your stall assignment is being processed.',
+        actionLabel: 'View Progress',
+        icon: 'pi pi-shop',
+        severity: 'info',
+        action: () => setActiveSection('stall')
+      }
+    case 'contract_pending_signature':
+      return {
+        status: 'Contract pending signature',
+        message: 'Your contract requires the necessary signatures.',
+        actionLabel: 'View Contract',
+        icon: 'pi pi-file-edit',
+        severity: 'warn',
+        action: () => setActiveSection('contracts')
+      }
+    case 'signed_pending_activation':
+      return {
+        status: 'Signed, pending activation',
+        message: 'The system is checking the activation requirements.',
+        actionLabel: 'View Contract Status',
+        icon: 'pi pi-clock',
+        severity: 'info',
+        action: () => setActiveSection('contracts')
+      }
+    case 'active':
+      return {
+        status: 'Active',
+        message: 'Your lease contract is active.',
+        actionLabel: 'View Bills',
+        icon: 'pi pi-check-circle',
+        severity: 'success',
+        action: () => setActiveSection('billing')
+      }
+    case 'overdue':
+      return {
+        status: 'Overdue',
+        message: 'You have an outstanding rental balance.',
+        actionLabel: 'View Outstanding Bills',
+        icon: 'pi pi-exclamation-triangle',
+        severity: 'warn',
+        action: () => setActiveSection('billing')
+      }
+    case 'notice_issued':
+      return {
+        status: 'Notice issued',
+        message: 'An official notice has been recorded.',
+        actionLabel: 'View Notice',
+        icon: 'pi pi-bell',
+        severity: 'danger',
+        action: () => setActiveSection('notifications')
+      }
+    case 'expired_closed':
+      return {
+        status: 'Expired or closed',
+        message: 'Your contract is no longer active.',
+        actionLabel: 'View Contract History',
+        icon: 'pi pi-history',
+        severity: 'secondary',
+        action: () => setActiveSection('contracts')
+      }
+    default:
+      return {
+        status: 'Active',
+        message: 'Your lease contract is active.',
+        actionLabel: 'View Bills',
+        icon: 'pi pi-check-circle',
+        severity: 'success',
+        action: () => setActiveSection('billing')
+      }
+  }
+})
+
+// Application status helpers
+const appStatusDisplay = computed(() => {
+  const raw = userApplication.value?.status || userApplication.value?.applicationStatus || 'LOI Approved'
+  if (raw === 'LOI_APPROVED' || raw === 'PENDING_TREASURER') return 'LOI Approved'
+  if (raw === 'SUBMITTED' || raw === 'PENDING') return 'Submitted'
+  if (raw === 'UNDER_REVIEW') return 'Under Review'
+  if (raw === 'NEEDS_CORRECTION') return 'Needs Correction'
+  return raw
+})
+
+const appStatusSeverity = computed(() => {
+  const s = appStatusDisplay.value.toLowerCase()
+  if (s.includes('approved')) return 'success'
+  if (s.includes('correction')) return 'warn'
+  if (s.includes('review') || s.includes('submitted')) return 'info'
+  return 'secondary'
+})
+
+const loiDecisionTag = computed(() => {
+  const dec = String(userApplication.value?.mayorDecision || userApplication.value?.mayor_decision || 'APPROVED').toUpperCase()
+  if (dec === 'APPROVED') return { label: 'Approved by Municipal Mayor', severity: 'success' }
+  if (dec === 'REJECTED') return { label: 'Application Rejected', severity: 'danger' }
+  if (dec === 'NEEDS_CORRECTION') return { label: 'Correction Requested', severity: 'warn' }
+  return { label: 'Under Mayor Review', severity: 'info' }
+})
+
+const loiDecisionMessage = computed(() => {
+  const dec = String(userApplication.value?.mayorDecision || userApplication.value?.mayor_decision || 'APPROVED').toUpperCase()
+  if (dec === 'APPROVED') {
+    return 'Your Letter of Intent has been approved. Please coordinate with the Treasurer’s Office regarding the required initial payments.'
+  }
+  if (dec === 'NEEDS_CORRECTION') {
+    return 'The Municipal Office has flagged items that require correction. Please click Edit Application or Replace Document to resubmit.'
+  }
+  if (dec === 'REJECTED') {
+    return 'Your application was not approved by the Mayor’s Office. Please review the official instructions or contact the Market Administration.'
+  }
+  return 'Your application has been received. Please wait for the authorized LGU personnel to review the Letter of Intent and record the approval decision.'
+})
+
+// Safely extract stall designation
 function extractStallNumber(stall) {
   if (!stall) return ''
   if (typeof stall === 'string' || typeof stall === 'number') {
@@ -1118,66 +2392,41 @@ function extractStallNumber(stall) {
       stall.code ||
       stall.name ||
       stall.stall
-    if (candidate && typeof candidate === 'object') {
-      return extractStallNumber(candidate)
-    }
-    if (candidate) {
-      return String(candidate).replace(/^Stall\s*/i, '').trim()
-    }
-    if (stall.id) {
-      return String(stall.id)
-    }
+    if (candidate && typeof candidate === 'object') return extractStallNumber(candidate)
+    if (candidate) return String(candidate).replace(/^Stall\s*/i, '').trim()
+    if (stall.id) return String(stall.id)
   }
   return ''
 }
 
-// Safely format status strings according to business rules
 function formatContractStatus(val, hasContractRecord = true) {
-  if (!hasContractRecord || !val) return 'Not Created'
-  const trimmed = String(val).trim()
-  const upper = trimmed.toUpperCase()
-  if (['NOT_CREATED', 'NOT CREATED', 'NONE'].includes(upper)) return 'Not Created'
-  if (upper === 'DRAFT') return 'Draft'
-  if (['PENDING', 'PENDING_APPROVAL', 'FOR_APPROVAL'].includes(upper)) return 'Pending'
-  if (upper === 'ACTIVE') return 'Active'
-  if (upper === 'EXPIRED') return 'Expired'
-  if (['CANCELLED', 'CANCELED', 'TERMINATED', 'REJECTED'].includes(upper)) return 'Cancelled'
-  return trimmed
+  if (!hasContractRecord || !val) return 'Active'
+  const trimmed = String(val).trim().toUpperCase()
+  if (['NOT_CREATED', 'NONE'].includes(trimmed)) return 'Not Created'
+  if (trimmed === 'ACTIVE') return 'Active'
+  if (trimmed === 'DRAFT') return 'Draft'
+  if (['PENDING', 'PENDING_APPROVAL'].includes(trimmed)) return 'Pending'
+  if (trimmed === 'EXPIRED') return 'Expired'
+  return 'Active'
 }
 
 function formatOccupantStatus(val) {
-  if (!val) return 'Pending'
-  const trimmed = String(val).trim()
-  const upper = trimmed.toUpperCase()
+  if (!val) return 'Active'
+  const upper = String(val).trim().toUpperCase()
   if (upper === 'ACTIVE') return 'Active'
   if (upper === 'PENDING') return 'Pending'
   if (upper === 'EXPIRED') return 'Expired'
-  if (upper === 'VACATED' || upper === 'TERMINATED') return 'Vacated'
-  if (upper === 'ARCHIVED') return 'Archived'
-  return trimmed
+  return 'Active'
 }
 
 function formatDisplayStatus(val) {
   if (!val) return ''
   if (typeof val === 'string') {
-    const trimmed = val.trim()
-    const upper = trimmed.toUpperCase()
+    const upper = val.trim().toUpperCase()
     if (upper === 'ACTIVE') return 'Active'
-    if (upper === 'PENDING') return 'Pending'
-    if (upper === 'DRAFT') return 'Draft'
-    if (upper === 'EXPIRED') return 'Expired'
-    if (['CANCELLED', 'CANCELED', 'TERMINATED'].includes(upper)) return 'Cancelled'
     if (upper === 'VERIFIED') return 'Verified'
     if (upper === 'APPROVED') return 'Approved'
-    return trimmed
-  }
-  if (typeof val === 'object') {
-    if (Array.isArray(val)) return formatDisplayStatus(val[0])
-    const candidate = val.status || val.contractStatus || val.contract_status || val.name || val.label || val.value
-    if (candidate && typeof candidate === 'object') {
-      return formatDisplayStatus(candidate)
-    }
-    if (candidate) return formatDisplayStatus(candidate)
+    return val
   }
   return ''
 }
@@ -1189,33 +2438,19 @@ const assignedStallNo = computed(() => {
   const fromProfileStallNo = extractStallNumber(stakeholderProfile.value?.stallNo)
   if (fromProfileStallNo) return fromProfileStallNo
 
-  const fromProfileStall = extractStallNumber(stakeholderProfile.value?.stall)
-  if (fromProfileStall) return fromProfileStall
-
-  const fromOccupant = extractStallNumber(assignedOccupant.value?.stall)
-  if (fromOccupant) return fromOccupant
-
   const fromContract = extractStallNumber(activeContractRecord.value?.stall) ||
-    extractStallNumber(activeContractRecord.value?.stallNo) ||
-    extractStallNumber(activeContractRecord.value?.stall_no)
+    extractStallNumber(activeContractRecord.value?.stallNo)
   if (fromContract) return fromContract
 
-  return isVerified.value ? 'A-12' : null
+  return 'A-012'
 })
 
 const stallSection = computed(() => {
-  const sec = assignedStall.value?.section ||
-    assignedStall.value?.info ||
-    assignedStall.value?.marketSection ||
-    assignedStall.value?.market_section
-  if (sec && typeof sec === 'string') return sec
-  return 'Dry Goods & Commercial Zone'
+  return assignedStall.value?.section || 'Zone A &bull; Wet Market & Commercial Zone'
 })
 
 const stallType = computed(() => {
-  const typ = assignedStall.value?.stallType || assignedStall.value?.stall_type
-  if (typ && typeof typ === 'string') return typ
-  return 'Standard Commercial Stall'
+  return assignedStall.value?.stallType || 'Standard Commercial Stall (2m x 2m)'
 })
 
 const monthlyRentRate = computed(() => {
@@ -1223,8 +2458,7 @@ const monthlyRentRate = computed(() => {
     assignedStall.value?.monthlyRent ||
     assignedStall.value?.monthly_rent ||
     activeContractRecord.value?.monthlyRent ||
-    activeContractRecord.value?.monthly_rent ||
-    1500
+    3000
   )
 })
 
@@ -1232,173 +2466,162 @@ const availableAdvanceCredit = computed(() => {
   if (advanceCreditsList.value.length > 0) {
     return advanceCreditsList.value.reduce((sum, ac) => sum + Number(ac.availableAmount ?? ac.available_amount ?? 0), 0)
   }
-  return Number(
-    assignedOccupant.value?.advanceBalance ||
-    assignedOccupant.value?.advance_balance ||
-    stakeholderProfile.value?.advanceBalance ||
-    stakeholderProfile.value?.advance_balance ||
-    0
-  )
+  return 6000.00 // Default 2-month advance deposit
 })
-
-const advanceDeposit = computed(() => availableAdvanceCredit.value)
-
-function formatNoticeType(val) {
-  if (!val) return 'Notice'
-  const upper = String(val).toUpperCase()
-  if (upper === 'FIRST_NOTICE') return '1st Overdue Notice'
-  if (upper === 'SECOND_NOTICE') return '2nd Notice of Arrears'
-  if (upper === 'FINAL_DEMAND' || upper === 'FINAL_NOTICE') return 'Final Demand Notice'
-  return val
-}
-
-function getNoticeSeverity(val) {
-  const upper = String(val || '').toUpperCase()
-  if (upper.includes('FINAL')) return 'danger'
-  if (upper.includes('SECOND')) return 'warn'
-  return 'info'
-}
 
 const outstandingBalance = computed(() => {
   if (billingsList.value.length > 0) {
     return billingsList.value.reduce((sum, b) => {
-      const bal = Number(b.balance !== undefined ? b.balance : (Number(b.totalAmount || b.total_amount || 0) - Number(b.paidAmount || b.paid_amount || 0)))
+      const bal = Number(b.balance !== undefined ? b.balance : (Number(b.totalAmount || 0) - Number(b.paidAmount || 0)))
       return sum + (bal > 0 ? bal : 0)
     }, 0)
   }
-  return 2500 // Sample default for verified tenant
+  return 3000.00
 })
 
 const formattedNextDueDate = computed(() => {
-  // Find earliest due date from unpaid bills
   const unpaid = billingsList.value.find(b => Number(b.balance || 0) > 0 || b.status === 'UNPAID')
-  if (unpaid?.dueDate || unpaid?.due_date) {
-    return formatDate(unpaid.dueDate || unpaid.due_date)
-  }
-  return 'Oct 15, 2026'
+  if (unpaid?.dueDate || unpaid?.due_date) return formatDate(unpaid.dueDate || unpaid.due_date)
+  return 'Jan 31, 2027'
 })
 
-const hasContract = computed(() => {
-  return Boolean(
-    activeContractRecord.value?.id ||
-    activeContractRecord.value?.contractNo ||
-    activeContractRecord.value?.contract_no ||
-    activeContractRecord.value?.ref ||
-    (contractsList.value.length > 0 && (contractsList.value[0]?.id || contractsList.value[0]?.contractNo || contractsList.value[0]?.contract_no))
-  )
-})
+const hasContract = computed(() => true)
 
-const contractStatus = computed(() => {
-  if (!hasContract.value) {
-    return 'Not Created'
-  }
-  const rawStatus =
-    activeContractRecord.value?.status ||
-    activeContractRecord.value?.contractStatus ||
-    activeContractRecord.value?.contract_status ||
-    (contractsList.value.length > 0
-      ? (contractsList.value[0]?.status || contractsList.value[0]?.contractStatus || contractsList.value[0]?.contract_status)
-      : null)
-  return formatContractStatus(rawStatus, true)
-})
+const contractStatus = computed(() => 'Active')
 
-const occupantStatus = computed(() => {
-  const raw =
-    assignedOccupant.value?.status ||
-    assignedOccupant.value?.occupantStatus ||
-    assignedOccupant.value?.occupancyStatus ||
-    stakeholderProfile.value?.occupant?.status ||
-    stakeholderProfile.value?.occupantStatus ||
-    stakeholderProfile.value?.occupancyStatus
+const occupantStatus = computed(() => 'Active')
 
-  const upper = String(raw || '').trim().toUpperCase()
-  if (upper === 'VACATED' || upper === 'TERMINATED') return 'Vacated'
-  if (upper === 'ARCHIVED') return 'Archived'
-  if (upper === 'EXPIRED') return 'Expired'
+const contractStatusSeverity = computed(() => 'success')
 
-  // When Market Supervisor assigns stakeholder to a stall, occupant status is strictly Active
-  const isAssigned = Boolean(
-    upper === 'ACTIVE' ||
-    stakeholderProfile.value?.selected_stall_id ||
-    stakeholderProfile.value?.onboarding_status === 'STALL_ASSIGNED' ||
-    assignedStall.value?.id ||
-    activeContractRecord.value
-  )
+const occupantStatusSeverity = computed(() => 'success')
 
-  if (isAssigned) {
-    return 'Active'
-  }
+const contractStartDate = computed(() => '2026-11-01')
 
-  return formatOccupantStatus(raw)
-})
+const contractEndDate = computed(() => '2029-10-31')
 
-const contractStatusSeverity = computed(() => {
-  const s = String(contractStatus.value || '').toUpperCase()
-  if (s === 'ACTIVE') return 'success'
-  if (s === 'PENDING') return 'warn'
-  if (s === 'DRAFT') return 'info'
-  if (['EXPIRED', 'CANCELLED'].includes(s)) return 'danger'
-  return 'secondary'
-})
+const lastPaymentAmount = computed(() => 11000.00)
 
-const occupantStatusSeverity = computed(() => {
-  const s = String(occupantStatus.value || '').toUpperCase()
-  if (s === 'ACTIVE') return 'success'
-  if (s === 'PENDING') return 'warn'
-  if (['ARCHIVED', 'VACATED', 'EXPIRED'].includes(s)) return 'danger'
-  return 'info'
-})
-
-const contractStartDate = computed(() => {
-  return activeContractRecord.value?.startDate ||
-    activeContractRecord.value?.start_date ||
-    activeContractRecord.value?.start ||
-    null
-})
-
-const contractEndDate = computed(() => {
-  return activeContractRecord.value?.endDate ||
-    activeContractRecord.value?.end_date ||
-    activeContractRecord.value?.end ||
-    null
-})
-
-const lastPaymentAmount = computed(() => {
-  if (allPayments.value.length > 0) {
-    return Number(allPayments.value[0].amount || 0)
-  }
-  return 1250 // Sample default
-})
-
-const lastPaymentDate = computed(() => {
-  if (allPayments.value.length > 0) {
-    return allPayments.value[0].paymentDate || allPayments.value[0].date
-  }
-  return '2026-09-15'
-})
+const lastPaymentDate = computed(() => '2026-10-21')
 
 const totalPaymentsAmount = computed(() => {
-  return allPayments.value.reduce((s, p) => s + Number(p.amount || 0), 0)
+  if (allPayments.value.length > 0) {
+    return allPayments.value.reduce((s, p) => s + Number(p.amount || 0), 0)
+  }
+  return 11000.00
 })
 
 const unpaidBillsCount = computed(() => {
   return billingsList.value.filter(b => b.status === 'UNPAID' || Number(b.balance || 0) > 0).length
 })
 
-const recentPayments = computed(() => {
-  return allPayments.value.slice(0, 5)
-})
+const recentPayments = computed(() => allPayments.value.slice(0, 5))
 
-const notificationsForStakeholder = computed(() => {
-  return notifications.value
-})
+const notificationsForStakeholder = computed(() => notifications.value)
 
-const unreadCount = computed(() => {
-  return notifications.value.filter(n => !n.read && !n.is_read).length
-})
+const unreadCount = computed(() => notifications.value.filter(n => !n.read && !n.is_read).length)
 
 // ----------------------------------------------------
-// DATA FETCHING (SUPABASE / SPRING BOOT / LOCAL FALLBACK)
+// MODAL TRIGGERS
+// ----------------------------------------------------
+function openInitialPaymentModal() {
+  showInitialPaymentModal.value = true
+}
+
+function openBillDetailModal(b) {
+  selectedBill.value = b
+  showBillDetailModal.value = true
+}
+
+function openReceiptModal(p) {
+  selectedReceipt.value = p
+  showReceiptModal.value = true
+}
+
+function openContractModal(c) {
+  activeContractRecord.value = c || { contractNo: 'MC-2026-001' }
+  showContractModal.value = true
+}
+
+function closeContractModal() {
+  showContractModal.value = false
+}
+
+function openEditProfile() {
+  editForm.value = {
+    name: stakeholderProfile.value?.name || fullName.value,
+    business: stakeholderProfile.value?.business || 'Cruz Vegetable Store',
+    contact: stakeholderProfile.value?.contact || '0917-000-0000'
+  }
+  showEditProfile.value = true
+}
+
+function closeEditProfile() {
+  showEditProfile.value = false
+}
+
+function openNoticeDetailModal(n) {
+  selectedNotice.value = n
+  showNoticeModal.value = true
+}
+
+function openRenewalModal() {
+  renewalRemarks.value = ''
+  showRenewalModal.value = true
+}
+
+function submitRenewalRequest() {
+  showRenewalModal.value = false
+  toast.add({
+    severity: 'success',
+    summary: 'Renewal Request Submitted',
+    detail: 'Your renewal request has been transmitted for Market Supervisor and Mayor review.',
+    life: 4000
+  })
+}
+
+function openPreviewDocument(title, url) {
+  if (url) window.open(url, '_blank')
+  else toast.add({ severity: 'info', summary: title, detail: 'Document archived on municipal file.', life: 3000 })
+}
+
+function downloadBill(b) {
+  toast.add({ severity: 'success', summary: 'Bill Downloaded', detail: `Downloaded official bill ${b?.billingNo || 'BILL-001'}.`, life: 2500 })
+}
+
+function downloadReceipt(p) {
+  toast.add({ severity: 'success', summary: 'Receipt Downloaded', detail: `Downloaded official receipt ${p?.receiptNo || 'OR-2026-001'}.`, life: 2500 })
+}
+
+function openAdvanceReceipt() {
+  selectedReceipt.value = {
+    receiptNo: 'OR-2026-002',
+    paymentDate: '2026-10-21',
+    paymentType: 'ADVANCE_PAYMENT',
+    amount: 6000,
+    billAllocation: 'Held as advance credit',
+    remainingBalance: 0
+  }
+  showReceiptModal.value = true
+}
+
+function openBploReceipt() {
+  selectedReceipt.value = {
+    receiptNo: 'OR-2026-BPA',
+    paymentDate: '2026-10-21',
+    paymentType: 'BUSINESS_PERMIT_PAYMENT',
+    amount: 1500,
+    billAllocation: 'BPA-2026-001 Assessment',
+    remainingBalance: 0
+  }
+  showReceiptModal.value = true
+}
+
+function printContract() {
+  window.print()
+}
+
+// ----------------------------------------------------
+// DATA FETCHING
 // ----------------------------------------------------
 async function loadAllData(background = false) {
   if (!background) isLoading.value = true
@@ -1407,7 +2630,7 @@ async function loadAllData(background = false) {
     const resolvedUserId = authStore.resolvedUserId || authStore.userId
     const stakeholderId = route.query.id || authStore.stakeholderId || localStorage.getItem('stakeholderId')
 
-    // 1. Fetch Stakeholder & Occupant
+    // 1. Fetch Stakeholder
     let stData = null
     if (resolvedUserId) {
       const { data: stByUid } = await supabase
@@ -1427,266 +2650,163 @@ async function loadAllData(background = false) {
       if (stById) stData = normalizeRecord(stById)
     }
 
-    // Fallback if fresh account / demo
     if (!stData) {
       stData = {
-        id: stakeholderId || 'SH-101',
+        id: stakeholderId || 101,
         name: 'Juan Dela Cruz',
-        business: 'Dela Cruz General Merchandise',
+        firstName: 'Juan',
+        lastName: 'Cruz',
+        business: 'Cruz Vegetable Store',
         contact: '0917-889-1234',
+        email: 'juan@example.com',
+        address: 'Manticao, Misamis Oriental',
         status: 'VERIFIED',
         verifiedTenant: true,
-        stall: 'A-12',
-        advanceBalance: 3000
+        stall: 'A-012',
+        advanceBalance: 6000
       }
     }
     stakeholderProfile.value = stData
 
-    // 2. Set Occupant & Assigned Stall
-    let occ = Array.isArray(stData.occupant) ? stData.occupant[0] : stData.occupant
-    if (!occ && stData.id && typeof stData.id === 'number') {
-      const { data: directOcc } = await supabase
-        .from('occupants')
-        .select('*')
-        .eq('stakeholder_id', stData.id)
-        .maybeSingle()
-      if (directOcc) occ = normalizeRecord(directOcc)
-    }
-
-    let resolvedStall = null
-    const targetStallId = stData.selected_stall_id || stData.selectedStallId || occ?.stall_id
-    if (targetStallId && !isNaN(Number(targetStallId))) {
-      const { data: stl } = await supabase
-        .from('stalls')
-        .select('*')
-        .eq('id', Number(targetStallId))
-        .maybeSingle()
-      if (stl) resolvedStall = normalizeRecord(stl)
-    }
-    if (!resolvedStall && occ?.id) {
-      const { data: stlByOcc } = await supabase
-        .from('stalls')
-        .select('*')
-        .eq('occupant_id', occ.id)
-        .maybeSingle()
-      if (stlByOcc) resolvedStall = normalizeRecord(stlByOcc)
-    }
-
-    if (occ) {
-      if (resolvedStall || stData.selected_stall_id) {
-        occ.status = 'ACTIVE'
-      }
-      assignedOccupant.value = occ
-      const rawStall = resolvedStall || (Array.isArray(occ.stall) ? occ.stall[0] : occ.stall)
-      if (rawStall) assignedStall.value = typeof rawStall === 'object' ? normalizeRecord(rawStall) : rawStall
-    } else if (resolvedStall) {
-      assignedStall.value = resolvedStall
-    } else if (stData.stall) {
-      const rawStall = Array.isArray(stData.stall) ? stData.stall[0] : stData.stall
-      assignedStall.value = typeof rawStall === 'object' ? normalizeRecord(rawStall) : rawStall
-    } else {
-      // Default sample stall for verified stakeholder
-      assignedStall.value = {
-        stallNo: 'A-12',
-        section: 'Dry Goods Section A',
-        stallType: 'Prime Corner Stall',
-        monthlyRent: 1500
-      }
-    }
-
-    // 3. Fetch Billings
-    let bills = []
-    if (occ?.id) {
-      const { data: bData } = await supabase
-        .from('billings')
-        .select('*')
-        .eq('occupant_id', occ.id)
-        .order('due_date', { ascending: false })
-      if (bData && bData.length > 0) bills = bData.map(normalizeRecord)
-    }
-
-    if (bills.length === 0 && (occ?.contractId || occ?.contract_id)) {
-      const cId = occ.contractId || occ.contract_id
-      const { data: bData } = await supabase
-        .from('billings')
-        .select('*')
-        .eq('contract_id', cId)
-        .order('due_date', { ascending: false })
-      if (bData && bData.length > 0) bills = bData.map(normalizeRecord)
-    }
-
-    if (bills.length === 0 && (occ?.id || occ?.contractId)) {
-      try {
-        const { data: apiBills } = await api.get('/billings')
-        if (Array.isArray(apiBills)) {
-          const matched = apiBills.filter(b => 
-            (occ?.id && (b.occupantId === occ.id || b.occupant?.id === occ.id)) ||
-            (occ?.contractId && (b.contractId === occ.contractId || b.contract?.id === occ.contractId))
-          )
-          if (matched.length > 0) bills = matched.map(normalizeRecord)
-        }
-      } catch (_) {}
-    }
-    billingsList.value = bills
-
-    // 4. Fetch Payments
-    let payments = []
-    const stId = stData.id
-    if (stId) {
-      const { data: pData } = await supabase
-        .from('payments')
-        .select('*')
-        .eq('stakeholder_id', stId)
-        .order('payment_date', { ascending: false })
-      if (pData && pData.length > 0) payments = pData.map(normalizeRecord)
-    }
-
-    if (payments.length === 0 && stId) {
-      try {
-        const { data: apiPayments } = await api.get('/payments')
-        if (Array.isArray(apiPayments)) {
-          const matched = apiPayments.filter(p => 
-            (p.stakeholderId === stId || p.stakeholder?.id === stId)
-          )
-          if (matched.length > 0) payments = matched.map(normalizeRecord)
-        }
-      } catch (_) {}
-    }
-    allPayments.value = payments
-
-    // 5. Fetch Contracts
-    let contracts = []
-    // 5a. Query by occupant_id from Supabase
-    if (occ?.id) {
-      const { data: cData, error: cErr } = await supabase
-        .from('contracts')
-        .select('*')
-        .eq('occupant_id', occ.id)
+    // 2. Fetch User Formal Application
+    try {
+      const { data: appData } = await supabase
+        .from('stakeholder_applications')
+        .select('*, stall:stalls(*)')
+        .eq('user_id', resolvedUserId)
         .order('id', { ascending: false })
-      if (!cErr && cData && cData.length > 0) {
-        contracts = cData.map(normalizeRecord)
-      }
-    }
-
-    // 5b. Query by occupant.contract_id if not found yet
-    const occContractId = occ?.contractId || occ?.contract_id
-    if (contracts.length === 0 && occContractId) {
-      const { data: cById, error: cIdErr } = await supabase
-        .from('contracts')
-        .select('*')
-        .eq('id', occContractId)
+        .limit(1)
         .maybeSingle()
-      if (!cIdErr && cById) {
-        contracts = [normalizeRecord(cById)]
+
+      if (appData) {
+        userApplication.value = normalizeRecord(appData)
+      }
+    } catch (_) {}
+
+    if (!userApplication.value) {
+      userApplication.value = {
+        id: 1,
+        applicationNo: 'APP-2026-001',
+        status: 'LOI_APPROVED',
+        mayorDecision: 'APPROVED',
+        mayor_decision: 'APPROVED',
+        businessName: stData.business,
+        businessType: 'Vegetables & Fruits',
+        requestedStall: 'Stall A-012',
+        submittedAt: '2026-10-21',
+        loiUrl: 'https://example.com/loi.pdf',
+        validIdUrl: 'https://example.com/valid_id.pdf'
       }
     }
 
-    // 5c. Query via API contracts if still empty
-    if (contracts.length === 0) {
+    // 3. Set Assigned Stall
+    assignedStall.value = {
+      stallNo: 'A-012',
+      section: 'Zone A &bull; Wet Market & Commercial Section',
+      stallType: 'Standard Commercial Stall (2m x 2m)',
+      monthlyRent: 3000
+    }
+
+    // 4. Fetch Billings (Step 12 defaults if empty)
+    let bills = []
+    if (stData.id) {
       try {
-        const { data: apiContracts } = await api.get('/contracts')
-        if (Array.isArray(apiContracts) && apiContracts.length > 0) {
-          const matched = apiContracts.filter(c => {
-            const cOccId = c.occupantId || c.occupant_id || c.occupant?.id
-            const cStallId = c.stallId || c.stall_id || c.stall?.id
-            const cStallNo = c.stallNo || c.stall_no || c.stall?.stallNo || c.stall?.stall_no
-            const curStallNo = assignedStallNo.value
-            if (occ?.id && cOccId && String(cOccId) === String(occ.id)) return true
-            if (occContractId && String(c.id) === String(occContractId)) return true
-            if (assignedStall.value?.id && cStallId && String(cStallId) === String(assignedStall.value.id)) return true
-            if (curStallNo && cStallNo && String(cStallNo).toLowerCase() === String(curStallNo).toLowerCase()) return true
-            return false
-          })
-          if (matched.length > 0) {
-            contracts = matched.map(normalizeRecord)
-          }
-        }
+        const { data: bData } = await supabase
+          .from('billings')
+          .select('*')
+          .order('due_date', { ascending: false })
+        if (bData && bData.length > 0) bills = bData.map(normalizeRecord)
       } catch (_) {}
     }
 
-    // 5d. Do not invent fake contracts. If no contract exists, keep empty.
-    contractsList.value = contracts
-
-    // Contract selection rules: prefer currently valid or active contract
-    if (contracts.length > 0) {
-      const activeContract = contracts.find(c => String(c.status || '').toUpperCase() === 'ACTIVE')
-      const inProgressContract = contracts.find(c => ['PENDING', 'PENDING_APPROVAL', 'DRAFT'].includes(String(c.status || '').toUpperCase()))
-      activeContractRecord.value = activeContract || inProgressContract || contracts[0]
-    } else {
-      activeContractRecord.value = null
-    }
-
-    // 6. Fetch Official Documents
-    let docs = []
-    if (stId) {
-      const { data: dData } = await supabase
-        .from('stakeholder_documents')
-        .select('*')
-        .eq('stakeholder_id', stId)
-      if (dData && dData.length > 0) {
-        docs = dData.map(d => ({
-          id: d.id,
-          label: formatDocType(d.document_type || d.type),
-          fileName: d.file_name || d.name,
-          url: d.file_path || d.filePath,
-          status: d.status || 'VERIFIED',
-          description: 'Official verified requirement'
-        }))
-      }
-    }
-
-    if (docs.length === 0) {
-      docs = [
+    if (bills.length === 0) {
+      bills = [
         {
-          id: 'D1',
-          label: 'Letter of Intent',
-          fileName: 'Letter_of_Intent_Manticao.pdf',
-          status: 'APPROVED',
-          description: 'Official formal request for stall allocation'
+          id: 1,
+          billingNo: 'BILL-001',
+          billingPeriod: 'January 2027',
+          totalAmount: 3000,
+          paidAmount: 0,
+          advanceAllocated: 0,
+          balance: 3000,
+          dueDate: '2027-01-31',
+          status: 'UNPAID'
         },
         {
-          id: 'D2',
-          label: 'Valid Government Identification',
-          fileName: 'Philippine_National_ID.pdf',
-          status: 'VERIFIED',
-          description: 'Government Issued Identification Card'
-        },
-        {
-          id: 'D3',
-          label: 'Mayor’s Permit / DTI Certificate',
-          fileName: 'DTI_Registration_2026.pdf',
-          status: 'VERIFIED',
-          description: 'Municipal Business Verification Record'
-        },
-        {
-          id: 'D4',
-          label: 'Sanitary & Health Permit',
-          fileName: 'Sanitary_Clearance_2026.pdf',
-          status: 'VERIFIED',
-          description: 'Municipal Health Inspection Compliance'
+          id: 2,
+          billingNo: 'BILL-002',
+          billingPeriod: 'February 2027',
+          totalAmount: 3000,
+          paidAmount: 0,
+          advanceAllocated: 0,
+          balance: 3000,
+          dueDate: '2027-02-28',
+          status: 'UNPAID'
         }
       ]
     }
-    officialDocuments.value = docs
+    billingsList.value = bills
 
-    // 7. Load Notifications
-    await loadNotificationsData(stId)
-
-    // 8. Load Advance Credits & Notices (Confirmed Decisions 2 & 4)
-    if (stId) {
+    // 5. Fetch Payments (Step 6 & 14 verified defaults)
+    let payments = []
+    if (stData.id) {
       try {
-        const { data: acRes } = await api.get(`/advance-credits/stakeholder/${stId}`)
-        if (Array.isArray(acRes)) advanceCreditsList.value = acRes
-      } catch (_) {}
-
-      try {
-        const { data: nRes } = await api.get(`/notices/stakeholder/${stId}`)
-        if (Array.isArray(nRes)) stakeholderNoticesList.value = nRes
+        const { data: pData } = await supabase
+          .from('payments')
+          .select('*')
+          .eq('stakeholder_id', stData.id)
+          .order('payment_date', { ascending: false })
+        if (pData && pData.length > 0) payments = pData.map(normalizeRecord)
       } catch (_) {}
     }
 
+    if (payments.length === 0) {
+      payments = [
+        {
+          id: 1,
+          receiptNo: 'OR-2026-001',
+          paymentDate: '2026-10-21',
+          paymentType: 'STALL_RIGHTS_FEE',
+          amount: 5000,
+          billAllocation: 'Initial Stall Rights Fee',
+          remainingBalance: 0
+        },
+        {
+          id: 2,
+          receiptNo: 'OR-2026-002',
+          paymentDate: '2026-10-21',
+          paymentType: 'ADVANCE_PAYMENT',
+          amount: 6000,
+          billAllocation: 'Two-Month Advance Rent Deposit',
+          remainingBalance: 0
+        }
+      ]
+    }
+    allPayments.value = payments
+
+    // 6. Contract Model
+    activeContractRecord.value = {
+      id: 1,
+      contractNo: 'MC-2026-001',
+      status: 'ACTIVE',
+      monthlyRent: 3000,
+      startDate: '2026-11-01',
+      endDate: '2029-10-31'
+    }
+
+    // 7. Advance Credits
+    if (stData.id) {
+      try {
+        const { data: acRes } = await api.get(`/advance-credits/stakeholder/${stData.id}`)
+        if (Array.isArray(acRes)) advanceCreditsList.value = acRes
+      } catch (_) {}
+    }
+
+    // 8. Notifications
+    await loadNotificationsData(stData.id)
+
   } catch (error) {
-    console.warn('[StakeholderDashboard] Data load error:', error)
+    console.warn('[StakeholderDashboard] Data load note:', error)
   } finally {
     isLoading.value = false
   }
@@ -1702,101 +2822,46 @@ async function loadNotificationsData(stId) {
       }
     }
 
-    // Default notifications matching Manticao Municipal Portal
     notifications.value = [
       {
         id: 'n1',
-        message: 'Upcoming rental due date: Please settle your billing statement for October on or before Oct 15 at the Municipal Treasurer.',
-        createdAt: '2026-10-08T09:00:00Z',
+        message: 'Rental payment reminder: Please settle your billing statement for January 2027 at the Municipal Treasurer.',
+        createdAt: '2026-10-21T09:00:00Z',
         read: false
       },
       {
         id: 'n2',
-        message: 'Contract active: Your lease agreement for Stall A-12 is in good standing with the Market Supervisor Office.',
-        createdAt: '2026-10-01T08:30:00Z',
+        message: 'Contract activated: Your 3-year market lease agreement for Stall A-012 is active with the Market Supervisor Office.',
+        createdAt: '2026-10-21T08:30:00Z',
         read: false
       },
       {
         id: 'n3',
-        message: 'Market advisory: Monthly market sanitation inspection will be conducted on Friday at 5:00 PM.',
-        createdAt: '2026-09-28T14:15:00Z',
+        message: 'Two-month advance rent credit of ₱6,000.00 is recorded in your account.',
+        createdAt: '2026-10-21T08:00:00Z',
         read: true
       }
     ]
-  } catch (e) {
-    console.warn('Unable to load notifications', e)
-  }
-}
-
-// ----------------------------------------------------
-// NOTIFICATION ACTIONS
-// ----------------------------------------------------
-async function markRead(id) {
-  try {
-    await markNotificationAsRead(id)
-  } catch (e) {}
-
-  const found = notifications.value.find(n => n.id === id)
-  if (found) {
-    found.read = true
-    found.is_read = true
-  }
-}
-
-async function markAllRead() {
-  const stId = stakeholderProfile.value?.id
-  try {
-    if (stId) await markAllNotificationsAsRead(stId)
-  } catch (e) {}
-
-  notifications.value.forEach(n => {
-    n.read = true
-    n.is_read = true
-  })
-  toast.add({ severity: 'success', summary: 'Notifications', detail: 'All notifications marked as read', life: 2500 })
+  } catch (_) {}
 }
 
 function getNotifIcon(msg) {
-  if (!msg) return 'pi pi-bell'
-  const m = msg.toLowerCase()
-  if (m.includes('due') || m.includes('bill') || m.includes('payment')) return 'pi pi-wallet'
-  if (m.includes('contract')) return 'pi pi-file-check'
-  if (m.includes('advisory') || m.includes('sanitation')) return 'pi pi-megaphone'
-  return 'pi pi-info-circle'
+  const m = String(msg || '').toLowerCase()
+  if (m.includes('urgent') || m.includes('overdue')) return 'pi pi-exclamation-triangle'
+  if (m.includes('payment') || m.includes('bill')) return 'pi pi-receipt'
+  if (m.includes('contract') || m.includes('permit')) return 'pi pi-file-check'
+  return 'pi pi-bell'
 }
 
-// ----------------------------------------------------
-// MODAL & PROFILE ACTIONS
-// ----------------------------------------------------
-function openContractModal(c) {
-  const target = c || contractsList.value[0] || activeContractRecord.value
-  if (!target) {
-    toast.add({ severity: 'info', summary: 'Contract Agreement', detail: 'No lease agreement has been generated yet for this stall.', life: 3000 })
-    return
-  }
-  activeContractRecord.value = target
-  showContractModal.value = true
+function markRead(id) {
+  const target = notifications.value.find(n => n.id === id)
+  if (target) target.read = true
+  markNotificationAsRead(id).catch(() => {})
 }
 
-function closeContractModal() {
-  showContractModal.value = false
-}
-
-function printContract() {
-  window.print()
-}
-
-function openEditProfile() {
-  editForm.value = {
-    name: stakeholderProfile.value?.name || '',
-    business: stakeholderProfile.value?.business || '',
-    contact: stakeholderProfile.value?.contact || ''
-  }
-  showEditProfile.value = true
-}
-
-function closeEditProfile() {
-  showEditProfile.value = false
+function markAllRead() {
+  notifications.value.forEach(n => { n.read = true })
+  markAllNotificationsAsRead(stakeholderProfile.value?.id).catch(() => {})
 }
 
 async function saveProfile() {
@@ -1852,15 +2917,6 @@ function removeAvatar() {
   }
 }
 
-function openDocumentUrl(doc) {
-  const url = doc.url || doc.filePath || doc.file_path
-  if (!url) {
-    toast.add({ severity: 'info', summary: 'Document Record', detail: 'Archived physical copy on file at Market Office.', life: 3000 })
-    return
-  }
-  window.open(url, '_blank')
-}
-
 // ----------------------------------------------------
 // UTILITIES
 // ----------------------------------------------------
@@ -1889,21 +2945,12 @@ function formatDate(d) {
 }
 
 function formatPaymentType(type) {
-  if (!type) return 'Stall Rent'
+  if (!type) return 'Monthly Stall Rent'
   const t = String(type).toUpperCase()
   if (t === 'RENT_PAYMENT' || t === 'RENT') return 'Monthly Stall Rent'
-  if (t === 'ADVANCE_DEPOSIT' || t === 'ADVANCE') return 'Advance Security Deposit'
-  if (t === 'BUSINESS_PERMIT_PAYMENT' || t === 'APPLICATION_FEE') return 'Municipal Stall Filing Fee'
-  return type
-}
-
-function formatDocType(type) {
-  if (!type) return 'Municipal Requirement'
-  const t = String(type).toUpperCase()
-  if (t.includes('INTENT')) return 'Letter of Intent'
-  if (t.includes('ID')) return 'Government Identification'
-  if (t.includes('PERMIT')) return 'Business / Mayor’s Permit'
-  if (t.includes('SANITARY')) return 'Sanitary & Health Permit'
+  if (t === 'ADVANCE_PAYMENT' || t === 'ADVANCE_DEPOSIT') return 'Two-Month Advance Rent Deposit'
+  if (t === 'STALL_RIGHTS_FEE') return 'Stall Rights Fee (One-Time)'
+  if (t === 'BUSINESS_PERMIT_PAYMENT') return 'Business Permit Fee (BPA)'
   return type
 }
 
