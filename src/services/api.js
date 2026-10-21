@@ -2893,6 +2893,14 @@ const api = {
       return { data: res };
     }
 
+    // 9.7 Billings Generate
+    if (cleanUrl === 'billings/generate') {
+      const { ensureBillingsForVerifiedTenants } = await import('./billingService');
+      const generated = await ensureBillingsForVerifiedTenants({ force: true });
+      invalidateApiCache('billings|contracts|occupants');
+      return { data: { success: true, count: generated?.length || 0, generated } };
+    }
+
     return rawAxios.post(url, data, config);
   },
 
@@ -2955,8 +2963,9 @@ const api = {
       const appId = cleanUrl.split('/')[1];
       const { decision, approved, remarks, signedDocumentUrl, signed_document_url, signedDocumentRef, approverName } = data || {};
       const isApproved = decision === 'APPROVED' || approved === true;
-      const decValue = isApproved ? 'APPROVED' : 'REJECTED';
-      const nextStatus = isApproved ? 'PENDING_TREASURER_PAYMENT' : 'MAYOR_REJECTED';
+      const isCorrection = decision === 'RETURNED_FOR_CORRECTION' || decision === 'CORRECTION';
+      const decValue = isApproved ? 'APPROVED' : (isCorrection ? 'RETURNED_FOR_CORRECTION' : 'REJECTED');
+      const nextStatus = isApproved ? 'PENDING_TREASURER_PAYMENT' : (isCorrection ? 'RETURNED_FOR_CORRECTION' : 'MAYOR_REJECTED');
       const docRef = signedDocumentUrl || signed_document_url || signedDocumentRef || null;
       const { data: { user } } = await supabase.auth.getUser();
       const approver = approverName || user?.user_metadata?.name || user?.user_metadata?.full_name || 'Office of the Municipal Mayor';
@@ -2970,7 +2979,7 @@ const api = {
           mayor_approved_by: approver,
           mayor_signed_document_url: docRef,
           mayor_remarks: remarks || null,
-          current_holding_office: isApproved ? 'Municipal Treasury' : 'Office of the Mayor'
+          current_holding_office: isApproved ? 'Municipal Treasury' : (isCorrection ? 'Stakeholder (Correction Required)' : 'Office of the Mayor')
         })
         .eq('id', Number(appId))
         .select()

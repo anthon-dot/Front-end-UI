@@ -713,8 +713,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, watch, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useConfirm } from 'primevue/useconfirm'
 import api from '../services/api'
 import { API_ORIGIN } from '../config/apiConfig'
@@ -725,6 +725,7 @@ import Tag from 'primevue/tag'
 import { systemMessage } from '../utils/systemMessage'
 
 const router = useRouter()
+const route = useRoute()
 const confirm = useConfirm()
 
 // State
@@ -1371,6 +1372,14 @@ function handleImageError(event, doc) {
     parent.appendChild(fallback)
   }
 }
+
+watch(() => route.query.tab, (tab) => {
+  if (tab === 'applications') {
+    currentTab.value = 'PENDING'
+  } else if (tab === 'occupancy') {
+    currentTab.value = 'APPROVED'
+  }
+}, { immediate: true })
 
 onMounted(() => {
   refreshData()

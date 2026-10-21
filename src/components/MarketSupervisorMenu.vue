@@ -147,22 +147,44 @@ const baseItems = [
     routeName: 'MarketSupervisor'
   },
   {
-    id: 'contracts',
-    label: 'Contracts',
-    icon: 'pi pi-file-edit',
-    routeName: 'MSContracts'
-  },
-  {
     id: 'stalls',
     label: 'Stall Management',
-    icon: 'pi pi-map-marker',
+    icon: 'pi pi-th-large',
     routeName: 'MSStalls'
   },
   {
-    id: 'archive',
-    label: 'Archive Record',
-    icon: 'pi pi-inbox',
-    routeName: 'MSArchive'
+    id: 'market-map',
+    label: 'Market Map',
+    icon: 'pi pi-map',
+    routeName: 'MSStalls',
+    query: { view: 'map' }
+  },
+  {
+    id: 'applications',
+    label: 'Applications',
+    icon: 'pi pi-file-edit',
+    routeName: 'MarketSupervisor',
+    query: { tab: 'applications' }
+  },
+  {
+    id: 'assignments',
+    label: 'Stall Assignments',
+    icon: 'pi pi-user-plus',
+    routeName: 'MSStalls',
+    query: { action: 'assign' }
+  },
+  {
+    id: 'contracts',
+    label: 'Contracts',
+    icon: 'pi pi-file-check',
+    routeName: 'MSContracts'
+  },
+  {
+    id: 'occupancy',
+    label: 'Occupancy',
+    icon: 'pi pi-chart-pie',
+    routeName: 'MarketSupervisor',
+    query: { tab: 'occupancy' }
   },
   {
     id: 'reports',
@@ -171,28 +193,10 @@ const baseItems = [
     routeName: 'MSReports'
   },
   {
-    id: 'users',
-    label: 'Users',
-    icon: 'pi pi-users',
-    routeName: 'AdminUsers'
-  },
-  {
-    id: 'roles',
-    label: 'Roles & Permissions',
-    icon: 'pi pi-shield',
-    routeName: 'AdminRoles'
-  },
-  {
-    id: 'audit-logs',
-    label: 'Audit Logs',
-    icon: 'pi pi-book',
-    routeName: 'AdminAuditLogs'
-  },
-  {
-    id: 'settings',
-    label: 'Settings',
-    icon: 'pi pi-cog',
-    routeName: 'AdminSettings'
+    id: 'profile',
+    label: 'My Profile',
+    icon: 'pi pi-user',
+    routeName: 'AdminProfile'
   }
 ]
 
@@ -219,7 +223,16 @@ const closeMobile = () => {
 }
 
 const isActive = (item) => {
-  return route.name === item.routeName
+  if (item.query?.view) {
+    return route.name === item.routeName && route.query.view === item.query.view
+  }
+  if (item.query?.action) {
+    return route.name === item.routeName && route.query.action === item.query.action
+  }
+  if (item.query?.tab) {
+    return route.name === item.routeName && route.query.tab === item.query.tab
+  }
+  return route.name === item.routeName && !route.query.view && !route.query.action && !route.query.tab
 }
 
 const navigate = (item) => {
@@ -227,7 +240,8 @@ const navigate = (item) => {
     closeMobile()
   }
   router.push({
-    name: item.routeName
+    name: item.routeName,
+    query: item.query || {}
   })
 }
 

@@ -989,6 +989,14 @@ watch(() => route.query.view, (newView) => {
   }
 })
 
+watch(() => route.query.action, (action) => {
+  if (action === 'assign') {
+    filterStatus.value = 'VACANT'
+  } else if (action === 'add') {
+    openCreateStallModal()
+  }
+})
+
 // Default Manticao Public Market Center
 const DEFAULT_CENTER = { lat: 8.399991, lng: 124.291353 }
 const DEFAULT_MAP_ZOOM = 18
@@ -2219,6 +2227,12 @@ onMounted(async () => {
 
   if (route.query.q) {
     search.value = String(route.query.q)
+  }
+  if (route.query.action === 'assign') {
+    filterStatus.value = 'VACANT'
+  }
+  if (route.query.action === 'add') {
+    openCreateStallModal()
   }
   if (route.query.assignStallId) {
     const targetStall = stalls.value.find((s) => String(s.id) === String(route.query.assignStallId))

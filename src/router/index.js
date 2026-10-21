@@ -293,6 +293,42 @@ const routes = [
   {
     path: "/supervisor/contract",
     redirect: { name: 'MSContracts' }
+  },
+  {
+    path: "/supervisor/map",
+    redirect: { name: 'MSStalls', query: { view: 'map' } }
+  },
+  {
+    path: "/supervisor/applications",
+    redirect: { name: 'MarketSupervisor', query: { tab: 'applications' } }
+  },
+  {
+    path: "/supervisor/assignments",
+    redirect: { name: 'MSStalls', query: { action: 'assign' } }
+  },
+  {
+    path: "/supervisor/occupancy",
+    redirect: { name: 'MarketSupervisor', query: { tab: 'occupancy' } }
+  },
+  {
+    path: "/treasurer/advance-credit",
+    redirect: { name: 'Billing', query: { tab: 'advance-credit' } }
+  },
+  {
+    path: "/treasurer/applicant-payments",
+    redirect: { name: 'Applicant' }
+  },
+  {
+    path: "/treasurer/daily-collections",
+    redirect: { name: 'Billing', query: { tab: 'collections' } }
+  },
+  {
+    path: "/treasurer/outstanding",
+    redirect: { name: 'Billing', query: { tab: 'outstanding' } }
+  },
+  {
+    path: "/treasurer/overdue",
+    redirect: { name: 'Billing', query: { tab: 'overdue' } }
   }
   ,
   {

@@ -115,52 +115,97 @@ const items = [
     routeName: 'Treasurer'
   },
   {
-    id: 'vendor-search',
-    label: 'Vendor Search',
-    icon: 'pi pi-search',
-    routeName: 'Payment'
+    id: 'applicant-payments',
+    label: 'Applicant Payments',
+    icon: 'pi pi-user-check',
+    routeName: 'Applicant'
   },
   {
-    id: 'record-payment',
-    label: 'Record Payment',
+    id: 'payment-recording',
+    label: 'Payment Recording',
     icon: 'pi pi-credit-card',
     routeName: 'Payment',
     query: { action: 'record' }
   },
   {
-    id: 'initial-fees',
-    label: 'Initial Fees',
-    icon: 'pi pi-check-circle',
-    routeName: 'Applicant'
-  },
-  {
-    id: 'daily-remittance',
-    label: 'Daily Remittance',
-    icon: 'pi pi-send',
+    id: 'billing-management',
+    label: 'Billing Management',
+    icon: 'pi pi-receipt',
     routeName: 'Billing'
   },
   {
+    id: 'advance-credit',
+    label: 'Advance Credit',
+    icon: 'pi pi-wallet',
+    routeName: 'Billing',
+    query: { tab: 'advance-credit' }
+  },
+  {
+    id: 'business-permit-fees',
+    label: 'Business Permit Fees',
+    icon: 'pi pi-id-card',
+    routeName: 'Payment',
+    query: { type: 'permit-fees' }
+  },
+  {
+    id: 'daily-collections',
+    label: 'Daily Collections',
+    icon: 'pi pi-calendar-plus',
+    routeName: 'Billing',
+    query: { tab: 'collections' }
+  },
+  {
+    id: 'outstanding-balances',
+    label: 'Outstanding Balances',
+    icon: 'pi pi-chart-pie',
+    routeName: 'Billing',
+    query: { tab: 'outstanding' }
+  },
+  {
+    id: 'overdue-accounts',
+    label: 'Overdue Accounts',
+    icon: 'pi pi-exclamation-triangle',
+    routeName: 'Billing',
+    query: { tab: 'overdue' }
+  },
+  {
+    id: 'receipts',
+    label: 'Receipts',
+    icon: 'pi pi-list',
+    routeName: 'Payment',
+    query: { tab: 'receipts' }
+  },
+  {
     id: 'reports',
-    label: 'Reports',
+    label: 'Financial Reports',
     icon: 'pi pi-chart-line',
     routeName: 'Report'
   },
   {
-    id: 'audit-trail',
-    label: 'Audit Trail',
-    icon: 'pi pi-book',
-    routeName: 'AuditLogs'
+    id: 'notifications',
+    label: 'Notifications',
+    icon: 'pi pi-bell',
+    routeName: 'AINotifications'
+  },
+  {
+    id: 'profile',
+    label: 'My Profile',
+    icon: 'pi pi-user',
+    routeName: 'AdminProfile'
   }
 ]
 
 const isActive = (item) => {
-  if (item.query?.action === 'record') {
-    return route.name === item.routeName && route.query.action === 'record'
+  if (item.query?.tab) {
+    return route.name === item.routeName && route.query.tab === item.query.tab
   }
-  if (item.id === 'vendor-search') {
-    return route.name === item.routeName && !route.query.action
+  if (item.query?.action) {
+    return route.name === item.routeName && route.query.action === item.query.action
   }
-  return route.name === item.routeName
+  if (item.query?.type) {
+    return route.name === item.routeName && route.query.type === item.query.type
+  }
+  return route.name === item.routeName && !route.query.tab && !route.query.action && !route.query.type
 }
 
 const navigate = (item) => {

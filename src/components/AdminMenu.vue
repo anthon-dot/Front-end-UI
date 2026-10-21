@@ -100,29 +100,29 @@ const isMobile = ref(false)
 
 const sections = [
   {
-    label: 'CORE ADMINISTRATION',
+    label: 'ADMINISTRATION & USERS',
     items: [
+      { label: 'Dashboard', icon: 'pi pi-home', routeName: 'AdminDashboard' },
       { label: 'User Management', icon: 'pi pi-users', routeName: 'AdminUsers' },
-      { label: 'Rate Configuration', icon: 'pi pi-money-bill', routeName: 'AdminRentalRates' },
-      { label: 'System Settings', icon: 'pi pi-cog', routeName: 'AdminSettings' },
+      { label: 'Role Management', icon: 'pi pi-shield', routeName: 'AdminRoles' },
+      { label: 'My Profile', icon: 'pi pi-user', routeName: 'AdminProfile' }
+    ]
+  },
+  {
+    label: 'SYSTEM CONFIGURATION',
+    items: [
+      { label: 'Market Configuration', icon: 'pi pi-tags', routeName: 'AdminStallTypes' },
+      { label: 'Fee Configuration', icon: 'pi pi-money-bill', routeName: 'AdminRentalRates' },
+      { label: 'Billing Configuration', icon: 'pi pi-cog', routeName: 'AdminSettings' },
+      { label: 'Notification Settings', icon: 'pi pi-bell', routeName: 'AdminNotifications' },
+      { label: 'System Settings', icon: 'pi pi-sliders-h', routeName: 'AdminSettings' }
+    ]
+  },
+  {
+    label: 'AUDIT & LOGS',
+    items: [
       { label: 'Audit Logs', icon: 'pi pi-book', routeName: 'AdminAuditLogs' },
-      { label: 'Database Maintenance', icon: 'pi pi-database', routeName: 'AdminLoginHistory' }
-    ]
-  },
-  {
-    label: 'MARKET REGISTRY',
-    items: [
-      { label: 'Stall Inventory & Map', icon: 'pi pi-map-marker', routeName: 'MSStalls' },
-      { label: 'Stall Categories', icon: 'pi pi-tags', routeName: 'AdminStallTypes' },
-      { label: 'Contracts & Leases', icon: 'pi pi-file-edit', routeName: 'MSContracts' },
-      { label: 'Archive Records', icon: 'pi pi-inbox', routeName: 'MSArchive' }
-    ]
-  },
-  {
-    label: 'FINANCIAL AUDIT',
-    items: [
-      { label: 'Collections Summary', icon: 'pi pi-wallet', routeName: 'AdminCollectionReport' },
-      { label: 'Occupancy Analytics', icon: 'pi pi-chart-pie', routeName: 'AdminOccupancy' }
+      { label: 'Login History', icon: 'pi pi-history', routeName: 'AdminLoginHistory' }
     ]
   }
 ]

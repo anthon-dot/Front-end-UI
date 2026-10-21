@@ -23,6 +23,15 @@
 
 					<div class="controls-actions">
 						<button
+							class="btn-primary"
+							style="background: #0d9488; color: #ffffff; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;"
+							@click="openCreateContractModal"
+							title="Prepare a new municipal stall lease agreement"
+						>
+							<i class="pi pi-plus"></i>
+							Create Contract
+						</button>
+						<button
 							class="btn-outline"
 							@click="refresh"
 							title="Refresh data from server"
@@ -775,6 +784,131 @@
 					</form>
 				</div>
 			</div>
+
+			<!-- CREATE CONTRACT MODAL -->
+			<div v-if="createContractModal" class="modal-backdrop" @click.self="createContractModal = false">
+				<div class="modal" style="max-width: 650px;">
+					<div class="modal-header">
+						<h2>
+							<i class="pi pi-file-plus" style="color: #0d9488; margin-right: 8px;"></i>
+							Prepare New Lease Contract
+						</h2>
+						<button class="close-btn" @click="createContractModal = false">✕</button>
+					</div>
+
+					<form @submit.prevent="submitCreateContract" class="modal-body" style="display: flex; flex-direction: column; gap: 14px;">
+						<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+							<div>
+								<label style="display: block; font-size: 13px; font-weight: 700; color: #334155; margin-bottom: 5px;">Stakeholder / Lessee *</label>
+								<select
+									v-model="createForm.stakeholderId"
+									@change="onLesseeChange"
+									required
+									style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 14px; background: #fff;"
+								>
+									<option value="" disabled>Select stakeholder...</option>
+									<option v-for="s in stakeholders" :key="s.id" :value="s.id">
+										{{ getStakeholderFullName(s) }} ({{ s.businessName || 'Applicant' }})
+									</option>
+								</select>
+							</div>
+
+							<div>
+								<label style="display: block; font-size: 13px; font-weight: 700; color: #334155; margin-bottom: 5px;">Assigned Stall *</label>
+								<select
+									v-model="createForm.stallId"
+									@change="onStallChange"
+									required
+									style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 14px; background: #fff;"
+								>
+									<option value="" disabled>Select stall...</option>
+									<option v-for="st in stalls" :key="st.id" :value="st.id">
+										Stall #{{ st.stallNo || st.stall_no || st.number }} ({{ st.stallType || st.stall_type || st.type || 'Standard' }}) - ₱{{ Number(st.monthlyRent || st.monthly_rent || st.rent || 1500).toLocaleString() }}/mo
+									</option>
+								</select>
+							</div>
+						</div>
+
+						<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+							<div>
+								<label style="display: block; font-size: 13px; font-weight: 700; color: #334155; margin-bottom: 5px;">Contract Start Date *</label>
+								<input
+									type="date"
+									v-model="createForm.startDate"
+									required
+									style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 14px;"
+								/>
+							</div>
+
+							<div>
+								<label style="display: block; font-size: 13px; font-weight: 700; color: #334155; margin-bottom: 5px;">Contract End Date (3-Year Term) *</label>
+								<input
+									type="date"
+									v-model="createForm.endDate"
+									required
+									style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 14px;"
+								/>
+							</div>
+						</div>
+
+						<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+							<div>
+								<label style="display: block; font-size: 13px; font-weight: 700; color: #334155; margin-bottom: 5px;">Monthly Rental Amount (₱) *</label>
+								<input
+									type="number"
+									v-model.number="createForm.monthlyRent"
+									min="0"
+									step="50"
+									required
+									style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 14px;"
+								/>
+							</div>
+
+							<div>
+								<label style="display: block; font-size: 13px; font-weight: 700; color: #334155; margin-bottom: 5px;">Billing Frequency</label>
+								<select
+									v-model="createForm.billingFrequency"
+									style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 14px; background: #fff;"
+								>
+									<option value="MONTHLY">MONTHLY (Default)</option>
+									<option value="QUARTERLY">QUARTERLY</option>
+									<option value="ANNUAL">ANNUAL</option>
+								</select>
+							</div>
+						</div>
+
+						<div>
+							<label style="display: block; font-size: 13px; font-weight: 700; color: #334155; margin-bottom: 5px;">Required Initial Payments & Deposit Reference</label>
+							<input
+								type="text"
+								v-model="createForm.depositReference"
+								placeholder="e.g. 2-Month Advance Rental Verified (OR #ADV-20261021)"
+								style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 14px;"
+							/>
+						</div>
+
+						<div>
+							<label style="display: block; font-size: 13px; font-weight: 700; color: #334155; margin-bottom: 5px;">Lease Terms & Conditions</label>
+							<textarea
+								v-model="createForm.terms"
+								rows="4"
+								style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 13px; font-family: inherit; line-height: 1.5;"
+								placeholder="Municipal commercial lease terms..."
+							></textarea>
+						</div>
+
+						<div class="modal-actions" style="margin-top: 10px;">
+							<button type="submit" class="btn-primary" :disabled="isCreatingContract" style="background: #0d9488; color: #fff;">
+								<i class="pi pi-check" :class="{ 'pi-spin': isCreatingContract }"></i>
+								{{ isCreatingContract ? 'Creating...' : 'Create Draft Contract' }}
+							</button>
+							<button type="button" class="btn-secondary" @click="createContractModal = false">
+								Cancel
+							</button>
+						</div>
+					</form>
+				</div>
+			</div>
 		</main>
 	</div>
 </template>
@@ -827,6 +961,105 @@ const defaultTerms = `1. The LESSEE shall pay the monthly rental on or before th
 2. The stall shall be used exclusively for the designated commercial category and shall not be subleased or assigned without prior written approval.
 3. The LESSEE shall keep the stall and surrounding premises clean, sanitary, and compliant with municipal market ordinances.
 4. Failure to pay rent for two consecutive billing cycles or violation of market rules shall be grounds for contract termination.`
+
+// Create Contract Modal State
+const createContractModal = ref(false)
+const isCreatingContract = ref(false)
+const createForm = ref({
+	stakeholderId: '',
+	stallId: '',
+	startDate: '',
+	endDate: '',
+	monthlyRent: 1500,
+	billingFrequency: 'MONTHLY',
+	depositReference: '',
+	terms: defaultTerms
+})
+
+function openCreateContractModal() {
+	const now = new Date()
+	const startStr = now.toISOString().split('T')[0]
+	const end = new Date(now)
+	end.setFullYear(end.getFullYear() + 3)
+	const endStr = end.toISOString().split('T')[0]
+
+	createForm.value = {
+		stakeholderId: stakeholders.value[0]?.id || '',
+		stallId: stalls.value[0]?.id || '',
+		startDate: startStr,
+		endDate: endStr,
+		monthlyRent: Number(stalls.value[0]?.monthlyRent || stalls.value[0]?.monthly_rent || stalls.value[0]?.rent || 1500),
+		billingFrequency: 'MONTHLY',
+		depositReference: 'Stall Rights Fee & 2-Month Advance Rental Verified',
+		terms: defaultTerms
+	}
+	createContractModal.value = true
+}
+
+function onLesseeChange() {
+	const s = stakeholders.value.find(item => String(item.id) === String(createForm.value.stakeholderId))
+	if (s) {
+		const st = getStakeholderStallObj(s)
+		if (st?.id) {
+			createForm.value.stallId = st.id
+			onStallChange()
+		}
+	}
+}
+
+function onStallChange() {
+	const st = stalls.value.find(item => String(item.id) === String(createForm.value.stallId))
+	if (st) {
+		createForm.value.monthlyRent = Number(st.monthlyRent || st.monthly_rent || st.rent || 1500)
+	}
+}
+
+async function submitCreateContract() {
+	if (!createForm.value.stakeholderId || !createForm.value.stallId) {
+		systemMessage.warn('Please select both a stakeholder and an assigned stall.', 'Validation Error')
+		return
+	}
+	isCreatingContract.value = true
+	try {
+		const s = stakeholders.value.find(item => String(item.id) === String(createForm.value.stakeholderId))
+		const st = stalls.value.find(item => String(item.id) === String(createForm.value.stallId))
+		const stallNum = st ? (st.stallNo || st.stall_no || st.number) : 'TBD'
+		const contractRef = `CON-${Date.now().toString().slice(-6)}`
+
+		const payload = {
+			contractNo: contractRef,
+			ref: contractRef,
+			stakeholderId: createForm.value.stakeholderId,
+			stallId: createForm.value.stallId,
+			stallNo: stallNum,
+			stakeholderName: s ? getStakeholderFullName(s) : 'Lessee',
+			businessName: s?.businessName || '',
+			startDate: createForm.value.startDate,
+			endDate: createForm.value.endDate,
+			monthlyRent: Number(createForm.value.monthlyRent),
+			billingFrequency: createForm.value.billingFrequency,
+			status: 'DRAFT',
+			terms: createForm.value.terms,
+			initial_payments_verified: true
+		}
+
+		try {
+			await api.post('/contracts', payload)
+		} catch (err) {
+			console.warn('Backend contract creation warning:', err)
+		}
+
+		contracts.value.unshift({ ...payload, id: Date.now() })
+		saveContractsToStorage()
+		createContractModal.value = false
+		systemMessage.success(`Contract draft ${contractRef} prepared successfully for ${payload.stakeholderName}!`, 'Draft Prepared')
+	} catch (err) {
+		console.error(err)
+		systemMessage.error(`Failed to create contract: ${err.message || err}`, 'Creation Failed')
+	} finally {
+		isCreatingContract.value = false
+	}
+}
 
 // =============================
 // HELPERS

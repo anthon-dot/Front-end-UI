@@ -24,10 +24,38 @@
         </div>
       </div>
 
+      <!-- STATUS TAB PILLS -->
+      <div class="flex items-center gap-2 mb-4 flex-wrap">
+        <button
+          type="button"
+          class="px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border"
+          :class="applicantTab === 'ALL' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'"
+          @click="applicantTab = 'ALL'"
+        >
+          All Stakeholders ({{ allStakeholders.length }})
+        </button>
+        <button
+          type="button"
+          class="px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border"
+          :class="applicantTab === 'PENDING' ? 'bg-amber-600 text-white border-amber-600 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'"
+          @click="applicantTab = 'PENDING'"
+        >
+          Pending Initial Fees ({{ pendingInitialFeeCount }})
+        </button>
+        <button
+          type="button"
+          class="px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border"
+          :class="applicantTab === 'PAID' ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'"
+          @click="applicantTab = 'PAID'"
+        >
+          Initial Fees Verified ({{ paidInitialFeeCount }})
+        </button>
+      </div>
+
       <!-- TABLE CARD -->
       <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden p-2">
         <DataTable 
-          :value="stakeholders" 
+          :value="displayedStakeholders" 
           v-model:filters="filters"
           :loading="isLoading"
           paginator 
@@ -42,7 +70,7 @@
           <template #empty>
             <div class="text-center py-12 text-slate-400">
               <i class="pi pi-inbox text-4xl mb-3 text-slate-300"></i>
-              <p>{{ errorMessage || 'No applicants are waiting for approval.' }}</p>
+              <p>{{ errorMessage || 'No stakeholders found matching this filter.' }}</p>
             </div>
           </template>
 
@@ -69,14 +97,19 @@
             </template>
           </Column>
 
-          <Column header="Advance Payment" sortable sortField="advanceBalance">
+          <Column header="Initial Fee Status" sortable sortField="advanceBalance">
             <template #body="{ data }">
-              <Tag v-if="isAdvancePaid(data)" 
-                   value="PAID" severity="success" rounded icon="pi pi-check" 
-                   class="!bg-emerald-50 !text-emerald-600 !font-bold border border-emerald-100 px-3 py-1" />
-              <Tag v-else 
-                   value="UNPAID" severity="danger" rounded icon="pi pi-exclamation-circle" 
-                   class="!bg-rose-50 !text-rose-600 !font-bold border border-rose-100 px-3 py-1" />
+              <div class="flex flex-col gap-1 items-start">
+                <Tag v-if="isAdvancePaid(data) && isRightsFeePaid(data)" 
+                     value="FEES FULLY PAID" severity="success" rounded icon="pi pi-check" 
+                     class="!bg-emerald-50 !text-emerald-600 !font-bold border border-emerald-100 px-3 py-1 text-xs" />
+                <Tag v-else-if="isAdvancePaid(data) || isRightsFeePaid(data)" 
+                     value="PARTIAL INITIAL FEES" severity="warn" rounded icon="pi pi-clock" 
+                     class="!bg-amber-50 !text-amber-700 !font-bold border border-amber-200 px-2 py-0.5 text-xs" />
+                <Tag v-else 
+                     value="FEES PENDING" severity="danger" rounded icon="pi pi-exclamation-circle" 
+                     class="!bg-rose-50 !text-rose-600 !font-bold border border-rose-100 px-2.5 py-0.5 text-xs" />
+              </div>
             </template>
           </Column>
 
@@ -88,8 +121,27 @@
 
           <Column header="Actions" alignFrozen="right" :frozen="true">
             <template #body="{ data }">
-              <div class="flex items-center gap-2">
-                <Button icon="pi pi-eye" text rounded severity="secondary" @click="openModal(data)" v-tooltip="'View Details'" />
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <Button icon="pi pi-eye" text rounded severity="secondary" @click="openModal(data)" v-tooltip="'View Applicant Details'" />
+                <Button
+                  label="Requirements"
+                  icon="pi pi-list-check"
+                  size="small"
+                  severity="info"
+                  outlined
+                  class="!py-1 !px-2 text-xs font-bold"
+                  @click="openPaymentRequirements(data)"
+                  v-tooltip="'View Payment Requirements'"
+                />
+                <Button
+                  label="Record Payment"
+                  icon="pi pi-credit-card"
+                  size="small"
+                  severity="success"
+                  class="!py-1 !px-2.5 text-xs font-bold"
+                  @click="openRecordPaymentModal(data)"
+                  v-tooltip="'Record Cash Collection & Issue OR'"
+                />
                 <Button
                   v-if="canApprove(data)"
                   icon="pi pi-check"
@@ -98,7 +150,7 @@
                   :loading="approvingId === data.id"
                   @click="approveApplicant(data)"
                   v-tooltip="'Approve Stakeholder'"
-                  class="!p-2"
+                  class="!p-1.5 text-xs"
                 />
                 <Button
                   icon="pi pi-times"
@@ -108,7 +160,7 @@
                   :disabled="approvingId === data.id"
                   @click="rejectApplicant(data)"
                   v-tooltip="'Reject Applicant'"
-                  class="!p-2"
+                  class="!p-1.5 text-xs"
                 />
               </div>
             </template>
@@ -272,17 +324,295 @@
         </template>
       </Dialog>
 
-      
+      <!-- PAYMENT REQUIREMENTS MODAL (STEP 2 OF WORKFLOW) -->
+      <Dialog
+        v-model:visible="showRequirementsModal"
+        modal
+        header="Initial Payment Requirements & Obligations"
+        :style="{ width: '580px', maxWidth: '95vw' }"
+        class="modern-dialog"
+      >
+        <div v-if="requirementsApplicant" class="p-4 bg-slate-50 rounded-xl border border-slate-100">
+          <div class="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
+            <div class="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-sm">
+              {{ requirementsApplicant.firstName?.charAt(0) }}{{ requirementsApplicant.lastName?.charAt(0) }}
+            </div>
+            <div>
+              <h4 class="font-bold text-slate-800 text-base">
+                {{ requirementsApplicant.firstName }} {{ requirementsApplicant.lastName }}
+              </h4>
+              <p class="text-xs text-slate-500">{{ requirementsApplicant.businessName || 'Business Lessee' }}</p>
+            </div>
+          </div>
 
+          <div class="space-y-3">
+            <!-- 1. Stall Rights Fee Requirement -->
+            <div class="bg-white p-3.5 rounded-xl border border-slate-200 flex items-center justify-between gap-3 shadow-xs">
+              <div>
+                <span class="block text-xs font-bold text-slate-400 uppercase tracking-wider">Obligation 1</span>
+                <strong class="text-sm text-slate-800">Stall Rights Fee</strong>
+                <div class="text-xs text-slate-500 font-mono mt-0.5">₱5,000.00 Authorized Ordinance Rate</div>
+              </div>
+              <div class="flex items-center gap-2">
+                <Tag
+                  v-if="isRightsFeePaid(requirementsApplicant)"
+                  value="PAID"
+                  severity="success"
+                  rounded
+                  icon="pi pi-check"
+                  class="font-bold text-xs"
+                />
+                <Button
+                  v-else
+                  label="Record Payment"
+                  icon="pi pi-credit-card"
+                  size="small"
+                  severity="success"
+                  class="!py-1 !px-2.5 text-xs font-bold"
+                  @click="recordFeeForType(requirementsApplicant, 'STALL_RIGHTS_FEE')"
+                />
+              </div>
+            </div>
+
+            <!-- 2. Two-Month Advance Rent Requirement -->
+            <div class="bg-white p-3.5 rounded-xl border border-slate-200 flex items-center justify-between gap-3 shadow-xs">
+              <div>
+                <span class="block text-xs font-bold text-slate-400 uppercase tracking-wider">Obligation 2</span>
+                <strong class="text-sm text-slate-800">Two-Month Advance Rent</strong>
+                <div class="text-xs text-slate-500 font-mono mt-0.5">
+                  ₱{{ Number(requirementsApplicant.totalAdvanceAmount || 3000).toLocaleString() }}.00 (Calculated from Stall)
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <Tag
+                  v-if="isAdvancePaid(requirementsApplicant)"
+                  value="PAID"
+                  severity="success"
+                  rounded
+                  icon="pi pi-check"
+                  class="font-bold text-xs"
+                />
+                <Button
+                  v-else
+                  label="Record Advance"
+                  icon="pi pi-wallet"
+                  size="small"
+                  severity="warn"
+                  class="!py-1 !px-2.5 text-xs font-bold"
+                  @click="recordFeeForType(requirementsApplicant, 'ADVANCE_RENT')"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <template #footer>
+          <div class="flex items-center justify-between w-full pt-2">
+            <Button
+              label="View Payment History"
+              icon="pi pi-history"
+              text
+              severity="secondary"
+              @click="goToPaymentHistory(requirementsApplicant)"
+              class="text-xs"
+            />
+            <Button
+              label="Close"
+              icon="pi pi-times"
+              text
+              severity="secondary"
+              @click="showRequirementsModal = false"
+              class="text-xs"
+            />
+          </div>
+        </template>
+      </Dialog>
+
+      <!-- RECORD PAYMENT DIALOG (EXACT WORKFLOW FIELDS) -->
+      <Dialog
+        v-model:visible="showPaymentModal"
+        modal
+        header="Record Official Cash Payment"
+        :style="{ width: '520px', maxWidth: '95vw' }"
+        class="modern-dialog"
+      >
+        <form @submit.prevent="submitRecordPayment" class="p-3 space-y-4">
+          <!-- Applicant (Read-only) -->
+          <div>
+            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Applicant</label>
+            <div class="p-2.5 bg-slate-100 rounded-lg text-sm font-bold text-slate-800">
+              {{ paymentForm.applicantName }} • {{ paymentForm.businessName }}
+            </div>
+          </div>
+
+          <!-- Payment Type -->
+          <div>
+            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Payment Type *</label>
+            <select
+              v-model="paymentForm.paymentType"
+              @change="onPaymentTypeChange"
+              class="w-full p-2.5 border border-slate-300 rounded-lg text-sm font-semibold bg-white"
+              required
+            >
+              <option value="STALL_RIGHTS_FEE">Stall Rights Fee (₱5,000)</option>
+              <option value="ADVANCE_RENT">Two-Month Advance Rent (₱{{ Number(paymentForm.calculatedAdvance || 3000).toLocaleString() }})</option>
+            </select>
+          </div>
+
+          <!-- Amount Due & Amount Received Grid -->
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Amount Due</label>
+              <input
+                type="text"
+                :value="`₱${Number(paymentForm.amountDue || 0).toLocaleString()}`"
+                disabled
+                class="w-full p-2.5 bg-slate-100 border border-slate-200 rounded-lg text-sm font-bold text-slate-600"
+              />
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Amount Received (₱) *</label>
+              <input
+                type="number"
+                v-model.number="paymentForm.amountReceived"
+                min="1"
+                step="50"
+                class="w-full p-2.5 border border-emerald-300 rounded-lg text-sm font-black text-emerald-700 bg-white"
+                required
+              />
+            </div>
+          </div>
+
+          <!-- Receipt Number & Payment Date Grid -->
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Official Receipt (OR No.) *</label>
+              <input
+                type="text"
+                v-model="paymentForm.receiptNo"
+                class="w-full p-2.5 border border-slate-300 rounded-lg text-sm font-mono font-bold text-slate-800 bg-white"
+                required
+              />
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Payment Date *</label>
+              <input
+                type="date"
+                v-model="paymentForm.paymentDate"
+                class="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-white"
+                required
+              />
+            </div>
+          </div>
+
+          <!-- Collector -->
+          <div>
+            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Authorized Collector</label>
+            <input
+              type="text"
+              v-model="paymentForm.collector"
+              class="w-full p-2.5 bg-slate-100 border border-slate-200 rounded-lg text-sm font-medium text-slate-700"
+              readonly
+            />
+          </div>
+
+          <!-- Remarks -->
+          <div>
+            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Remarks (Optional)</label>
+            <textarea
+              v-model="paymentForm.remarks"
+              rows="2"
+              class="w-full p-2 border border-slate-300 rounded-lg text-xs"
+              placeholder="e.g. Official initial fee paid at Treasury counter..."
+            ></textarea>
+          </div>
+
+          <!-- Modal Actions -->
+          <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+            <Button
+              label="Cancel"
+              icon="pi pi-times"
+              text
+              severity="secondary"
+              @click="showPaymentModal = false"
+            />
+            <Button
+              type="submit"
+              label="Save Payment"
+              icon="pi pi-check"
+              severity="success"
+              :loading="isSavingPayment"
+              class="font-bold"
+            />
+          </div>
+        </form>
+      </Dialog>
+
+      <!-- OFFICIAL RECEIPT PRINTABLE MODAL -->
+      <Dialog
+        v-model:visible="showReceiptModal"
+        modal
+        header="Official Receipt • Accountable Form No. 51"
+        :style="{ width: '560px', maxWidth: '95vw' }"
+        class="modern-dialog"
+      >
+        <div v-if="receiptData" id="printable-official-receipt" class="p-6 bg-white border border-slate-300 rounded-xl font-serif text-slate-900 space-y-4">
+          <div class="text-center pb-3 border-b-2 border-slate-900">
+            <h3 class="text-xs uppercase tracking-widest text-slate-500 m-0">Republic of the Philippines</h3>
+            <h4 class="text-sm font-bold text-slate-800 m-0">PROVINCE OF MISAMIS ORIENTAL &bull; MUNICIPALITY OF MANTICAO</h4>
+            <h2 class="text-base font-black text-slate-900 mt-1 m-0">OFFICE OF THE MUNICIPAL TREASURER</h2>
+            <div class="text-[11px] font-mono text-slate-600 mt-1">OFFICIAL RECEIPT &bull; Accountable Form No. 51</div>
+          </div>
+
+          <div class="flex justify-between items-center text-xs">
+            <div><strong>OR No:</strong> <span class="font-mono font-bold text-sm text-indigo-700">{{ receiptData.receiptNo }}</span></div>
+            <div><strong>Date:</strong> {{ receiptData.paymentDate }}</div>
+          </div>
+
+          <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs space-y-1">
+            <div><span class="text-slate-500">Payor Name:</span> <strong>{{ receiptData.applicantName }}</strong></div>
+            <div><span class="text-slate-500">Business:</span> <strong>{{ receiptData.businessName }}</strong></div>
+            <div><span class="text-slate-500">Nature of Collection:</span> <strong>{{ receiptData.paymentTypeTitle }}</strong></div>
+          </div>
+
+          <div class="border-t border-b border-slate-900 py-3 flex justify-between items-center text-sm font-bold">
+            <span>TOTAL AMOUNT PAID:</span>
+            <span class="text-lg font-black text-emerald-700">₱{{ Number(receiptData.amountReceived).toLocaleString('en-PH', { minimumFractionDigits: 2 }) }}</span>
+          </div>
+
+          <div class="text-xs italic text-slate-500">
+            Received the amount stated above as payment for the account shown.
+          </div>
+
+          <div class="pt-6 flex justify-between items-end text-xs">
+            <div>
+              <div class="text-[10px] text-slate-400">Transaction Status</div>
+              <strong class="text-emerald-700">✓ OFFICIAL CASH RECEIPT VERIFIED</strong>
+            </div>
+            <div class="text-center">
+              <div class="font-bold underline">{{ receiptData.collector || 'Municipal Treasurer' }}</div>
+              <div class="text-[10px] text-slate-500">Collecting Officer</div>
+            </div>
+          </div>
+        </div>
+
+        <template #footer>
+          <div class="flex items-center justify-between w-full pt-2">
+            <Button label="Close" icon="pi pi-times" text severity="secondary" @click="showReceiptModal = false" />
+            <Button label="Print Receipt" icon="pi pi-print" severity="primary" @click="printReceipt" class="font-bold" />
+          </div>
+        </template>
+      </Dialog>
     </main>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, computed, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import api from '../services/api'
 import { API_ORIGIN } from '../config/apiConfig'
-import { AUTH_TOKEN_KEY } from '../stores/auth'
+import { AUTH_TOKEN_KEY, useAuthStore } from '../stores/auth'
 import { FilterMatchMode } from '@primevue/core/api'
 import TreasurerMenu from '../components/TreasurerMenu.vue'
 import SearchField from '../components/SearchField.vue'
@@ -296,13 +626,16 @@ import { useToast } from "primevue/usetoast"
 import { useConfirm } from 'primevue/useconfirm'
 import { systemMessage } from '../utils/systemMessage'
 
+const router = useRouter()
+const authStore = useAuthStore()
 const toast = useToast()
 const confirm = useConfirm()
 
 // =========================
 // DATA
 // =========================
-const stakeholders = ref([])
+const allStakeholders = ref([])
+const applicantTab = ref('ALL') // 'ALL' | 'PENDING' | 'PAID'
 const isLoading = ref(false)
 const errorMessage = ref('')
 const filters = ref({
@@ -311,9 +644,32 @@ const filters = ref({
 
 const showModal = ref(false)
 const selectedApplicant = ref({})
-
-
 const approvingId = ref(null)
+
+// Requirements Modal
+const showRequirementsModal = ref(false)
+const requirementsApplicant = ref(null)
+
+// Record Payment Modal
+const showPaymentModal = ref(false)
+const isSavingPayment = ref(false)
+const paymentForm = ref({
+  applicantId: null,
+  applicantName: '',
+  businessName: '',
+  paymentType: 'STALL_RIGHTS_FEE',
+  amountDue: 5000,
+  amountReceived: 5000,
+  receiptNo: '',
+  paymentDate: '',
+  collector: '',
+  remarks: '',
+  calculatedAdvance: 3000
+})
+
+// Official Receipt Modal
+const showReceiptModal = ref(false)
+const receiptData = ref(null)
 
 // IMAGE PREVIEW
 const showImagePreview = ref(false)
@@ -322,7 +678,26 @@ const loadedImageUrls = ref({})
 const loadingImages = ref({})
 const imageFailed = ref({})
 
+// Computed lists
+const pendingInitialFeeCount = computed(() => {
+  return allStakeholders.value.filter(s => !isAdvancePaid(s) || !isRightsFeePaid(s)).length
+})
 
+const paidInitialFeeCount = computed(() => {
+  return allStakeholders.value.filter(s => isAdvancePaid(s) && isRightsFeePaid(s)).length
+})
+
+const displayedStakeholders = computed(() => {
+  if (applicantTab.value === 'PENDING') {
+    return allStakeholders.value.filter(s => !isAdvancePaid(s) || !isRightsFeePaid(s))
+  }
+  if (applicantTab.value === 'PAID') {
+    return allStakeholders.value.filter(s => isAdvancePaid(s) && isRightsFeePaid(s))
+  }
+  return allStakeholders.value
+})
+
+const stakeholders = displayedStakeholders
 
 // =========================
 // LIFECYCLE
@@ -347,17 +722,181 @@ async function fetchStakeholders() {
   errorMessage.value = ''
 
   try {
-    const response = await api.get('/stakeholders/for-approval')
-    const rawList = Array.isArray(response.data) ? response.data : []
-    // Filter strictly to applicants who genuinely await Treasurer approval
-    stakeholders.value = rawList.filter(s => canApprove(s))
+    let list = []
+    try {
+      const response = await api.get('/stakeholders')
+      list = Array.isArray(response.data) ? response.data : []
+    } catch (_) {
+      const fallback = await api.get('/stakeholders/for-approval')
+      list = Array.isArray(fallback.data) ? fallback.data : []
+    }
+    allStakeholders.value = list.filter(s => !s.isArchived)
   } catch (error) {
     console.error('Failed to fetch stakeholders', error)
-    errorMessage.value = error.message || 'Failed to load applicants for approval.'
-    stakeholders.value = []
+    errorMessage.value = error.message || 'Failed to load applicants.'
+    allStakeholders.value = []
   } finally {
     isLoading.value = false
   }
+}
+
+function isRightsFeePaid(item) {
+  if (!item) return false
+  return Boolean(
+    item.applicantFeePaid ||
+    item.applicant_fee_paid ||
+    item.treasurerPaid ||
+    item.treasurer_paid ||
+    item.rightsFeePaid ||
+    item.stallRightsPaid
+  )
+}
+
+function openPaymentRequirements(item) {
+  requirementsApplicant.value = item
+  showRequirementsModal.value = true
+}
+
+function recordFeeForType(item, type) {
+  showRequirementsModal.value = false
+  openRecordPaymentModal(item, type)
+}
+
+function openRecordPaymentModal(item, defaultType = 'STALL_RIGHTS_FEE') {
+  const applicantName = `${item.firstName || ''} ${item.lastName || ''}`.trim() || item.businessName || 'Applicant'
+  const advanceAmount = Number(item.totalAdvanceAmount || 3000)
+  const isAdvance = defaultType === 'ADVANCE_RENT'
+  const due = isAdvance ? advanceAmount : 5000
+  const now = new Date()
+  const yyyy = now.getFullYear()
+  const mm = String(now.getMonth() + 1).padStart(2, '0')
+  const dd = String(now.getDate()).padStart(2, '0')
+  const prefix = isAdvance ? 'ADV' : 'OR'
+  const random = Math.floor(1000 + Math.random() * 9000)
+
+  paymentForm.value = {
+    applicantId: item.id,
+    applicantName,
+    businessName: item.businessName || 'Market Stall Lessee',
+    paymentType: defaultType,
+    amountDue: due,
+    amountReceived: due,
+    receiptNo: `${prefix}-${yyyy}${mm}${dd}-${random}`,
+    paymentDate: now.toISOString().split('T')[0],
+    collector: authStore.user?.name || 'Municipal Treasurer',
+    remarks: isAdvance ? 'Two-month advance rental payment credit' : 'Official municipal stall rights fee',
+    calculatedAdvance: advanceAmount
+  }
+  showPaymentModal.value = true
+}
+
+function onPaymentTypeChange() {
+  const isAdv = paymentForm.value.paymentType === 'ADVANCE_RENT'
+  const due = isAdv ? (paymentForm.value.calculatedAdvance || 3000) : 5000
+  paymentForm.value.amountDue = due
+  paymentForm.value.amountReceived = due
+  const prefix = isAdv ? 'ADV' : 'OR'
+  const now = new Date()
+  const yyyy = now.getFullYear()
+  const mm = String(now.getMonth() + 1).padStart(2, '0')
+  const dd = String(now.getDate()).padStart(2, '0')
+  const random = Math.floor(1000 + Math.random() * 9000)
+  paymentForm.value.receiptNo = `${prefix}-${yyyy}${mm}${dd}-${random}`
+}
+
+async function submitRecordPayment() {
+  if (!paymentForm.value.amountReceived || Number(paymentForm.value.amountReceived) <= 0) {
+    toast.add({
+      severity: 'error',
+      summary: 'Invalid Amount',
+      detail: 'Please enter a valid amount received greater than zero.',
+      life: 3500
+    })
+    return
+  }
+
+  isSavingPayment.value = true
+  try {
+    const isAdv = paymentForm.value.paymentType === 'ADVANCE_RENT'
+    const payload = {
+      stakeholderId: paymentForm.value.applicantId,
+      amount: Number(paymentForm.value.amountReceived),
+      receiptNo: paymentForm.value.receiptNo,
+      referenceNo: paymentForm.value.receiptNo,
+      paymentType: isAdv ? 'ADVANCE_PAYMENT' : 'APPLICATION_FEE',
+      paymentDate: new Date(paymentForm.value.paymentDate).toISOString(),
+      notes: paymentForm.value.remarks
+    }
+
+    if (isAdv) {
+      payload.totalAdvanceAmount = Number(paymentForm.value.amountDue)
+    }
+
+    await api.post('/payments', payload)
+
+    // Update in-memory applicant object
+    const target = allStakeholders.value.find(s => s.id === paymentForm.value.applicantId)
+    if (target) {
+      if (isAdv) {
+        target.advancePaymentPaid = true
+        target.advance_payment_paid = true
+        target.advanceBalance = (Number(target.advanceBalance || 0) + Number(payload.amount))
+      } else {
+        target.applicantFeePaid = true
+        target.applicant_fee_paid = true
+        target.treasurerPaid = true
+        target.treasurer_paid = true
+        target.treasurerApproved = true
+      }
+    }
+
+    receiptData.value = {
+      receiptNo: paymentForm.value.receiptNo,
+      paymentDate: paymentForm.value.paymentDate,
+      applicantName: paymentForm.value.applicantName,
+      businessName: paymentForm.value.businessName,
+      paymentTypeTitle: isAdv ? 'Two-Month Advance Rent Credit' : 'Stall Rights Fee',
+      amountReceived: paymentForm.value.amountReceived,
+      collector: paymentForm.value.collector
+    }
+
+    showPaymentModal.value = false
+    showReceiptModal.value = true
+
+    toast.add({
+      severity: 'success',
+      summary: 'Payment Recorded',
+      detail: `Payment recorded under OR #${paymentForm.value.receiptNo}. Official receipt generated.`,
+      life: 4500
+    })
+
+    await fetchStakeholders()
+  } catch (err) {
+    console.error('Payment record error:', err)
+    toast.add({
+      severity: 'error',
+      summary: 'Payment Failed',
+      detail: err.response?.data?.message || err.message || 'Could not save payment transaction.',
+      life: 4500
+    })
+  } finally {
+    isSavingPayment.value = false
+  }
+}
+
+function printReceipt() {
+  window.print()
+}
+
+function goToPaymentHistory(item) {
+  showRequirementsModal.value = false
+  const name = item ? `${item.firstName || ''} ${item.lastName || ''}`.trim() : ''
+  router.push({
+    name: 'Payment',
+    query: {
+      search: name || item?.businessName || ''
+    }
+  })
 }
 
 function isAdvancePaid(item) {

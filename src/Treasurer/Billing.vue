@@ -24,6 +24,26 @@
             <SearchField v-model="search" placeholder="Search tenant, stall, or billing ID..." />
           </div>
           <Button 
+            icon="pi pi-cog" 
+            label="Generate Bills" 
+            severity="success" 
+            size="small" 
+            :loading="isGeneratingBills" 
+            @click="generateMonthlyBillsAction"
+            class="!py-2 !px-3 font-semibold"
+            title="Generate monthly bills according to contract schedule"
+          />
+          <Button 
+            icon="pi pi-download" 
+            label="Export Report" 
+            outlined 
+            severity="secondary" 
+            size="small" 
+            @click="exportBillingReport"
+            class="!py-2 !px-3 font-semibold"
+            title="Export billing & overdue report"
+          />
+          <Button 
             icon="pi pi-envelope" 
             label="Email Due Reminders" 
             severity="warn" 
@@ -44,8 +64,41 @@
         </div>
       </div>
 
-      <!-- Summary Cards -->
-      <div class="summary-grid">
+      <!-- VIEW MODE SWITCHER TABS -->
+      <div class="flex items-center gap-2 mb-5 border-b border-slate-200 pb-2 flex-wrap">
+        <button
+          type="button"
+          class="px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border flex items-center gap-2"
+          :class="mainBillingView === 'BILLS' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'"
+          @click="setMainView('BILLS')"
+        >
+          <i class="pi pi-receipt"></i>
+          Billing Statements ({{ rows.length }})
+        </button>
+        <button
+          type="button"
+          class="px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border flex items-center gap-2"
+          :class="mainBillingView === 'ADVANCE_CREDIT' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'"
+          @click="setMainView('ADVANCE_CREDIT')"
+        >
+          <i class="pi pi-wallet"></i>
+          Advance Credit Ledger ({{ advanceCreditStakeholders.length }})
+        </button>
+        <button
+          type="button"
+          class="px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border flex items-center gap-2"
+          :class="mainBillingView === 'OVERDUE' ? 'bg-rose-600 text-white border-rose-600 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'"
+          @click="setMainView('OVERDUE')"
+        >
+          <i class="pi pi-exclamation-triangle"></i>
+          Overdue Accounts & Notice Tracking ({{ overdueRows.length }})
+        </button>
+      </div>
+
+      <!-- VIEW 1: BILLING STATEMENTS -->
+      <div v-if="mainBillingView === 'BILLS'">
+        <!-- Summary Cards -->
+        <div class="summary-grid">
         <!-- Total Invoiced -->
         <div class="summary-card">
           <div class="summary-icon blue">
@@ -362,7 +415,352 @@
                 </template>
               </Column>
             </DataTable>
+        </div>
+      </div>
+      </div>
+      </div>
+
+      <!-- ============================================== -->
+      <!-- VIEW 2: ADVANCE CREDIT LEDGER                  -->
+      <!-- ============================================== -->
+      <div v-else-if="mainBillingView === 'ADVANCE_CREDIT'" class="space-y-6">
+        <!-- Advance Credit Summary Cards -->
+        <div class="summary-grid">
+          <div class="summary-card">
+            <div class="summary-icon blue">
+              <i class="pi pi-wallet text-xl"></i>
+            </div>
+            <div>
+              <p class="summary-label">Total Advance Rent Deposited</p>
+              <h3 class="summary-value text-indigo-700">₱ {{ totalAdvanceDeposited.toLocaleString() }}</h3>
+            </div>
           </div>
+
+          <div class="summary-card">
+            <div class="summary-icon amber">
+              <i class="pi pi-arrow-right-arrow-left text-xl"></i>
+            </div>
+            <div>
+              <p class="summary-label">Credit Allocated to Bills</p>
+              <h3 class="summary-value text-amber-600">₱ {{ totalAdvanceAllocated.toLocaleString() }}</h3>
+            </div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-icon green">
+              <i class="pi pi-shield text-xl"></i>
+            </div>
+            <div>
+              <p class="summary-label">Available Advance Credits</p>
+              <h3 class="summary-value text-emerald-600">₱ {{ totalAdvanceAvailable.toLocaleString() }}</h3>
+            </div>
+          </div>
+        </div>
+
+        <!-- Information Callout Box -->
+        <div class="bg-indigo-50/70 border border-indigo-200/80 rounded-2xl p-4 text-xs text-indigo-950 flex items-start gap-3 shadow-xs">
+          <i class="pi pi-info-circle text-indigo-600 text-lg mt-0.5"></i>
+          <div>
+            <div class="font-extrabold text-sm text-indigo-950 mb-0.5">Advance Rent Accounting & Allocation Rule</div>
+            <p class="text-indigo-800 leading-relaxed m-0">
+              In accordance with Municipal Treasury regulations, <strong>two-month advance rent</strong> is held in trust as an unallocated credit. It does <strong>not</strong> automatically settle the first two billing statements. Allocations are authorized transfers of existing deposit credit to liquidate specific rental statements and are <strong>not</strong> counted as duplicate cash income in daily collection journals.
+            </p>
+          </div>
+        </div>
+
+        <!-- Advance Credit Table -->
+        <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+          <div class="p-4 sm:p-5 border-b border-slate-200/80 flex items-center justify-between gap-4">
+            <div>
+              <h3 class="text-base font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+                <i class="pi pi-wallet text-indigo-600"></i>
+                Advance Rental Deposit Ledger
+              </h3>
+              <p class="text-xs text-slate-500 mt-0.5">Stakeholders with verified 2-month advance rental credits on record</p>
+            </div>
+            <span class="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
+              {{ advanceCreditStakeholders.length }} Accounts
+            </span>
+          </div>
+
+          <div v-if="advanceCreditStakeholders.length === 0" class="text-center py-16 text-slate-400">
+            <i class="pi pi-wallet text-5xl mb-3 text-slate-300"></i>
+            <p class="text-base font-semibold text-slate-600">No advance credit deposits currently recorded.</p>
+            <p class="text-xs text-slate-400 mt-1">Initial 2-month advance rental payments verified in Applicant Payments will appear here.</p>
+          </div>
+
+          <DataTable 
+            v-else
+            :value="advanceCreditStakeholders" 
+            class="p-datatable-sm" 
+            responsiveLayout="scroll"
+          >
+            <!-- Stakeholder Info -->
+            <Column header="Stakeholder" style="min-width: 200px">
+              <template #body="{ data }">
+                <div class="font-bold text-slate-900 text-xs sm:text-sm">{{ data.stakeholder }}</div>
+                <div v-if="data.businessName" class="text-xs text-slate-500">{{ data.businessName }}</div>
+                <span v-if="data.stallNo" class="inline-block mt-1 text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded">
+                  Stall #{{ data.stallNo }}
+                </span>
+              </template>
+            </Column>
+
+            <!-- Originating Receipt -->
+            <Column header="Originating Receipt" style="min-width: 160px">
+              <template #body="{ data }">
+                <div class="font-mono text-xs font-bold text-slate-700">{{ data.originatingReceipt || 'O.R.-INITIAL' }}</div>
+                <div class="text-[11px] text-slate-400">{{ formatDate(data.receiptDate) }}</div>
+              </template>
+            </Column>
+
+            <!-- Original Advance Deposited -->
+            <Column header="Original Advance" style="min-width: 130px">
+              <template #body="{ data }">
+                <span class="text-xs font-bold text-slate-800">₱{{ Number(data.originalAdvance || 0).toLocaleString() }}</span>
+              </template>
+            </Column>
+
+            <!-- Allocated to Bills -->
+            <Column header="Allocated to Bills" style="min-width: 130px">
+              <template #body="{ data }">
+                <span class="text-xs font-semibold text-amber-600">₱{{ Number(data.allocatedAmount || 0).toLocaleString() }}</span>
+              </template>
+            </Column>
+
+            <!-- Available Balance -->
+            <Column header="Available Credit" style="min-width: 140px">
+              <template #body="{ data }">
+                <span class="text-sm font-extrabold text-emerald-600">₱{{ Number(data.availableBalance || 0).toLocaleString() }}</span>
+              </template>
+            </Column>
+
+            <!-- Status Tag -->
+            <Column header="Credit Status" style="min-width: 130px">
+              <template #body="{ data }">
+                <Tag 
+                  :value="data.status" 
+                  :severity="data.status === 'AVAILABLE' ? 'success' : (data.status === 'PARTIALLY_ALLOCATED' ? 'warning' : 'secondary')" 
+                  rounded 
+                  class="!text-[11px] !py-0.5 !px-2.5 font-bold"
+                />
+              </template>
+            </Column>
+
+            <!-- Actions -->
+            <Column header="Actions" style="min-width: 160px; text-align: right">
+              <template #body="{ data }">
+                <div class="flex items-center justify-end gap-2">
+                  <Button 
+                    v-if="data.availableBalance > 0"
+                    icon="pi pi-wallet" 
+                    label="Allocate" 
+                    size="small" 
+                    severity="help" 
+                    class="!py-1.5 !px-3 !text-xs font-bold"
+                    title="Allocate available credit to an outstanding statement"
+                    @click="openAllocateFromLedger(data)"
+                  />
+                  <Button 
+                    v-else
+                    icon="pi pi-check" 
+                    label="Exhausted" 
+                    size="small" 
+                    disabled 
+                    outlined
+                    class="!py-1 !px-2 !text-xs"
+                  />
+                </div>
+              </template>
+            </Column>
+          </DataTable>
+        </div>
+      </div>
+
+      <!-- ============================================== -->
+      <!-- VIEW 3: OVERDUE ACCOUNTS & NOTICE TRACKING      -->
+      <!-- ============================================== -->
+      <div v-else-if="mainBillingView === 'OVERDUE'" class="space-y-6">
+        <!-- Overdue Summary Cards -->
+        <div class="summary-grid">
+          <div class="summary-card">
+            <div class="summary-icon red">
+              <i class="pi pi-exclamation-triangle text-xl"></i>
+            </div>
+            <div>
+              <p class="summary-label">Overdue Bills</p>
+              <h3 class="summary-value text-rose-600">{{ overdueRows.length }}</h3>
+            </div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-icon red">
+              <i class="pi pi-dollar text-xl"></i>
+            </div>
+            <div>
+              <p class="summary-label">Total Overdue Arrears</p>
+              <h3 class="summary-value text-rose-700">₱ {{ totalOverdueArrears.toLocaleString() }}</h3>
+            </div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-icon amber">
+              <i class="pi pi-shield text-xl"></i>
+            </div>
+            <div>
+              <p class="summary-label">90+ Day Delinquency Risk</p>
+              <h3 class="summary-value text-amber-700">{{ criticalRevocationCount }} Cases</h3>
+            </div>
+          </div>
+        </div>
+
+        <!-- Municipal Delinquency Policy Callout -->
+        <div class="bg-rose-50/70 border border-rose-200/80 rounded-2xl p-4 text-xs text-rose-950 flex items-start gap-3 shadow-xs">
+          <i class="pi pi-shield text-rose-600 text-lg mt-0.5"></i>
+          <div>
+            <div class="font-extrabold text-sm text-rose-950 mb-0.5">Municipal Delinquency & Grace Period Procedure</div>
+            <p class="text-rose-800 leading-relaxed m-0">
+              The Municipality enforces a <strong>60-day confirmed grace period</strong>. Accounts exceeding 60 days receive structured delinquency notices: <em>First Notice</em> &bull; <em>Second Notice</em> &bull; <em>Final Demand</em>. Accounts exceeding <strong>90 days in arrears</strong> become legally eligible for lease revocation under the exclusive executive authority of the <strong>Municipal Mayor</strong>.
+            </p>
+          </div>
+        </div>
+
+        <!-- Overdue Accounts Table -->
+        <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+          <div class="p-4 sm:p-5 border-b border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 class="text-base font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+                <i class="pi pi-exclamation-triangle text-rose-600"></i>
+                Overdue Accounts Ledger
+              </h3>
+              <p class="text-xs text-slate-500 mt-0.5">Past due rental statements and grace-period compliance status</p>
+            </div>
+            <Button 
+              icon="pi pi-download" 
+              label="Export Overdue Report" 
+              size="small" 
+              severity="secondary" 
+              outlined 
+              class="!py-1.5 !px-3 font-semibold text-xs"
+              @click="exportBillingReport"
+            />
+          </div>
+
+          <div v-if="overdueRows.length === 0" class="text-center py-16 text-slate-400">
+            <i class="pi pi-check-circle text-5xl mb-3 text-emerald-400"></i>
+            <p class="text-base font-semibold text-slate-700">No overdue accounts on record!</p>
+            <p class="text-xs text-slate-400 mt-1">All tenants are current on rental dues or within allowable billing horizons.</p>
+          </div>
+
+          <DataTable 
+            v-else
+            :value="overdueRows" 
+            class="p-datatable-sm" 
+            responsiveLayout="scroll"
+          >
+            <!-- Stakeholder & Business -->
+            <Column header="Stakeholder" style="min-width: 180px">
+              <template #body="{ data }">
+                <div class="font-bold text-slate-900 text-xs sm:text-sm">{{ data.stakeholder }}</div>
+                <div v-if="data.businessName" class="text-xs text-slate-500">{{ data.businessName }}</div>
+              </template>
+            </Column>
+
+            <!-- Assigned Stall -->
+            <Column header="Stall" style="min-width: 110px">
+              <template #body="{ data }">
+                <span class="inline-block text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded">
+                  Stall {{ data.stallNo || '—' }}
+                </span>
+              </template>
+            </Column>
+
+            <!-- Statement / Invoice -->
+            <Column header="Statement #" style="min-width: 130px">
+              <template #body="{ data }">
+                <div class="font-mono text-xs font-bold text-slate-700">{{ data.id }}</div>
+                <div class="text-[11px] text-slate-400">{{ formatPeriod(data.period) }}</div>
+              </template>
+            </Column>
+
+            <!-- Due Date & Age -->
+            <Column header="Due Date & Age" style="min-width: 140px">
+              <template #body="{ data }">
+                <div class="text-xs font-semibold text-slate-800">{{ formatDate(data.due) }}</div>
+                <span class="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.2 rounded mt-0.5">
+                  <i class="pi pi-clock text-[10px]"></i>
+                  {{ data.daysPastDue }} days past due
+                </span>
+              </template>
+            </Column>
+
+            <!-- Outstanding Balance -->
+            <Column header="Overdue Balance" style="min-width: 120px">
+              <template #body="{ data }">
+                <span class="text-xs sm:text-sm font-extrabold text-rose-600">₱{{ Number(data.balance || 0).toLocaleString() }}</span>
+              </template>
+            </Column>
+
+            <!-- Grace Period Status -->
+            <Column header="60-Day Grace Period" style="min-width: 160px">
+              <template #body="{ data }">
+                <Tag 
+                  :value="data.daysPastDue <= 60 ? 'WITHIN 60-DAY GRACE' : 'GRACE EXPIRED'" 
+                  :severity="data.daysPastDue <= 60 ? 'warning' : 'danger'" 
+                  rounded 
+                  class="!text-[10px] !py-0.5 !px-2 font-bold"
+                />
+              </template>
+            </Column>
+
+            <!-- Notice Status -->
+            <Column header="Notice Status" style="min-width: 150px">
+              <template #body="{ data }">
+                <span v-if="data.daysPastDue > 90" class="inline-flex items-center gap-1 text-[11px] font-bold text-red-800 bg-red-100 px-2 py-0.5 rounded">
+                  <i class="pi pi-shield text-[10px]"></i> Mayoral Revocation Eligible
+                </span>
+                <span v-else-if="data.noticeSent" class="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded">
+                  <i class="pi pi-envelope text-[10px]"></i> Notice Dispatched
+                </span>
+                <span v-else class="text-xs text-slate-400 italic">None Issued</span>
+              </template>
+            </Column>
+
+            <!-- Actions -->
+            <Column header="Actions" style="min-width: 190px; text-align: right">
+              <template #body="{ data }">
+                <div class="flex items-center justify-end gap-1.5">
+                  <Button 
+                    icon="pi pi-credit-card" 
+                    label="Pay" 
+                    size="small" 
+                    severity="success" 
+                    class="!py-1 !px-2.5 !text-xs font-bold"
+                    @click="collectPayment(data)"
+                  />
+                  <Button 
+                    icon="pi pi-envelope" 
+                    label="Notice" 
+                    size="small" 
+                    severity="warn" 
+                    outlined
+                    class="!py-1 !px-2 !text-xs font-bold"
+                    title="Issue official overdue notice"
+                    @click="openNoticeModal(data)"
+                  />
+                  <Button 
+                    icon="pi pi-eye" 
+                    size="small" 
+                    outlined 
+                    severity="secondary" 
+                    class="!py-1 !px-2 text-slate-500"
+                    title="View details"
+                    @click="openBillDetails(data)"
+                  />
+                </div>
+              </template>
+            </Column>
+          </DataTable>
         </div>
       </div>
 
@@ -607,13 +1005,73 @@
         </template>
       </Dialog>
 
+      <!-- OFFICIAL DELINQUENCY NOTICE MODAL -->
+      <Dialog
+        v-model:visible="showNoticeDialog"
+        modal
+        header="Issue Official Overdue Notice"
+        :style="{ width: '500px', maxWidth: '95vw' }"
+        :dismissableMask="true"
+      >
+        <div v-if="noticeTargetBill" class="space-y-4 pt-2">
+          <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900 leading-relaxed">
+            Issue official delinquency warning to <strong>{{ noticeTargetBill.stakeholder }}</strong> regarding past due rental statement <strong>{{ noticeTargetBill.id }}</strong> (₱{{ Number(noticeTargetBill.balance || 0).toLocaleString() }}).
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="block text-xs font-bold text-slate-700 uppercase">Notice Escalation Stage *</label>
+            <select
+              v-model="noticeType"
+              class="w-full border border-slate-300 rounded-xl p-2.5 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500"
+            >
+              <option value="FIRST_NOTICE">1st Notice of Overdue Rental (After 60-Day Grace)</option>
+              <option value="SECOND_NOTICE">2nd Delinquency Notice</option>
+              <option value="FINAL_DEMAND">Final Demand Notice (Pre-Revocation)</option>
+            </select>
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="block text-xs font-bold text-slate-700 uppercase">Issuing Official / Office</label>
+            <input
+              v-model="noticeIssuer"
+              type="text"
+              class="w-full border border-slate-300 rounded-xl p-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500"
+            />
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="block text-xs font-bold text-slate-700 uppercase">Official Instructions / Remarks</label>
+            <textarea
+              v-model="noticeRemarks"
+              rows="3"
+              class="w-full border border-slate-300 rounded-xl p-2.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
+              placeholder="e.g. Settle balance at Treasury within 7 working days to avoid Mayoral lease revocation proceedings..."
+            ></textarea>
+          </div>
+        </div>
+
+        <template #footer>
+          <div class="flex justify-end gap-2 w-full pt-3">
+            <Button label="Cancel" severity="secondary" outlined size="small" @click="showNoticeDialog = false" />
+            <Button
+              label="Issue & Dispatch Notice"
+              icon="pi pi-send"
+              severity="warn"
+              size="small"
+              :loading="isIssuingNotice"
+              @click="submitNotice"
+            />
+          </div>
+        </template>
+      </Dialog>
+
     </main>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import api from '../services/api'
 import { fetchBillings as getBillingsApi, sendBillingNotification } from '../services/billingService'
@@ -628,11 +1086,22 @@ import Toast from 'primevue/toast'
 import systemMessage from '../utils/systemMessage'
 
 const router = useRouter()
+const route = useRoute()
 const toast = useToast()
 const isSendingBulkReminders = ref(false)
+const isGeneratingBills = ref(false)
+
+// Main tab navigation: BILLS, ADVANCE_CREDIT, OVERDUE
+const mainBillingView = ref('BILLS')
+function setMainView(mode) {
+  mainBillingView.value = mode
+}
 
 const search = ref('')
 const rows = ref([])
+const allStakeholders = ref([])
+const advanceCreditsList = ref([])
+const noticesList = ref([])
 const loading = ref(false)
 const activeFilter = ref('ALL') // ALL, PAST_DUE, THIS_MONTH, ADVANCE, UNPAID, PAID
 
@@ -652,8 +1121,17 @@ const showDailyModal = ref(false)
 const dailyTargetBill = ref(null)
 const dailyAmount = ref(100)
 const dailyReceiptNo = ref('')
+const dailyCollectorName = ref('Municipal Treasury Collector')
 const dailyNotes = ref('')
 const isSubmittingDaily = ref(false)
+
+// Delinquency Notice Modal state
+const showNoticeDialog = ref(false)
+const noticeTargetBill = ref(null)
+const noticeType = ref('FIRST_NOTICE')
+const noticeIssuer = ref('Office of the Municipal Treasurer')
+const noticeRemarks = ref('')
+const isIssuingNotice = ref(false)
 
 const now = new Date()
 const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -732,6 +1210,24 @@ async function fetchBillings() {
         stakeholderEmail: (b.email || st.email || b.stakeholderEmail || b.occupant?.email || '').trim()
       }
     })
+
+    // Fetch related records for Advance Credit Ledger & Overdue Notices
+    try {
+      const [shRes, acRes, notRes] = await Promise.allSettled([
+        api.get('/stakeholders'),
+        api.get('/advance-credits'),
+        api.get('/notices')
+      ])
+      if (shRes.status === 'fulfilled') {
+        allStakeholders.value = Array.isArray(shRes.value?.data) ? shRes.value.data : []
+      }
+      if (acRes.status === 'fulfilled') {
+        advanceCreditsList.value = Array.isArray(acRes.value?.data) ? acRes.value.data : []
+      }
+      if (notRes.status === 'fulfilled') {
+        noticesList.value = Array.isArray(notRes.value?.data) ? notRes.value.data : []
+      }
+    } catch (_) {}
   } catch (err) {
     console.error('Error loading billings', err)
     toast.add({
@@ -1158,6 +1654,230 @@ async function submitDailyCollection() {
     isSubmittingDaily.value = false
   }
 }
+
+/* ========================================================
+   ADVANCE CREDIT LEDGER & OVERDUE ACCOUNTS COMPUTED
+======================================================== */
+const overdueRows = computed(() => {
+  return rows.value
+    .filter(r => Number(r.balance || 0) > 0 && (r.status === 'OVERDUE' || isPastDue(r)))
+    .map(r => {
+      const hasNotice = noticesList.value.some(n => Number(n.stakeholder_id || n.stakeholderId) === Number(r.stakeholderId))
+      return {
+        ...r,
+        noticeSent: hasNotice
+      }
+    })
+})
+
+const totalOverdueArrears = computed(() => {
+  return overdueRows.value.reduce((sum, r) => sum + Number(r.balance || 0), 0)
+})
+
+const criticalRevocationCount = computed(() => {
+  return overdueRows.value.filter(r => Number(r.daysPastDue || 0) > 90).length
+})
+
+const advanceCreditStakeholders = computed(() => {
+  const map = new Map()
+
+  for (const s of allStakeholders.value) {
+    const sId = s.id
+    const orig = Number(s.total_advance_amount || s.advance_payment_amount || 6000)
+    const avail = Number(s.advance_balance ?? (s.advance_payment_paid ? 6000 : 0))
+    if (avail > 0 || orig > 0 || s.advance_payment_paid || s.advance_receipt_no) {
+      const allocated = Math.max(0, orig - avail)
+      map.set(sId, {
+        stakeholderId: sId,
+        stakeholder: `${s.first_name || ''} ${s.last_name || ''}`.trim() || s.username || 'Stakeholder',
+        businessName: s.business_name || '',
+        stallNo: s.selected_stall_id || s.stall_no || '',
+        originatingReceipt: s.advance_receipt_no || 'OR-ADV-INITIAL',
+        receiptDate: s.created_at || s.updated_at,
+        originalAdvance: orig,
+        allocatedAmount: allocated,
+        availableBalance: avail,
+        status: avail > 0 ? (allocated > 0 ? 'PARTIALLY_ALLOCATED' : 'AVAILABLE') : 'FULLY_ALLOCATED'
+      })
+    }
+  }
+
+  for (const c of advanceCreditsList.value) {
+    const sId = c.stakeholder_id || c.stakeholderId
+    const sh = c.stakeholder || {}
+    const orig = Number(c.amount || 6000)
+    const avail = Number(c.available_amount ?? c.availableAmount ?? 0)
+    const allocated = Number(c.allocated_amount ?? c.allocatedAmount ?? Math.max(0, orig - avail))
+    map.set(sId, {
+      stakeholderId: sId,
+      stakeholder: map.get(sId)?.stakeholder || `${sh.first_name || ''} ${sh.last_name || ''}`.trim() || 'Stakeholder',
+      businessName: map.get(sId)?.businessName || sh.business_name || '',
+      stallNo: map.get(sId)?.stallNo || '',
+      originatingReceipt: c.receipt_no || c.receiptNo || map.get(sId)?.originatingReceipt || 'OR-ADV-INITIAL',
+      receiptDate: c.created_at || map.get(sId)?.receiptDate,
+      originalAdvance: orig,
+      allocatedAmount: allocated,
+      availableBalance: avail,
+      status: avail > 0 ? (allocated > 0 ? 'PARTIALLY_ALLOCATED' : 'AVAILABLE') : 'FULLY_ALLOCATED'
+    })
+  }
+
+  return Array.from(map.values()).sort((a, b) => b.availableBalance - a.availableBalance)
+})
+
+const totalAdvanceDeposited = computed(() => {
+  return advanceCreditStakeholders.value.reduce((sum, s) => sum + Number(s.originalAdvance || 0), 0)
+})
+
+const totalAdvanceAllocated = computed(() => {
+  return advanceCreditStakeholders.value.reduce((sum, s) => sum + Number(s.allocatedAmount || 0), 0)
+})
+
+const totalAdvanceAvailable = computed(() => {
+  return advanceCreditStakeholders.value.reduce((sum, s) => sum + Number(s.availableBalance || 0), 0)
+})
+
+/* =========================
+   LEDGER & NOTICE ACTIONS
+========================= */
+function openAllocateFromLedger(ledgerRow) {
+  const unpaidBill = rows.value.find(r => Number(r.stakeholderId) === Number(ledgerRow.stakeholderId) && Number(r.balance || 0) > 0)
+  if (!unpaidBill) {
+    toast.add({
+      severity: 'info',
+      summary: 'No Unpaid Bills',
+      detail: `${ledgerRow.stakeholder} currently has no outstanding bills to allocate credit towards.`,
+      life: 4000
+    })
+    return
+  }
+  openAllocateModal(unpaidBill)
+}
+
+function openNoticeModal(row) {
+  noticeTargetBill.value = row
+  noticeType.value = row.daysPastDue > 90 ? 'FINAL_DEMAND' : (row.daysPastDue > 60 ? 'SECOND_NOTICE' : 'FIRST_NOTICE')
+  noticeIssuer.value = 'Office of the Municipal Treasurer'
+  noticeRemarks.value = `Immediate settlement required for overdue rental statement ${row.id} (₱${Number(row.balance).toLocaleString()}).`
+  showNoticeDialog.value = true
+}
+
+async function submitNotice() {
+  if (!noticeTargetBill.value) return
+  isIssuingNotice.value = true
+  try {
+    const { issueOverdueNotice } = await import('../services/billingService')
+    await issueOverdueNotice({
+      contractId: noticeTargetBill.value.contractId || noticeTargetBill.value.contract?.id || 1,
+      stakeholderId: noticeTargetBill.value.stakeholderId,
+      billingIds: [noticeTargetBill.value.rawId || noticeTargetBill.value.id],
+      noticeType: noticeType.value,
+      balanceSnapshot: noticeTargetBill.value.balance,
+      daysOverdue: noticeTargetBill.value.daysPastDue,
+      notes: noticeRemarks.value,
+      issuerName: noticeIssuer.value
+    })
+
+    toast.add({
+      severity: 'success',
+      summary: 'Notice Dispatched',
+      detail: `Official ${noticeType.value} successfully recorded and dispatched for ${noticeTargetBill.value.stakeholder}.`,
+      life: 5000
+    })
+    showNoticeDialog.value = false
+    noticeTargetBill.value = null
+    await fetchBillings()
+  } catch (err) {
+    console.error('Failed to issue notice:', err)
+    toast.add({
+      severity: 'error',
+      summary: 'Notice Error',
+      detail: err.message || 'Could not issue notice.',
+      life: 4500
+    })
+  } finally {
+    isIssuingNotice.value = false
+  }
+}
+
+async function generateMonthlyBillsAction() {
+  isGeneratingBills.value = true
+  try {
+    const { ensureBillingsForVerifiedTenants } = await import('../services/billingService')
+    await ensureBillingsForVerifiedTenants({ force: true })
+    toast.add({
+      severity: 'success',
+      summary: 'Billing Generation Complete',
+      detail: 'Monthly rental billing statements generated for all active eligible leases without duplicates.',
+      life: 5000
+    })
+    await fetchBillings()
+  } catch (err) {
+    console.error('Error generating bills:', err)
+    toast.add({
+      severity: 'error',
+      summary: 'Generation Failed',
+      detail: err.message || 'Could not generate bills.',
+      life: 4500
+    })
+  } finally {
+    isGeneratingBills.value = false
+  }
+}
+
+function exportBillingReport() {
+  const exportData = mainBillingView.value === 'OVERDUE' ? overdueRows.value : rows.value
+  if (!exportData || exportData.length === 0) {
+    toast.add({ severity: 'warn', summary: 'Export Empty', detail: 'No data to export.', life: 3000 })
+    return
+  }
+  const billsData = exportData.map(r => ({
+    'Invoice #': r.id,
+    'Stakeholder': r.stakeholder,
+    'Business': r.businessName || '—',
+    'Stall': r.stallNo || '—',
+    'Period': r.period,
+    'Due Date': r.due,
+    'Total Due': r.total,
+    'Paid': r.paid,
+    'Balance': r.balance,
+    'Status': r.status,
+    'Days Past Due': r.daysPastDue || 0
+  }))
+
+  const headers = Object.keys(billsData[0] || {}).join(',')
+  const csvRows = billsData.map(row => Object.values(row).map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
+  const csvContent = 'data:text/csv;charset=utf-8,' + [headers, ...csvRows].join('\n')
+  const encodedUri = encodeURI(csvContent)
+  const link = document.createElement('a')
+  link.setAttribute('href', encodedUri)
+  link.setAttribute('download', `Manticao_Market_${mainBillingView.value}_Report_${new Date().toISOString().split('T')[0]}.csv`)
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+
+  toast.add({
+    severity: 'info',
+    summary: 'Report Exported',
+    detail: 'Report exported to CSV successfully.',
+    life: 3000
+  })
+}
+
+// Watch query parameters for immediate view switching
+watch(() => route.query.tab, (tab) => {
+  if (tab === 'advance-credit') {
+    mainBillingView.value = 'ADVANCE_CREDIT'
+  } else if (tab === 'overdue') {
+    mainBillingView.value = 'OVERDUE'
+  } else if (tab === 'outstanding') {
+    mainBillingView.value = 'BILLS'
+    activeFilter.value = 'UNPAID'
+  } else if (tab === 'collections') {
+    mainBillingView.value = 'BILLS'
+    activeFilter.value = 'ALL'
+  }
+}, { immediate: true })
 
 /* =========================
    LIFECYCLE

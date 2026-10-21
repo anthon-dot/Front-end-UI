@@ -305,7 +305,15 @@
                   <div class="text-gray-400 mt-1">Endorsed on {{ formatDate(app.supervisor_endorsed_at) }}</div>
                 </td>
                 <td class="py-3 px-4 text-right">
-                  <div class="flex items-center justify-end gap-2">
+                  <div class="flex items-center justify-end gap-1.5 flex-wrap">
+                    <button
+                      type="button"
+                      class="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                      title="Inspect uploaded application and LOI document"
+                      @click="openViewLoiDialog(app)"
+                    >
+                      <i class="pi pi-file-pdf mr-1"></i> View LOI
+                    </button>
                     <button
                       type="button"
                       class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors cursor-pointer"
@@ -315,7 +323,15 @@
                     </button>
                     <button
                       type="button"
-                      class="px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                      class="px-2.5 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                      title="Return application back to applicant for document or details correction"
+                      @click="openReturnDialog(app)"
+                    >
+                      <i class="pi pi-replay mr-1"></i> Return for Correction
+                    </button>
+                    <button
+                      type="button"
+                      class="px-2.5 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
                       @click="openRejectDialog(app)"
                     >
                       <i class="pi pi-times mr-1"></i> Reject
@@ -642,10 +658,194 @@
             type="button"
             class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-semibold shadow-sm cursor-pointer"
             :disabled="isSubmitting || !decisionRemarks.trim()"
-            @click="submitMayorDecision(false)"
+            @click="submitMayorDecision('REJECTED')"
           >
             {{ isSubmitting ? 'Processing...' : 'Confirm Rejection' }}
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: RETURN FOR CORRECTION -->
+    <div v-if="showReturnModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-xl shadow-xl max-w-lg w-full p-6">
+        <h3 class="text-lg font-bold text-amber-700 mb-2 flex items-center gap-2">
+          <i class="pi pi-replay text-amber-600"></i>
+          Return Application for Correction
+        </h3>
+        <p class="text-sm text-gray-600 mb-4">
+          Returning this application allows <strong>{{ selectedApp?.stakeholder?.first_name }} {{ selectedApp?.stakeholder?.last_name }}</strong> to update missing or invalid requirements without forfeiting their application or selected stall.
+        </p>
+
+        <div class="mb-4">
+          <label class="block text-xs font-semibold text-gray-700 uppercase mb-1">Required Corrections & Instructions *</label>
+          <textarea
+            v-model="decisionRemarks"
+            rows="4"
+            class="w-full border border-amber-300 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+            placeholder="Specify what needs correction (e.g. Please re-upload a clear government-issued ID; Letter of Intent requires physical signature; clarify nature of retail goods)..."
+            required
+          ></textarea>
+        </div>
+
+        <div class="flex justify-end gap-2">
+          <button
+            type="button"
+            class="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
+            @click="showReturnModal = false"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-semibold shadow-sm cursor-pointer"
+            :disabled="isSubmitting || !decisionRemarks.trim()"
+            @click="submitMayorDecision('RETURNED_FOR_CORRECTION')"
+          >
+            {{ isSubmitting ? 'Processing...' : 'Confirm Return for Correction' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: VIEW APPLICATION & LOI DOSSIER -->
+    <div v-if="showViewLoiModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between pb-3 border-b border-gray-200 mb-4">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
+              <i class="pi pi-file-pdf"></i>
+            </div>
+            <div>
+              <h3 class="text-base font-bold text-gray-900 m-0">Application & LOI Dossier</h3>
+              <p class="text-xs text-gray-500 m-0">Reference: {{ selectedApp?.application_no || `APP-${selectedApp?.id}` }}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            class="text-gray-400 hover:text-gray-600 cursor-pointer p-1"
+            @click="showViewLoiModal = false"
+          >
+            <i class="pi pi-times text-lg"></i>
+          </button>
+        </div>
+
+        <div v-if="selectedApp" class="space-y-4 text-xs sm:text-sm">
+          <!-- Applicant & Business Info -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-gray-50 p-4 rounded-xl border border-gray-200">
+            <div>
+              <span class="text-gray-500 block text-xs font-semibold">Applicant Name</span>
+              <span class="font-bold text-gray-900 text-sm">{{ selectedApp.stakeholder?.first_name }} {{ selectedApp.stakeholder?.last_name }}</span>
+            </div>
+            <div>
+              <span class="text-gray-500 block text-xs font-semibold">Business Name & Trade</span>
+              <span class="font-bold text-gray-900 text-sm">{{ selectedApp.stakeholder?.business_name || '—' }} ({{ selectedApp.stakeholder?.business_type || 'Retail' }})</span>
+            </div>
+            <div>
+              <span class="text-gray-500 block text-xs font-semibold">Contact & Email</span>
+              <span class="text-gray-700">{{ selectedApp.stakeholder?.contact || '—' }} &bull; {{ selectedApp.stakeholder?.email || '—' }}</span>
+            </div>
+            <div>
+              <span class="text-gray-500 block text-xs font-semibold">Assigned Stall</span>
+              <span class="font-bold text-indigo-700">Stall #{{ selectedApp.stall?.stall_no || selectedApp.stall_id }} ({{ selectedApp.stall?.dimensions || 'Standard' }})</span>
+            </div>
+          </div>
+
+          <!-- Financial Requirement Overview -->
+          <div class="bg-amber-50/70 p-3.5 rounded-xl border border-amber-200 text-xs">
+            <span class="font-bold text-amber-950 uppercase tracking-wider block mb-1">Approved Assessment Schedule</span>
+            <div class="grid grid-cols-3 gap-2 text-center pt-1">
+              <div>
+                <span class="text-gray-500 block">Stall Rights Fee</span>
+                <span class="font-bold text-gray-800">₱{{ Number(selectedApp.calculated_stall_rights_fee || 5000).toLocaleString() }}</span>
+              </div>
+              <div>
+                <span class="text-gray-500 block">2-Month Advance</span>
+                <span class="font-bold text-gray-800">₱{{ Number(selectedApp.calculated_advance_rent || 3000).toLocaleString() }}</span>
+              </div>
+              <div>
+                <span class="text-gray-500 block">Total Due at Treasury</span>
+                <span class="font-black text-emerald-700">₱{{ Number(selectedApp.total_initial_amount_due || 8000).toLocaleString() }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Endorsement Details -->
+          <div class="border border-gray-200 rounded-xl p-3 bg-white space-y-1">
+            <span class="font-bold text-gray-700 block">Market Supervisor Endorsement:</span>
+            <p class="text-gray-600 italic m-0">{{ selectedApp.supervisor_remarks || 'Endorsed for Mayoral review and official signed decision.' }}</p>
+            <span class="text-[11px] text-gray-400 block pt-1">Endorsed at: {{ formatDate(selectedApp.supervisor_endorsed_at) }}</span>
+          </div>
+
+          <!-- Document Attachments & Download -->
+          <div class="border border-gray-200 rounded-xl p-3 bg-white">
+            <span class="font-bold text-gray-700 block mb-2">Uploaded Legal Documents & LOI Evidence:</span>
+            <div class="space-y-2">
+              <div class="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg border border-gray-200">
+                <div class="flex items-center gap-2">
+                  <i class="pi pi-file-pdf text-red-600 text-lg"></i>
+                  <div>
+                    <span class="font-semibold text-gray-800 block">Letter of Intent (LOI)</span>
+                    <span class="text-[11px] text-gray-400">Formal intent to lease public market stall</span>
+                  </div>
+                </div>
+                <a
+                  v-if="selectedApp.loi_document_url || selectedApp.loiUrl || selectedApp.letter_document_url"
+                  :href="selectedApp.loi_document_url || selectedApp.loiUrl || selectedApp.letter_document_url"
+                  target="_blank"
+                  class="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-semibold no-underline"
+                >
+                  <i class="pi pi-download mr-1"></i> Download
+                </a>
+                <span v-else class="text-xs text-gray-400 italic">Attached on file</span>
+              </div>
+
+              <div class="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg border border-gray-200">
+                <div class="flex items-center gap-2">
+                  <i class="pi pi-id-card text-blue-600 text-lg"></i>
+                  <div>
+                    <span class="font-semibold text-gray-800 block">Valid Government-Issued ID</span>
+                    <span class="text-[11px] text-gray-400">Identity verification document</span>
+                  </div>
+                </div>
+                <a
+                  v-if="selectedApp.id_document_url || selectedApp.idUrl"
+                  :href="selectedApp.id_document_url || selectedApp.idUrl"
+                  target="_blank"
+                  class="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-semibold no-underline"
+                >
+                  <i class="pi pi-download mr-1"></i> Download
+                </a>
+                <span v-else class="text-xs text-gray-400 italic">Attached on file</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-between items-center gap-2 mt-6 pt-3 border-t border-gray-200">
+          <button
+            type="button"
+            class="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
+            @click="showViewLoiModal = false"
+          >
+            Close Dossier
+          </button>
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              class="px-3 py-2 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-lg text-xs font-semibold cursor-pointer"
+              @click="showViewLoiModal = false; openReturnDialog(selectedApp)"
+            >
+              <i class="pi pi-replay mr-1"></i> Return for Correction
+            </button>
+            <button
+              type="button"
+              class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-sm cursor-pointer"
+              @click="showViewLoiModal = false; openApprovalDialog(selectedApp)"
+            >
+              <i class="pi pi-check mr-1"></i> Proceed to Approval
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -721,6 +921,8 @@ function printReport() {
 
 const showApprovalModal = ref(false);
 const showRejectModal = ref(false);
+const showReturnModal = ref(false);
+const showViewLoiModal = ref(false);
 const showRevokeModal = ref(false);
 
 const selectedApp = ref(null);
@@ -813,6 +1015,18 @@ function openApprovalDialog(app) {
   showApprovalModal.value = true;
 }
 
+function openReturnDialog(app) {
+  selectedApp.value = app;
+  decisionRemarks.value = 'Please re-submit with the following corrections: ';
+  signedDocumentRef.value = '';
+  showReturnModal.value = true;
+}
+
+function openViewLoiDialog(app) {
+  selectedApp.value = app;
+  showViewLoiModal.value = true;
+}
+
 function openRejectDialog(app) {
   selectedApp.value = app;
   decisionRemarks.value = '';
@@ -820,16 +1034,20 @@ function openRejectDialog(app) {
   showRejectModal.value = true;
 }
 
-async function submitMayorDecision(approved) {
+async function submitMayorDecision(decisionType) {
   if (!selectedApp.value) return;
   isSubmitting.value = true;
   try {
+    const isApproved = decisionType === 'APPROVED' || decisionType === true;
+    const isCorrection = decisionType === 'RETURNED_FOR_CORRECTION';
+    const decValue = isApproved ? 'APPROVED' : (isCorrection ? 'RETURNED_FOR_CORRECTION' : 'REJECTED');
+
     const headers = { Authorization: `Bearer ${authStore.token}` };
     await api.put(
       `/applications/${selectedApp.value.id}/mayor-review`,
       {
-        approved,
-        decision: approved ? 'APPROVED' : 'REJECTED',
+        approved: isApproved,
+        decision: decValue,
         remarks: decisionRemarks.value,
         signedDocumentRef: signedDocumentRef.value,
         approverName: authStore.user?.name || 'Office of the Municipal Mayor'
@@ -839,6 +1057,8 @@ async function submitMayorDecision(approved) {
 
     showApprovalModal.value = false;
     showRejectModal.value = false;
+    showReturnModal.value = false;
+    showViewLoiModal.value = false;
     selectedApp.value = null;
     await fetchData();
   } catch (err) {
