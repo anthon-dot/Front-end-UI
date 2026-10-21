@@ -19,6 +19,12 @@
       <h2>Create Account</h2>
       <p class="subtitle">Enter your credentials to register a new applicant account.</p>
 
+      <!-- SELECTED STALL FROM INTERACTIVE MAP -->
+      <div v-if="stallNo" class="selected-stall-banner">
+        <i class="pi pi-map-marker"></i>
+        <span>Applying for Stall: <strong>{{ stallNo }}</strong></span>
+      </div>
+
       <!-- ERROR -->
       <div v-if="errorMessage" class="error-banner">
         <i class="pi pi-exclamation-circle"></i>
@@ -80,13 +86,17 @@
 
 <script setup>
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import api from '../services/api'
 import { supabase } from '../config/supabase'
 import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
+
+const stallId = route.query?.stall_id || route.query?.stallId || null
+const stallNo = route.query?.stall_no || route.query?.stallNo || null
 
 const username        = ref('')
 const password        = ref('')
@@ -114,107 +124,158 @@ async function createAccount() {
     const cleanUsername = username.value.trim()
     const isEmail = cleanUsername.includes('@')
     const fallbackEmail = isEmail
-      ? cleanUsername
+      ? cleanUsername.toLowerCase()
       : cleanUsername.toLowerCase().replace(/[^a-z0-9_.-]/g, '') + '@manticao.market'
+    const assignedRole = cleanUsername.toLowerCase() === 'admin' ? 'ADMIN' : 'APPLICANT'
 
-    // 1. Authoritative backend registration (creates auth user, user_profiles, and stakeholder records)
     let authenticated = false
-    let registeredEmail = fallbackEmail
+    let sessionToken = null
+    let authUserId = null
+    let resolvedRole = assignedRole
 
+    // 1. Authoritative registration via api.post (handled by smart adapter / direct backend)
     try {
       const { data: regRes } = await api.post('/auth/register', {
         username: cleanUsername,
         password: password.value,
         email: fallbackEmail,
-        role: cleanUsername.toLowerCase() === 'admin' ? 'ADMIN' : 'APPLICANT'
+        role: assignedRole,
+        stallId,
+        stallNo
       })
 
       if (regRes?.token && regRes?.user) {
-        const roleToSet = cleanUsername.toLowerCase() === 'admin' ? 'ADMIN' : 'STAKEHOLDER'
-        authStore.setSession({
-          token: regRes.token,
-          role: roleToSet,
-          userId: regRes.user.id || '',
-          user: {
-            id: regRes.user.id,
-            username: cleanUsername,
-            role: roleToSet,
-            email: regRes.user.email || fallbackEmail
-          }
-        })
+        sessionToken = regRes.token
+        authUserId = regRes.user.id
+        resolvedRole = regRes.user.role || assignedRole
         authenticated = true
-      } else if (regRes?.user?.email) {
-        registeredEmail = regRes.user.email
+      } else if (regRes?.session?.access_token) {
+        sessionToken = regRes.session.access_token
+        authUserId = regRes.session.user?.id
+        authenticated = true
       }
     } catch (apiErr) {
-      console.warn('[AUTH] Backend /auth/register notice:', apiErr?.message)
-      // If backend returned a specific error like user already exists
-      if (apiErr?.response?.data?.error) {
-        throw new Error(apiErr.response.data.error)
+      console.warn('[AUTH] /auth/register note:', apiErr?.message)
+      const errStr = String(apiErr?.message || '')
+      if (errStr.includes('already exists') || errStr.includes('already registered')) {
+        throw apiErr
       }
     }
 
-    // 2. If not already authenticated, log in via backend or Supabase
+    // 2. Direct Supabase Auth SDK fallback (for zero-latency or standalone client execution)
     if (!authenticated) {
-      try {
-        const { data: loginRes } = await api.post('/auth/login', {
-          username: cleanUsername,
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email: fallbackEmail,
+        password: password.value,
+        options: {
+          data: {
+            username: cleanUsername,
+            role: assignedRole
+          }
+        }
+      })
+
+      if (signUpError) {
+        const msg = String(signUpError.message || '').toLowerCase()
+        if (msg.includes('already registered') || msg.includes('already exists')) {
+          // Attempt sign in if account was already created with this password
+          const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+            email: fallbackEmail,
+            password: password.value
+          })
+          if (signInErr) {
+            throw new Error('An account with this username or email already exists. Please sign in from the Login page.')
+          }
+          sessionToken = signInData?.session?.access_token
+          authUserId = signInData?.user?.id
+          authenticated = true
+        } else if (msg.includes('rate limit') || msg.includes('too many requests')) {
+          throw new Error('Registration rate limit reached. Please wait a minute or sign in from the Login page.')
+        } else {
+          throw signUpError
+        }
+      } else {
+        sessionToken = signUpData?.session?.access_token
+        authUserId = signUpData?.user?.id
+        authenticated = Boolean(sessionToken)
+      }
+
+      // If signed up but session not returned immediately, sign in now
+      if (!sessionToken) {
+        const { data: signData, error: signErr } = await supabase.auth.signInWithPassword({
+          email: fallbackEmail,
           password: password.value
         })
-
-        if (loginRes?.token && loginRes?.user) {
-          const roleToSet = cleanUsername.toLowerCase() === 'admin' ? 'ADMIN' : 'STAKEHOLDER'
-          authStore.setSession({
-            token: loginRes.token,
-            role: roleToSet,
-            userId: loginRes.user.id || '',
-            user: {
-              id: loginRes.user.id,
-              username: cleanUsername,
-              role: roleToSet,
-              email: loginRes.user.email
-            }
-          })
+        if (!signErr && signData?.session) {
+          sessionToken = signData.session.access_token
+          authUserId = signData.user?.id
           authenticated = true
         }
-      } catch (loginErr) {
-        // Fallback to Supabase direct sign-in
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-          email: registeredEmail,
-          password: password.value
-        })
+      }
 
-        if (signInError) {
-          if (String(signInError?.message || '').toLowerCase().includes('rate limit')) {
-            throw new Error('Supabase registration rate limit reached. Please wait a minute before trying again or sign in with an existing account.')
-          }
-          throw new Error(signInError.message || 'Account created, but could not sign in. Please log in from the Sign In page.')
-        }
-
-        const session = signInData.session
-        const user = signInData.user
-        const roleToSet = cleanUsername.toLowerCase() === 'admin' ? 'ADMIN' : 'STAKEHOLDER'
-
-        authStore.setSession({
-          token: session?.access_token || '',
-          role: roleToSet,
-          userId: user?.id || '',
-          user: {
-            id: user?.id,
+      if (authUserId) {
+        // Upsert user_profiles and stakeholders
+        try {
+          await supabase.from('user_profiles').upsert({
+            id: authUserId,
             username: cleanUsername,
-            role: roleToSet,
-            email: user?.email
+            full_name: cleanUsername,
+            email: fallbackEmail,
+            role: assignedRole,
+            is_active: true
+          }, { onConflict: 'id' })
+        } catch (_) {}
+
+        try {
+          const { data: exSh } = await supabase.from('stakeholders').select('id').eq('user_id', authUserId).maybeSingle()
+          let shId = exSh?.id
+          if (!shId) {
+            const { data: newSh } = await supabase.from('stakeholders').insert({
+              user_id: authUserId,
+              first_name: cleanUsername,
+              last_name: 'Applicant',
+              business_name: `${cleanUsername}'s Market Trade`,
+              business_type: 'General Merchandise',
+              contact: '09000000000',
+              email: fallbackEmail,
+              address: 'Manticao, Misamis Oriental',
+              selected_stall_id: stallId ? Number(stallId) : null,
+              application_status: 'NEW',
+              onboarding_status: 'NEW'
+            }).select('id').maybeSingle()
+            shId = newSh?.id
           }
-        })
-        authenticated = true
+          if (shId) localStorage.setItem('stakeholderId', String(shId))
+        } catch (_) {}
       }
     }
 
-    const currentRole = authStore.normalizedRole || 'STAKEHOLDER'
-    if (currentRole === 'ADMIN' || currentRole === 'MARKET_SUPERVISOR') {
+    if (!authenticated || !sessionToken) {
+      throw new Error('Account created, but could not automatically sign in. Please log in from the Sign In page.')
+    }
+
+    const finalRole = resolvedRole === 'ADMIN' ? 'ADMIN' : 'STAKEHOLDER'
+    authStore.setSession({
+      token: sessionToken,
+      role: finalRole,
+      userId: authUserId,
+      user: {
+        id: authUserId,
+        username: cleanUsername,
+        role: finalRole,
+        email: fallbackEmail
+      }
+    })
+
+    // Preserving stall parameters for seamless application continuity
+    const targetQuery = {}
+    if (stallId) targetQuery.stall_id = stallId
+    if (stallNo) targetQuery.stall_no = stallNo
+
+    if (finalRole === 'ADMIN' || resolvedRole === 'MARKET_SUPERVISOR') {
       router.push('/supervisor')
     } else {
-      router.push('/business-application')
+      router.push({ path: '/business-application', query: targetQuery })
     }
 
   } catch (error) {

@@ -221,7 +221,7 @@ async function onSubmit() {
         // 2. Fast direct database lookup for registered stakeholder username
         try {
           const { data: prof } = await supabase
-            .from('profiles')
+            .from('user_profiles')
             .select('email, username')
             .ilike('username', inputIdentifier)
             .maybeSingle()
@@ -229,7 +229,16 @@ async function onSubmit() {
           if (prof?.email) {
             emailToAuth = prof.email.trim()
           } else {
-            emailToAuth = lowerId.replace(/[^a-z0-9_.-]/g, '') + '@manticao.market'
+            const { data: altProf } = await supabase
+              .from('profiles')
+              .select('email, username')
+              .ilike('username', inputIdentifier)
+              .maybeSingle()
+            if (altProf?.email) {
+              emailToAuth = altProf.email.trim()
+            } else {
+              emailToAuth = lowerId.replace(/[^a-z0-9_.-]/g, '') + '@manticao.market'
+            }
           }
         } catch (_) {
           emailToAuth = lowerId.replace(/[^a-z0-9_.-]/g, '') + '@manticao.market'
@@ -296,7 +305,7 @@ async function onSubmit() {
 
     // Parallel fetch of profile and stakeholder records to eliminate sequential loading delay
     const [profileRes, stakeholderRes] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', authUser.id).maybeSingle(),
+      supabase.from('user_profiles').select('*').eq('id', authUser.id).maybeSingle(),
       supabase.from('stakeholders').select('id').eq('user_id', authUser.id).maybeSingle()
     ])
 

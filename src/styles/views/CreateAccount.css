@@ -143,6 +143,25 @@ h2 {
   font-weight: 600;
 }
 
+.selected-stall-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #15803d;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.selected-stall-banner i {
+  font-size: 1.1rem;
+  color: #16a34a;
+}
+
 .actions {
   display: flex;
   gap: 12px;

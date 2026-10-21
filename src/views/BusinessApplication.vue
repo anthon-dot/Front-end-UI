@@ -427,9 +427,10 @@ onMounted(async () => {
       console.warn('[BusinessApplication] Stalls loading notice:', stErr)
     }
 
-    // 2. Check query parameter
-    if (route.query.stallId) {
-      selectedStallId.value = Number(route.query.stallId)
+    // 2. Check query parameter (support both snake_case and camelCase)
+    const qStallId = route.query.stall_id || route.query.stallId
+    if (qStallId) {
+      selectedStallId.value = Number(qStallId)
     }
 
     let currentUserId = authStore.resolvedUserId || localStorage.getItem('userId')
