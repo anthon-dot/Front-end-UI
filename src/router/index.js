@@ -503,7 +503,7 @@ router.beforeEach(async (to) => {
         await stakeholderStore.ensureRequirements(stakeholder.id)
 
       if (isDashboardReady(stakeholder, requirements)) {
-        if (to.name === 'BusinessApplication' || to.name === 'ApplicationProgress' || to.name === 'ApplicantFee') {
+        if (to.name === 'BusinessApplication' || to.name === 'ApplicantFee') {
           return { name: 'Stakeholder' }
         }
 

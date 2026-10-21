@@ -14,6 +14,15 @@
           :severity="overallSeverity"
         />
         <Button
+          v-if="isFullyActivated || isDashboardReady(stakeholder, requirements)"
+          label="Vendor Dashboard"
+          icon="pi pi-th-large"
+          severity="primary"
+          size="small"
+          class="font-bold shadow-xs"
+          @click="router.push('/stakeholder')"
+        />
+        <Button
           label="Refresh"
           icon="pi pi-refresh"
           severity="secondary"
@@ -318,6 +327,49 @@
           <p>Dashboard access opens after the Treasurer records your business permit payment.</p>
         </div>
         <Button label="View Payment Status" icon="pi pi-wallet" @click="router.push('/applicant-fee')" />
+      </div>
+
+      <!-- Application Returned For Correction Notice -->
+      <div v-if="isReturnedForCorrection" class="bg-amber-50 border border-amber-300 text-amber-950 p-5 rounded-2xl shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-6">
+        <div class="flex items-start gap-3">
+          <i class="pi pi-exclamation-triangle text-amber-600 text-2xl mt-0.5"></i>
+          <div>
+            <h3 class="text-sm font-extrabold text-amber-950 m-0">Application Returned for Correction</h3>
+            <p class="text-xs text-amber-800 mt-1 m-0">
+              <strong>Mayor's Remarks:</strong> {{ stakeholder?.mayorRemarks || stakeholder?.mayor_remarks || 'Please review and update your Letter of Intent or valid ID documents.' }}
+            </p>
+          </div>
+        </div>
+        <Button
+          label="Update & Resubmit"
+          icon="pi pi-file-edit"
+          severity="warn"
+          size="small"
+          class="font-bold flex-shrink-0"
+          @click="router.push('/business-application')"
+        />
+      </div>
+
+      <!-- Active Tenancy Congratulations Callout -->
+      <div v-if="isFullyActivated || steps[7]?.status === 'approved'" class="bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white p-5 rounded-2xl shadow-md border border-emerald-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-6">
+        <div>
+          <div class="flex items-center gap-2 mb-1">
+            <span class="px-2 py-0.5 bg-emerald-500/30 text-emerald-200 text-xs font-bold rounded border border-emerald-400/30">
+              <i class="pi pi-check-circle mr-1"></i> ACTIVE TENANCY GRANTED
+            </span>
+          </div>
+          <h3 class="text-base font-extrabold text-white m-0">Congratulations! Your market stall tenancy is active.</h3>
+          <p class="text-xs text-emerald-200 mt-1 m-0">Your 3-Year Contract of Lease and Digital Occupancy Permit are active. Access your stall management and monthly billing statements.</p>
+        </div>
+        <Button
+          label="Open Vendor Dashboard"
+          icon="pi pi-arrow-right"
+          iconPos="right"
+          severity="success"
+          size="small"
+          class="font-bold flex-shrink-0"
+          @click="router.push('/stakeholder')"
+        />
       </div>
     </section>
 
@@ -748,6 +800,33 @@ const isSteps1To5Green = computed(() => {
          steps.value[4]?.status === 'approved'
 })
 
+const isReturnedForCorrection = computed(() => {
+  const data = stakeholder.value
+  if (!data) return false
+  return (
+    data.applicationStatus === 'RETURNED_FOR_CORRECTION' ||
+    data.application_status === 'RETURNED_FOR_CORRECTION' ||
+    data.mayorDecision === 'RETURNED_FOR_CORRECTION' ||
+    data.endorsementStatus === 'RETURNED_FOR_CORRECTION'
+  )
+})
+
+const isFullyActivated = computed(() => {
+  const data = stakeholder.value
+  if (!data) return false
+  return Boolean(
+    data.verifiedTenant ||
+    data.verified_tenant ||
+    data.verifiedStakeholder ||
+    data.onboardingStatus === 'ACTIVE_VENDOR' ||
+    data.onboarding_status === 'ACTIVE_VENDOR' ||
+    data.applicationStatus === 'COMPLETED' ||
+    data.application_status === 'COMPLETED' ||
+    data.applicationStatus === 'FULLY_APPROVED' ||
+    data.application_status === 'FULLY_APPROVED'
+  )
+})
+
 const hasHazardFreeDoc = computed(() => {
   const data = stakeholder.value
   if (!data) return false
@@ -953,10 +1032,6 @@ async function loadProgress(isSilent = false) {
     }
 
     applyStepStatuses(norm)
-
-    if (isDashboardReady(norm, requirements.value)) {
-      router.replace('/stakeholder')
-    }
   } catch (error) {
     console.error('[ApplicationProgress] loadProgress error:', error)
     errorMessage.value = error.message || 'Unable to load application progress.'
@@ -1175,6 +1250,13 @@ function applyStepStatuses(data) {
       steps.value[1].status = 'rejected'
       steps.value[1].description = 'Application rejected by Market Supervisor during document review.'
     }
+  } else if (
+    data.applicationStatus === 'RETURNED_FOR_CORRECTION' ||
+    data.application_status === 'RETURNED_FOR_CORRECTION' ||
+    data.mayorDecision === 'RETURNED_FOR_CORRECTION'
+  ) {
+    steps.value[2].status = 'needs-action'
+    steps.value[2].description = `Returned for correction by Municipal Mayor: ${data.mayorRemarks || data.mayor_remarks || 'Please update your submitted documents.'}`
   }
 
   // Auto-pop Hazard-Free Confirmation modal if steps 1-5 are green and not yet uploaded

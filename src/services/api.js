@@ -1914,14 +1914,17 @@ const api = {
     if (cleanUrl === 'payments') {
       const stakeholderId = data.stakeholderId || data.stakeholder_id || data.stakeholder?.id;
       const billingId = data.billingId || data.billing_id || data.billing?.id || null;
-      const receiptNo = data.receiptNo || data.receipt_no || `RCP-${Date.now().toString().slice(-8)}`;
+      const receiptNo = data.receiptNo || data.receipt_no || `OR-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
+      const pType = data.paymentType || data.payment_type || 'RENT_PAYMENT';
+      const pAmount = Number(data.amount || 0);
+
       const { data: newPayment, error } = await supabase
         .from('payments')
         .insert({
           stakeholder_id: stakeholderId,
           billing_id: billingId,
-          amount: data.amount,
-          payment_type: data.paymentType || data.payment_type || 'RENT_PAYMENT',
+          amount: pAmount,
+          payment_type: pType,
           reference_no: data.referenceNo || data.reference_no || '',
           receipt_no: receiptNo,
           payment_date: data.paymentDate || data.payment_date || new Date().toISOString()
@@ -1929,7 +1932,38 @@ const api = {
         .select()
         .single();
       if (error) throw error;
-      invalidateApiCache('payments|billings|stakeholders');
+
+      // Update stakeholder status if initial fees
+      if (stakeholderId) {
+        if (pType === 'ADVANCE_PAYMENT' || pType === 'ADVANCE_RENT') {
+          const { data: curSh } = await supabase.from('stakeholders').select('advance_balance').eq('id', Number(stakeholderId)).maybeSingle();
+          const newBal = Number(curSh?.advance_balance || 0) + pAmount;
+          await supabase.from('stakeholders').update({
+            advance_balance: newBal,
+            advance_payment_paid: true,
+            advance_payment_completed: true,
+            advance_payment_amount: pAmount,
+            advance_payment_date: new Date().toISOString().split('T')[0],
+            application_status: 'PAID_READY_FOR_CONTRACT'
+          }).eq('id', Number(stakeholderId));
+
+          await supabase.from('stakeholder_applications').update({
+            status: 'PAID_READY_FOR_CONTRACT',
+            treasurer_receipt_no: receiptNo,
+            treasurer_recorded_at: new Date().toISOString(),
+            amount_paid: pAmount,
+            current_holding_office: 'Market Supervisor'
+          }).eq('stakeholder_id', Number(stakeholderId));
+        } else if (pType === 'APPLICATION_FEE' || pType === 'STALL_RIGHTS_FEE' || pType === 'STALL_RIGHTS') {
+          await supabase.from('stakeholders').update({
+            applicant_fee_paid: true,
+            treasurer_paid: true,
+            treasurer_approved: true
+          }).eq('id', Number(stakeholderId));
+        }
+      }
+
+      invalidateApiCache('payments|billings|stakeholders|stakeholder_applications');
       return { data: normalizeRecord(newPayment) };
     }
 
@@ -2211,7 +2245,7 @@ const api = {
         .update({
           market_supervisor_approved: true,
           market_approval_status: 'APPROVED',
-          application_status: 'PENDING_BPLO_APPROVAL',
+          application_status: 'PENDING_MAYOR_APPROVAL',
           onboarding_status: resolvedStallId ? 'STALL_ASSIGNED' : 'MARKET_APPROVED',
           selected_stall_id: resolvedStallId ? Number(resolvedStallId) : (currentSh?.selected_stall_id || null)
         })
@@ -2773,6 +2807,12 @@ const api = {
           onboarding_status: 'ACTIVE_VENDOR',
           verified_tenant: true
         }).eq('id', shId);
+
+        await supabase.from('stakeholder_applications').update({
+          status: 'COMPLETED',
+          current_holding_office: 'Active Market Tenancy',
+          completed_at: nowIso
+        }).eq('stakeholder_id', shId);
       }
 
       // Log to audit_logs
