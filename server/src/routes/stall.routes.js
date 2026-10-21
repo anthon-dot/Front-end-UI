@@ -7,13 +7,15 @@ import {
   getStall,
   updateMapPosition,
   listSections,
-  listRates
+  listRates,
+  listMarkets
 } from '../controllers/stall.controller.js';
 
 const router = Router();
 
-// Publicly readable endpoints (stalls, sections, rates)
+// Publicly readable endpoints (stalls, sections, rates, markets)
 router.get('/', listStalls);
+router.get('/markets', listMarkets);
 router.get('/sections', listSections);
 router.get('/rates', listRates);
 router.get('/:id', getStall);

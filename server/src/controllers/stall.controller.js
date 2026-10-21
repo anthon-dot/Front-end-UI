@@ -51,3 +51,14 @@ export async function listRates(req, res, next) {
     next(err);
   }
 }
+
+export async function listMarkets(req, res, next) {
+  try {
+    const { data, error } = await supabase.from('markets').select('*').order('id');
+    if (error) throw error;
+    return res.json({ success: true, markets: data || [] });
+  } catch (err) {
+    next(err);
+  }
+}
+
