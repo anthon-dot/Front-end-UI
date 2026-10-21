@@ -33,7 +33,7 @@ export async function ensureBillingsForVerifiedTenants({ force = false } = {}) {
     // Also fetch occupants with active status and their active contracts
     const { data: activeOccupants, error: occErr } = await supabase
       .from('occupants')
-      .select('*, stakeholder:stakeholders(*), stall:stalls(*), contract:contracts(*)')
+      .select('*, stakeholder:stakeholders(*), stall:stalls!occupants_stall_id_fkey(*), contract:contracts(*)')
       .eq('status', 'ACTIVE')
 
     if (occErr) {

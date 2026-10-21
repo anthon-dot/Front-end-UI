@@ -141,7 +141,6 @@ export async function createPayment(payload) {
       const amountVal = Number(payload.amount || 0)
 
       const updateData = {
-        application_form_paid: true,
         applicant_fee_paid: true,
         treasurer_paid: true,
         applicant_fee_amount: amountVal,
@@ -149,19 +148,16 @@ export async function createPayment(payload) {
       }
       await supabase.from('stakeholders').update(updateData).eq('id', stakeholderId)
 
-      // Sync business_applications table if user_id exists
-      const targetUserId = payload.userId || payload.user_id
-      if (targetUserId) {
-        try {
-          await supabase.from('business_applications').update({
-            applicant_fee_paid: true,
-            application_form_paid: true,
-            applicant_fee_amount: amountVal,
-            applicant_fee_date: todayDate
-          }).eq('user_id', targetUserId)
-        } catch (appErr) {
-          console.warn('[paymentService] Could not update business_applications:', appErr)
-        }
+      // Sync stakeholder_applications table if stakeholder_id or user_id exists
+      try {
+        await supabase.from('stakeholder_applications').update({
+          amount_paid: amountVal,
+          treasurer_receipt_no: receiptNo,
+          treasurer_recorded_at: nowIso,
+          status: 'PAID_READY_FOR_CONTRACT'
+        }).eq('stakeholder_id', stakeholderId)
+      } catch (appErr) {
+        console.warn('[paymentService] Notice updating stakeholder_applications:', appErr)
       }
 
       // Trigger backend activation evaluation if API is available

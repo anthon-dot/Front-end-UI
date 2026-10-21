@@ -685,7 +685,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import axios from 'axios';
+import api from '../services/api';
 import { useAuthStore } from '../stores/auth';
 
 const authStore = useAuthStore();
@@ -748,24 +748,24 @@ async function fetchData() {
 
     // 1. Fetch applications
     try {
-      const appRes = await axios.get('/api/applications', { headers });
-      applications.value = appRes.data?.applications || [];
+      const appRes = await api.get('/applications', { headers });
+      applications.value = appRes.data?.applications || (Array.isArray(appRes.data) ? appRes.data : []);
     } catch (e) {
       applications.value = [];
     }
 
     // 2. Fetch flagged revocations
     try {
-      const delinqRes = await axios.get('/api/delinquency/flagged', { headers });
-      flaggedRevocations.value = delinqRes.data?.flaggedContracts || [];
+      const delinqRes = await api.get('/delinquency/flagged', { headers });
+      flaggedRevocations.value = delinqRes.data?.flaggedContracts || (Array.isArray(delinqRes.data) ? delinqRes.data : []);
     } catch (e) {
       flaggedRevocations.value = [];
     }
 
     // 3. Fetch active contracts count
     try {
-      const conRes = await axios.get('/api/contracts', { headers });
-      const contracts = conRes.data?.contracts || [];
+      const conRes = await api.get('/contracts', { headers });
+      const contracts = conRes.data?.contracts || (Array.isArray(conRes.data) ? conRes.data : []);
       activeContractsCount.value = contracts.filter((c) => c.status === 'ACTIVE').length;
     } catch (e) {
       activeContractsCount.value = 0;
@@ -773,8 +773,8 @@ async function fetchData() {
 
     // 4. Fetch stalls for occupancy rate
     try {
-      const stallRes = await axios.get('/api/stalls', { headers });
-      const stalls = stallRes.data?.stalls || [];
+      const stallRes = await api.get('/stalls', { headers });
+      const stalls = stallRes.data?.stalls || (Array.isArray(stallRes.data) ? stallRes.data : []);
       if (stalls.length > 0) {
         totalMarketStalls.value = stalls.length;
         occupiedStallsCount.value = stalls.filter(s => s.status === 'OCCUPIED' || s.occupant_id).length;
@@ -783,8 +783,8 @@ async function fetchData() {
 
     // 5. Fetch payments for Total Revenue
     try {
-      const payRes = await axios.get('/api/payments', { headers });
-      const payments = payRes.data?.payments || [];
+      const payRes = await api.get('/payments', { headers });
+      const payments = payRes.data?.payments || (Array.isArray(payRes.data) ? payRes.data : []);
       totalRevenueCollected.value = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
     } catch (e) {}
   } catch (err) {
@@ -811,8 +811,8 @@ async function submitMayorDecision(approved) {
   isSubmitting.value = true;
   try {
     const headers = { Authorization: `Bearer ${authStore.token}` };
-    await axios.put(
-      `/api/applications/${selectedApp.value.id}/mayor-review`,
+    await api.put(
+      `/applications/${selectedApp.value.id}/mayor-review`,
       {
         approved,
         remarks: decisionRemarks.value
@@ -825,7 +825,7 @@ async function submitMayorDecision(approved) {
     selectedApp.value = null;
     await fetchData();
   } catch (err) {
-    alert(err.response?.data?.error || 'Failed to submit Mayoral decision.');
+    alert(err.response?.data?.error || err.message || 'Failed to submit Mayoral decision.');
   } finally {
     isSubmitting.value = false;
   }
@@ -842,8 +842,8 @@ async function executeRevocation() {
   isSubmitting.value = true;
   try {
     const headers = { Authorization: `Bearer ${authStore.token}` };
-    await axios.post(
-      '/api/delinquency/mayor-revocation',
+    await api.post(
+      '/delinquency/mayor-revocation',
       {
         contractId: selectedRevocation.value.contractId,
         approved: true,
@@ -856,7 +856,7 @@ async function executeRevocation() {
     selectedRevocation.value = null;
     await fetchData();
   } catch (err) {
-    alert(err.response?.data?.error || 'Failed to authorize lease revocation.');
+    alert(err.response?.data?.error || err.message || 'Failed to authorize lease revocation.');
   } finally {
     isSubmitting.value = false;
   }
@@ -866,8 +866,8 @@ async function grantGracePeriod(item) {
   if (!confirm(`Grant 30-day grace period for ${item.vendorName}? Revocation flag will be deferred.`)) return;
   try {
     const headers = { Authorization: `Bearer ${authStore.token}` };
-    await axios.post(
-      '/api/delinquency/mayor-revocation',
+    await api.post(
+      '/delinquency/mayor-revocation',
       {
         contractId: item.contractId,
         approved: false,
@@ -877,14 +877,14 @@ async function grantGracePeriod(item) {
     );
     await fetchData();
   } catch (err) {
-    alert(err.response?.data?.error || 'Failed to update case.');
+    alert(err.response?.data?.error || err.message || 'Failed to update case.');
   }
 }
 
 async function triggerDelinquencyScan() {
   try {
     const headers = { Authorization: `Bearer ${authStore.token}` };
-    await axios.post('/api/delinquency/scan', {}, { headers });
+    await api.post('/delinquency/scan', {}, { headers });
     await fetchData();
   } catch (err) {
     alert('Scan error: ' + (err.response?.data?.error || err.message));

@@ -866,7 +866,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import axios from 'axios';
+import api from '../services/api';
 import { useAuthStore } from '../stores/auth';
 
 const authStore = useAuthStore();
@@ -1029,24 +1029,24 @@ async function fetchData() {
 
     // 1. Remittances
     try {
-      const remRes = await axios.get('/api/collections/remittances', { headers });
-      remittances.value = remRes.data?.remittances || [];
+      const remRes = await api.get('/collections/remittances', { headers });
+      remittances.value = remRes.data?.remittances || (Array.isArray(remRes.data) ? remRes.data : []);
     } catch (e) {
       remittances.value = [];
     }
 
     // 2. Applications
     try {
-      const appRes = await axios.get('/api/applications', { headers });
-      applications.value = appRes.data?.applications || [];
+      const appRes = await api.get('/applications', { headers });
+      applications.value = appRes.data?.applications || (Array.isArray(appRes.data) ? appRes.data : []);
     } catch (e) {
       applications.value = [];
     }
 
     // 3. Stalls
     try {
-      const stallRes = await axios.get('/api/stalls', { headers });
-      const stalls = stallRes.data?.stalls || [];
+      const stallRes = await api.get('/stalls', { headers });
+      const stalls = stallRes.data?.stalls || (Array.isArray(stallRes.data) ? stallRes.data : []);
       occupiedStalls.value = stalls.filter((s) => s.status === 'OCCUPIED' || s.occupant_id);
     } catch (e) {
       occupiedStalls.value = [];
@@ -1054,8 +1054,8 @@ async function fetchData() {
 
     // 4. Field Collections
     try {
-      const payRes = await axios.get('/api/payments', { headers });
-      const allPayments = payRes.data?.payments || [];
+      const payRes = await api.get('/payments', { headers });
+      const allPayments = payRes.data?.payments || (Array.isArray(payRes.data) ? payRes.data : []);
       collections.value = allPayments.filter((p) => p.payment_channel === 'FIELD_COLLECTOR' || p.payment_type === 'FIELD_COLLECTION');
     } catch (e) {
       collections.value = [];
@@ -1080,8 +1080,8 @@ async function submitFieldCollection() {
   isSubmitting.value = true;
   try {
     const headers = { Authorization: `Bearer ${authStore.token}` };
-    const res = await axios.post(
-      '/api/collections/field',
+    const res = await api.post(
+      '/collections/field',
       {
         stallId: collectionForm.value.stallId,
         stakeholderId: collectionForm.value.stakeholderId,
@@ -1098,7 +1098,7 @@ async function submitFieldCollection() {
     collectionForm.value.amount = 100;
     await fetchData();
   } catch (err) {
-    alert(err.response?.data?.error || 'Failed to record field collection.');
+    alert(err.response?.data?.error || err.message || 'Failed to record field collection.');
   } finally {
     isSubmitting.value = false;
   }
@@ -1111,8 +1111,8 @@ async function submitRemittanceBatch() {
   isSubmitting.value = true;
   try {
     const headers = { Authorization: `Bearer ${authStore.token}` };
-    const res = await axios.post(
-      '/api/collections/remittances',
+    const res = await api.post(
+      '/collections/remittances',
       {
         collectionIds: unremittedCollections.value.map((c) => c.id),
         remarks: 'Daily field market collection batch remittance'
@@ -1120,11 +1120,11 @@ async function submitRemittanceBatch() {
       { headers }
     );
 
-    const remNo = res.data?.remittance?.remittance_no || 'Submitted';
+    const remNo = res.data?.remittance?.remittance_no || res.data?.remittanceNo || 'Submitted';
     alert(`Remittance batch generated successfully!\nRemittance Slip: ${remNo}\nTotal: ₱${Number(unremittedTotal.value).toLocaleString()}\nPlease turn in cash to Municipal Treasurer.`);
     await fetchData();
   } catch (err) {
-    alert(err.response?.data?.error || 'Failed to submit remittance batch.');
+    alert(err.response?.data?.error || err.message || 'Failed to submit remittance batch.');
   } finally {
     isSubmitting.value = false;
   }
@@ -1145,8 +1145,8 @@ async function submitInspectionDecision() {
   isSubmitting.value = true;
   try {
     const headers = { Authorization: `Bearer ${authStore.token}` };
-    await axios.put(
-      `/api/applications/${selectedInspectionApp.value.id}/inspector-verify`,
+    await api.put(
+      `/applications/${selectedInspectionApp.value.id}/inspector-verify`,
       {
         electricalClearance: inspectionForm.value.electricalClearance,
         structuralClearance: inspectionForm.value.structuralClearance,
@@ -1162,7 +1162,7 @@ async function submitInspectionDecision() {
     selectedInspectionApp.value = null;
     await fetchData();
   } catch (err) {
-    alert(err.response?.data?.error || 'Failed to record stall setup inspection.');
+    alert(err.response?.data?.error || err.message || 'Failed to record stall setup inspection.');
   } finally {
     isSubmitting.value = false;
   }
@@ -1174,10 +1174,10 @@ async function performInspectorScan() {
   scanResult.value = null;
   try {
     const headers = { Authorization: `Bearer ${authStore.token}` };
-    const res = await axios.get(`/api/permits/inspect/${encodeURIComponent(scanIdentifier.value.trim())}`, { headers });
+    const res = await api.get(`/permits/inspect/${encodeURIComponent(scanIdentifier.value.trim())}`, { headers });
     scanResult.value = res.data?.permit || res.data;
   } catch (err) {
-    alert(err.response?.data?.error || 'Permit not found or invalid.');
+    alert(err.response?.data?.error || err.message || 'Permit not found or invalid.');
   } finally {
     isScanning.value = false;
   }

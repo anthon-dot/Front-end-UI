@@ -1,19 +1,37 @@
 import { supabase } from '../config/supabase'
-import { normalizeRecord } from './api'
+import api, { normalizeRecord } from './api'
 
 export async function getApplicationByUserId(userId) {
   try {
     if (!userId) return null
     const { data, error } = await supabase
-      .from('business_applications')
-      .select('*, stall:stalls(*)')
+      .from('stakeholder_applications')
+      .select('*, stakeholder:stakeholders(*, occupant:occupants(*, stall:stalls!occupants_stall_id_fkey(*)), selectedStall:stalls!selected_stall_id(*)), stall:stalls(*)')
       .eq('user_id', userId)
       .order('id', { ascending: false })
       .limit(1)
       .maybeSingle()
 
     if (error) throw error
-    return normalizeRecord(data)
+    if (!data) return null
+
+    const norm = normalizeRecord(data)
+    if (data.stakeholder) {
+      norm.firstName = data.stakeholder.first_name
+      norm.lastName = data.stakeholder.last_name
+      norm.middleName = data.stakeholder.middle_name
+      norm.businessName = data.stakeholder.business_name
+      norm.businessType = data.stakeholder.business_type
+      norm.contact = data.stakeholder.contact
+      norm.email = data.stakeholder.email
+      norm.address = data.stakeholder.address
+      norm.selectedStallId = data.stakeholder.selected_stall_id
+    }
+    norm.idDocumentUrl = data.valid_id_url || norm.idDocumentUrl
+    norm.letterDocumentUrl = data.loi_url || norm.letterDocumentUrl
+    norm.applicationStatus = data.status || norm.applicationStatus
+    norm.currentHoldingOffice = data.current_holding_office || norm.currentHoldingOffice
+    return norm
   } catch (error) {
     return null
   }
@@ -31,15 +49,15 @@ export async function getStakeholderByUserId(userId) {
     // 1. Fetch stakeholder record
     const { data: stData } = await supabase
       .from('stakeholders')
-      .select('*, occupant:occupants(*, stall:stalls(*)), stall:stalls(*)')
+      .select('*, occupant:occupants(*, stall:stalls!occupants_stall_id_fkey(*)), selectedStall:stalls!selected_stall_id(*)')
       .eq('user_id', resolvedUserId)
       .order('id', { ascending: false })
       .limit(1)
       .maybeSingle()
 
-    // 2. Fetch business application record
+    // 2. Fetch formal stakeholder application record
     const { data: appData } = await supabase
-      .from('business_applications')
+      .from('stakeholder_applications')
       .select('*, stall:stalls(*)')
       .eq('user_id', resolvedUserId)
       .order('id', { ascending: false })
@@ -50,46 +68,51 @@ export async function getStakeholderByUserId(userId) {
       return null
     }
 
-    // Merge them together so whichever has the latest progress is respected
     const base = stData || appData
     const normalized = normalizeRecord(base)
 
     if (stData && appData) {
       const normApp = normalizeRecord(appData)
-      normalized.businessApplicationId = appData.id
+      normalized.applicationId = appData.id
+      normalized.applicationNo = appData.application_no
       normalized.stakeholderId = stData.id
 
+      if (normApp.loiUrl || appData.loi_url) normalized.letterDocumentUrl = normApp.loiUrl || appData.loi_url
+      if (normApp.validIdUrl || appData.valid_id_url) normalized.idDocumentUrl = normApp.validIdUrl || appData.valid_id_url
+      if (normApp.morescoClearanceUrl || appData.moresco_clearance_url) normalized.morescoClearanceUrl = normApp.morescoClearanceUrl || appData.moresco_clearance_url
+
       // Sync latest office approvals
-      if (!normalized.marketSupervisorApproved && (normApp.marketApprovalStatus === 'APPROVED' || normApp.marketSupervisorApproved)) {
+      if (!normalized.marketSupervisorApproved && (normApp.status === 'PENDING_MAYOR_APPROVAL' || appData.supervisor_endorsed_at)) {
         normalized.marketSupervisorApproved = true
         normalized.marketApprovalStatus = 'APPROVED'
       }
-      if (!normalized.bploApproved && (normApp.bploStatus === 'APPROVED' || normApp.bploApproved)) {
+      if (!normalized.bploApproved && (normApp.bploStatus === 'RELEASED' || appData.business_permit_released)) {
         normalized.bploApproved = true
-        normalized.bploStatus = 'APPROVED'
+        normalized.bploStatus = 'RELEASED'
       }
-      if (!normalized.finalEndorsed && (normApp.endorsementStatus === 'APPROVED' || normApp.endorsingStatus === 'ENDORSED' || normApp.finalEndorsed)) {
+      if (!normalized.finalEndorsed && (appData.mayor_decision === 'APPROVED' || normApp.endorsementStatus === 'APPROVED')) {
         normalized.finalEndorsed = true
         normalized.endorsingApproved = true
         normalized.endorsementStatus = 'APPROVED'
       }
-      if (!normalized.applicantFeePaid && normApp.applicantFeePaid) {
+      if (!normalized.applicantFeePaid && (stData.applicant_fee_paid || appData.amount_paid > 0)) {
         normalized.applicantFeePaid = true
       }
-      if (normalized.applicationStatus === 'PENDING' && normApp.applicationStatus && normApp.applicationStatus !== 'PENDING') {
-        normalized.applicationStatus = normApp.applicationStatus
+      if (normalized.applicationStatus === 'PENDING' && appData.status && appData.status !== 'PENDING') {
+        normalized.applicationStatus = appData.status
       }
-      if (!normalized.selectedStallId && normApp.selectedStallId) {
-        normalized.selectedStallId = normApp.selectedStallId
-        normalized.selected_stall_id = normApp.selectedStallId
+      if (!normalized.selectedStallId && appData.stall_id) {
+        normalized.selectedStallId = appData.stall_id
+        normalized.selected_stall_id = appData.stall_id
         if (normApp.stall) normalized.stall = normApp.stall
       }
     } else if (appData && !stData) {
-      normalized.businessApplicationId = appData.id
+      normalized.applicationId = appData.id
       normalized.id = appData.id
+      if (appData.loi_url) normalized.letterDocumentUrl = appData.loi_url
+      if (appData.valid_id_url) normalized.idDocumentUrl = appData.valid_id_url
     }
 
-    // Unpack occupant array if returned as list
     if (Array.isArray(normalized.occupant)) {
       normalized.occupants = normalized.occupant
       normalized.occupant = normalized.occupant[0] || null
@@ -129,40 +152,36 @@ export async function getStakeholderByUserId(userId) {
       } catch (_) {}
     }
 
-    // Check payment records for business permit / application fee
+    // Check payment records for application fee / advance payment
     if (sid) {
       try {
         const { data: pList } = await supabase
           .from('payments')
           .select('id, payment_type, amount, payment_date')
           .eq('stakeholder_id', Number(sid))
-          .in('payment_type', ['BUSINESS_PERMIT_PAYMENT', 'APPLICATION_FORM', 'APPLICATION_FEE'])
           .order('id', { ascending: false })
-          .limit(1)
 
         if (pList && pList.length > 0) {
-          normalized.applicantFeePaid = true
-          normalized.applicant_fee_paid = true
-          normalized.applicationFormPaid = true
-          normalized.application_form_paid = true
-          normalized.treasurerPaid = true
-          normalized.treasurer_paid = true
-          normalized.verifiedStakeholder = true
-          normalized.verified_stakeholder = true
-          normalized.applicantFeeAmount = pList[0].amount
-          normalized.applicantFeeDate = pList[0].payment_date
+          const appFeePay = pList.find(p => ['APPLICATION_FEE', 'APPLICATION_FORM', 'BUSINESS_PERMIT_PAYMENT'].includes(p.payment_type))
+          if (appFeePay) {
+            normalized.applicantFeePaid = true
+            normalized.applicant_fee_paid = true
+            normalized.treasurerPaid = true
+            normalized.treasurer_paid = true
+            normalized.verifiedStakeholder = true
+            normalized.verified_stakeholder = true
+            normalized.applicantFeeAmount = appFeePay.amount
+            normalized.applicantFeeDate = appFeePay.payment_date
+          }
         }
       } catch (pErr) {
-        console.warn('[applicationService] Could not check payments table:', pErr)
+        console.warn('[applicationService] Payments check note:', pErr)
       }
     }
 
-    // Normalize applicant fee payment flags
     const hasFeePayment = Boolean(
       normalized.applicantFeePaid ||
       normalized.applicant_fee_paid ||
-      normalized.applicationFormPaid ||
-      normalized.application_form_paid ||
       normalized.treasurerPaid ||
       normalized.treasurer_paid
     )
@@ -170,18 +189,15 @@ export async function getStakeholderByUserId(userId) {
     if (hasFeePayment) {
       normalized.applicantFeePaid = true
       normalized.applicant_fee_paid = true
-      normalized.applicationFormPaid = true
-      normalized.application_form_paid = true
       normalized.treasurerPaid = true
       normalized.treasurer_paid = true
       normalized.verifiedStakeholder = true
       normalized.verified_stakeholder = true
     }
 
-    // A profile is ONLY a verified tenant if they completed onboarding and have an assigned stall/contract
     const hasStall = Boolean(normalized.stallNo || normalized.occupant || normalized.selectedStall || normalized.stall_id || normalized.stall)
     const isTenantOnboarded = Boolean(
-      (stData?.verified_tenant || normalized.verified_tenant || normalized.onboardingStatus === 'COMPLETED' || normalized.applicationStatus === 'FULLY_APPROVED') &&
+      (stData?.verified_tenant || normalized.verified_tenant || normalized.onboardingStatus === 'ACTIVE_VENDOR' || normalized.applicationStatus === 'COMPLETED') &&
       hasStall
     )
     normalized.verifiedTenant = isTenantOnboarded
@@ -208,9 +224,18 @@ export async function getStakeholderRequirements(stakeholderId) {
 export async function getApplications() {
   try {
     const [appsRes, stakeholdersRes, docsRes] = await Promise.all([
-      supabase.from('business_applications').select('*, stall:stalls(*)').order('id', { ascending: false }),
-      supabase.from('stakeholders').select('*, occupant:occupants(*, stall:stalls(*)), stall:stalls(*)').order('id', { ascending: false }),
-      supabase.from('stakeholder_documents').select('*').order('id', { ascending: false })
+      supabase
+        .from('stakeholder_applications')
+        .select('*, stakeholder:stakeholders(*), stall:stalls(*)')
+        .order('id', { ascending: false }),
+      supabase
+        .from('stakeholders')
+        .select('*, occupant:occupants(*, stall:stalls!occupants_stall_id_fkey(*)), selectedStall:stalls!selected_stall_id(*)')
+        .order('id', { ascending: false }),
+      supabase
+        .from('stakeholder_documents')
+        .select('*')
+        .order('id', { ascending: false })
     ])
 
     const apps = appsRes.data || []
@@ -226,82 +251,105 @@ export async function getApplications() {
       }
     }
 
+    const stakeholderById = new Map()
     const stakeholderByUser = new Map()
-    const stakeholderByEmail = new Map()
 
     for (const st of stakeholders) {
       const normSt = normalizeRecord(st)
+      stakeholderById.set(Number(st.id), normSt)
       if (st.user_id) stakeholderByUser.set(String(st.user_id), normSt)
-      if (st.email) stakeholderByEmail.set(String(st.email).trim().toLowerCase(), normSt)
     }
 
-    const merged = apps.map(app => {
+    const mappedApps = apps.map((app) => {
       const normApp = normalizeRecord(app)
-      const linkedSt = (app.user_id && stakeholderByUser.get(String(app.user_id))) ||
-                       (app.email && stakeholderByEmail.get(String(app.email).trim().toLowerCase())) || null
+      const linkedSt = (app.stakeholder_id && stakeholderById.get(Number(app.stakeholder_id))) ||
+                       (app.user_id && stakeholderByUser.get(String(app.user_id))) ||
+                       (app.stakeholder ? normalizeRecord(app.stakeholder) : null)
 
       if (linkedSt) {
         normApp.stakeholderId = linkedSt.id
-        if (linkedSt.marketSupervisorApproved || linkedSt.marketApprovalStatus === 'APPROVED') {
-          normApp.marketApprovalStatus = 'APPROVED'
-          normApp.marketSupervisorApproved = true
+        normApp.firstName = linkedSt.first_name || linkedSt.firstName
+        normApp.lastName = linkedSt.last_name || linkedSt.lastName
+        normApp.middleName = linkedSt.middle_name || linkedSt.middleName
+        normApp.businessName = linkedSt.business_name || linkedSt.businessName
+        normApp.businessType = linkedSt.business_type || linkedSt.businessType
+        normApp.contact = linkedSt.contact
+        normApp.email = linkedSt.email
+        normApp.address = linkedSt.address
+        normApp.selectedStallId = linkedSt.selected_stall_id || linkedSt.selectedStallId
+        if (!normApp.stall && (linkedSt.selectedStall || linkedSt.stall)) {
+          normApp.stall = linkedSt.selectedStall || linkedSt.stall
         }
-        if (linkedSt.bploApproved || linkedSt.bploStatus === 'APPROVED') {
-          normApp.bploStatus = 'APPROVED'
-          normApp.bploApproved = true
-        }
-        if (linkedSt.finalEndorsed || linkedSt.endorsementStatus === 'APPROVED' || linkedSt.endorsingStatus === 'ENDORSED') {
-          normApp.endorsementStatus = 'APPROVED'
-          normApp.endorsingStatus = 'ENDORSED'
-          normApp.finalEndorsed = true
-        }
-        if (linkedSt.applicantFeePaid) {
-          normApp.applicantFeePaid = true
-        }
-        if (linkedSt.applicationStatus && linkedSt.applicationStatus !== 'PENDING') {
-          normApp.applicationStatus = linkedSt.applicationStatus
-        }
-        if (!normApp.stall && (linkedSt.stall || linkedSt.occupant?.stall)) {
-          normApp.stall = linkedSt.stall || (Array.isArray(linkedSt.occupant) ? linkedSt.occupant[0]?.stall : linkedSt.occupant?.stall)
-        }
-      } else {
-        normApp.stakeholderId = normApp.id
       }
 
-      const sid = linkedSt?.id || normApp.stakeholderId
+      const sid = linkedSt?.id || normApp.stakeholder_id || normApp.stakeholderId
       const stDocs = sid ? (docsByStakeholder.get(Number(sid)) || []) : []
 
-      // 1. Hazard-Free Document
-      const hDoc = stDocs.find(d => ['HAZARD_FREE_CONFIRMATION', 'HAZARD_FREE_CERTIFICATE'].includes(d.document_type))
+      const hDoc = stDocs.find((d) => ['HAZARD_FREE_CONFIRMATION', 'HAZARD_FREE_CERTIFICATE'].includes(d.document_type))
       normApp.hazardFreeConfirmed = Boolean(
         hDoc?.file_path ||
-        linkedSt?.hazard_free_confirmed || linkedSt?.hazardFreeConfirmed ||
-        app.hazard_free_confirmed || app.hazardFreeConfirmed
+        linkedSt?.hazard_free_confirmed ||
+        app.hazard_free_confirmed
       )
       normApp.hazardFreeDocumentUrl = (
         hDoc?.file_path ||
-        linkedSt?.hazard_free_document_url || linkedSt?.hazardFreeDocumentUrl ||
-        app.hazard_free_document_url || app.hazardFreeDocumentUrl || null
+        linkedSt?.hazard_free_document_url ||
+        app.hazard_free_document_url ||
+        null
       )
       normApp.hazardFreeFileName = hDoc?.file_name || 'Hazard_Free_Stall_Confirmation.pdf'
 
-      // 2. Valid ID Document
-      const idDoc = stDocs.find(d => d.document_type === 'VALID_ID')
-      normApp.idDocumentUrl = idDoc?.file_path || app.id_document_url || app.idDocumentUrl || linkedSt?.id_document_url || null
-      normApp.idDocumentName = idDoc?.file_name || 'Valid_Government_ID'
-
-      // 3. Letter of Intent Document
-      const letterDoc = stDocs.find(d => d.document_type === 'APPLICATION_LETTER')
-      normApp.letterDocumentUrl = letterDoc?.file_path || app.letter_document_url || app.letterDocumentUrl || linkedSt?.letter_document_url || null
-      normApp.letterDocumentName = letterDoc?.file_name || 'Letter_of_Intent'
-
-      // 4. Complete documents list
+      normApp.idDocumentUrl = app.valid_id_url || stDocs.find((d) => d.document_type === 'VALID_ID')?.file_path || null
+      normApp.letterDocumentUrl = app.loi_url || stDocs.find((d) => ['LOI', 'APPLICATION_LETTER'].includes(d.document_type))?.file_path || null
       normApp.documents = stDocs
+
+      normApp.bploStatus = app.bplo_status || linkedSt?.bplo_status || 'PENDING'
+      normApp.endorsingStatus = app.endorsing_status || linkedSt?.endorsement_status || 'PENDING'
+      normApp.businessPermitFeeAssessed = app.business_permit_fee_assessed || linkedSt?.business_permit_fee_assessed || 0
+      normApp.businessPermitFeePaid = Boolean(app.business_permit_fee_paid || linkedSt?.business_permit_fee_paid)
+      normApp.businessPermitNo = app.business_permit_no || linkedSt?.business_permit_no || null
+      normApp.businessPermitReleased = Boolean(app.business_permit_released || linkedSt?.business_permit_released)
+      normApp.businessPermitReleasedAt = app.business_permit_released_at || linkedSt?.business_permit_released_at || null
 
       return normApp
     })
 
-    return merged
+    // Also include any stakeholders that do not yet have a formal stakeholder_applications row
+    const existingStIds = new Set(apps.map((a) => Number(a.stakeholder_id)))
+    for (const st of stakeholders) {
+      if (!existingStIds.has(Number(st.id))) {
+        const normSt = normalizeRecord(st)
+        const stDocs = docsByStakeholder.get(Number(st.id)) || []
+        const hDoc = stDocs.find((d) => ['HAZARD_FREE_CONFIRMATION', 'HAZARD_FREE_CERTIFICATE'].includes(d.document_type))
+        mappedApps.push({
+          id: st.id,
+          stakeholderId: st.id,
+          applicationNo: `APP-${st.id}`,
+          firstName: st.first_name,
+          lastName: st.last_name,
+          middleName: st.middle_name,
+          businessName: st.business_name,
+          businessType: st.business_type,
+          contact: st.contact,
+          email: st.email,
+          address: st.address,
+          selectedStallId: st.selected_stall_id,
+          stall: st.selectedStall,
+          hazardFreeConfirmed: Boolean(hDoc?.file_path || st.hazard_free_confirmed),
+          hazardFreeDocumentUrl: hDoc?.file_path || st.hazard_free_document_url || null,
+          bploStatus: st.bplo_status || 'PENDING',
+          endorsingStatus: st.endorsement_status || 'PENDING',
+          businessPermitFeeAssessed: st.business_permit_fee_assessed || 0,
+          businessPermitFeePaid: Boolean(st.business_permit_fee_paid),
+          businessPermitNo: st.business_permit_no || null,
+          businessPermitReleased: Boolean(st.business_permit_released),
+          documents: stDocs,
+          status: st.application_status || 'PENDING'
+        })
+      }
+    }
+
+    return mappedApps
   } catch (error) {
     console.error('[applicationService] getApplications error:', error)
     return []
@@ -323,12 +371,10 @@ export async function uploadHazardFreeDocument(file, stakeholderId, applicationI
 
   if (uploadError) throw uploadError
 
-  // 2. Get Public URL
   const { data: { publicUrl } } = supabase.storage
     .from('uploads')
     .getPublicUrl(filePath)
 
-  // 3. Save to stakeholder_documents table
   if (stakeholderId) {
     try {
       await supabase.from('stakeholder_documents').insert({
@@ -356,49 +402,12 @@ export async function uploadHazardFreeDocument(file, stakeholderId, applicationI
 
   if (applicationId) {
     try {
-      await supabase.from('business_applications').update({
-        hazard_free_confirmed: true,
-        hazard_free_document_url: publicUrl
-      }).eq('id', Number(applicationId))
-    } catch (_) {}
-
-    try {
       await supabase.from('stakeholder_applications').update({
         hazard_free_confirmed: true,
         hazard_free_document_url: publicUrl
       }).eq('id', Number(applicationId))
     } catch (_) {}
   }
-
-  // Also sync by user_id if available from session
-  try {
-    const { data: { session } } = await supabase.auth.getSession()
-    const userId = session?.user?.id
-    if (userId) {
-      await supabase.from('business_applications').update({
-        hazard_free_confirmed: true,
-        hazard_free_document_url: publicUrl
-      }).eq('user_id', userId)
-
-      await supabase.from('stakeholders').update({
-        hazard_free_confirmed: true,
-        hazard_free_document_url: publicUrl
-      }).eq('user_id', userId)
-
-      await supabase.from('stakeholder_applications').update({
-        hazard_free_confirmed: true,
-        hazard_free_document_url: publicUrl
-      }).eq('user_id', userId)
-    }
-  } catch (_) {}
-
-  // Sync with Express backend endpoint
-  try {
-    const targetId = applicationId || stakeholderId
-    if (targetId) {
-      await api.put(`/applications/${targetId}/hazard-free`, { documentUrl: publicUrl })
-    }
-  } catch (_) {}
 
   return { publicUrl, fileName: file.name }
 }
@@ -411,31 +420,18 @@ export async function endorseApplication(id, remarks = 'Supervisor endorsed to M
       market_supervisor_approved: true,
       market_approval_status: 'APPROVED',
       application_status: 'PENDING_MAYOR_APPROVAL'
-    }).eq('id', targetStakeholderId)
-  } catch (_) {}
-
-  try {
-    await supabase.from('business_applications').update({
-      market_supervisor_approved: true,
-      market_approval_status: 'APPROVED',
-      application_status: 'PENDING_MAYOR_APPROVAL'
-    }).eq('id', id)
+    }).eq('id', Number(targetStakeholderId))
   } catch (_) {}
 
   try {
     await supabase.from('stakeholder_applications').update({
-      market_supervisor_approved: true,
-      market_supervisor_approved_at: new Date().toISOString(),
       status: 'PENDING_MAYOR_APPROVAL',
+      supervisor_endorsed_at: new Date().toISOString(),
+      supervisor_remarks: remarks,
       current_holding_office: 'Office of the Mayor'
-    }).eq('id', id)
+    }).or(`id.eq.${id},stakeholder_id.eq.${targetStakeholderId}`)
   } catch (_) {}
 
-  try {
-    await api.put(`/applications/${id}/supervisor-review`, { approved: true, remarks })
-  } catch (_) {}
-
-  // Non-blocking notification dispatch
   void (async () => {
     try {
       const { sendApplicationProgressNotification } = await import('./emailNotificationService')
@@ -463,28 +459,17 @@ export async function rejectEndorsement(id, remarks = '', stakeholderId = null) 
       market_supervisor_approved: false,
       market_approval_status: 'REJECTED',
       application_status: 'SUPERVISOR_REJECTED'
-    }).eq('id', targetStakeholderId)
-  } catch (_) {}
-
-  try {
-    await supabase.from('business_applications').update({
-      market_approval_status: 'REJECTED',
-      application_status: 'SUPERVISOR_REJECTED'
-    }).eq('id', id)
+    }).eq('id', Number(targetStakeholderId))
   } catch (_) {}
 
   try {
     await supabase.from('stakeholder_applications').update({
       status: 'SUPERVISOR_REJECTED',
+      supervisor_remarks: remarks,
       current_holding_office: 'Market Supervisor'
-    }).eq('id', id)
+    }).or(`id.eq.${id},stakeholder_id.eq.${targetStakeholderId}`)
   } catch (_) {}
 
-  try {
-    await api.put(`/applications/${id}/supervisor-review`, { approved: false, remarks })
-  } catch (_) {}
-
-  // Non-blocking notification dispatch
   void (async () => {
     try {
       const { sendApplicationProgressNotification } = await import('./emailNotificationService')
@@ -513,14 +498,7 @@ export async function approveByMayor(id, remarks = 'Approved for municipal stall
       endorsing_approved: true,
       endorsement_status: 'APPROVED',
       application_status: 'PENDING_TREASURER_PAYMENT'
-    }).eq('id', targetStakeholderId)
-  } catch (_) {}
-
-  try {
-    await supabase.from('business_applications').update({
-      endorsement_status: 'APPROVED',
-      application_status: 'PENDING_TREASURER_PAYMENT'
-    }).eq('id', id)
+    }).eq('id', Number(targetStakeholderId))
   } catch (_) {}
 
   try {
@@ -530,11 +508,7 @@ export async function approveByMayor(id, remarks = 'Approved for municipal stall
       mayor_remarks: remarks,
       status: 'PENDING_TREASURER_PAYMENT',
       current_holding_office: "Treasurer's Office"
-    }).eq('id', id)
-  } catch (_) {}
-
-  try {
-    await api.put(`/applications/${id}/mayor-review`, { approved: true, remarks })
+    }).or(`id.eq.${id},stakeholder_id.eq.${targetStakeholderId}`)
   } catch (_) {}
 
   void (async () => {
@@ -565,14 +539,7 @@ export async function rejectByMayor(id, remarks = '', stakeholderId = null) {
       endorsing_approved: false,
       endorsement_status: 'REJECTED',
       application_status: 'MAYOR_REJECTED'
-    }).eq('id', targetStakeholderId)
-  } catch (_) {}
-
-  try {
-    await supabase.from('business_applications').update({
-      endorsement_status: 'REJECTED',
-      application_status: 'MAYOR_REJECTED'
-    }).eq('id', id)
+    }).eq('id', Number(targetStakeholderId))
   } catch (_) {}
 
   try {
@@ -581,11 +548,7 @@ export async function rejectByMayor(id, remarks = '', stakeholderId = null) {
       mayor_remarks: remarks,
       status: 'MAYOR_REJECTED',
       current_holding_office: 'Office of the Mayor'
-    }).eq('id', id)
-  } catch (_) {}
-
-  try {
-    await api.put(`/applications/${id}/mayor-review`, { approved: false, remarks })
+    }).or(`id.eq.${id},stakeholder_id.eq.${targetStakeholderId}`)
   } catch (_) {}
 
   void (async () => {
@@ -614,18 +577,16 @@ export async function verifyStallByInspector(id, checklist = {}, stakeholderId =
     await supabase.from('stakeholders').update({
       hazard_free_confirmed: checklist.status !== 'FAILED',
       application_status: checklist.status === 'FAILED' ? 'PENDING_INSPECTION' : 'INSPECTION_PASSED'
-    }).eq('id', targetStakeholderId)
+    }).eq('id', Number(targetStakeholderId))
   } catch (_) {}
 
   try {
-    await supabase.from('business_applications').update({
-      hazard_free_confirmed: checklist.status !== 'FAILED',
-      application_status: checklist.status === 'FAILED' ? 'PENDING_INSPECTION' : 'INSPECTION_PASSED'
-    }).eq('id', id)
-  } catch (_) {}
-
-  try {
-    await api.put(`/applications/${id}/inspector-verify`, checklist)
+    await supabase.from('stakeholder_applications').update({
+      inspection_notes: checklist.remarks || '',
+      inspection_completed_at: new Date().toISOString(),
+      status: checklist.status === 'FAILED' ? 'PENDING_INSPECTION' : 'INSPECTION_PASSED',
+      current_holding_office: 'BPLO'
+    }).or(`id.eq.${id},stakeholder_id.eq.${targetStakeholderId}`)
   } catch (_) {}
 
   void (async () => {
@@ -659,61 +620,140 @@ export async function activateVendor(id, remarks = '') {
 }
 
 export async function endorseByEndorsingOffice(id, remarks = 'Application endorsed by Endorsing Office.', stakeholderId = null) {
+  const targetStakeholderId = stakeholderId || id
+
   try {
-    const res = await api.put(`/applications/${id}/endorsing-review`, { approved: true, remarks })
-    return res.data || { success: true }
-  } catch (err) {
-    throw err
-  }
+    await supabase.from('stakeholder_applications').update({
+      endorsing_status: 'APPROVED',
+      endorsing_approved_at: new Date().toISOString(),
+      endorsing_remarks: remarks,
+      status: 'PENDING_BPLO_ASSESSMENT',
+      current_holding_office: 'BPLO'
+    }).or(`id.eq.${id},stakeholder_id.eq.${targetStakeholderId}`)
+  } catch (_) {}
+
+  try {
+    await supabase.from('stakeholders').update({
+      endorsing_approved: true,
+      endorsement_status: 'APPROVED',
+      endorsement_remarks: remarks
+    }).eq('id', Number(targetStakeholderId))
+  } catch (_) {}
+
+  return { success: true }
 }
 
 export async function rejectByEndorsingOffice(id, remarks = '', stakeholderId = null) {
+  const targetStakeholderId = stakeholderId || id
+
   try {
-    const res = await api.put(`/applications/${id}/endorsing-review`, { approved: false, remarks })
-    return res.data || { success: true }
-  } catch (err) {
-    throw err
-  }
+    await supabase.from('stakeholder_applications').update({
+      endorsing_status: 'REJECTED',
+      endorsing_remarks: remarks,
+      status: 'ENDORSING_REJECTED'
+    }).or(`id.eq.${id},stakeholder_id.eq.${targetStakeholderId}`)
+  } catch (_) {}
+
+  try {
+    await supabase.from('stakeholders').update({
+      endorsing_approved: false,
+      endorsement_status: 'REJECTED',
+      endorsement_remarks: remarks
+    }).eq('id', Number(targetStakeholderId))
+  } catch (_) {}
+
+  return { success: true }
 }
 
 export async function bploAssessFee(id, assessedAmount = 1500, remarks = '', stakeholderId = null) {
+  const targetStakeholderId = stakeholderId || id
+
   try {
-    const res = await api.put(`/applications/${id}/bplo-assess`, { assessedAmount, remarks })
-    return res.data || { success: true }
-  } catch (err) {
-    throw err
-  }
+    await supabase.from('stakeholder_applications').update({
+      business_permit_fee_assessed: Number(assessedAmount),
+      bplo_status: 'PENDING_PAYMENT',
+      bplo_remarks: remarks,
+      status: 'PENDING_BPLO_PAYMENT',
+      current_holding_office: "Treasurer's Office"
+    }).or(`id.eq.${id},stakeholder_id.eq.${targetStakeholderId}`)
+  } catch (_) {}
+
+  try {
+    await supabase.from('stakeholders').update({
+      business_permit_fee_assessed: Number(assessedAmount),
+      bplo_status: 'PENDING_PAYMENT'
+    }).eq('id', Number(targetStakeholderId))
+  } catch (_) {}
+
+  return { success: true }
 }
 
 export async function bploReleasePermit(id, permitNo = null, remarks = '', stakeholderId = null) {
+  const targetStakeholderId = stakeholderId || id
+  const bpNo = permitNo || `BP-${Date.now().toString().slice(-8)}`
+
   try {
-    const res = await api.put(`/applications/${id}/bplo-release`, { permitNo, remarks })
-    return res.data || { success: true }
-  } catch (err) {
-    throw err
-  }
+    await supabase.from('stakeholder_applications').update({
+      business_permit_no: bpNo,
+      business_permit_released: true,
+      business_permit_released_at: new Date().toISOString(),
+      bplo_status: 'RELEASED',
+      status: 'BUSINESS_PERMIT_RELEASED',
+      completed_at: new Date().toISOString(),
+      current_holding_office: 'Completed'
+    }).or(`id.eq.${id},stakeholder_id.eq.${targetStakeholderId}`)
+  } catch (_) {}
+
+  try {
+    await supabase.from('stakeholders').update({
+      business_permit_no: bpNo,
+      business_permit_released: true,
+      business_permit_released_at: new Date().toISOString(),
+      bplo_approved: true,
+      bplo_status: 'RELEASED',
+      application_status: 'COMPLETED',
+      onboarding_status: 'ACTIVE_VENDOR',
+      verified_tenant: true,
+      verified_stakeholder: true
+    }).eq('id', Number(targetStakeholderId))
+  } catch (_) {}
+
+  return { success: true, permitNo: bpNo }
 }
 
 export const approveByBPLO = async (id, stakeholderId = null) => {
   try {
-    return await bploReleasePermit(id, null, 'Approved and released by BPLO', stakeholderId);
+    return await bploReleasePermit(id, null, 'Approved and released by BPLO', stakeholderId)
   } catch (err) {
-    // If not yet assessed or paid, fallback to assess
-    return await bploAssessFee(id, 1500, 'Assessed by BPLO', stakeholderId);
+    return await bploAssessFee(id, 1500, 'Assessed by BPLO', stakeholderId)
   }
-};
+}
 
 export const rejectByBPLO = async (id, remarks = '', stakeholderId = null) => {
-  return await verifyStallByInspector(id, { status: 'FAILED', remarks }, stakeholderId);
-};
+  const targetStakeholderId = stakeholderId || id
+  try {
+    await supabase.from('stakeholder_applications').update({
+      bplo_status: 'REJECTED',
+      bplo_remarks: remarks,
+      status: 'REVOKED'
+    }).or(`id.eq.${id},stakeholder_id.eq.${targetStakeholderId}`)
+  } catch (_) {}
+
+  try {
+    await supabase.from('stakeholders').update({
+      bplo_approved: false,
+      bplo_status: 'REJECTED'
+    }).eq('id', Number(targetStakeholderId))
+  } catch (_) {}
+
+  return { success: true }
+}
 
 export function isDashboardReady(stakeholder, requirements = null) {
   if (!stakeholder) return false
   const feePaid = Boolean(
     stakeholder.applicantFeePaid ||
     stakeholder.applicant_fee_paid ||
-    stakeholder.applicationFormPaid ||
-    stakeholder.application_form_paid ||
     stakeholder.treasurerPaid ||
     stakeholder.treasurer_paid
   )
@@ -741,8 +781,6 @@ export function getStakeholderRouteForApplication(application) {
   const feePaid = Boolean(
     application.applicantFeePaid ||
     application.applicant_fee_paid ||
-    application.applicationFormPaid ||
-    application.application_form_paid ||
     application.treasurerPaid ||
     application.treasurer_paid
   )
@@ -755,11 +793,12 @@ export function getStakeholderRouteForApplication(application) {
   )
   const status = application.applicationStatus || application.application_status
 
-  if (feePaid || isVerified || (status === 'COMPLETED' || status === 'FULLY_APPROVED' || status === 'APPROVED')) {
+  if (feePaid || isVerified || (status === 'COMPLETED' || status === 'FULLY_APPROVED' || status === 'APPROVED' || status === 'BUSINESS_PERMIT_RELEASED')) {
     return '/stakeholder'
   }
 
   if (
+    status === 'PENDING_TREASURER_PAYMENT' ||
     status === 'PENDING_BUSINESS_PERMIT_PAYMENT' ||
     application.finalEndorsed === true ||
     application.final_endorsed === true
@@ -783,6 +822,10 @@ export default {
   activateVendor,
   approveByBPLO,
   rejectByBPLO,
+  bploAssessFee,
+  bploReleasePermit,
+  endorseByEndorsingOffice,
+  rejectByEndorsingOffice,
   isDashboardReady,
   getStakeholderRouteForApplication
 }

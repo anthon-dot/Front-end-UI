@@ -1852,17 +1852,17 @@ function statusClass(status) {
 async function loadMarketData() {
   isLoading.value = true
   try {
-    // 1. Load Business Applications directly from Supabase (Authoritative source for emails)
+    // 1. Load Stakeholder Applications directly from Supabase (Authoritative source for emails)
     try {
       const { data: bApps, error: bAppsErr } = await supabase
-        .from('business_applications')
-        .select('*, stall:stalls(*)')
+        .from('stakeholder_applications')
+        .select('*, stall:stalls(*), stakeholder:stakeholders(*)')
         .order('id', { ascending: false })
       if (!bAppsErr && Array.isArray(bApps)) {
         businessApplicationsList.value = bApps
       }
     } catch (appErr) {
-      console.warn('[ReportPage] Error querying Supabase business_applications:', appErr)
+      console.warn('[ReportPage] Error querying Supabase stakeholder_applications:', appErr)
     }
 
     // 2. Load Stalls from Supabase / API
@@ -1893,7 +1893,7 @@ async function loadMarketData() {
     try {
       const { data: dbStakeholders } = await supabase
         .from('stakeholders')
-        .select('*, stall:stalls(*), occupant:occupants(*, stall:stalls(*))')
+        .select('*, stall:stalls!selected_stall_id(*), occupant:occupants(*, stall:stalls!occupants_stall_id_fkey(*))')
       if (Array.isArray(dbStakeholders) && dbStakeholders.length) {
         stakeholdersList.value = dbStakeholders
       } else {
@@ -1964,29 +1964,30 @@ async function loadMarketData() {
       } catch (_) {}
     }
 
-    // 5. If business_applications exist in Supabase, dynamically attach real applications
+    // 5. If stakeholder_applications exist in Supabase, dynamically attach real applications
     if (!loadedContracts.length && businessApplicationsList.value.length > 0) {
       loadedContracts = businessApplicationsList.value.map((app, i) => {
-        const fName = app.first_name || ''
-        const lName = app.last_name || ''
-        const fullName = `${fName} ${lName}`.trim() || app.business_name || `Applicant #${app.id}`
+        const sh = app.stakeholder || {}
+        const fName = app.first_name || sh.first_name || ''
+        const lName = app.last_name || sh.last_name || ''
+        const fullName = `${fName} ${lName}`.trim() || app.business_name || sh.business_name || `Applicant #${app.id}`
         const stallNum = app.stall?.stall_no || `WS-0${(i % 5) + 1}`
         const dEnd = new Date()
         dEnd.setDate(dEnd.getDate() + (i === 0 ? 14 : i === 1 ? 42 : -10))
         return {
           id: `APP-CON-${app.id}`,
-          contractNo: `CON-2026-APP${app.id}`,
-          ref: `CON-2026-APP${app.id}`,
-          stakeholderId: app.id,
-          userId: app.user_id,
+          contractNo: app.application_no || `CON-2026-APP${app.id}`,
+          ref: app.application_no || `CON-2026-APP${app.id}`,
+          stakeholderId: app.stakeholder_id || app.id,
+          userId: app.user_id || sh.user_id,
           stakeholderName: fullName,
-          businessName: app.business_name || '',
-          contact: app.contact || '',
-          email: (app.email || '').trim(),
-          stallId: app.selected_stall_id,
+          businessName: app.business_name || sh.business_name || '',
+          contact: app.contact || sh.contact || '',
+          email: (app.email || sh.email || '').trim(),
+          stallId: app.stall_id || app.selected_stall_id,
           stallNo: stallNum,
-          stallType: app.business_type || 'Commercial Stall',
-          monthlyRent: 3500 + (i * 500),
+          stallType: app.stall?.stall_type || app.business_type || sh.business_type || 'Commercial Stall',
+          monthlyRent: Number(app.stall?.monthly_rent || 3500 + (i * 500)),
           startDate: '2025-11-01',
           endDate: dEnd.toISOString().slice(0, 10),
           status: 'ACTIVE'

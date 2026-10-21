@@ -98,6 +98,51 @@ export function normalizeRecord(item) {
   if (result.treasurer_paid !== undefined && result.treasurerPaid === undefined) result.treasurerPaid = result.treasurer_paid;
   if (result.treasurerPaid !== undefined && result.treasurer_paid === undefined) result.treasurer_paid = result.treasurerPaid;
 
+  // Extract imageUrl from map_coordinates JSONB if present
+  if (!result.imageUrl && result.map_coordinates?.imageUrl) {
+    result.imageUrl = result.map_coordinates.imageUrl;
+    result.image_url = result.map_coordinates.imageUrl;
+  }
+
+  // rental_rates mapping
+  if (result.base_monthly_rate !== undefined) {
+    if (result.monthlyRate === undefined) result.monthlyRate = Number(result.base_monthly_rate);
+    if (result.monthly_rate === undefined) result.monthly_rate = Number(result.base_monthly_rate);
+    if (result.rate === undefined) result.rate = Number(result.base_monthly_rate);
+  }
+  if (result.is_active !== undefined && result.status === undefined) {
+    result.status = result.is_active ? 'ACTIVE' : 'INACTIVE';
+  }
+
+  // stakeholder_applications mapping
+  if (result.loi_url && !result.letterDocumentUrl) result.letterDocumentUrl = result.loi_url;
+  if (result.loi_url && !result.loiUrl) result.loiUrl = result.loi_url;
+  if (result.valid_id_url && !result.idDocumentUrl) result.idDocumentUrl = result.valid_id_url;
+  if (result.valid_id_url && !result.validIdUrl) result.validIdUrl = result.valid_id_url;
+  if (result.application_no && !result.applicationNo) result.applicationNo = result.application_no;
+  if (result.current_holding_office && !result.currentHoldingOffice) result.currentHoldingOffice = result.current_holding_office;
+  if (result.supervisor_endorsed_at && !result.supervisorEndorsedAt) result.supervisorEndorsedAt = result.supervisor_endorsed_at;
+  if (result.supervisor_remarks && !result.supervisorRemarks) result.supervisorRemarks = result.supervisor_remarks;
+  if (result.mayor_approved_at && !result.mayorApprovedAt) result.mayorApprovedAt = result.mayor_approved_at;
+  if (result.mayor_decision && !result.mayorDecision) result.mayorDecision = result.mayor_decision;
+  if (result.mayor_remarks && !result.mayorRemarks) result.mayorRemarks = result.mayor_remarks;
+  if (result.bplo_status && !result.bploStatus) result.bploStatus = result.bplo_status;
+  if (result.bplo_remarks && !result.bploRemarks) result.bploRemarks = result.bplo_remarks;
+  if (result.endorsing_status && !result.endorsingStatus) result.endorsingStatus = result.endorsing_status;
+  if (result.endorsement_status && !result.endorsementStatus) result.endorsementStatus = result.endorsement_status;
+  if (result.moresco_clearance_url && !result.morescoClearanceUrl) result.morescoClearanceUrl = result.moresco_clearance_url;
+  if (result.business_permit_fee_assessed !== undefined && result.businessPermitFeeAssessed === undefined) result.businessPermitFeeAssessed = result.business_permit_fee_assessed;
+  if (result.business_permit_fee_paid !== undefined && result.businessPermitFeePaid === undefined) result.businessPermitFeePaid = result.business_permit_fee_paid;
+  if (result.business_permit_no && !result.businessPermitNo) result.businessPermitNo = result.business_permit_no;
+  if (result.business_permit_released !== undefined && result.businessPermitReleased === undefined) result.businessPermitReleased = result.business_permit_released;
+  if (result.business_permit_released_at && !result.businessPermitReleasedAt) result.businessPermitReleasedAt = result.business_permit_released_at;
+  if (result.stall_id && !result.selectedStallId) result.selectedStallId = result.stall_id;
+  if (result.selected_stall_id && !result.selectedStallId) result.selectedStallId = result.selected_stall_id;
+  if (result.selectedStallId && !result.selected_stall_id) result.selected_stall_id = result.selectedStallId;
+  if (result.status && !result.applicationStatus && (result.application_no || result.stakeholder_id !== undefined)) {
+    result.applicationStatus = result.status;
+  }
+
   return result;
 }
 
@@ -120,8 +165,20 @@ function mapStallPayload(data) {
     payload.status = (s === 'VACANT') ? 'AVAILABLE' : s;
   }
 
+  // Store imageUrl cleanly inside map_coordinates JSONB (stalls table has no image_url column)
+  let mapCoords = {};
+  if (data.map_coordinates && typeof data.map_coordinates === 'object') {
+    mapCoords = { ...data.map_coordinates };
+  } else if (typeof data.map_coordinates === 'string') {
+    try { mapCoords = JSON.parse(data.map_coordinates); } catch (_) {}
+  }
   const imageUrl = data.image_url ?? data.imageUrl;
-  if (imageUrl !== undefined) payload.image_url = imageUrl || null;
+  if (imageUrl !== undefined) {
+    mapCoords.imageUrl = imageUrl || null;
+  }
+  if (Object.keys(mapCoords).length > 0 || imageUrl !== undefined) {
+    payload.map_coordinates = mapCoords;
+  }
 
   const info = data.info ?? data.section ?? data.location;
   if (info !== undefined) payload.info = info || null;
@@ -141,6 +198,19 @@ function mapStallPayload(data) {
     payload.occupant_id = occupantId ? Number(occupantId) : null;
   }
 
+  if (data.rate_category ?? data.rateCategory) {
+    payload.rate_category = String(data.rate_category ?? data.rateCategory).toUpperCase();
+  }
+  if (data.stall_rights_fee ?? data.stallRightsFee) {
+    payload.stall_rights_fee = Number(data.stall_rights_fee ?? data.stallRightsFee);
+  }
+  if (data.area_sqm ?? data.areaSqm) {
+    payload.area_sqm = Number(data.area_sqm ?? data.areaSqm);
+  }
+  if (data.dimensions) {
+    payload.dimensions = String(data.dimensions);
+  }
+
   return payload;
 }
 
@@ -148,14 +218,29 @@ function mapRentalRatePayload(data) {
   if (!data || typeof data !== 'object') return data;
   const payload = {};
 
-  const stallType = data.stall_type ?? data.stallType;
+  const stallType = data.stall_type ?? data.stallType ?? data.name;
   if (stallType !== undefined && stallType !== null) payload.stall_type = String(stallType).trim();
 
-  const monthlyRate = data.monthly_rate ?? data.monthlyRate ?? data.rate;
-  if (monthlyRate !== undefined && monthlyRate !== null) payload.monthly_rate = Number(monthlyRate || 0);
+  const baseRate = data.base_monthly_rate ?? data.baseMonthlyRate ?? data.monthly_rate ?? data.monthlyRate ?? data.rate;
+  if (baseRate !== undefined && baseRate !== null) payload.base_monthly_rate = Number(baseRate || 0);
 
-  if (data.description !== undefined) payload.description = data.description || '';
-  if (data.status !== undefined) payload.status = data.status || 'ACTIVE';
+  if (data.rate_category ?? data.rateCategory) {
+    payload.rate_category = String(data.rate_category ?? data.rateCategory).toUpperCase();
+  }
+  if (data.stall_rights_fee ?? data.stallRightsFee) {
+    payload.stall_rights_fee = Number(data.stall_rights_fee ?? data.stallRightsFee);
+  }
+  if (data.rate_per_sqm ?? data.ratePerSqm) {
+    payload.rate_per_sqm = Number(data.rate_per_sqm ?? data.ratePerSqm);
+  }
+  if (data.advance_months ?? data.advanceMonths) {
+    payload.advance_months = Number(data.advance_months ?? data.advanceMonths);
+  }
+  if (data.is_active !== undefined) {
+    payload.is_active = Boolean(data.is_active);
+  } else if (data.status !== undefined) {
+    payload.is_active = String(data.status).toUpperCase() === 'ACTIVE';
+  }
 
   return payload;
 }
@@ -278,15 +363,21 @@ async function handleSelectStall(cleanUrl, data) {
     console.warn('[select-stall] Occupant sync notice:', occErr);
   }
 
-  // 6. Sync business_applications table if user_id exists
+  // 6. Sync stakeholder_applications table if stakeholder_id or user_id exists
   try {
-    if (updated?.user_id) {
-      await supabase
-        .from('business_applications')
+    if (updated?.id || updated?.user_id) {
+      let q = supabase
+        .from('stakeholder_applications')
         .update({
-          selected_stall_id: targetStallId
-        })
-        .eq('user_id', updated.user_id);
+          stall_id: targetStallId,
+          calculated_advance_rent: totalAdvance
+        });
+      if (updated.id) {
+        q = q.eq('stakeholder_id', updated.id);
+      } else if (updated.user_id) {
+        q = q.eq('user_id', updated.user_id);
+      }
+      await q;
     }
   } catch (_) {}
 
@@ -339,7 +430,7 @@ const api = {
     if (cleanUrl === 'stalls') {
       const { data, error } = await supabase
         .from('stalls')
-        .select('*, occupant:occupants(*, stakeholder:stakeholders(*))')
+        .select('*, occupant:occupants!fk_stalls_occupant(*, stakeholder:stakeholders(*))')
         .order('id', { ascending: true });
       if (error) throw error;
       return { data: normalizeRecord(data || []) };
@@ -347,16 +438,33 @@ const api = {
 
     if (cleanUrl.startsWith('stalls/')) {
       const id = cleanUrl.replace('stalls/', '');
-      const { data, error } = await supabase.from('stalls').select('*').eq('id', id).single();
+      const { data, error } = await supabase
+        .from('stalls')
+        .select('*, occupant:occupants!fk_stalls_occupant(*, stakeholder:stakeholders(*))')
+        .eq('id', id)
+        .single();
       if (error) throw error;
       return { data: normalizeRecord(data) };
     }
 
-    // 2. Stall Types
+    // 2. Stall Types (mapped from authoritative rental_rates table)
     if (cleanUrl === 'stall-types' || cleanUrl === 'admin/stall-types') {
-      const { data, error } = await supabase.from('stall_types').select('*').order('name', { ascending: true });
+      const { data, error } = await supabase.from('rental_rates').select('*').order('id', { ascending: true });
       if (error) throw error;
-      return { data: normalizeRecord(data || []) };
+      const normalized = (data || []).map((r) => ({
+        id: r.id,
+        name: r.stall_type,
+        stallType: r.stall_type,
+        rate: Number(r.base_monthly_rate || 0),
+        monthlyRate: Number(r.base_monthly_rate || 0),
+        baseMonthlyRate: Number(r.base_monthly_rate || 0),
+        rateCategory: r.rate_category,
+        stallRightsFee: Number(r.stall_rights_fee || 5000),
+        advanceMonths: r.advance_months || 2,
+        isActive: r.is_active,
+        status: r.is_active ? 'ACTIVE' : 'INACTIVE'
+      }));
+      return { data: normalized };
     }
 
     // 3. Rental Rates
@@ -384,8 +492,8 @@ const api = {
     if (cleanUrl === 'stakeholders/for-approval') {
       const { data, error } = await supabase
         .from('stakeholders')
-        .select('*, selectedStall:stalls(*), documents:stakeholder_documents(*), occupant:occupants(*, stall:stalls(*)), payments:payments(*)')
-        .or('treasurer_approved.is.null,treasurer_approved.eq.false')
+        .select('*, selectedStall:stalls!selected_stall_id(*), documents:stakeholder_documents(*), occupant:occupants(*, stall:stalls!occupants_stall_id_fkey(*)), payments:payments(*)')
+        .or('treasurer_paid.is.null,treasurer_paid.eq.false,applicant_fee_paid.is.null,applicant_fee_paid.eq.false')
         .not('application_status', 'in', '("COMPLETED","REJECTED","CANCELLED","FULLY_APPROVED","PENDING_MARKET_SUPERVISOR_APPROVAL","PENDING_BPLO_APPROVAL")')
         .order('id', { ascending: false });
       if (error) throw error;
@@ -395,7 +503,7 @@ const api = {
     if (cleanUrl === 'stakeholders') {
       const { data, error } = await supabase
         .from('stakeholders')
-        .select('*, selectedStall:stalls(*), documents:stakeholder_documents(*), occupant:occupants(*, stall:stalls(*)), payments:payments(*)')
+        .select('*, selectedStall:stalls!selected_stall_id(*), documents:stakeholder_documents(*), occupant:occupants(*, stall:stalls!occupants_stall_id_fkey(*)), payments:payments(*)')
         .order('id', { ascending: false });
       if (error) throw error;
       return { data: normalizeRecord(data || []) };
@@ -405,7 +513,7 @@ const api = {
       const userId = cleanUrl.replace('stakeholders/user/', '');
       const { data, error } = await supabase
         .from('stakeholders')
-        .select('*, occupant:occupants(*, stall:stalls(*)), documents:stakeholder_documents(*), payments:payments(*)')
+        .select('*, selectedStall:stalls!selected_stall_id(*), occupant:occupants(*, stall:stalls!occupants_stall_id_fkey(*)), documents:stakeholder_documents(*), payments:payments(*)')
         .eq('user_id', userId)
         .maybeSingle();
       if (error) throw error;
@@ -426,18 +534,18 @@ const api = {
       const id = cleanUrl.replace('stakeholders/', '');
       const { data, error } = await supabase
         .from('stakeholders')
-        .select('*, selectedStall:stalls(*), documents:stakeholder_documents(*), occupant:occupants(*, stall:stalls(*)), payments:payments(*)')
+        .select('*, selectedStall:stalls!selected_stall_id(*), documents:stakeholder_documents(*), occupant:occupants(*, stall:stalls!occupants_stall_id_fkey(*)), payments:payments(*)')
         .eq('id', id)
         .maybeSingle();
       if (error) throw error;
       return { data: normalizeRecord(data) };
     }
 
-    // 7. Applications
+    // 7. Applications (authoritative stakeholder_applications table)
     if (cleanUrl === 'applications') {
       const { data, error } = await supabase
-        .from('business_applications')
-        .select('*, stall:stalls(*)')
+        .from('stakeholder_applications')
+        .select('*, stakeholder:stakeholders(*), stall:stalls(*)')
         .order('id', { ascending: false });
       if (error) throw error;
       return { data: normalizeRecord(data || []) };
@@ -446,11 +554,23 @@ const api = {
     if (cleanUrl.startsWith('applications/user/')) {
       const userId = cleanUrl.replace('applications/user/', '');
       const { data, error } = await supabase
-        .from('business_applications')
-        .select('*, stall:stalls(*)')
+        .from('stakeholder_applications')
+        .select('*, stakeholder:stakeholders(*), stall:stalls(*)')
         .eq('user_id', userId)
         .order('id', { ascending: false })
         .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return { data: normalizeRecord(data) };
+    }
+
+    if (cleanUrl.startsWith('applications/') && !cleanUrl.includes('user/')) {
+      const id = cleanUrl.replace('applications/', '');
+      const queryId = !isNaN(Number(id)) ? Number(id) : id;
+      const { data, error } = await supabase
+        .from('stakeholder_applications')
+        .select('*, stakeholder:stakeholders(*), stall:stalls(*)')
+        .eq('id', queryId)
         .maybeSingle();
       if (error) throw error;
       return { data: normalizeRecord(data) };
@@ -461,7 +581,7 @@ const api = {
       try {
         const { data, error } = await supabase
           .from('billings')
-          .select('*, occupant:occupants(*, stakeholder:stakeholders(*)), contract:contracts(*, stall:stalls(*))')
+          .select('*, occupant:occupants(*, stakeholder:stakeholders(*), stall:stalls!occupants_stall_id_fkey(*)), contract:contracts(*, stall:stalls(*))')
           .order('id', { ascending: false });
         if (!error && data && data.length > 0) {
           return { data: normalizeRecord(data) };
@@ -482,17 +602,6 @@ const api = {
         console.warn('[api.get /billings] flat query note:', flatErr);
       }
 
-      try {
-        return await rawAxios.get(url, config);
-      } catch (axErr) {
-        console.warn('[api.get /billings] rawAxios note:', axErr);
-      }
-
-      try {
-        const raw = localStorage.getItem('billings');
-        if (raw) return { data: JSON.parse(raw) };
-      } catch (_) {}
-
       return { data: [] };
     }
 
@@ -502,7 +611,7 @@ const api = {
       try {
         const { data, error } = await supabase
           .from('billings')
-          .select('*, occupant:occupants(*, stakeholder:stakeholders(*)), contract:contracts(*, stall:stalls(*))')
+          .select('*, occupant:occupants(*, stakeholder:stakeholders(*), stall:stalls!occupants_stall_id_fkey(*)), contract:contracts(*, stall:stalls(*))')
           .or(`id.eq.${queryId},billing_no.eq.${queryId}`)
           .maybeSingle();
         if (!error && data) {
@@ -526,7 +635,6 @@ const api = {
       return rawAxios.get(url, config);
     }
 
-
     // 8.1 Contracts
     if (cleanUrl === 'contracts') {
       try {
@@ -540,10 +648,6 @@ const api = {
       } catch (err) {
         console.warn('[api.get /contracts] error fetching from supabase:', err);
       }
-      try {
-        const raw = localStorage.getItem('contracts');
-        if (raw) return { data: JSON.parse(raw) };
-      } catch (_) {}
       return { data: [] };
     }
 
@@ -563,10 +667,9 @@ const api = {
       try {
         const { data, error } = await supabase
           .from('occupants')
-          .select('*, stakeholder:stakeholders(*), stall:stalls(*)')
+          .select('*, stakeholder:stakeholders(*), stall:stalls!occupants_stall_id_fkey(*)')
           .order('id', { ascending: false });
         if (!error && data) {
-          // Fetch all contracts to resolve contractStatus without N+1
           let contractsMap = {};
           try {
             const { data: cList } = await supabase.from('contracts').select('*');
@@ -609,9 +712,9 @@ const api = {
           return { data: enriched };
         }
       } catch (err) {
-        console.warn('[api.get /occupants] Supabase query failed, falling back:', err);
+        console.warn('[api.get /occupants] Supabase query failed:', err);
       }
-      return rawAxios.get(url, config);
+      return { data: [] };
     }
 
     if (cleanUrl.startsWith('occupants/stakeholder/')) {
@@ -619,7 +722,7 @@ const api = {
       try {
         const { data: occ, error } = await supabase
           .from('occupants')
-          .select('*, stakeholder:stakeholders(*), stall:stalls(*)')
+          .select('*, stakeholder:stakeholders(*), stall:stalls!occupants_stall_id_fkey(*)')
           .eq('stakeholder_id', stakeholderId)
           .maybeSingle();
         if (!error && occ) {
@@ -657,9 +760,9 @@ const api = {
           return { data: item };
         }
       } catch (err) {
-        console.warn('[api.get /occupants/stakeholder] failed, falling back:', err);
+        console.warn('[api.get /occupants/stakeholder] failed:', err);
       }
-      return rawAxios.get(url, config);
+      return { data: null };
     }
 
     if (cleanUrl.startsWith('occupants/')) {
@@ -667,7 +770,7 @@ const api = {
       try {
         const { data: occ, error } = await supabase
           .from('occupants')
-          .select('*, stakeholder:stakeholders(*), stall:stalls(*)')
+          .select('*, stakeholder:stakeholders(*), stall:stalls!occupants_stall_id_fkey(*)')
           .eq('id', occId)
           .maybeSingle();
         if (!error && occ) {
@@ -705,9 +808,190 @@ const api = {
           return { data: item };
         }
       } catch (err) {
-        console.warn('[api.get /occupants/:id] failed, falling back:', err);
+        console.warn('[api.get /occupants/:id] failed:', err);
       }
-      return rawAxios.get(url, config);
+      return { data: null };
+    }
+
+    // 8.3 Delinquency Management
+    if (cleanUrl === 'delinquency/flagged') {
+      try {
+        const { data: bills, error: bErr } = await supabase
+          .from('billings')
+          .select('*, occupant:occupants(*, stakeholder:stakeholders(*), stall:stalls!occupants_stall_id_fkey(*)), contract:contracts(*, stall:stalls(*))')
+          .or('status.eq.OVERDUE,balance.gt.0')
+          .order('due_date', { ascending: true });
+
+        if (bErr) throw bErr;
+
+        const now = Date.now();
+        const flaggedMap = new Map();
+
+        for (const b of (bills || [])) {
+          const bal = Number(b.balance || 0);
+          if (bal <= 0) continue;
+
+          const dueDate = b.due_date ? new Date(b.due_date).getTime() : now;
+          const isOverdue = b.status === 'OVERDUE' || dueDate < now;
+          if (!isOverdue) continue;
+
+          const daysOverdue = Math.max(0, Math.floor((now - dueDate) / 86400000));
+          const occ = b.occupant || {};
+          const sh = occ.stakeholder || {};
+          const stall = b.contract?.stall || occ.stall || {};
+          const key = occ.id || sh.id || b.id;
+
+          if (!flaggedMap.has(key)) {
+            flaggedMap.set(key, {
+              id: b.id,
+              billingId: b.id,
+              occupantId: occ.id || null,
+              stakeholderId: sh.id || null,
+              vendorName: [sh.first_name, sh.last_name].filter(Boolean).join(' ') || sh.business_name || 'Vendor',
+              businessName: sh.business_name || '',
+              stallNo: stall.stall_no || 'Unassigned',
+              stallType: stall.stall_type || 'Standard',
+              monthlyRent: Number(stall.monthly_rent || 1500),
+              totalArrears: 0,
+              daysOverdue: 0,
+              noticesSent: (b.final_notice_sent_at ? 3 : (b.second_notice_sent_at ? 2 : (b.first_notice_sent_at ? 1 : 0))),
+              firstNoticeSentAt: b.first_notice_sent_at,
+              secondNoticeSentAt: b.second_notice_sent_at,
+              finalNoticeSentAt: b.final_notice_sent_at,
+              contractId: b.contract_id || occ.contract_id || null,
+              contractNo: b.contract?.contract_no || null,
+              status: daysOverdue >= 90 ? 'CRITICAL' : (daysOverdue >= 60 ? 'FINAL_WARNING' : 'FIRST_NOTICE'),
+              billingPeriod: b.billing_period
+            });
+          }
+
+          const existing = flaggedMap.get(key);
+          existing.totalArrears += bal;
+          if (daysOverdue > existing.daysOverdue) {
+            existing.daysOverdue = daysOverdue;
+            existing.status = daysOverdue >= 90 ? 'CRITICAL' : (daysOverdue >= 60 ? 'FINAL_WARNING' : 'FIRST_NOTICE');
+          }
+        }
+
+        return { data: Array.from(flaggedMap.values()) };
+      } catch (delinqErr) {
+        console.warn('[api.get /delinquency/flagged] Error:', delinqErr);
+        return { data: [] };
+      }
+    }
+
+    if (cleanUrl === 'delinquency/stats') {
+      try {
+        const { data: bills, error: bErr } = await supabase
+          .from('billings')
+          .select('*')
+          .or('status.eq.OVERDUE,balance.gt.0');
+
+        if (bErr) throw bErr;
+
+        const now = Date.now();
+        let totalArrears = 0;
+        let criticalAccountsCount = 0;
+        let notice1Count = 0;
+        let notice2Count = 0;
+        let finalNoticeCount = 0;
+
+        const vendorArrears = new Map();
+
+        for (const b of (bills || [])) {
+          const bal = Number(b.balance || 0);
+          if (bal <= 0) continue;
+
+          const dueDate = b.due_date ? new Date(b.due_date).getTime() : now;
+          if (b.status === 'OVERDUE' || dueDate < now) {
+            totalArrears += bal;
+            const days = Math.max(0, Math.floor((now - dueDate) / 86400000));
+            const occId = b.occupant_id || b.id;
+            vendorArrears.set(occId, Math.max(vendorArrears.get(occId) || 0, days));
+
+            if (b.first_notice_sent_at) notice1Count++;
+            if (b.second_notice_sent_at) notice2Count++;
+            if (b.final_notice_sent_at) finalNoticeCount++;
+          }
+        }
+
+        for (const [, maxDays] of vendorArrears) {
+          if (maxDays >= 90) criticalAccountsCount++;
+        }
+
+        return {
+          data: {
+            totalArrears,
+            flaggedVendorsCount: vendorArrears.size,
+            criticalAccountsCount,
+            notice1Count,
+            notice2Count,
+            finalNoticeCount
+          }
+        };
+      } catch (statsErr) {
+        console.warn('[api.get /delinquency/stats] Error:', statsErr);
+        return {
+          data: {
+            totalArrears: 0,
+            flaggedVendorsCount: 0,
+            criticalAccountsCount: 0,
+            notice1Count: 0,
+            notice2Count: 0,
+            finalNoticeCount: 0
+          }
+        };
+      }
+    }
+
+    // 8.4 Collection Remittances
+    if (cleanUrl === 'collections/remittances') {
+      try {
+        const { data: rems, error: remErr } = await supabase
+          .from('collection_remittances')
+          .select('*, items:collection_remittance_items(*)')
+          .order('id', { ascending: false });
+
+        if (remErr) throw remErr;
+        return { data: normalizeRecord(rems || []) };
+      } catch (err) {
+        console.warn('[api.get /collections/remittances] Error:', err);
+        return { data: [] };
+      }
+    }
+
+    // 8.5 Digital Occupancy Permit QR Verification
+    if (cleanUrl.startsWith('permits/inspect/')) {
+      const code = decodeURIComponent(cleanUrl.replace('permits/inspect/', '').trim());
+      try {
+        const { data: permit, error: pErr } = await supabase
+          .from('occupancy_permits')
+          .select('*, vendor:stakeholders(*), stall:stalls(*), contract:contracts(*), occupant:occupants(*)')
+          .or(`permit_no.eq.${code},integrity_hash.eq.${code}`)
+          .maybeSingle();
+
+        if (pErr) throw pErr;
+        if (!permit) {
+          throw new Error('Permit not found with the provided identifier.');
+        }
+
+        void (async () => {
+          try {
+            const { data: { user } } = await supabase.auth.getUser();
+            await supabase.from('permit_scan_logs').insert({
+              permit_id: permit.id,
+              scanned_by: user?.id || null,
+              scan_type: 'INSPECTOR',
+              is_valid: permit.status === 'ACTIVE'
+            });
+          } catch (_) {}
+        })();
+
+        return { data: { permit: normalizeRecord(permit) } };
+      } catch (err) {
+        console.warn('[api.get /permits/inspect] Error:', err);
+        throw err;
+      }
     }
 
     // 9. Payments
@@ -1264,187 +1548,252 @@ const api = {
       };
     }
 
-    // 1. Applications upload/create
+    // 1. Applications upload/create (authoritative stakeholder_applications + stakeholders)
     if (cleanUrl === 'applications') {
+      let resolvedUserId = null;
+      let bName = '';
+      let bType = '';
+      let fName = '';
+      let mName = '';
+      let lName = '';
+      let contactStr = '';
+      let emailStr = '';
+      let addressStr = '';
+      let numStallId = null;
+      let idUrl = null;
+      let letterUrl = null;
+      let idFileName = 'valid_id';
+      let letterFileName = 'letter_of_intent';
+
       if (data instanceof FormData) {
         let rawUserId = data.get('userId');
-        let resolvedUserId = (rawUserId && rawUserId !== 'null' && rawUserId !== 'undefined') ? rawUserId : null;
-
-        if (!resolvedUserId) {
-          const { data: { user: authUser } } = await supabase.auth.getUser();
-          resolvedUserId = authUser?.id || null;
-        }
-
-        if (!resolvedUserId) {
-          throw new Error('Authentication required. Please log in before submitting an application.');
-        }
+        resolvedUserId = (rawUserId && rawUserId !== 'null' && rawUserId !== 'undefined') ? rawUserId : null;
+        bName = data.get('businessName') || '';
+        bType = data.get('businessType') || '';
+        fName = data.get('firstName') || '';
+        mName = data.get('middleName') || '';
+        lName = data.get('lastName') || '';
+        contactStr = data.get('contact') || '';
+        emailStr = data.get('email') || '';
+        addressStr = data.get('address') || '';
+        const rawStall = data.get('stallId') || data.get('selectedStallId');
+        numStallId = rawStall ? Number(rawStall) : null;
 
         const idFile = data.get('idFile');
         const letterFile = data.get('letterFile');
 
-        let idUrl = null;
         if (idFile && idFile.name) {
+          idFileName = idFile.name;
           const idPath = `applications/${Date.now()}_id_${idFile.name.replace(/[^a-zA-Z0-9._-]/g, '')}`;
           const { error: idErr } = await supabase.storage.from('uploads').upload(idPath, idFile);
-          if (idErr) {
-            console.warn('[STORAGE] ID upload warning:', idErr.message);
-          } else {
+          if (!idErr) {
             const { data: pub } = supabase.storage.from('uploads').getPublicUrl(idPath);
             idUrl = pub?.publicUrl || null;
           }
         }
 
-        let letterUrl = null;
         if (letterFile && letterFile.name) {
+          letterFileName = letterFile.name;
           const letterPath = `applications/${Date.now()}_letter_${letterFile.name.replace(/[^a-zA-Z0-9._-]/g, '')}`;
           const { error: letErr } = await supabase.storage.from('uploads').upload(letterPath, letterFile);
-          if (letErr) {
-            console.warn('[STORAGE] Letter upload warning:', letErr.message);
-          } else {
+          if (!letErr) {
             const { data: pub } = supabase.storage.from('uploads').getPublicUrl(letterPath);
             letterUrl = pub?.publicUrl || null;
           }
         }
+      } else if (typeof data === 'object') {
+        resolvedUserId = data.userId || data.user_id || null;
+        bName = data.businessName || data.business_name || '';
+        bType = data.businessType || data.business_type || '';
+        fName = data.firstName || data.first_name || '';
+        mName = data.middleName || data.middle_name || '';
+        lName = data.lastName || data.last_name || '';
+        contactStr = data.contact || data.phone || '';
+        emailStr = data.email || '';
+        addressStr = data.address || '';
+        const rawStall = data.stallId || data.selectedStallId || data.stall_id;
+        numStallId = rawStall ? Number(rawStall) : null;
+        idUrl = data.idUrl || data.valid_id_url || null;
+        letterUrl = data.letterUrl || data.loi_url || null;
+      }
 
-        const stallId = data.get('stallId') || data.get('selectedStallId') || null;
-        const numStallId = stallId ? Number(stallId) : null;
+      if (!resolvedUserId) {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        resolvedUserId = authUser?.id || null;
+      }
 
-        // Upsert into business_applications
-        const { data: appData, error: appErr } = await supabase.from('business_applications')
-          .upsert({
-            user_id: resolvedUserId,
-            business_name: data.get('businessName') || '',
-            business_type: data.get('businessType') || '',
-            first_name: data.get('firstName') || '',
-            middle_name: data.get('middleName') || '',
-            last_name: data.get('lastName') || '',
-            contact: data.get('contact') || '',
-            email: data.get('email') || '',
-            address: data.get('address') || '',
-            selected_stall_id: numStallId,
-            id_document_url: idUrl,
-            letter_document_url: letterUrl,
-            application_status: 'PENDING',
-            onboarding_status: 'NEW'
-          }, { onConflict: 'user_id' })
-          .select()
-          .single();
-
-        if (appErr) {
-          console.error('[API] Error saving business application:', appErr);
-          throw appErr;
-        }
-
-        // Upsert into stakeholders
+      // 1. Check or insert stakeholder
+      let stakeholderId = null;
+      if (resolvedUserId) {
         const { data: existingStakeholder } = await supabase
           .from('stakeholders')
           .select('id')
           .eq('user_id', resolvedUserId)
           .maybeSingle();
+        stakeholderId = existingStakeholder?.id;
+      }
 
-        let stakeholderId = existingStakeholder?.id;
+      if (stakeholderId) {
+        await supabase.from('stakeholders').update({
+          business_name: bName,
+          business_type: bType,
+          first_name: fName,
+          middle_name: mName,
+          last_name: lName,
+          contact: contactStr,
+          email: emailStr,
+          address: addressStr,
+          selected_stall_id: numStallId,
+          application_status: 'PENDING',
+          onboarding_status: 'NEW'
+        }).eq('id', stakeholderId);
+      } else {
+        const { data: newSh, error: newShErr } = await supabase.from('stakeholders').insert({
+          user_id: resolvedUserId,
+          business_name: bName,
+          business_type: bType,
+          first_name: fName,
+          middle_name: mName,
+          last_name: lName,
+          contact: contactStr,
+          email: emailStr,
+          address: addressStr,
+          selected_stall_id: numStallId,
+          application_status: 'PENDING',
+          onboarding_status: 'NEW'
+        }).select('id').single();
 
-        if (stakeholderId) {
-          await supabase.from('stakeholders').update({
-            business_name: data.get('businessName') || '',
-            business_type: data.get('businessType') || '',
-            first_name: data.get('firstName') || '',
-            middle_name: data.get('middleName') || '',
-            last_name: data.get('lastName') || '',
-            contact: data.get('contact') || '',
-            email: data.get('email') || '',
-            address: data.get('address') || '',
-            selected_stall_id: numStallId,
-            application_status: 'FOR_APPROVAL',
-            onboarding_status: 'FOR_APPROVAL'
-          }).eq('id', stakeholderId);
-        } else {
-          const { data: newStakeholder } = await supabase.from('stakeholders').insert({
-            user_id: resolvedUserId,
-            business_name: data.get('businessName') || '',
-            business_type: data.get('businessType') || '',
-            first_name: data.get('firstName') || '',
-            middle_name: data.get('middleName') || '',
-            last_name: data.get('lastName') || '',
-            contact: data.get('contact') || '',
-            email: data.get('email') || '',
-            address: data.get('address') || '',
-            selected_stall_id: numStallId,
-            application_status: 'FOR_APPROVAL',
-            onboarding_status: 'FOR_APPROVAL'
-          }).select('id').maybeSingle();
-          stakeholderId = newStakeholder?.id;
-        }
+        if (newShErr) throw newShErr;
+        stakeholderId = newSh.id;
+      }
 
-        localStorage.setItem('userId', resolvedUserId);
-        if (stakeholderId) {
-          localStorage.setItem('stakeholderId', String(stakeholderId));
-          const docs = [];
-          if (idUrl) {
-            docs.push({
-              stakeholder_id: stakeholderId,
-              document_type: 'VALID_ID',
-              file_path: idUrl,
-              file_name: idFile?.name || 'valid_id'
-            });
-          }
-          if (letterUrl) {
-            docs.push({
-              stakeholder_id: stakeholderId,
-              document_type: 'APPLICATION_LETTER',
-              file_path: letterUrl,
-              file_name: letterFile?.name || 'letter_of_intent'
-            });
-          }
-          if (docs.length > 0) {
-            await supabase.from('stakeholder_documents').insert(docs);
-          }
-
-          // If a stall was chosen, calculate 2-month advance payment baseline and reserve stall with PENDING occupant
-          if (numStallId) {
-            try {
-              const { data: st } = await supabase.from('stalls').select('*').eq('id', numStallId).maybeSingle();
-              const monthlyRent = Number(st?.monthly_rent || st?.monthlyRent || 1500);
-              const totalAdvance = monthlyRent * 2;
-
-              await supabase.from('stakeholders').update({
-                total_advance_amount: totalAdvance
-              }).eq('id', stakeholderId);
-
-              // Upsert occupant with PENDING status
-              const { data: exOcc } = await supabase.from('occupants').select('id').eq('stakeholder_id', Number(stakeholderId)).maybeSingle();
-              let occId = exOcc?.id;
-              if (occId) {
-                await supabase.from('occupants').update({
-                  stall_id: numStallId,
-                  status: 'PENDING'
-                }).eq('id', occId);
-              } else {
-                const { data: newOcc } = await supabase.from('occupants').insert({
-                  stakeholder_id: Number(stakeholderId),
-                  stall_id: numStallId,
-                  status: 'PENDING',
-                  occupancy_date: new Date().toISOString().split('T')[0],
-                  is_archived: false,
-                  advance_balance: 0
-                }).select('id').maybeSingle();
-                occId = newOcc?.id;
-              }
-
-              // Update stall to RESERVED
-              await supabase.from('stalls').update({
-                status: 'RESERVED',
-                occupant_id: occId || null
-              }).eq('id', numStallId);
-            } catch (occErr) {
-              console.warn('[applications] Stall reservation & advance calculation note:', occErr);
-            }
-          }
-
-          invalidateApiCache('stakeholders|payments|applications|stalls|occupants');
-          return { data: normalizeRecord(appData) };
+      // 2. Compute stall fees
+      let stallRent = 1500;
+      let stallRights = 5000;
+      if (numStallId) {
+        const { data: st } = await supabase.from('stalls').select('*').eq('id', numStallId).maybeSingle();
+        if (st) {
+          stallRent = Number(st.monthly_rent || 1500);
+          stallRights = Number(st.stall_rights_fee || 5000);
         }
       }
+      const advanceRent = stallRent * 2;
+      const totalDue = advanceRent + stallRights;
+
+      await supabase.from('stakeholders').update({
+        total_advance_amount: advanceRent
+      }).eq('id', stakeholderId);
+
+      // 3. Upsert into authoritative stakeholder_applications table
+      const appNo = `APP-${Date.now()}`;
+      let targetStallForApp = numStallId;
+      if (!targetStallForApp) {
+        const { data: firstStall } = await supabase.from('stalls').select('id').limit(1).maybeSingle();
+        targetStallForApp = firstStall?.id || 1;
+      }
+
+      const { data: appData, error: appErr } = await supabase
+        .from('stakeholder_applications')
+        .insert({
+          application_no: appNo,
+          stakeholder_id: stakeholderId,
+          user_id: resolvedUserId,
+          stall_id: targetStallForApp,
+          status: 'PENDING_SUPERVISOR_REVIEW',
+          current_holding_office: 'Market Supervisor',
+          loi_url: letterUrl,
+          valid_id_url: idUrl,
+          calculated_stall_rights_fee: stallRights,
+          calculated_advance_rent: advanceRent,
+          total_initial_amount_due: totalDue,
+          amount_paid: 0.00
+        })
+        .select('*, stall:stalls(*), stakeholder:stakeholders(*)')
+        .single();
+
+      if (appErr) {
+        console.error('[API] Error saving stakeholder application:', appErr);
+        throw appErr;
+      }
+
+      // 4. Save documents to stakeholder_documents
+      const docs = [];
+      if (idUrl) {
+        docs.push({
+          stakeholder_id: stakeholderId,
+          application_id: appData.id,
+          document_type: 'VALID_ID',
+          file_path: idUrl,
+          file_name: idFileName
+        });
+      }
+      if (letterUrl) {
+        docs.push({
+          stakeholder_id: stakeholderId,
+          application_id: appData.id,
+          document_type: 'LOI',
+          file_path: letterUrl,
+          file_name: letterFileName
+        });
+      }
+      if (docs.length > 0) {
+        await supabase.from('stakeholder_documents').insert(docs);
+      }
+
+      // 5. Add initial approval_history row
+      try {
+        await supabase.from('approval_history').insert({
+          stakeholder_id: stakeholderId,
+          application_id: appData.id,
+          stage: 'APPLICATION_SUBMISSION',
+          status: 'SUBMITTED',
+          action_by: resolvedUserId,
+          actor_name: `${fName} ${lName}`.trim() || bName,
+          actor_role: 'APPLICANT',
+          remarks: 'Applicant submitted market stall application with LOI and valid identification.'
+        });
+      } catch (_) {}
+
+      // 6. If a stall was chosen, mark occupant PENDING and stall RESERVED
+      if (numStallId) {
+        try {
+          const { data: exOcc } = await supabase.from('occupants').select('id').eq('stakeholder_id', stakeholderId).maybeSingle();
+          let occId = exOcc?.id;
+          if (occId) {
+            await supabase.from('occupants').update({
+              stall_id: numStallId,
+              status: 'PENDING'
+            }).eq('id', occId);
+          } else {
+            const { data: newOcc } = await supabase.from('occupants').insert({
+              stakeholder_id: stakeholderId,
+              stall_id: numStallId,
+              status: 'PENDING',
+              occupancy_date: new Date().toISOString().split('T')[0],
+              is_archived: false,
+              advance_balance: 0
+            }).select('id').maybeSingle();
+            occId = newOcc?.id;
+          }
+
+          await supabase.from('stalls').update({
+            status: 'RESERVED',
+            occupant_id: occId || null
+          }).eq('id', numStallId);
+        } catch (occErr) {
+          console.warn('[applications] Stall reservation note:', occErr);
+        }
+      }
+
+      if (resolvedUserId) localStorage.setItem('userId', resolvedUserId);
+      localStorage.setItem('stakeholderId', String(stakeholderId));
+
+      invalidateApiCache('stakeholders|payments|applications|stalls|occupants');
+      const normRes = normalizeRecord(appData);
+      normRes.id = appData.id;
+      normRes.user_id = resolvedUserId;
+      normRes.stakeholderId = stakeholderId;
+      return { data: normRes };
     }
 
     // 2. Stalls upload
@@ -1465,17 +1814,18 @@ const api = {
       const { data: newStall, error } = await supabase
         .from('stalls')
         .insert(stallPayload)
-        .select('*, occupant:occupants(*, stakeholder:stakeholders(*))')
+        .select('*, occupant:occupants!fk_stalls_occupant(*, stakeholder:stakeholders(*))')
         .single();
       if (error) throw error;
       return { data: normalizeRecord(newStall) };
     }
 
-    // 4. Stall Types create
+    // 4. Stall Types create (stored in authoritative rental_rates table)
     if (cleanUrl === 'stall-types' || cleanUrl === 'admin/stall-types') {
-      const { data: newType, error } = await supabase.from('stall_types').insert(data).select().single();
+      const ratePayload = mapRentalRatePayload(data);
+      const { data: newRate, error } = await supabase.from('rental_rates').insert(ratePayload).select().single();
       if (error) throw error;
-      return { data: normalizeRecord(newType) };
+      return { data: normalizeRecord(newRate) };
     }
 
     // 5. Rental Rates create
@@ -1538,7 +1888,158 @@ const api = {
       return { data: normalizeRecord(newBill) };
     }
 
-    // 6.2 Activate contract and stall occupancy ONLY if all required conditions are satisfied
+    // 6.2 Delinquency Mayor Revocation
+    if (cleanUrl === 'delinquency/mayor-revocation') {
+      const { stallId, occupantId, contractId, reason, action } = data || {};
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (contractId) {
+        await supabase
+          .from('contracts')
+          .update({ status: 'REVOKED' })
+          .eq('id', Number(contractId));
+      }
+      if (stallId) {
+        await supabase
+          .from('stalls')
+          .update({ status: 'AVAILABLE', occupant_id: null })
+          .eq('id', Number(stallId));
+      }
+      if (occupantId) {
+        await supabase
+          .from('occupants')
+          .update({ status: 'REVOKED', is_archived: true })
+          .eq('id', Number(occupantId));
+      }
+      if (occupantId || contractId) {
+        let pQuery = supabase.from('occupancy_permits').update({
+          status: 'REVOKED',
+          revocation_reason: reason || 'Authorized Mayor lease cancellation due to continuous delinquency',
+          revoked_at: new Date().toISOString(),
+          revoked_by: user?.id || null
+        });
+        if (contractId) pQuery = pQuery.eq('contract_id', Number(contractId));
+        else if (occupantId) pQuery = pQuery.eq('occupant_id', Number(occupantId));
+        await pQuery;
+      }
+
+      try {
+        await supabase.from('audit_logs').insert({
+          user_id: user?.id || null,
+          role: 'MAYOR',
+          action: 'REVOKE_LEASE_DELINQUENCY',
+          entity_name: 'contracts',
+          entity_id: String(contractId || stallId || occupantId),
+          details: { stallId, occupantId, contractId, reason, action }
+        });
+      } catch (_) {}
+
+      invalidateApiCache('stalls|contracts|occupants|billings|permits|stakeholders');
+      return { data: { success: true, message: 'Lease revoked and stall repossession initiated.' } };
+    }
+
+    // 6.3 Delinquency Scan
+    if (cleanUrl === 'delinquency/scan') {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const { data: overdueBills, error: scErr } = await supabase
+        .from('billings')
+        .select('id, due_date, balance, status')
+        .lt('due_date', todayStr)
+        .gt('balance', 0)
+        .neq('status', 'OVERDUE');
+
+      if (!scErr && overdueBills && overdueBills.length > 0) {
+        const ids = overdueBills.map(b => b.id);
+        await supabase
+          .from('billings')
+          .update({ status: 'OVERDUE' })
+          .in('id', ids);
+      }
+
+      invalidateApiCache('billings|delinquency');
+      return { data: { success: true, overdueUpdated: overdueBills?.length || 0 } };
+    }
+
+    // 6.4 Field Collections
+    if (cleanUrl === 'collections/field') {
+      const { stallId, stakeholderId, amount, notes } = data || {};
+      const { data: { user } } = await supabase.auth.getUser();
+      const receiptNo = `OR-FLD-${Date.now().toString().slice(-8)}`;
+
+      const { data: newPayment, error: pErr } = await supabase
+        .from('payments')
+        .insert({
+          receipt_no: receiptNo,
+          stakeholder_id: Number(stakeholderId),
+          amount: Number(amount),
+          payment_type: 'FIELD_COLLECTION',
+          payment_channel: 'FIELD_COLLECTOR',
+          cashier_or_collector_id: user?.id || null,
+          cashier_name: user?.user_metadata?.name || user?.user_metadata?.full_name || 'Field Collector',
+          notes: notes || (stallId ? `Stall ${stallId} field collection` : 'Market field collection')
+        })
+        .select()
+        .single();
+
+      if (pErr) throw pErr;
+
+      invalidateApiCache('payments|collections|billings');
+      return { data: { success: true, receiptNo, payment: normalizeRecord(newPayment) } };
+    }
+
+    // 6.5 Remittances Batch Submission
+    if (cleanUrl === 'collections/remittances') {
+      const { collectionIds, remarks } = data || {};
+      const { data: { user } } = await supabase.auth.getUser();
+      const remittanceNo = `REM-${Date.now().toString().slice(-8)}`;
+
+      let collections = [];
+      if (Array.isArray(collectionIds) && collectionIds.length > 0) {
+        const { data: pList } = await supabase
+          .from('payments')
+          .select('*, stakeholder:stakeholders(*)')
+          .in('id', collectionIds);
+        collections = pList || [];
+      }
+
+      const totalAmount = collections.reduce((sum, c) => sum + Number(c.amount || 0), 0);
+      const collectorName = user?.user_metadata?.name || user?.user_metadata?.full_name || 'Market Collector';
+
+      const { data: newRem, error: remErr } = await supabase
+        .from('collection_remittances')
+        .insert({
+          remittance_no: remittanceNo,
+          collector_id: user?.id || '00000000-0000-0000-0000-000000000000',
+          collector_name: collectorName,
+          total_amount: totalAmount,
+          collection_count: collections.length,
+          status: 'SUBMITTED',
+          remarks: remarks || 'Field collections batch'
+        })
+        .select()
+        .single();
+
+      if (remErr) throw remErr;
+
+      if (newRem?.id && collections.length > 0) {
+        const items = collections.map(c => ({
+          remittance_id: newRem.id,
+          payment_id: c.id,
+          stall_no: c.notes?.match(/Stall\s*([A-Za-z0-9-]+)/i)?.[1] || 'WS',
+          vendor_name: [c.stakeholder?.first_name, c.stakeholder?.last_name].filter(Boolean).join(' ') || c.stakeholder?.business_name || 'Vendor',
+          amount: Number(c.amount || 0),
+          collected_at: c.payment_date || new Date().toISOString()
+        }));
+
+        await supabase.from('collection_remittance_items').insert(items);
+        await supabase.from('payments').update({ remittance_id: newRem.id }).in('id', collectionIds);
+      }
+
+      invalidateApiCache('collections|payments');
+      return { data: { success: true, remittanceNo, remittance: normalizeRecord(newRem) } };
+    }
+
+    // 6.6 Activate contract and stall occupancy ONLY if all required conditions are satisfied
     if (cleanUrl.includes('activate-if-eligible')) {
       const parts = cleanUrl.split('/');
       const stakeholderId = parts.find((p, idx) => parts[idx - 1] === 'stakeholder') || data?.stakeholderId;
@@ -1568,9 +2069,8 @@ const api = {
             }).eq('id', Number(stakeholderId));
 
             if (sh.user_id) {
-              await supabase.from('business_applications').update({
-                application_status: 'COMPLETED',
-                onboarding_status: 'FULLY_ONBOARDED'
+              await supabase.from('stakeholder_applications').update({
+                status: 'COMPLETED'
               }).eq('user_id', sh.user_id);
             }
             return { data: { activated: true, stakeholderId, stallId } };
@@ -1599,7 +2099,8 @@ const api = {
       // Always update stakeholders table directly
       try {
         await supabase.from('stakeholders').update({
-          treasurer_approved: true,
+          treasurer_paid: true,
+          applicant_fee_paid: true,
           advance_payment_paid: true,
           advance_payment_completed: true,
           application_status: 'PENDING_MARKET_SUPERVISOR_APPROVAL'
@@ -1610,13 +2111,10 @@ const api = {
 
       try {
         const { data: st } = await supabase.from('stakeholders').select('user_id').eq('id', Number(stakeholderId)).maybeSingle();
-        if (st?.user_id) {
-          await supabase.from('business_applications').update({
-            advance_payment_paid: true,
-            advance_payment_completed: true,
-            application_status: 'PENDING_MARKET_SUPERVISOR_APPROVAL'
-          }).eq('user_id', st.user_id);
-        }
+        await supabase.from('stakeholder_applications').update({
+          amount_paid: Number(data?.amount || 0),
+          status: 'PENDING_SUPERVISOR_REVIEW'
+        }).or(`stakeholder_id.eq.${Number(stakeholderId)}${st?.user_id ? `,user_id.eq.${st.user_id}` : ''}`);
       } catch (_) {}
 
       invalidateApiCache('stakeholders|payments|applications|stalls');
@@ -1718,12 +2216,12 @@ const api = {
       }
 
       try {
-        if (updated?.user_id) {
-          await supabase.from('business_applications').update({
-            market_approval_status: 'APPROVED',
-            application_status: 'PENDING_BPLO_APPROVAL',
-            selected_stall_id: resolvedStallId ? Number(resolvedStallId) : undefined
-          }).eq('user_id', updated.user_id);
+        if (updated?.id || updated?.user_id) {
+          await supabase.from('stakeholder_applications').update({
+            supervisor_endorsed_at: new Date().toISOString(),
+            status: 'PENDING_MAYOR_APPROVAL',
+            stall_id: resolvedStallId ? Number(resolvedStallId) : undefined
+          }).or(`stakeholder_id.eq.${updated.id}${updated.user_id ? `,user_id.eq.${updated.user_id}` : ''}`);
         }
       } catch (_) {}
 
@@ -1849,17 +2347,14 @@ const api = {
           await supabase.from('occupants').update({ contract_id: contractId, status: 'PENDING' }).eq('id', occupantId);
         }
 
-        // Also update business_applications if user_id exists
-        if (sh.user_id) {
-          try {
-            await supabase.from('business_applications').update({
-              selected_stall_id: Number(stallId),
-              market_approval_status: 'APPROVED',
-              market_supervisor_approved: true,
-              application_status: 'PENDING_BPLO_APPROVAL'
-            }).eq('user_id', sh.user_id);
-          } catch (_) {}
-        }
+        // Also update stakeholder_applications if stakeholder_id or user_id exists
+        try {
+          await supabase.from('stakeholder_applications').update({
+            stall_id: Number(stallId),
+            supervisor_endorsed_at: new Date().toISOString(),
+            status: 'PENDING_MAYOR_APPROVAL'
+          }).or(`stakeholder_id.eq.${Number(stakeholderId)}${sh.user_id ? `,user_id.eq.${sh.user_id}` : ''}`);
+        } catch (_) {}
 
         // Automatically trigger ensureBillingsForVerifiedTenants so billing statements are immediately created
         try {
@@ -1892,13 +2387,14 @@ const api = {
           }
         }
         const { data: st } = await supabase.from('stakeholders').select('user_id').eq('id', stakeholderId).maybeSingle();
-        if (st?.user_id && targetStallId) {
-          await supabase.from('business_applications').update({
-            selected_stall_id: Number(targetStallId),
-            market_approval_status: 'APPROVED',
-            market_supervisor_approved: true,
-            application_status: 'PENDING_BPLO_APPROVAL'
-          }).eq('user_id', st.user_id);
+        if (targetStallId) {
+          try {
+            await supabase.from('stakeholder_applications').update({
+              stall_id: Number(targetStallId),
+              supervisor_endorsed_at: new Date().toISOString(),
+              status: 'PENDING_MAYOR_APPROVAL'
+            }).or(`stakeholder_id.eq.${Number(stakeholderId)}${st?.user_id ? `,user_id.eq.${st.user_id}` : ''}`);
+          } catch (_) {}
         }
       } catch (_) {}
 
@@ -2082,6 +2578,270 @@ const api = {
       return await handleSelectStall(cleanUrl, data);
     }
 
+    // 0.1 Application Review Endpoints (Supervisor, Mayor, Inspector, BPLO, Activation)
+    if (cleanUrl.startsWith('applications/') && cleanUrl.endsWith('/supervisor-review')) {
+      const appId = cleanUrl.split('/')[1];
+      const { status, remarks } = data || {};
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const nextStatus = status === 'REJECTED' ? 'SUPERVISOR_REJECTED' : 'PENDING_MAYOR_APPROVAL';
+      const { data: updatedApp, error: appErr } = await supabase
+        .from('stakeholder_applications')
+        .update({
+          status: nextStatus,
+          supervisor_endorsed_at: new Date().toISOString(),
+          supervisor_remarks: remarks || null,
+          current_holding_office: status === 'REJECTED' ? 'Market Supervisor' : 'Office of the Mayor'
+        })
+        .eq('id', Number(appId))
+        .select()
+        .single();
+
+      if (appErr) throw appErr;
+
+      if (updatedApp?.stakeholder_id) {
+        await supabase.from('stakeholders').update({
+          market_supervisor_approved: status !== 'REJECTED',
+          market_approval_status: status !== 'REJECTED' ? 'APPROVED' : 'REJECTED',
+          application_status: nextStatus
+        }).eq('id', updatedApp.stakeholder_id);
+
+        try {
+          await supabase.from('approval_history').insert({
+            stakeholder_id: updatedApp.stakeholder_id,
+            application_id: Number(appId),
+            stage: 'MARKET_SUPERVISOR',
+            status: status !== 'REJECTED' ? 'APPROVED' : 'REJECTED',
+            action_by: user?.id || null,
+            actor_name: user?.user_metadata?.name || 'Market Supervisor',
+            actor_role: 'MARKET_SUPERVISOR',
+            remarks: remarks || null
+          });
+        } catch (_) {}
+      }
+
+      invalidateApiCache('applications|stakeholders');
+      return { data: normalizeRecord(updatedApp) };
+    }
+
+    if (cleanUrl.startsWith('applications/') && cleanUrl.endsWith('/mayor-review')) {
+      const appId = cleanUrl.split('/')[1];
+      const { decision, remarks } = data || {};
+      const isApproved = decision === 'APPROVED';
+      const nextStatus = isApproved ? 'PENDING_TREASURER_PAYMENT' : 'MAYOR_REJECTED';
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const { data: updatedApp, error: appErr } = await supabase
+        .from('stakeholder_applications')
+        .update({
+          status: nextStatus,
+          mayor_decision: decision,
+          mayor_approved_at: new Date().toISOString(),
+          mayor_remarks: remarks || null,
+          current_holding_office: isApproved ? 'Municipal Treasury' : 'Office of the Mayor'
+        })
+        .eq('id', Number(appId))
+        .select()
+        .single();
+
+      if (appErr) throw appErr;
+
+      if (updatedApp?.stakeholder_id) {
+        await supabase.from('stakeholders').update({
+          final_endorsed: isApproved,
+          endorsing_approved: isApproved,
+          endorsement_status: decision,
+          endorsement_remarks: remarks || null,
+          application_status: nextStatus
+        }).eq('id', updatedApp.stakeholder_id);
+
+        try {
+          await supabase.from('approval_history').insert({
+            stakeholder_id: updatedApp.stakeholder_id,
+            application_id: Number(appId),
+            stage: 'MAYOR_OFFICE',
+            status: decision,
+            action_by: user?.id || null,
+            actor_name: user?.user_metadata?.name || 'Office of the Mayor',
+            actor_role: 'MAYOR',
+            remarks: remarks || null
+          });
+        } catch (_) {}
+      }
+
+      invalidateApiCache('applications|stakeholders');
+      return { data: normalizeRecord(updatedApp) };
+    }
+
+    if (cleanUrl.startsWith('applications/') && cleanUrl.endsWith('/inspector-verify')) {
+      const appId = cleanUrl.split('/')[1];
+      const { electricalClearance, structuralClearance, fireSafetyClearance, sanitationClearance, status, remarks } = data || {};
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const { data: appRec } = await supabase
+        .from('stakeholder_applications')
+        .select('*, stall:stalls(*)')
+        .eq('id', Number(appId))
+        .maybeSingle();
+
+      const stallId = appRec?.stall_id;
+
+      if (stallId) {
+        try {
+          await supabase.from('stall_inspections').insert({
+            stall_id: stallId,
+            inspector_id: user?.id || null,
+            inspector_name: user?.user_metadata?.name || user?.user_metadata?.full_name || 'Sanitary/Safety Inspector',
+            electrical_clearance: electricalClearance ?? true,
+            structural_clearance: structuralClearance ?? true,
+            fire_safety_clearance: fireSafetyClearance ?? true,
+            sanitation_clearance: sanitationClearance ?? true,
+            status: status || 'PASSED',
+            remarks: remarks || 'Stall inspected and verified compliant.'
+          });
+        } catch (_) {}
+      }
+
+      const { data: updatedApp, error: appErr } = await supabase
+        .from('stakeholder_applications')
+        .update({
+          status: 'INSPECTION_PASSED',
+          inspection_notes: remarks || null,
+          inspection_completed_at: new Date().toISOString(),
+          inspected_by: user?.id || null,
+          current_holding_office: 'BPLO'
+        })
+        .eq('id', Number(appId))
+        .select()
+        .single();
+
+      if (appErr) throw appErr;
+
+      invalidateApiCache('applications|inspections|stalls');
+      return { data: normalizeRecord(updatedApp) };
+    }
+
+    if (cleanUrl.startsWith('applications/') && cleanUrl.endsWith('/bplo-assess')) {
+      const appId = cleanUrl.split('/')[1];
+      const { feeAmount, remarks } = data || {};
+
+      const { data: updatedApp, error: appErr } = await supabase
+        .from('stakeholder_applications')
+        .update({
+          business_permit_fee_assessed: Number(feeAmount || 0),
+          bplo_remarks: remarks || null,
+          status: 'PENDING_BPLO_PAYMENT',
+          current_holding_office: 'Municipal Treasury'
+        })
+        .eq('id', Number(appId))
+        .select()
+        .single();
+
+      if (appErr) throw appErr;
+
+      if (updatedApp?.stakeholder_id) {
+        await supabase.from('stakeholders').update({
+          business_permit_fee_assessed: Number(feeAmount || 0)
+        }).eq('id', updatedApp.stakeholder_id);
+      }
+
+      invalidateApiCache('applications|stakeholders');
+      return { data: normalizeRecord(updatedApp) };
+    }
+
+    if (cleanUrl.startsWith('applications/') && cleanUrl.endsWith('/bplo-release')) {
+      const appId = cleanUrl.split('/')[1];
+      const { permitNo } = data || {};
+      const generatedPermitNo = permitNo || `BP-2026-${Date.now().toString().slice(-6)}`;
+
+      const { data: updatedApp, error: appErr } = await supabase
+        .from('stakeholder_applications')
+        .update({
+          business_permit_released: true,
+          business_permit_released_at: new Date().toISOString(),
+          business_permit_no: generatedPermitNo,
+          status: 'BUSINESS_PERMIT_RELEASED',
+          bplo_status: 'RELEASED',
+          current_holding_office: 'Office of the Mayor'
+        })
+        .eq('id', Number(appId))
+        .select()
+        .single();
+
+      if (appErr) throw appErr;
+
+      if (updatedApp?.stakeholder_id) {
+        await supabase.from('stakeholders').update({
+          business_permit_released: true,
+          business_permit_released_at: new Date().toISOString(),
+          business_permit_no: generatedPermitNo,
+          bplo_approved: true,
+          bplo_status: 'RELEASED'
+        }).eq('id', updatedApp.stakeholder_id);
+      }
+
+      invalidateApiCache('applications|stakeholders|permits');
+      return { data: normalizeRecord(updatedApp) };
+    }
+
+    if (cleanUrl.startsWith('applications/') && cleanUrl.endsWith('/activate-vendor')) {
+      const appId = cleanUrl.split('/')[1];
+      const { remarks } = data || {};
+
+      const { data: appRec } = await supabase
+        .from('stakeholder_applications')
+        .select('*')
+        .eq('id', Number(appId))
+        .maybeSingle();
+
+      const shId = appRec?.stakeholder_id;
+      const stallId = appRec?.stall_id;
+
+      const { data: updatedApp } = await supabase
+        .from('stakeholder_applications')
+        .update({
+          status: 'COMPLETED',
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', Number(appId))
+        .select()
+        .single();
+
+      if (shId) {
+        await supabase.from('stakeholders').update({
+          application_status: 'COMPLETED',
+          onboarding_status: 'ACTIVE_VENDOR',
+          verified_tenant: true
+        }).eq('id', shId);
+
+        let occId = null;
+        const { data: exOcc } = await supabase.from('occupants').select('id').eq('stakeholder_id', shId).maybeSingle();
+        if (exOcc?.id) {
+          occId = exOcc.id;
+          await supabase.from('occupants').update({ status: 'ACTIVE', is_archived: false }).eq('id', occId);
+        } else if (stallId) {
+          const { data: nOcc } = await supabase.from('occupants').insert({
+            stakeholder_id: shId,
+            stall_id: stallId,
+            status: 'ACTIVE',
+            is_archived: false,
+            occupancy_date: new Date().toISOString().split('T')[0]
+          }).select('id').maybeSingle();
+          occId = nOcc?.id;
+        }
+
+        if (stallId) {
+          await supabase.from('stalls').update({
+            status: 'OCCUPIED',
+            occupant_id: occId || null
+          }).eq('id', stallId);
+        }
+      }
+
+      invalidateApiCache('applications|stakeholders|stalls|occupants');
+      return { data: normalizeRecord(updatedApp) };
+    }
+
     // 1. Applications endorse / approve / reject / bplo
     if (cleanUrl.includes('/reject') || cleanUrl.includes('/endorse-reject') || cleanUrl.includes('/bplo-reject')) {
       const id = cleanUrl.split('/')[1];
@@ -2127,7 +2887,8 @@ const api = {
       // Always update stakeholders table directly
       try {
         await supabase.from('stakeholders').update({
-          treasurer_approved: true,
+          treasurer_paid: true,
+          applicant_fee_paid: true,
           advance_payment_paid: true,
           advance_payment_completed: true,
           application_status: 'PENDING_MARKET_SUPERVISOR_APPROVAL'
@@ -2138,13 +2899,13 @@ const api = {
 
       try {
         const { data: st } = await supabase.from('stakeholders').select('user_id').eq('id', Number(id)).maybeSingle();
-        if (st?.user_id) {
-          await supabase.from('business_applications').update({
-            advance_payment_paid: true,
-            advance_payment_completed: true,
-            application_status: 'PENDING_MARKET_SUPERVISOR_APPROVAL'
-          }).eq('user_id', st.user_id);
-        }
+        let q = supabase.from('stakeholder_applications').update({
+          amount_paid: 8000,
+          status: 'PENDING_SUPERVISOR_REVIEW'
+        });
+        if (id) q = q.eq('stakeholder_id', Number(id));
+        else if (st?.user_id) q = q.eq('user_id', st.user_id);
+        await q;
       } catch (_) {}
 
       // Non-blocking notification dispatch so UI updates immediately
@@ -2174,14 +2935,13 @@ const api = {
 
       try {
         const { data: st } = await supabase.from('stakeholders').select('user_id').eq('id', id).maybeSingle();
-        if (st?.user_id) {
-          await supabase.from('business_applications').update({
-            endorsement_status: 'APPROVED',
-            endorsing_status: 'ENDORSED',
-            final_status: 'APPROVED',
-            application_status: 'PENDING_BUSINESS_PERMIT_PAYMENT'
-          }).eq('user_id', st.user_id);
-        }
+        let q = supabase.from('stakeholder_applications').update({
+          endorsing_status: 'ENDORSED',
+          status: 'PENDING_TREASURER_PAYMENT'
+        });
+        if (id) q = q.eq('stakeholder_id', Number(id));
+        else if (st?.user_id) q = q.eq('user_id', st.user_id);
+        await q;
       } catch (_) {}
 
       // Non-blocking notification dispatch
@@ -2216,12 +2976,13 @@ const api = {
       if (error) throw error;
 
       try {
-        if (updated?.user_id) {
-          await supabase.from('business_applications').update({
-            market_approval_status: 'APPROVED',
-            application_status: 'PENDING_BPLO_APPROVAL'
-          }).eq('user_id', updated.user_id);
-        }
+        let q = supabase.from('stakeholder_applications').update({
+          supervisor_endorsed_at: new Date().toISOString(),
+          status: 'PENDING_BPLO_ASSESSMENT'
+        });
+        if (stakeholderId) q = q.eq('stakeholder_id', Number(stakeholderId));
+        else if (updated?.user_id) q = q.eq('user_id', updated.user_id);
+        await q;
       } catch (_) {}
 
       try {
@@ -2419,10 +3180,11 @@ const api = {
       return { data: normalizeRecord(updated) };
     }
 
-    // 3. Update stall types
+    // 3. Update stall types (stored in authoritative rental_rates table)
     if (cleanUrl.startsWith('stall-types/') || cleanUrl.startsWith('admin/stall-types/')) {
       const id = cleanUrl.split('/')[1];
-      const { data: updated, error } = await supabase.from('stall_types').update(data).eq('id', id).select().single();
+      const ratePayload = mapRentalRatePayload(data);
+      const { data: updated, error } = await supabase.from('rental_rates').update(ratePayload).eq('id', id).select().single();
       if (error) throw error;
       return { data: normalizeRecord(updated) };
     }
@@ -2549,7 +3311,7 @@ const api = {
 
     if (cleanUrl.startsWith('stall-types/')) {
       const id = cleanUrl.replace('stall-types/', '');
-      const { data, error } = await supabase.from('stall_types').delete().eq('id', id);
+      const { data, error } = await supabase.from('rental_rates').delete().eq('id', id);
       if (error) throw error;
       return { data };
     }

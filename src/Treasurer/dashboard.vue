@@ -234,7 +234,7 @@
 <script setup>
 import { computed, ref, onMounted, onUnmounted } from "vue"
 import { useRouter } from "vue-router"
-import axios from "axios"
+import api from "../services/api"
 import TreasurerMenu from "../components/TreasurerMenu.vue"
 import Card from 'primevue/card'
 import Button from 'primevue/button'
@@ -286,8 +286,8 @@ onMounted(async () => {
 
     // Load payments for Collections Today & Lifetime Total
     try {
-      const payRes = await axios.get('/api/payments', { headers })
-      const payments = payRes.data?.payments || []
+      const payRes = await api.get('/payments', { headers })
+      const payments = payRes.data?.payments || (Array.isArray(payRes.data) ? payRes.data : [])
       const todayStr = new Date().toISOString().split('T')[0]
       const todayList = payments.filter(p => (p.payment_date || p.created_at || '').startsWith(todayStr))
       todayCollectionsCount.value = todayList.length
@@ -299,24 +299,24 @@ onMounted(async () => {
 
     // Load applications for Pending Initial Fees
     try {
-      const appRes = await axios.get('/api/applications', { headers })
-      const apps = appRes.data?.applications || []
-      pendingInitialFeesCount.value = apps.filter(a => a.status === 'MAYOR_APPROVED' || a.status === 'PENDING_INITIAL_FEE').length
+      const appRes = await api.get('/applications', { headers })
+      const apps = appRes.data?.applications || (Array.isArray(appRes.data) ? appRes.data : [])
+      pendingInitialFeesCount.value = apps.filter(a => a.status === 'MAYOR_APPROVED' || a.status === 'PENDING_INITIAL_FEE' || a.status === 'PENDING_TREASURER_PAYMENT').length
     } catch (e) {
       console.warn('Error loading applications for initial fees count:', e)
     }
 
     // Load delinquency / overdue stats
     try {
-      const delinqRes = await axios.get('/api/delinquency/stats', { headers })
+      const delinqRes = await api.get('/delinquency/stats', { headers })
       const stats = delinqRes.data?.stats || delinqRes.data || {}
       overdueAccountsCount.value = Number(stats.delinquentCount || stats.totalDelinquent || 0)
       overdueTotalAmount.value = Number(stats.totalOverdueAmount || stats.totalArrears || 0)
     } catch (e) {
       // Fallback: estimate from billings
       try {
-        const billRes = await axios.get('/api/billings', { headers })
-        const billings = billRes.data?.billings || []
+        const billRes = await api.get('/billings', { headers })
+        const billings = billRes.data?.billings || (Array.isArray(billRes.data) ? billRes.data : [])
         const overdue = billings.filter(b => b.status === 'OVERDUE' || (b.status !== 'PAID' && new Date(b.due_date) < new Date()))
         overdueAccountsCount.value = overdue.length
         overdueTotalAmount.value = overdue.reduce((sum, b) => sum + Number(b.balance || b.amount || 0), 0)

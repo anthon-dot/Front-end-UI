@@ -78,16 +78,29 @@ export async function getAvailableStalls() {
 }
 
 /**
- * Fetch active stall types
+ * Fetch active stall types (from authoritative rental_rates table)
  */
 export async function getStallTypes() {
   const { data, error } = await supabase
-    .from('stall_types')
+    .from('rental_rates')
     .select('*')
-    .eq('status', 'ACTIVE')
+    .eq('is_active', true)
+    .order('stall_type', { ascending: true })
 
   if (error) throw error
-  return data
+  return (data || []).map(r => ({
+    ...r,
+    id: r.id,
+    name: r.stall_type,
+    type: r.stall_type,
+    stallType: r.stall_type,
+    rate: Number(r.base_monthly_rate || 0),
+    monthlyRate: Number(r.base_monthly_rate || 0),
+    monthly_rent: Number(r.base_monthly_rate || 0),
+    stallRightsFee: Number(r.stall_rights_fee || 5000),
+    advanceMonths: Number(r.advance_months || 2),
+    status: r.is_active ? 'ACTIVE' : 'INACTIVE'
+  }))
 }
 
 /**
@@ -98,24 +111,115 @@ export async function submitApplication(applicationData) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Must be logged in to submit application')
 
-  const { data, error } = await supabase
-    .from('business_applications')
+  const stallId = applicationData.stallId || applicationData.selected_stall_id || null
+
+  // 1. Fetch stall details for financial calculations
+  let monthlyRent = 1500
+  let stallRightsFee = 5000
+  if (stallId) {
+    const { data: stall } = await supabase.from('stalls').select('*').eq('id', Number(stallId)).maybeSingle()
+    if (stall) {
+      monthlyRent = Number(stall.monthly_rent || 1500)
+      stallRightsFee = Number(stall.stall_rights_fee || 5000)
+    }
+  }
+
+  const advanceRent = monthlyRent * 2
+  const totalInitial = advanceRent + stallRightsFee
+
+  // 2. Upsert master stakeholder record
+  let stakeholder = null
+  const { data: exSh } = await supabase
+    .from('stakeholders')
+    .select('id')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  const stakeholderPayload = {
+    user_id: user.id,
+    business_name: applicationData.businessName || applicationData.business_name || 'My Business',
+    business_type: applicationData.businessType || applicationData.business_type || 'Retail',
+    first_name: applicationData.firstName || applicationData.first_name || '',
+    middle_name: applicationData.middleName || applicationData.middle_name || null,
+    last_name: applicationData.lastName || applicationData.last_name || '',
+    contact: applicationData.contact || applicationData.phone || '',
+    email: user.email,
+    address: applicationData.address || '',
+    selected_stall_id: stallId ? Number(stallId) : null,
+    total_advance_amount: advanceRent,
+    application_status: 'PENDING'
+  }
+
+  if (exSh?.id) {
+    const { data: updSh, error: updErr } = await supabase
+      .from('stakeholders')
+      .update(stakeholderPayload)
+      .eq('id', exSh.id)
+      .select()
+      .single()
+    if (updErr) throw updErr
+    stakeholder = updSh
+  } else {
+    const { data: newSh, error: newErr } = await supabase
+      .from('stakeholders')
+      .insert(stakeholderPayload)
+      .select()
+      .single()
+    if (newErr) throw newErr
+    stakeholder = newSh
+  }
+
+  // 3. Insert formal stakeholder application
+  const appNo = `APP-${Date.now().toString().slice(-6)}`
+  const { data: newApp, error: appErr } = await supabase
+    .from('stakeholder_applications')
     .insert({
+      application_no: appNo,
+      stakeholder_id: stakeholder.id,
       user_id: user.id,
-      business_name: applicationData.businessName,
-      business_type: applicationData.businessType,
-      first_name: applicationData.firstName,
-      last_name: applicationData.lastName,
-      contact: applicationData.contact,
-      email: user.email,
-      address: applicationData.address,
-      selected_stall_id: applicationData.stallId
+      stall_id: stallId ? Number(stallId) : 1,
+      status: 'PENDING_SUPERVISOR_REVIEW',
+      current_holding_office: 'Market Supervisor',
+      calculated_stall_rights_fee: stallRightsFee,
+      calculated_advance_rent: advanceRent,
+      total_initial_amount_due: totalInitial,
+      amount_paid: 0
     })
-    .select()
+    .select('*, stall:stalls(*), stakeholder:stakeholders(*)')
     .single()
 
-  if (error) throw error
-  return data
+  if (appErr) throw appErr
+
+  // 4. Reserve stall
+  if (stallId) {
+    await supabase.from('stalls').update({ status: 'RESERVED' }).eq('id', Number(stallId))
+  }
+
+  // 5. Log approval history stage
+  try {
+    await supabase.from('approval_history').insert({
+      stakeholder_id: stakeholder.id,
+      application_id: newApp.id,
+      stage: 'APPLICATION_SUBMITTED',
+      status: 'PENDING',
+      action_by: user.id,
+      actor_name: `${applicationData.firstName || ''} ${applicationData.lastName || ''}`.trim() || 'Applicant',
+      actor_role: 'APPLICANT',
+      remarks: 'Application submitted online'
+    })
+  } catch (_) {}
+
+  return {
+    ...newApp,
+    business_name: stakeholder.business_name,
+    business_type: stakeholder.business_type,
+    first_name: stakeholder.first_name,
+    last_name: stakeholder.last_name,
+    contact: stakeholder.contact,
+    email: stakeholder.email,
+    address: stakeholder.address,
+    selected_stall_id: stakeholder.selected_stall_id
+  }
 }
 
 /**

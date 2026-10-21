@@ -1,64 +1,82 @@
-import api, { invalidateApiCache } from './api'
+import api, { invalidateApiCache, normalizeRecord } from './api'
 import { supabase } from '../config/supabase'
 
 export async function fetchStalls() {
-  try {
-    const res = await api.get('/stalls')
-    if (res && res.data) return res.data
-  } catch (err) {
-    console.warn('[stallService.fetchStalls] api fallback:', err)
-  }
   const { data, error } = await supabase
     .from('stalls')
-    .select('*, occupant:occupants(*, stakeholder:stakeholders(*))')
+    .select('*, occupant:occupants!fk_stalls_occupant(*, stakeholder:stakeholders(*))')
     .order('id', { ascending: true })
 
   if (error) throw error
-  return data
+  return (data || []).map((st) => {
+    const norm = normalizeRecord(st)
+    if (st.map_coordinates && typeof st.map_coordinates === 'object' && st.map_coordinates.imageUrl) {
+      norm.imageUrl = st.map_coordinates.imageUrl
+      norm.image_url = st.map_coordinates.imageUrl
+    }
+    return norm
+  })
 }
 
 export async function createStall(payload) {
-  try {
-    const res = await api.post('/stalls', payload)
-    if (res && res.data) return res.data
-  } catch (err) {
-    console.warn('[stallService.createStall] api fallback:', err)
+  const insertBody = {
+    stall_no: payload.stallNo || payload.stall_no || payload.number,
+    stall_type: payload.stallType || payload.stall_type || payload.type,
+    monthly_rent: Number(payload.monthlyRent || payload.monthly_rent || payload.rent || 1500),
+    status: (payload.status === 'VACANT') ? 'AVAILABLE' : (payload.status || 'AVAILABLE'),
+    info: payload.info || payload.section || null,
+    latitude: (payload.latitude !== null && payload.latitude !== undefined && payload.latitude !== '') ? Number(payload.latitude ?? payload.lat) : null,
+    longitude: (payload.longitude !== null && payload.longitude !== undefined && payload.longitude !== '') ? Number(payload.longitude ?? payload.lng) : null
   }
+  const img = payload.imageUrl || payload.image_url
+  if (img) {
+    insertBody.map_coordinates = {
+      ...(typeof payload.map_coordinates === 'object' ? payload.map_coordinates : {}),
+      imageUrl: img
+    }
+  }
+
   const { data, error } = await supabase
     .from('stalls')
-    .insert({
-      stall_no: payload.stallNo || payload.stall_no || payload.number,
-      stall_type: payload.stallType || payload.stall_type || payload.type,
-      monthly_rent: payload.monthlyRent || payload.monthly_rent || payload.rent,
-      status: payload.status || 'AVAILABLE',
-      image_url: payload.imageUrl || payload.image_url || null,
-      info: payload.info || payload.section || null,
-      latitude: payload.latitude ?? payload.lat ?? null,
-      longitude: payload.longitude ?? payload.lng ?? null
-    })
+    .insert(insertBody)
     .select()
     .single()
 
   if (error) throw error
-  return data
+  invalidateApiCache('stalls')
+  const norm = normalizeRecord(data)
+  if (img) {
+    norm.imageUrl = img
+    norm.image_url = img
+  }
+  return norm
 }
 
 export async function updateStall(id, payload) {
-  try {
-    const res = await api.put(`/stalls/${id}`, payload)
-    if (res && res.data) return res.data
-  } catch (err) {
-    console.warn('[stallService.updateStall] api fallback:', err)
-  }
   const updateBody = {}
   if (payload.stallNo !== undefined || payload.number !== undefined) updateBody.stall_no = payload.stallNo || payload.number
   if (payload.stallType !== undefined || payload.type !== undefined) updateBody.stall_type = payload.stallType || payload.type
-  if (payload.monthlyRent !== undefined || payload.rent !== undefined) updateBody.monthly_rent = payload.monthlyRent || payload.rent
-  if (payload.status !== undefined) updateBody.status = payload.status
-  if (payload.imageUrl !== undefined || payload.image_url !== undefined) updateBody.image_url = payload.imageUrl || payload.image_url
+  if (payload.monthlyRent !== undefined || payload.rent !== undefined) updateBody.monthly_rent = Number(payload.monthlyRent || payload.rent)
+  if (payload.status !== undefined) {
+    const s = String(payload.status).trim().toUpperCase()
+    updateBody.status = (s === 'VACANT') ? 'AVAILABLE' : s
+  }
   if (payload.info !== undefined) updateBody.info = payload.info
-  if (payload.latitude !== undefined || payload.lat !== undefined) updateBody.latitude = payload.latitude ?? payload.lat
-  if (payload.longitude !== undefined || payload.lng !== undefined) updateBody.longitude = payload.longitude ?? payload.lng
+  if (payload.latitude !== undefined || payload.lat !== undefined) {
+    const lat = payload.latitude ?? payload.lat
+    updateBody.latitude = (lat !== null && lat !== '') ? Number(lat) : null
+  }
+  if (payload.longitude !== undefined || payload.lng !== undefined) {
+    const lng = payload.longitude ?? payload.lng
+    updateBody.longitude = (lng !== null && lng !== '') ? Number(lng) : null
+  }
+  if (payload.imageUrl !== undefined || payload.image_url !== undefined) {
+    const img = payload.imageUrl || payload.image_url
+    updateBody.map_coordinates = {
+      ...(typeof payload.map_coordinates === 'object' ? payload.map_coordinates : {}),
+      imageUrl: img
+    }
+  }
 
   const { data, error } = await supabase
     .from('stalls')
@@ -68,18 +86,16 @@ export async function updateStall(id, payload) {
     .single()
 
   if (error) throw error
-  return data
+  invalidateApiCache('stalls')
+  const norm = normalizeRecord(data)
+  if (updateBody.map_coordinates?.imageUrl) {
+    norm.imageUrl = updateBody.map_coordinates.imageUrl
+    norm.image_url = updateBody.map_coordinates.imageUrl
+  }
+  return norm
 }
 
 export async function uploadStallImage(formData) {
-  try {
-    const res = await api.post('/stalls/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    })
-    if (res && res.data) return res.data
-  } catch (err) {
-    console.warn('[stallService.uploadStallImage] api upload notice:', err)
-  }
   const file = formData.get('file') || formData.get('image')
   if (!file) throw new Error('No image file provided')
 
@@ -98,29 +114,7 @@ export async function uploadStallImage(formData) {
 }
 
 export async function allocateOccupant(stallId, stakeholderId) {
-  try {
-    const res = await api.post(`/occupants/allocate/${stallId}`, { stakeholderId })
-    if (res && res.data) {
-      invalidateApiCache('stalls|stakeholders|occupants|contracts|billings')
-      return res.data
-    }
-  } catch (err) {
-    console.warn('[stallService.allocateOccupant] api endpoint notice:', err)
-  }
-
-  try {
-    const { data, error } = await supabase.functions.invoke('approval-workflow', {
-      body: { action: 'assign-stall', stallId: Number(stallId), stakeholderId: Number(stakeholderId) }
-    })
-    if (!error && data && !data.error) {
-      invalidateApiCache('stalls|stakeholders|occupants|contracts|billings')
-      return data
-    }
-  } catch (e) {
-    console.warn('Edge function allocateOccupant failed, attempting direct table update:', e)
-  }
-
-  // Direct DB fallback: assign in occupants table with ACTIVE status and update stall status
+  // Direct DB update: assign in occupants table with ACTIVE status and update stall status
   try {
     let occupantId = null
     const { data: existingOcc } = await supabase
@@ -185,6 +179,7 @@ export async function allocateOccupant(stallId, stakeholderId) {
           contract_no: `CON-${Date.now().toString().slice(-8)}`,
           start_date: new Date().toISOString().split('T')[0],
           end_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          monthly_rent: 1500,
           billing_frequency: 'MONTHLY',
           status: 'ACTIVE'
         })
@@ -194,7 +189,7 @@ export async function allocateOccupant(stallId, stakeholderId) {
     invalidateApiCache('stalls|stakeholders|occupants|contracts|billings')
     return { success: true, occupantId }
   } catch (e) {
-    console.warn('Direct occupants sync note:', e)
+    console.warn('Direct occupants sync error:', e)
   }
 
   await supabase
@@ -207,16 +202,6 @@ export async function allocateOccupant(stallId, stakeholderId) {
 }
 
 export async function unassignOccupant(stallId) {
-  try {
-    const res = await api.put(`/occupants/vacate/${stallId}`)
-    if (res && res.data) {
-      invalidateApiCache('stalls|stakeholders|occupants|contracts|billings')
-      return res.data
-    }
-  } catch (err) {
-    console.warn('[stallService.unassignOccupant] api endpoint notice:', err)
-  }
-
   try {
     const { data: st } = await supabase.from('stalls').select('occupant_id').eq('id', Number(stallId)).maybeSingle()
     if (st?.occupant_id) {
@@ -240,28 +225,17 @@ export async function unassignOccupant(stallId) {
 }
 
 export async function deleteStall(stallId) {
-  try {
-    const res = await api.delete(`/stalls/${stallId}`)
-    if (res && res.data) return res.data
-  } catch (err) {
-    console.warn('[stallService.deleteStall] api endpoint notice:', err)
-  }
   const { data, error } = await supabase
     .from('stalls')
     .delete()
     .eq('id', stallId)
 
   if (error) throw error
+  invalidateApiCache('stalls')
   return data
 }
 
 export async function archiveStall(stallId) {
-  try {
-    const res = await api.put(`/stalls/${stallId}`, { status: 'ARCHIVED', isArchived: true })
-    if (res && res.data) return res.data
-  } catch (err) {
-    console.warn('[stallService.archiveStall] api fallback:', err)
-  }
   const { data, error } = await supabase
     .from('stalls')
     .update({ status: 'ARCHIVED' })
@@ -270,16 +244,11 @@ export async function archiveStall(stallId) {
     .single()
 
   if (error) throw error
+  invalidateApiCache('stalls')
   return data
 }
 
 export async function restoreStall(stallId) {
-  try {
-    const res = await api.put(`/stalls/${stallId}`, { status: 'AVAILABLE', isArchived: false })
-    if (res && res.data) return res.data
-  } catch (err) {
-    console.warn('[stallService.restoreStall] api fallback:', err)
-  }
   const { data, error } = await supabase
     .from('stalls')
     .update({ status: 'AVAILABLE' })
@@ -288,6 +257,7 @@ export async function restoreStall(stallId) {
     .single()
 
   if (error) throw error
+  invalidateApiCache('stalls')
   return data
 }
 

@@ -191,46 +191,67 @@ export async function deleteRentalRate(id) {
 
 export async function getStallTypes() {
   const { data, error } = await supabase
-    .from('stall_types')
-    .select('*')
-    .order('name', { ascending: true })
+    .from('rental_rates')
+    .select('id, stall_type, base_monthly_rate, rate_category, is_active')
+    .order('stall_type', { ascending: true })
 
   if (error) throw error
-  return data || []
+  return (data || []).map((r) => ({
+    id: r.id,
+    name: r.stall_type,
+    stall_type: r.stall_type,
+    rate: r.base_monthly_rate,
+    monthly_rate: r.base_monthly_rate,
+    rate_category: r.rate_category,
+    is_active: r.is_active,
+    status: r.is_active ? 'ACTIVE' : 'INACTIVE'
+  }))
 }
 
 export async function createStallType(payload) {
   const { data, error } = await supabase
-    .from('stall_types')
-    .insert(payload)
+    .from('rental_rates')
+    .insert({
+      stall_type: payload.name || payload.stall_type || payload.type,
+      base_monthly_rate: Number(payload.rate || payload.monthly_rate || payload.base_monthly_rate || 1500),
+      rate_category: payload.rate_category || 'NEW',
+      is_active: payload.is_active !== undefined ? payload.is_active : true
+    })
     .select()
     .single()
 
   if (error) throw error
-  return { data }
+  return { data: { id: data.id, name: data.stall_type, ...data } }
 }
 
 export async function updateStallType(id, payload) {
+  const updateBody = {}
+  if (payload.name || payload.stall_type) updateBody.stall_type = payload.name || payload.stall_type
+  if (payload.rate || payload.monthly_rate || payload.base_monthly_rate) updateBody.base_monthly_rate = Number(payload.rate || payload.monthly_rate || payload.base_monthly_rate)
+  if (payload.rate_category) updateBody.rate_category = payload.rate_category
+  if (payload.is_active !== undefined) updateBody.is_active = payload.is_active
+
   const { data, error } = await supabase
-    .from('stall_types')
-    .update(payload)
+    .from('rental_rates')
+    .update(updateBody)
     .eq('id', id)
     .select()
     .single()
 
   if (error) throw error
-  return { data }
+  return { data: { id: data.id, name: data.stall_type, ...data } }
 }
 
 export async function deleteStallType(id) {
   const { data, error } = await supabase
-    .from('stall_types')
+    .from('rental_rates')
     .delete()
     .eq('id', id)
 
   if (error) throw error
   return { data }
 }
+
 
 export async function getSystemSettings() {
   const { data, error } = await supabase

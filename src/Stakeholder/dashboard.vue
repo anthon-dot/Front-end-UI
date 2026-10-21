@@ -1317,7 +1317,7 @@ async function loadAllData(background = false) {
     if (resolvedUserId) {
       const { data: stByUid } = await supabase
         .from('stakeholders')
-        .select('*, occupant:occupants(*, stall:stalls(*)), stall:stalls(*)')
+        .select('*, occupant:occupants(*, stall:stalls!occupants_stall_id_fkey(*)), selectedStall:stalls!selected_stall_id(*)')
         .eq('user_id', resolvedUserId)
         .maybeSingle()
       if (stByUid) stData = normalizeRecord(stByUid)
@@ -1326,7 +1326,7 @@ async function loadAllData(background = false) {
     if (!stData && stakeholderId) {
       const { data: stById } = await supabase
         .from('stakeholders')
-        .select('*, occupant:occupants(*, stall:stalls(*)), stall:stalls(*)')
+        .select('*, occupant:occupants(*, stall:stalls!occupants_stall_id_fkey(*)), selectedStall:stalls!selected_stall_id(*)')
         .eq('id', stakeholderId)
         .maybeSingle()
       if (stById) stData = normalizeRecord(stById)
