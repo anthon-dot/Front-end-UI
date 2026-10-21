@@ -119,13 +119,19 @@ export async function executeContract(contractId, { userId, supervisorName }) {
     });
   } catch (_) {}
 
-  // Update contract status to ACTIVE
+  // Update contract status to ACTIVE with verified initial payments and signatures
+  const nowIso = new Date().toISOString();
   const { data: updated, error: updErr } = await supabase
     .from('contracts')
     .update({
       status: CONTRACT_STATUS.ACTIVE,
       executed_by: userId,
-      executed_at: new Date().toISOString(),
+      executed_at: nowIso,
+      initial_payments_verified: true,
+      signed_by_stakeholder: true,
+      signed_by_lgu: true,
+      signed_at: nowIso,
+      activated_at: nowIso,
       document_url: storagePath
     })
     .eq('id', Number(contractId))
@@ -133,6 +139,18 @@ export async function executeContract(contractId, { userId, supervisorName }) {
     .single();
 
   if (updErr) throw updErr;
+
+  // Transition stall to OCCUPIED and occupant to ACTIVE
+  if (contract.stall_id) {
+    try {
+      await supabase.from('stalls').update({ status: 'OCCUPIED', occupant_id: contract.occupant_id }).eq('id', contract.stall_id);
+    } catch (_) {}
+  }
+  if (contract.occupant_id) {
+    try {
+      await supabase.from('occupants').update({ status: 'ACTIVE', is_archived: false }).eq('id', contract.occupant_id);
+    } catch (_) {}
+  }
 
   await logAudit({
     userId,
