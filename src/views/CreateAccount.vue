@@ -54,40 +54,52 @@
 
       <form v-else @submit.prevent="createAccount">
         <div class="field">
-          <label>Username <span style="color: #ef4444;">*</span></label>
+          <label for="reg-username">Username <span style="color: #ef4444;">*</span></label>
           <input
+            id="reg-username"
+            name="username"
             v-model="username"
             type="text"
+            autocomplete="username"
             placeholder="Choose a unique username"
             required
           />
         </div>
 
         <div class="field">
-          <label>Email Address <span style="color: #ef4444;">*</span></label>
+          <label for="reg-email">Email Address <span style="color: #ef4444;">*</span></label>
           <input
+            id="reg-email"
+            name="email"
             v-model="email"
             type="email"
+            autocomplete="email"
             placeholder="Enter an active email address"
             required
           />
         </div>
 
         <div class="field">
-          <label>Password <span style="color: #ef4444;">*</span></label>
+          <label for="reg-password">Password <span style="color: #ef4444;">*</span></label>
           <input
+            id="reg-password"
+            name="password"
             v-model="password"
             type="password"
+            autocomplete="new-password"
             placeholder="Create password (min 6 characters)"
             required
           />
         </div>
 
         <div class="field">
-          <label>Confirm Password <span style="color: #ef4444;">*</span></label>
+          <label for="reg-confirm-password">Confirm Password <span style="color: #ef4444;">*</span></label>
           <input
+            id="reg-confirm-password"
+            name="confirm-password"
             v-model="confirmPassword"
             type="password"
+            autocomplete="new-password"
             placeholder="Re-enter password"
             required
           />
@@ -169,14 +181,17 @@ async function createAccount() {
           : `${cleanUsername.toLowerCase().replace(/[^a-z0-9_.-]/g, '')}@manticao.market`)
     const assignedRole = cleanUsername.toLowerCase() === 'admin' ? 'ADMIN' : 'APPLICANT'
 
-    let authenticated = false
-    let sessionToken = null
-    let authUserId = null
-    let resolvedRole = assignedRole
+    // Save preferred stall if selected from map
+    if (stallId) {
+      localStorage.setItem('preferred_stall_id', String(stallId))
+    }
+    if (stallNo) {
+      localStorage.setItem('preferred_stall_no', String(stallNo))
+    }
 
-    // 1. Authoritative registration via api.post (handled by smart adapter / direct backend)
+    // 1. Authoritative registration via api.post
     try {
-      const { data: regRes } = await api.post('/auth/register', {
+      const regRes = await api.post('/auth/register', {
         username: cleanUsername,
         password: password.value,
         email: fallbackEmail,
@@ -185,114 +200,43 @@ async function createAccount() {
         stallNo
       })
 
-      if (regRes?.token && regRes?.user) {
-        sessionToken = regRes.token
-        authUserId = regRes.user.id
-        resolvedRole = regRes.user.role || assignedRole
-        authenticated = true
-      } else if (regRes?.session?.access_token) {
-        sessionToken = regRes.session.access_token
-        authUserId = regRes.session.user?.id
-        authenticated = true
+      if (regRes?.data?.success) {
+        accountCreated.value = true
+        return
       }
     } catch (apiErr) {
-      console.warn('[AUTH] /auth/register note:', apiErr?.message)
-      const errStr = String(apiErr?.message || '')
+      const errStr = String(apiErr?.message || '').toLowerCase()
       if (errStr.includes('already exists') || errStr.includes('already registered')) {
-        throw apiErr
+        throw new Error('An account with this username or email already exists. Please sign in from the Login page.')
       }
+      if (errStr.includes('rate limit') || errStr.includes('too many requests')) {
+        throw new Error('Registration rate limit reached. Please wait a minute or sign in from the Login page.')
+      }
+      // If api.post had unexpected non-fatal issue, attempt direct SDK fallback
+      console.warn('[AUTH] api.post register fallback:', apiErr?.message)
     }
 
-    // 2. Direct Supabase Auth SDK fallback (for zero-latency or standalone client execution)
-    if (!authenticated) {
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email: fallbackEmail,
-        password: password.value,
-        options: {
-          data: {
-            username: cleanUsername,
-            role: assignedRole
-          }
+    // 2. Direct Supabase Auth SDK fallback
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      email: fallbackEmail,
+      password: password.value,
+      options: {
+        data: {
+          username: cleanUsername,
+          role: assignedRole
         }
-      })
+      }
+    })
 
-      if (signUpError) {
-        const msg = String(signUpError.message || '').toLowerCase()
-        if (msg.includes('already registered') || msg.includes('already exists')) {
-          // Attempt sign in if account was already created with this password
-          const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
-            email: fallbackEmail,
-            password: password.value
-          })
-          if (signInErr) {
-            throw new Error('An account with this username or email already exists. Please sign in from the Login page.')
-          }
-          sessionToken = signInData?.session?.access_token
-          authUserId = signInData?.user?.id
-          authenticated = true
-        } else if (msg.includes('rate limit') || msg.includes('too many requests')) {
-          throw new Error('Registration rate limit reached. Please wait a minute or sign in from the Login page.')
-        } else {
-          throw signUpError
-        }
+    if (signUpError) {
+      const msg = String(signUpError.message || '').toLowerCase()
+      if (msg.includes('already registered') || msg.includes('already exists')) {
+        throw new Error('An account with this username or email already exists. Please sign in from the Login page.')
+      } else if (msg.includes('rate limit') || msg.includes('too many requests')) {
+        throw new Error('Registration rate limit reached. Please wait a minute or sign in from the Login page.')
       } else {
-        sessionToken = signUpData?.session?.access_token
-        authUserId = signUpData?.user?.id
-        authenticated = Boolean(sessionToken)
+        throw signUpError
       }
-
-      // If signed up but session not returned immediately, sign in now
-      if (!sessionToken) {
-        const { data: signData, error: signErr } = await supabase.auth.signInWithPassword({
-          email: fallbackEmail,
-          password: password.value
-        })
-        if (!signErr && signData?.session) {
-          sessionToken = signData.session.access_token
-          authUserId = signData.user?.id
-          authenticated = true
-        }
-      }
-
-      if (authUserId) {
-        // Upsert user_profiles and stakeholders
-        try {
-          await supabase.from('user_profiles').upsert({
-            id: authUserId,
-            username: cleanUsername,
-            full_name: cleanUsername,
-            email: fallbackEmail,
-            role: assignedRole,
-            is_active: true
-          }, { onConflict: 'id' })
-        } catch (_) {}
-
-        try {
-          const { data: exSh } = await supabase.from('stakeholders').select('id').eq('user_id', authUserId).maybeSingle()
-          let shId = exSh?.id
-          if (!shId) {
-            const { data: newSh } = await supabase.from('stakeholders').insert({
-              user_id: authUserId,
-              first_name: cleanUsername,
-              last_name: 'Applicant',
-              business_name: `${cleanUsername}'s Market Trade`,
-              business_type: 'General Merchandise',
-              contact: '09000000000',
-              email: fallbackEmail,
-              address: 'Manticao, Misamis Oriental',
-              selected_stall_id: stallId ? Number(stallId) : null,
-              application_status: 'NEW',
-              onboarding_status: 'NEW'
-            }).select('id').maybeSingle()
-            shId = newSh?.id
-          }
-          if (shId) localStorage.setItem('stakeholderId', String(shId))
-        } catch (_) {}
-      }
-    }
-
-    if (!authenticated || !sessionToken) {
-      throw new Error('Account created, but could not automatically sign in. Please log in from the Sign In page.')
     }
 
     accountCreated.value = true

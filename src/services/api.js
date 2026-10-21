@@ -1422,73 +1422,35 @@ const api = {
             : `${cleanUsername.toLowerCase().replace(/[^a-z0-9_.-]/g, '')}@manticao.market`);
       const assignedRole = (role || (cleanUsername.toLowerCase() === 'admin' ? 'ADMIN' : 'APPLICANT')).toUpperCase();
 
-      let authUser = null;
-      let authSession = null;
-
-      // 1. Check if user already exists and credentials match
-      const { data: existingSignIn, error: exSignInErr } = await supabase.auth.signInWithPassword({
+      // Directly sign up with Supabase Auth
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email: cleanEmail,
-        password: password
+        password: password,
+        options: {
+          data: {
+            username: cleanUsername,
+            name: fullName || cleanUsername,
+            role: assignedRole
+          }
+        }
       });
 
-      if (!exSignInErr && existingSignIn?.user) {
-        authUser = existingSignIn.user;
-        authSession = existingSignIn.session;
-      } else {
-        // Attempt Supabase Auth Sign Up
-        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-          email: cleanEmail,
-          password: password,
-          options: {
-            data: {
-              username: cleanUsername,
-              name: fullName || cleanUsername,
-              role: assignedRole
-            }
-          }
-        });
-
-        if (signUpError) {
-          const errMsg = String(signUpError.message || '').toLowerCase();
-          if (errMsg.includes('already registered') || errMsg.includes('already exists')) {
-            const { data: retrySignIn, error: retryErr } = await supabase.auth.signInWithPassword({
-              email: cleanEmail,
-              password: password
-            });
-            if (!retryErr && retrySignIn?.user) {
-              authUser = retrySignIn.user;
-              authSession = retrySignIn.session;
-            } else {
-              throw new Error('An account with this username or email already exists. Please choose another username or sign in from the Login page.');
-            }
-          } else if (errMsg.includes('rate limit') || errMsg.includes('too many requests')) {
-            throw new Error('Supabase registration rate limit reached. Please wait a minute before trying again or sign in with an existing account.');
-          } else {
-            throw signUpError;
-          }
+      if (signUpError) {
+        const errMsg = String(signUpError.message || '').toLowerCase();
+        if (errMsg.includes('already registered') || errMsg.includes('already exists')) {
+          throw new Error('An account with this username or email already exists. Please choose another username or sign in from the Login page.');
+        } else if (errMsg.includes('rate limit') || errMsg.includes('too many requests')) {
+          throw new Error('Supabase registration rate limit reached. Please wait a minute before trying again or sign in with an existing account.');
         } else {
-          authUser = signUpData?.user;
-          authSession = signUpData?.session;
+          throw signUpError;
         }
       }
 
-      // If signed up but no session returned, sign in to acquire access token
-      if (authUser && !authSession) {
-        try {
-          const { data: signInAfterUp } = await supabase.auth.signInWithPassword({
-            email: cleanEmail,
-            password: password
-          });
-          if (signInAfterUp?.session) {
-            authSession = signInAfterUp.session;
-            authUser = signInAfterUp.user || authUser;
-          }
-        } catch (_) {}
-      }
-
+      const authUser = signUpData?.user;
+      const authSession = signUpData?.session;
       const userId = authUser?.id;
 
-      // 2. Ensure profile exists in user_profiles
+      // Safely ensure user_profiles row exists (also handled automatically by DB trigger)
       if (userId) {
         try {
           await supabase.from('user_profiles').upsert({
@@ -1502,48 +1464,15 @@ const api = {
             updated_at: new Date().toISOString()
           }, { onConflict: 'id' });
         } catch (profErr) {
-          console.warn('[AUTH] user_profiles sync note:', profErr);
-        }
-
-        // 3. Ensure stakeholders record exists for applicant
-        let stakeholderId = null;
-        try {
-          const { data: exSh } = await supabase.from('stakeholders').select('id, selected_stall_id').eq('user_id', userId).maybeSingle();
-          const targetStallId = stallId ? Number(stallId) : null;
-
-          if (exSh?.id) {
-            stakeholderId = exSh.id;
-            if (targetStallId && !exSh.selected_stall_id) {
-              await supabase.from('stakeholders').update({ selected_stall_id: targetStallId }).eq('id', stakeholderId);
-            }
-          } else {
-            const names = (fullName || cleanUsername).split(' ');
-            const firstName = names[0] || cleanUsername;
-            const lastName = names.slice(1).join(' ') || 'Applicant';
-
-            const { data: newSh } = await supabase.from('stakeholders').insert({
-              user_id: userId,
-              first_name: firstName,
-              last_name: lastName,
-              business_name: `${firstName}'s Market Business`,
-              business_type: 'General Merchandise',
-              contact: phoneNumber || '09000000000',
-              email: cleanEmail,
-              address: 'Manticao, Misamis Oriental',
-              selected_stall_id: targetStallId,
-              application_status: 'NEW',
-              onboarding_status: 'NEW'
-            }).select('id').maybeSingle();
-
-            stakeholderId = newSh?.id || null;
-          }
-        } catch (shErr) {
-          console.warn('[AUTH] stakeholders sync note:', shErr);
+          console.warn('[AUTH] user_profiles note (handled by DB trigger):', profErr?.message);
         }
 
         localStorage.setItem('userId', userId);
-        if (stakeholderId) {
-          localStorage.setItem('stakeholderId', String(stakeholderId));
+        if (stallId) {
+          localStorage.setItem('preferred_stall_id', String(stallId));
+        }
+        if (stallNo) {
+          localStorage.setItem('preferred_stall_no', String(stallNo));
         }
       }
 
@@ -1594,11 +1523,22 @@ const api = {
           emailToAuth = MUNICIPAL_STAFF_MAP[lowerId];
         } else {
           try {
-            const { data: prof } = await supabase
-              .from('profiles')
+            let prof = null;
+            const { data: uProf } = await supabase
+              .from('user_profiles')
               .select('email, username')
               .ilike('username', cleanUsername)
               .maybeSingle();
+            prof = uProf;
+
+            if (!prof?.email) {
+              const { data: altProf } = await supabase
+                .from('profiles')
+                .select('email, username')
+                .ilike('username', cleanUsername)
+                .maybeSingle();
+              if (altProf?.email) prof = altProf;
+            }
 
             if (prof?.email) {
               emailToAuth = prof.email.trim();
@@ -1650,7 +1590,7 @@ const api = {
       const authUser = authResult.data.user;
 
       const [profileRes, stakeholderRes] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', authUser.id).maybeSingle(),
+        supabase.from('user_profiles').select('*').eq('id', authUser.id).maybeSingle(),
         supabase.from('stakeholders').select('id').eq('user_id', authUser.id).maybeSingle()
       ]);
 

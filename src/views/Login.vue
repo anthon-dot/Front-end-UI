@@ -375,24 +375,36 @@ async function onSubmit() {
     // ─── 6. ERROR DIAGNOSIS ───────────────────────────────────────────────────
     const status   = error.response?.status
     const body     = error.response?.data
-    const message  = error.message
+    const message  = error.message || ''
 
-    if (status === 401) {
+    const isNetworkError = 
+      error.name === 'TypeError' || 
+      message.includes('Failed to fetch') || 
+      message.includes('NetworkError') ||
+      error.code === 'ERR_NETWORK'
+
+    if (isNetworkError) {
+      console.error('[AUTH] ❌ Network error — Supabase unreachable. Check network connection and Supabase URL.')
+      errorMessage.value = 'Network error: Unable to reach the server. Please check your internet connection.'
+    } else if (status === 400 || message.includes('Invalid login credentials') || message.includes('invalid_grant') || message.includes('Invalid username or password')) {
+      console.warn('[AUTH] ⚠️ Invalid credentials for:', username.value)
+      errorMessage.value = 'Invalid username or password. Please verify your credentials and try again.'
+    } else if (status === 401) {
       console.error('[AUTH] ❌ 401 Unauthorized — wrong username or password, or user is disabled.')
+      errorMessage.value = 'Invalid username or password, or user account is disabled.'
     } else if (status === 403) {
-      console.error('[AUTH] ❌ 403 Forbidden — account may be locked or backend CORS/security config issue.')
+      console.error('[AUTH] ❌ 403 Forbidden — account may be locked or permission denied.')
+      errorMessage.value = 'Access denied. Please contact your system administrator.'
     } else if (status === 500) {
       console.error('[AUTH] ❌ 500 Server Error — check Supabase logs and database connectivity.', body)
-    } else if (!status) {
-      console.error('[AUTH] ❌ Network error — Supabase unreachable. Check network connection and Supabase URL.')
+      errorMessage.value = 'Server error encountered. Please try again later.'
     } else {
-      console.error('[AUTH] ❌ Login error', { status, body, message })
+      console.error('[AUTH] ❌ Login error:', { status, body, message })
+      errorMessage.value =
+        (typeof body === 'string' ? body : body?.message) ||
+        message ||
+        'Wrong username or password'
     }
-
-    errorMessage.value =
-      (typeof body === 'string' ? body : body?.message) ||
-      message ||
-      'Wrong username or password'
   } finally {
     isLoading.value = false
   }

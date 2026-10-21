@@ -28,20 +28,20 @@
         <section class="card">
           <h3>Account Credentials</h3>
           <div class="form-row">
-            <label>Username</label>
-            <input class="input" v-model="credentials.username" placeholder="Username" />
+            <label for="settings-username">Username</label>
+            <input id="settings-username" name="username" class="input" v-model="credentials.username" autocomplete="username" placeholder="Username" />
           </div>
           <div class="form-row">
-            <label>Current Password</label>
-            <input class="input" type="password" v-model="credentials.currentPassword" placeholder="Current password" />
+            <label for="settings-curr-password">Current Password</label>
+            <input id="settings-curr-password" name="current-password" class="input" type="password" v-model="credentials.currentPassword" autocomplete="current-password" placeholder="Current password" />
           </div>
           <div class="form-row">
-            <label>New Password</label>
-            <input class="input" type="password" v-model="credentials.newPassword" placeholder="New password" />
+            <label for="settings-new-password">New Password</label>
+            <input id="settings-new-password" name="new-password" class="input" type="password" v-model="credentials.newPassword" autocomplete="new-password" placeholder="New password" />
           </div>
           <div class="form-row">
-            <label>Confirm New Password</label>
-            <input class="input" type="password" v-model="credentials.confirmPassword" placeholder="Confirm new password" />
+            <label for="settings-confirm-password">Confirm New Password</label>
+            <input id="settings-confirm-password" name="confirm-new-password" class="input" type="password" v-model="credentials.confirmPassword" autocomplete="new-password" placeholder="Confirm new password" />
           </div>
           <div class="actions">
             <button class="btn-primary" @click="saveCredentials">Save Credentials</button>
