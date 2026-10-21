@@ -115,50 +115,51 @@ const items = [
     routeName: 'Treasurer'
   },
   {
-    id: 'stakeholder',
-    label: 'Applicants',
-    icon: 'pi pi-users',
-    routeName: 'Applicant'
-  },
-  {
-    id: 'billing',
-    label: 'Billing',
-    icon: 'pi pi-receipt',
-    routeName: 'Billing'
-  },
-  {
-    id: 'payment',
-    label: 'Payments',
-    icon: 'pi pi-wallet',
+    id: 'vendor-search',
+    label: 'Vendor Search',
+    icon: 'pi pi-search',
     routeName: 'Payment'
   },
   {
-    id: 'report',
+    id: 'record-payment',
+    label: 'Record Payment',
+    icon: 'pi pi-credit-card',
+    routeName: 'Payment',
+    query: { action: 'record' }
+  },
+  {
+    id: 'initial-fees',
+    label: 'Initial Fees',
+    icon: 'pi pi-check-circle',
+    routeName: 'Applicant'
+  },
+  {
+    id: 'daily-remittance',
+    label: 'Daily Remittance',
+    icon: 'pi pi-send',
+    routeName: 'Billing'
+  },
+  {
+    id: 'reports',
     label: 'Reports',
-    icon: 'pi pi-chart-bar',
+    icon: 'pi pi-chart-line',
     routeName: 'Report'
   },
   {
-    id: 'ai-reports',
-    label: 'AI Reports',
-    icon: 'pi pi-sparkles',
-    routeName: 'AIReports'
-  },
-  {
-    id: 'ai-notifications',
-    label: 'AI Notifications',
-    icon: 'pi pi-bell',
-    routeName: 'AINotifications'
-  },
-  {
-    id: 'audit',
-    label: 'Audit Logs',
-    icon: 'pi pi-list',
+    id: 'audit-trail',
+    label: 'Audit Trail',
+    icon: 'pi pi-book',
     routeName: 'AuditLogs'
   }
 ]
 
 const isActive = (item) => {
+  if (item.query?.action === 'record') {
+    return route.name === item.routeName && route.query.action === 'record'
+  }
+  if (item.id === 'vendor-search') {
+    return route.name === item.routeName && !route.query.action
+  }
   return route.name === item.routeName
 }
 
@@ -166,7 +167,7 @@ const navigate = (item) => {
   if (isMobile.value) {
     closeMobile()
   }
-  router.push({ name: item.routeName })
+  router.push({ name: item.routeName, query: item.query || {} })
 }
 
 const toggleSidebar = () => {

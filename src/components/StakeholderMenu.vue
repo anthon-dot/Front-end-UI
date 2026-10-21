@@ -142,51 +142,41 @@ const items = [
     section: 'overview'
   },
   {
-    id: 'stall',
-    label: 'My Stall',
-    icon: 'pi pi-shop',
+    id: 'application-status',
+    label: 'Application Status',
+    icon: 'pi pi-hourglass',
+    route: '/application-progress'
+  },
+  {
+    id: 'upload-documents',
+    label: 'Upload Documents',
+    icon: 'pi pi-upload',
+    route: '/requirements'
+  },
+  {
+    id: 'stall-contract',
+    label: 'My Stall & Contract',
+    icon: 'pi pi-file-edit',
+    route: '/stakeholder',
     section: 'stall'
   },
   {
-    id: 'billing',
-    label: 'Billing & Statements',
-    icon: 'pi pi-receipt',
-    section: 'billing'
-  },
-  {
-    id: 'payments',
-    label: 'Payment History',
+    id: 'billing-payments',
+    label: 'Billing & Payments',
     icon: 'pi pi-wallet',
     route: '/stakeholder/payments',
-    section: 'payments'
-  },
-  {
-    id: 'contract',
-    label: 'My Contract',
-    icon: 'pi pi-file-check',
-    section: 'contracts'
-  },
-  {
-    id: 'documents',
-    label: 'My Documents',
-    icon: 'pi pi-folder',
-    section: 'documents'
+    section: 'billing'
   },
   {
     id: 'notifications',
     label: 'Notifications',
     icon: 'pi pi-bell',
+    route: '/stakeholder',
     section: 'notifications'
   },
   {
-    id: 'profile',
-    label: 'My Profile',
-    icon: 'pi pi-user',
-    section: 'profile'
-  },
-  {
-    id: 'settings',
-    label: 'Settings',
+    id: 'account-settings',
+    label: 'Account Settings',
     icon: 'pi pi-cog',
     route: '/stakeholder/settings'
   }

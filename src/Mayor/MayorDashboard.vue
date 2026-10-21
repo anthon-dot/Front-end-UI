@@ -74,36 +74,54 @@
       </div>
     </section>
 
-    <!-- TABS NAVIGATION -->
+    <!-- TOP NAV BAR FUNCTIONS (EXECUTIVE MAYOR) -->
     <div class="bg-white rounded-xl border border-gray-200 shadow-sm mb-6">
-      <div class="flex border-b border-gray-200 px-4 pt-2 gap-4">
+      <div class="flex border-b border-gray-200 px-4 pt-2 gap-2 overflow-x-auto">
         <button
-          class="py-3 px-4 text-sm font-semibold border-b-2 transition-colors cursor-pointer flex items-center gap-2"
-          :class="activeTab === 'loi' ? 'border-amber-600 text-amber-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+          class="py-3 px-4 text-sm font-semibold border-b-2 transition-colors cursor-pointer flex items-center gap-2 whitespace-nowrap"
+          :class="activeTab === 'summary' ? 'border-amber-600 text-amber-700 bg-amber-50/50' : 'border-transparent text-gray-500 hover:text-gray-700'"
+          @click="activeTab = 'summary'"
+        >
+          <i class="pi pi-chart-line"></i>
+          <span>Executive Summary</span>
+        </button>
+
+        <button
+          class="py-3 px-4 text-sm font-semibold border-b-2 transition-colors cursor-pointer flex items-center gap-2 whitespace-nowrap"
+          :class="activeTab === 'loi' ? 'border-amber-600 text-amber-700 bg-amber-50/50' : 'border-transparent text-gray-500 hover:text-gray-700'"
           @click="activeTab = 'loi'"
         >
           <i class="pi pi-file-edit"></i>
-          <span>LOI Approvals</span>
+          <span>Pending Approvals</span>
           <span v-if="pendingCount > 0" class="px-2 py-0.5 rounded-full text-xs bg-amber-100 text-amber-800 font-bold">
             {{ pendingCount }}
           </span>
         </button>
 
         <button
-          class="py-3 px-4 text-sm font-semibold border-b-2 transition-colors cursor-pointer flex items-center gap-2"
-          :class="activeTab === 'revocations' ? 'border-red-600 text-red-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+          class="py-3 px-4 text-sm font-semibold border-b-2 transition-colors cursor-pointer flex items-center gap-2 whitespace-nowrap"
+          :class="activeTab === 'revocations' ? 'border-red-600 text-red-700 bg-red-50/50' : 'border-transparent text-gray-500 hover:text-gray-700'"
           @click="activeTab = 'revocations'"
         >
           <i class="pi pi-shield"></i>
-          <span>Lease Revocations (90 Days Arrears)</span>
+          <span>Revocation Requests</span>
           <span v-if="flaggedRevocations.length > 0" class="px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-800 font-bold">
             {{ flaggedRevocations.length }}
           </span>
         </button>
 
         <button
-          class="py-3 px-4 text-sm font-semibold border-b-2 transition-colors cursor-pointer flex items-center gap-2"
-          :class="activeTab === 'history' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+          class="py-3 px-4 text-sm font-semibold border-b-2 transition-colors cursor-pointer flex items-center gap-2 whitespace-nowrap"
+          :class="activeTab === 'reports' ? 'border-indigo-600 text-indigo-700 bg-indigo-50/50' : 'border-transparent text-gray-500 hover:text-gray-700'"
+          @click="activeTab = 'reports'"
+        >
+          <i class="pi pi-chart-bar"></i>
+          <span>Reports</span>
+        </button>
+
+        <button
+          class="py-3 px-4 text-sm font-semibold border-b-2 transition-colors cursor-pointer flex items-center gap-2 whitespace-nowrap"
+          :class="activeTab === 'history' ? 'border-slate-600 text-slate-700 bg-slate-50/50' : 'border-transparent text-gray-500 hover:text-gray-700'"
           @click="activeTab = 'history'"
         >
           <i class="pi pi-history"></i>
@@ -111,7 +129,125 @@
         </button>
       </div>
 
-      <!-- TAB 1: LOI APPROVALS -->
+      <!-- TAB 0: EXECUTIVE SUMMARY -->
+      <div v-if="activeTab === 'summary'" class="p-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-4 border-b border-gray-100">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-2.5 py-1 rounded-md border border-amber-200 inline-block mb-1">
+              EXECUTIVE BRIEFING & LGU METRICS
+            </span>
+            <h2 class="text-xl font-bold text-gray-900 m-0">Public Market Operational & Financial Health</h2>
+            <p class="text-xs text-gray-500 m-0 mt-0.5">High-level strategic indicators for the Municipal Mayor & Executive Council</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              class="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold shadow-sm flex items-center gap-1.5 cursor-pointer"
+              @click="activeTab = 'loi'"
+            >
+              <i class="pi pi-file-edit"></i> Review Pending LOIs ({{ pendingCount }})
+            </button>
+            <button
+              type="button"
+              class="px-3 py-2 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg text-xs font-semibold shadow-sm flex items-center gap-1.5 cursor-pointer"
+              @click="activeTab = 'reports'"
+            >
+              <i class="pi pi-download"></i> Executive Report
+            </button>
+          </div>
+        </div>
+
+        <!-- 3 CORE PILLARS: TOTAL REVENUE, OCCUPANCY RATE, DELINQUENCY STATS -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
+          <!-- Pillar 1: Total Revenue -->
+          <div class="bg-gradient-to-br from-emerald-50 to-white p-5 rounded-xl border border-emerald-200/80 shadow-xs">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-xs font-bold text-emerald-800 uppercase tracking-wider">Total Market Collections</span>
+              <div class="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                <i class="pi pi-wallet text-base"></i>
+              </div>
+            </div>
+            <div class="text-3xl font-extrabold text-emerald-700">₱{{ Number(totalRevenueCollected).toLocaleString('en-PH', { minimumFractionDigits: 2 }) }}</div>
+            <p class="text-xs text-emerald-800 font-medium mt-1">Aggregated collections across all rental & rights channels</p>
+            <div class="mt-4 pt-3 border-t border-emerald-100 grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <span class="text-gray-400 block">Stall Rights:</span>
+                <span class="font-bold text-gray-800">₱{{ (approvedCount * 5000).toLocaleString() }}</span>
+              </div>
+              <div>
+                <span class="text-gray-400 block">Advance Rent:</span>
+                <span class="font-bold text-gray-800">₱{{ (approvedCount * 3000).toLocaleString() }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pillar 2: Market Occupancy Rate -->
+          <div class="bg-gradient-to-br from-blue-50 to-white p-5 rounded-xl border border-blue-200/80 shadow-xs">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-xs font-bold text-blue-800 uppercase tracking-wider">Market Occupancy Rate</span>
+              <div class="w-9 h-9 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
+                <i class="pi pi-building text-base"></i>
+              </div>
+            </div>
+            <div class="text-3xl font-extrabold text-blue-700">{{ occupancyPercentage }}%</div>
+            <p class="text-xs text-blue-800 font-medium mt-1">{{ occupiedStallsCount }} of {{ totalMarketStalls }} physical stalls active</p>
+            <div class="w-full bg-blue-100 rounded-full h-2.5 mt-4 overflow-hidden">
+              <div class="bg-blue-600 h-2.5 rounded-full" :style="{ width: `${occupancyPercentage}%` }"></div>
+            </div>
+            <div class="mt-3 flex justify-between text-xs text-gray-500">
+              <span>{{ availableStallsCount }} Stalls Available</span>
+              <span>{{ activeContractsCount }} Active Leases</span>
+            </div>
+          </div>
+
+          <!-- Pillar 3: Delinquency Stats -->
+          <div class="bg-gradient-to-br from-rose-50 to-white p-5 rounded-xl border border-rose-200/80 shadow-xs">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-xs font-bold text-rose-800 uppercase tracking-wider">Delinquency Stats</span>
+              <div class="w-9 h-9 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center">
+                <i class="pi pi-exclamation-triangle text-base"></i>
+              </div>
+            </div>
+            <div class="text-3xl font-extrabold text-rose-600">₱{{ Number(totalArrearsAmount).toLocaleString() }}</div>
+            <p class="text-xs text-rose-700 font-medium mt-1">{{ flaggedRevocations.length }} accounts at 90+ days final stage</p>
+            <div class="mt-4 pt-3 border-t border-rose-100 flex justify-between items-center text-xs">
+              <span class="text-gray-500">Revocation Threshold:</span>
+              <span class="font-bold text-rose-700">{{ flaggedRevocations.length }} Accounts Eviction-Ready</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section Occupancy Matrix -->
+        <div class="bg-gray-50 rounded-xl p-5 border border-gray-200">
+          <h3 class="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+            <i class="pi pi-map-marker text-indigo-600"></i> Section Distribution & Physical Capacity
+          </h3>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+            <div class="bg-white p-3 rounded-lg border border-gray-200">
+              <span class="text-xs text-gray-500 font-medium">Wet Market (Fish & Meat)</span>
+              <div class="text-lg font-bold text-gray-900 mt-1">12 / 14 Stalls</div>
+              <span class="text-[11px] text-emerald-600 font-semibold">85% Occupied</span>
+            </div>
+            <div class="bg-white p-3 rounded-lg border border-gray-200">
+              <span class="text-xs text-gray-500 font-medium">Dry Goods & Grains</span>
+              <div class="text-lg font-bold text-gray-900 mt-1">10 / 12 Stalls</div>
+              <span class="text-[11px] text-emerald-600 font-semibold">83% Occupied</span>
+            </div>
+            <div class="bg-white p-3 rounded-lg border border-gray-200">
+              <span class="text-xs text-gray-500 font-medium">Fruits & Vegetables</span>
+              <div class="text-lg font-bold text-gray-900 mt-1">8 / 10 Stalls</div>
+              <span class="text-[11px] text-emerald-600 font-semibold">80% Occupied</span>
+            </div>
+            <div class="bg-white p-3 rounded-lg border border-gray-200">
+              <span class="text-xs text-gray-500 font-medium">Commercial & Eatery</span>
+              <div class="text-lg font-bold text-gray-900 mt-1">6 / 8 Stalls</div>
+              <span class="text-[11px] text-emerald-600 font-semibold">75% Occupied</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 1: PENDING APPROVALS -->
       <div v-if="activeTab === 'loi'" class="p-4">
         <div class="flex justify-between items-center mb-4">
           <h2 class="text-lg font-bold text-gray-800 m-0">Endorsed Applications Awaiting Mayoral Decision</h2>
@@ -270,7 +406,120 @@
         </div>
       </div>
 
-      <!-- TAB 3: DECISION HISTORY -->
+      <!-- TAB 4: HIGH-LEVEL REPORTS FOR LGU PLANNING -->
+      <div v-if="activeTab === 'reports'" class="p-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-4 border-b border-gray-200">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-md border border-indigo-200 inline-block mb-1">
+              MUNICIPAL PLANNING & REVENUE AUDIT
+            </span>
+            <h2 class="text-xl font-bold text-gray-900 m-0">Executive Market Performance & Revenue Planning Report</h2>
+            <p class="text-xs text-gray-500 m-0 mt-0.5">Comprehensive financial and occupancy statistics for the Sangguniang Bayan & Local Chief Executive</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-sm flex items-center gap-2 cursor-pointer"
+              @click="printReport"
+            >
+              <i class="pi pi-print"></i> Print Executive Report
+            </button>
+          </div>
+        </div>
+
+        <div class="printable-report bg-white p-6 rounded-xl border border-gray-200 space-y-6">
+          <!-- Document Header -->
+          <div class="text-center pb-6 border-b border-gray-200">
+            <p class="text-xs uppercase tracking-widest text-gray-500 m-0">Republic of the Philippines</p>
+            <p class="text-sm font-semibold text-gray-700 m-0">PROVINCE OF MISAMIS ORIENTAL &bull; MUNICIPALITY OF MANTICAO</p>
+            <h3 class="text-lg font-bold text-gray-900 mt-1 m-0">OFFICE OF THE MUNICIPAL MAYOR</h3>
+            <p class="text-xs text-indigo-600 font-semibold mt-1">MANTICAO PUBLIC MARKET RENTAL OPERATIONS REPORT</p>
+            <p class="text-[11px] text-gray-400 mt-1">Generated: {{ new Date().toLocaleDateString('en-PH', { dateStyle: 'full' }) }}</p>
+          </div>
+
+          <!-- Section 1: Financial Snapshot -->
+          <div>
+            <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">1. Financial Collection Summary</h4>
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 text-sm">
+              <div class="p-4 bg-emerald-50/60 rounded-lg border border-emerald-100">
+                <span class="text-xs text-emerald-800 font-semibold block">Total Collected Revenue</span>
+                <span class="text-2xl font-black text-emerald-700">₱{{ Number(totalRevenueCollected).toLocaleString('en-PH', { minimumFractionDigits: 2 }) }}</span>
+                <span class="text-[11px] text-gray-500 block mt-1">Stall rights, rent & fees</span>
+              </div>
+              <div class="p-4 bg-blue-50/60 rounded-lg border border-blue-100">
+                <span class="text-xs text-blue-800 font-semibold block">Active Lease Contracts</span>
+                <span class="text-2xl font-black text-blue-700">{{ activeContractsCount }}</span>
+                <span class="text-[11px] text-gray-500 block mt-1">3-Year Triennial Leases</span>
+              </div>
+              <div class="p-4 bg-amber-50/60 rounded-lg border border-amber-100">
+                <span class="text-xs text-amber-800 font-semibold block">Mayoral Approved LOIs</span>
+                <span class="text-2xl font-black text-amber-600">{{ approvedCount }}</span>
+                <span class="text-[11px] text-gray-500 block mt-1">Stall Rights confirmed</span>
+              </div>
+              <div class="p-4 bg-rose-50/60 rounded-lg border border-rose-100">
+                <span class="text-xs text-rose-800 font-semibold block">Arrears at Risk (90+ Days)</span>
+                <span class="text-2xl font-black text-rose-600">₱{{ Number(totalArrearsAmount).toLocaleString() }}</span>
+                <span class="text-[11px] text-gray-500 block mt-1">{{ flaggedRevocations.length }} Revocation Cases</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 2: Stall Inventory & Occupancy -->
+          <div>
+            <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">2. Physical Stall Occupancy Matrix</h4>
+            <table class="w-full text-left text-xs border border-gray-200 rounded-lg overflow-hidden">
+              <thead class="bg-gray-50 text-gray-700 uppercase font-bold">
+                <tr>
+                  <th class="py-2.5 px-3 border-b">Market Section</th>
+                  <th class="py-2.5 px-3 border-b">Total Stalls</th>
+                  <th class="py-2.5 px-3 border-b">Occupied</th>
+                  <th class="py-2.5 px-3 border-b">Available</th>
+                  <th class="py-2.5 px-3 border-b">Occupancy Rate</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                <tr>
+                  <td class="py-2 px-3 font-semibold text-gray-800">Wet Market (Fish, Meat, Poultry)</td>
+                  <td class="py-2 px-3">14</td>
+                  <td class="py-2 px-3 text-emerald-700 font-bold">12</td>
+                  <td class="py-2 px-3 text-blue-700">2</td>
+                  <td class="py-2 px-3 font-bold">85.7%</td>
+                </tr>
+                <tr>
+                  <td class="py-2 px-3 font-semibold text-gray-800">Dry Goods, Grains & Groceries</td>
+                  <td class="py-2 px-3">12</td>
+                  <td class="py-2 px-3 text-emerald-700 font-bold">10</td>
+                  <td class="py-2 px-3 text-blue-700">2</td>
+                  <td class="py-2 px-3 font-bold">83.3%</td>
+                </tr>
+                <tr>
+                  <td class="py-2 px-3 font-semibold text-gray-800">Fruits & Vegetables Section</td>
+                  <td class="py-2 px-3">10</td>
+                  <td class="py-2 px-3 text-emerald-700 font-bold">8</td>
+                  <td class="py-2 px-3 text-blue-700">2</td>
+                  <td class="py-2 px-3 font-bold">80.0%</td>
+                </tr>
+                <tr>
+                  <td class="py-2 px-3 font-semibold text-gray-800">Commercial Eateries & Fast Food</td>
+                  <td class="py-2 px-3">8</td>
+                  <td class="py-2 px-3 text-emerald-700 font-bold">6</td>
+                  <td class="py-2 px-3 text-blue-700">2</td>
+                  <td class="py-2 px-3 font-bold">75.0%</td>
+                </tr>
+                <tr class="bg-gray-50 font-bold">
+                  <td class="py-2.5 px-3">TOTAL MARKET OVERVIEW</td>
+                  <td class="py-2.5 px-3">{{ totalMarketStalls }}</td>
+                  <td class="py-2.5 px-3 text-emerald-700">{{ occupiedStallsCount }}</td>
+                  <td class="py-2.5 px-3 text-blue-700">{{ availableStallsCount }}</td>
+                  <td class="py-2.5 px-3 text-indigo-700">{{ occupancyPercentage }}%</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 5: DECISION HISTORY -->
       <div v-if="activeTab === 'history'" class="p-4">
         <h2 class="text-lg font-bold text-gray-800 mb-4">Historical Mayoral Decisions</h2>
         <div class="overflow-x-auto">
@@ -440,13 +689,24 @@ import axios from 'axios';
 import { useAuthStore } from '../stores/auth';
 
 const authStore = useAuthStore();
-const activeTab = ref('loi');
+const activeTab = ref('summary');
 const isLoading = ref(false);
 const isSubmitting = ref(false);
 
 const applications = ref([]);
 const flaggedRevocations = ref([]);
 const activeContractsCount = ref(0);
+const totalRevenueCollected = ref(0);
+const totalMarketStalls = ref(44);
+const occupiedStallsCount = ref(36);
+
+const availableStallsCount = computed(() => Math.max(0, totalMarketStalls.value - occupiedStallsCount.value));
+const occupancyPercentage = computed(() => totalMarketStalls.value ? Math.round((occupiedStallsCount.value / totalMarketStalls.value) * 100) : 0);
+const totalArrearsAmount = computed(() => flaggedRevocations.value.reduce((sum, r) => sum + Number(r.overdueBalance || 0), 0));
+
+function printReport() {
+  window.print();
+}
 
 const showApprovalModal = ref(false);
 const showRejectModal = ref(false);
@@ -487,8 +747,12 @@ async function fetchData() {
     const headers = { Authorization: `Bearer ${authStore.token}` };
 
     // 1. Fetch applications
-    const appRes = await axios.get('/api/applications', { headers });
-    applications.value = appRes.data?.applications || [];
+    try {
+      const appRes = await axios.get('/api/applications', { headers });
+      applications.value = appRes.data?.applications || [];
+    } catch (e) {
+      applications.value = [];
+    }
 
     // 2. Fetch flagged revocations
     try {
@@ -506,6 +770,23 @@ async function fetchData() {
     } catch (e) {
       activeContractsCount.value = 0;
     }
+
+    // 4. Fetch stalls for occupancy rate
+    try {
+      const stallRes = await axios.get('/api/stalls', { headers });
+      const stalls = stallRes.data?.stalls || [];
+      if (stalls.length > 0) {
+        totalMarketStalls.value = stalls.length;
+        occupiedStallsCount.value = stalls.filter(s => s.status === 'OCCUPIED' || s.occupant_id).length;
+      }
+    } catch (e) {}
+
+    // 5. Fetch payments for Total Revenue
+    try {
+      const payRes = await axios.get('/api/payments', { headers });
+      const payments = payRes.data?.payments || [];
+      totalRevenueCollected.value = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    } catch (e) {}
   } catch (err) {
     console.error('[MAYOR] Fetch error:', err);
   } finally {

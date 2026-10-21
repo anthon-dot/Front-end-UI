@@ -100,61 +100,29 @@ const isMobile = ref(false)
 
 const sections = [
   {
-    label: '',
+    label: 'CORE ADMINISTRATION',
     items: [
-      { label: 'Dashboard', icon: 'pi pi-home', routeName: 'AdminDashboard' },
-      { label: 'Supervisor Dashboard', icon: 'pi pi-th-large', routeName: 'MarketSupervisor' }
+      { label: 'User Management', icon: 'pi pi-users', routeName: 'AdminUsers' },
+      { label: 'Rate Configuration', icon: 'pi pi-money-bill', routeName: 'AdminRentalRates' },
+      { label: 'System Settings', icon: 'pi pi-cog', routeName: 'AdminSettings' },
+      { label: 'Audit Logs', icon: 'pi pi-book', routeName: 'AdminAuditLogs' },
+      { label: 'Database Maintenance', icon: 'pi pi-database', routeName: 'AdminLoginHistory' }
     ]
   },
   {
-    label: 'User Management',
+    label: 'MARKET REGISTRY',
     items: [
-      { label: 'Users', icon: 'pi pi-users', routeName: 'AdminUsers' },
-      { label: 'Roles & Permissions', icon: 'pi pi-shield', routeName: 'AdminRoles' },
-      { label: 'Login History', icon: 'pi pi-history', routeName: 'AdminLoginHistory' }
+      { label: 'Stall Inventory & Map', icon: 'pi pi-map-marker', routeName: 'MSStalls' },
+      { label: 'Stall Categories', icon: 'pi pi-tags', routeName: 'AdminStallTypes' },
+      { label: 'Contracts & Leases', icon: 'pi pi-file-edit', routeName: 'MSContracts' },
+      { label: 'Archive Records', icon: 'pi pi-inbox', routeName: 'MSArchive' }
     ]
   },
   {
-    label: 'Market Management',
+    label: 'FINANCIAL AUDIT',
     items: [
-      { label: 'Stall Management', icon: 'pi pi-map-marker', routeName: 'MSStalls' },
-      { label: 'Stalls', icon: 'pi pi-building', routeName: 'AdminStalls' },
-      { label: 'Stall Types', icon: 'pi pi-tags', routeName: 'AdminStallTypes' },
-      { label: 'Rental Rates', icon: 'pi pi-money-bill', routeName: 'AdminRentalRates' },
-      { label: 'Contracts', icon: 'pi pi-file-edit', routeName: 'MSContracts' },
-      { label: 'Archive Record', icon: 'pi pi-inbox', routeName: 'MSArchive' }
-    ]
-  },
-  {
-    label: 'Monitoring',
-    items: [
-      { label: 'Applications', icon: 'pi pi-file', routeName: 'AdminApplications' },
-      { label: 'Stakeholders', icon: 'pi pi-id-card', routeName: 'AdminStakeholders' },
-      { label: 'Contracts', icon: 'pi pi-file-check', routeName: 'AdminContracts' },
-      { label: 'Payments', icon: 'pi pi-wallet', routeName: 'AdminPayments' },
-      { label: 'Billing', icon: 'pi pi-receipt', routeName: 'AdminBilling' },
-      { label: 'Occupancy', icon: 'pi pi-chart-pie', routeName: 'AdminOccupancy' }
-    ]
-  },
-  {
-    label: 'Reports',
-    items: [
-      { label: 'Collection Report', icon: 'pi pi-wallet', routeName: 'AdminCollectionReport' },
-      { label: 'Liability Report', icon: 'pi pi-exclamation-circle', routeName: 'AdminLiabilityReport' },
-      { label: 'Stall Occupancy', icon: 'pi pi-chart-pie', routeName: 'AdminOccupancyReport' },
-      { label: 'System Activity', icon: 'pi pi-list-check', routeName: 'AdminActivityReport' }
-    ]
-  },
-  {
-    label: 'Security',
-    items: [{ label: 'Audit Logs', icon: 'pi pi-lock', routeName: 'AdminAuditLogs' }]
-  },
-  {
-    label: 'System',
-    items: [
-      { label: 'Notifications', icon: 'pi pi-bell', routeName: 'AdminNotifications' },
-      { label: 'Settings', icon: 'pi pi-cog', routeName: 'AdminSettings' },
-      { label: 'Profile', icon: 'pi pi-user', routeName: 'AdminProfile' }
+      { label: 'Collections Summary', icon: 'pi pi-wallet', routeName: 'AdminCollectionReport' },
+      { label: 'Occupancy Analytics', icon: 'pi pi-chart-pie', routeName: 'AdminOccupancy' }
     ]
   }
 ]

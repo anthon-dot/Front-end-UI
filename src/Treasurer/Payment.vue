@@ -909,7 +909,18 @@ onMounted(async () => {
     if (app) app.classList.add('full-bleed')
   } catch (e) {}
 
-  // Pre-select if redirected from Billing Records
+  // Pre-select if redirected from Billing Records or clicked "Record Payment" in sidebar
+  if (route.query.action === 'record') {
+    showModal.value = true
+    if (route.query.category) {
+      activeCategory.value = route.query.category
+    }
+  }
+
+  if (route.query.search) {
+    tableSearch.value = String(route.query.search)
+  }
+
   if (route.query.stakeholderId || route.query.billingId) {
     const targetStakeholderId = route.query.stakeholderId
     const targetBillingId = route.query.billingId

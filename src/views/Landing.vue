@@ -19,12 +19,12 @@
       </button>
 
       <nav class="nav-links" aria-label="Primary navigation">
-        <a href="#market-map" @click="closeMenu">Market Map</a>
+        <router-link to="/" @click="closeMenu">Home</router-link>
+        <a href="#about" @click="closeMenu">About</a>
         <a href="#services" @click="closeMenu">Services</a>
-        <a href="#why" @click="closeMenu">Why us</a>
-        <a href="#testimonials" @click="closeMenu">Stories</a>
-        <a href="#faq" @click="closeMenu">FAQ</a>
-        <router-link to="/login" @click="closeMenu">Log in</router-link>
+        <a href="#market-map" @click="closeMenu">Market Map</a>
+        <a href="#contact" @click="closeMenu">Contact Us</a>
+        <router-link to="/login" @click="closeMenu">Login</router-link>
         <router-link to="/create-account" class="nav-cta" @click="closeMenu">
           Create Account
         </router-link>
@@ -130,6 +130,43 @@
         <LandingMarketMap />
       </section>
 
+      <!-- ABOUT SECTION -->
+      <section id="about" class="content-section section-reveal" aria-label="About Manticao Public Market">
+        <div class="section-heading centered">
+          <p class="eyebrow">About the Market</p>
+          <h2>The Heart of Local Commerce in Manticao</h2>
+          <p>
+            Serving the Municipality of Manticao, Misamis Oriental, the Manticao Public Market operates under the leadership of the Local Government Unit to foster economic empowerment, clean facilities, and sustainable vendor growth.
+          </p>
+        </div>
+
+        <div class="about-grid">
+          <article class="about-card">
+            <div class="about-icon"><i class="pi pi-building"></i></div>
+            <h3>Central Commercial Hub</h3>
+            <p>Strategically situated in Poblacion, connecting agricultural producers, seafood suppliers, artisans, and everyday consumers in a vibrant commercial setting.</p>
+          </article>
+
+          <article class="about-card highlight">
+            <div class="about-icon"><i class="pi pi-shield"></i></div>
+            <h3>LGU Governed & Transparent</h3>
+            <p>Managed directly under the Office of the Mayor and Market Supervisor, enforcing transparent rental rates, standardized 3-year contracts, and digital ORs.</p>
+          </article>
+
+          <article class="about-card">
+            <div class="about-icon"><i class="pi pi-th-large"></i></div>
+            <h3>5 Specialized Sections</h3>
+            <p>Featuring dedicated, sanitary spaces for Wet Goods (Fish & Meat), Dry Goods, Vegetables & Fruits, Food Court Dining, and Commercial Perimeter Frontage.</p>
+          </article>
+
+          <article class="about-card">
+            <div class="about-icon"><i class="pi pi-clock"></i></div>
+            <h3>Daily Operations</h3>
+            <p>Open daily from 4:00 AM to 8:00 PM with dedicated sanitation staff, security monitoring, and regular health inspection compliance.</p>
+          </article>
+        </div>
+      </section>
+
       <section id="services" class="content-section split-section section-reveal">
         <div class="section-heading">
           <p class="eyebrow">Services</p>
@@ -210,6 +247,62 @@
         </div>
       </section>
 
+      <!-- CONTACT US SECTION -->
+      <section id="contact" class="content-section section-reveal" aria-label="Contact Manticao LGU">
+        <div class="section-heading centered">
+          <p class="eyebrow">Contact Us</p>
+          <h2>Official LGU Directory & Public Assistance</h2>
+          <p>
+            Have inquiries regarding stall availability, requirements, or rental payments? Reach out to our dedicated municipal offices.
+          </p>
+        </div>
+
+        <div class="contact-grid">
+          <div class="contact-card">
+            <div class="contact-icon bg-blue"><i class="pi pi-building"></i></div>
+            <h4>Office of the Market Supervisor</h4>
+            <p>Stall allocation, contract preparation & physical market operations.</p>
+            <div class="contact-info">
+              <span><i class="pi pi-phone"></i> (088) 555-0142</span>
+              <span><i class="pi pi-envelope"></i> supervisor@manticao.gov.ph</span>
+              <span><i class="pi pi-clock"></i> Mon - Fri, 8:00 AM - 5:00 PM</span>
+            </div>
+          </div>
+
+          <div class="contact-card highlight">
+            <div class="contact-icon bg-emerald"><i class="pi pi-wallet"></i></div>
+            <h4>Municipal Treasury Office</h4>
+            <p>Initial fees confirmation, official receipts & payment reconciliation.</p>
+            <div class="contact-info">
+              <span><i class="pi pi-phone"></i> (088) 555-0143</span>
+              <span><i class="pi pi-envelope"></i> treasurer@manticao.gov.ph</span>
+              <span><i class="pi pi-map-marker"></i> Ground Floor, Municipal Hall</span>
+            </div>
+          </div>
+
+          <div class="contact-card">
+            <div class="contact-icon bg-amber"><i class="pi pi-briefcase"></i></div>
+            <h4>Business Permit & Licensing (BPLO)</h4>
+            <p>Business permit fee assessment, verification & permit release.</p>
+            <div class="contact-info">
+              <span><i class="pi pi-phone"></i> (088) 555-0145</span>
+              <span><i class="pi pi-envelope"></i> bplo@manticao.gov.ph</span>
+              <span><i class="pi pi-clock"></i> Mon - Fri, 8:00 AM - 5:00 PM</span>
+            </div>
+          </div>
+
+          <div class="contact-card">
+            <div class="contact-icon bg-indigo"><i class="pi pi-map"></i></div>
+            <h4>Municipal Hall Location</h4>
+            <p>Poblacion, Manticao, Misamis Oriental, 9024 Northern Mindanao</p>
+            <div class="contact-info">
+              <span><i class="pi pi-shield"></i> Public Market Security Desk</span>
+              <span><i class="pi pi-globe"></i> www.manticao.gov.ph</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section class="cta-section section-reveal">
         <div>
           <p class="eyebrow">Ready to begin?</p>
@@ -231,11 +324,12 @@
         <p>Modern rental management for public market operations.</p>
       </div>
       <nav>
-        <a href="#market-map">Market Map</a>
+        <router-link to="/">Home</router-link>
+        <a href="#about">About</a>
         <a href="#services">Services</a>
-        <a href="#why">Why us</a>
-        <a href="#faq">FAQ</a>
-        <router-link to="/login">Log in</router-link>
+        <a href="#market-map">Market Map</a>
+        <a href="#contact">Contact Us</a>
+        <router-link to="/login">Login</router-link>
       </nav>
     </footer>
   </div>

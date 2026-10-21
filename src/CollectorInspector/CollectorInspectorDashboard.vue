@@ -1,499 +1,858 @@
 <template>
-  <div class="collector-dashboard p-4">
-    <!-- HEADER -->
-    <header class="flex flex-wrap justify-between items-center mb-6 pb-4 border-b border-gray-200">
-      <div>
+  <div class="collector-dashboard min-h-screen bg-slate-50 pb-24 md:pb-12">
+    <!-- TOP HEADER -->
+    <header class="bg-white border-b border-slate-200 px-4 py-3.5 sticky top-0 z-30 shadow-xs">
+      <div class="max-w-6xl mx-auto flex flex-wrap justify-between items-center gap-3">
         <div class="flex items-center gap-3">
-          <div class="w-12 h-12 rounded-xl bg-teal-600 flex items-center justify-center text-white shadow-md">
-            <i class="pi pi-qrcode text-2xl"></i>
+          <div class="w-10 h-10 rounded-xl bg-teal-600 flex items-center justify-center text-white shadow-sm flex-shrink-0">
+            <i class="pi pi-wallet text-xl"></i>
           </div>
           <div>
-            <h1 class="text-2xl font-bold text-gray-800 tracking-tight m-0">Field Market Operations & Inspection</h1>
-            <p class="text-sm text-gray-500 m-0">Field Collections, Remittance Batches, Physical Stall Setup Inspections & QR Permit Scans</p>
+            <div class="flex items-center gap-2">
+              <h1 class="text-lg md:text-xl font-bold text-slate-800 m-0 tracking-tight">Field Collector Mobile</h1>
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Live Online
+              </span>
+            </div>
+            <p class="text-xs text-slate-500 m-0 hidden sm:block">Manticao Public Market &bull; Daily Micro-Collections (₱100/day) & Field Operations</p>
           </div>
         </div>
-      </div>
 
-      <div class="flex items-center gap-2 mt-3 md:mt-0">
-        <button
-          type="button"
-          class="p-button p-button-outlined p-button-sm flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 cursor-pointer text-gray-700 font-medium"
-          @click="fetchData"
-          :disabled="isLoading"
-        >
-          <i class="pi pi-refresh" :class="{ 'pi-spin': isLoading }"></i>
-          <span>{{ isLoading ? 'Refreshing...' : 'Refresh' }}</span>
-        </button>
+        <!-- QUICK SECONDARY TOOLS & REFRESH -->
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            class="px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer flex items-center gap-1.5"
+            :class="activeTab === 'inspections' ? 'bg-blue-50 text-blue-700 border-blue-300' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'"
+            @click="activeTab = 'inspections'"
+            title="Physical Stall Setup Inspections (Step 14)"
+          >
+            <i class="pi pi-check-square"></i>
+            <span class="hidden md:inline">Setup Inspections</span>
+            <span v-if="pendingInspections.length > 0" class="px-1.5 py-0.2 rounded-full text-[10px] bg-blue-600 text-white font-bold">
+              {{ pendingInspections.length }}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            class="px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer flex items-center gap-1.5"
+            :class="activeTab === 'scanner' ? 'bg-indigo-50 text-indigo-700 border-indigo-300' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'"
+            @click="activeTab = 'scanner'"
+            title="Scan QR Permit"
+          >
+            <i class="pi pi-qrcode"></i>
+            <span class="hidden md:inline">QR Permit Scanner</span>
+          </button>
+
+          <button
+            type="button"
+            class="p-2 text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs transition-colors cursor-pointer"
+            @click="fetchData"
+            :disabled="isLoading"
+            title="Refresh sync"
+          >
+            <i class="pi pi-refresh" :class="{ 'pi-spin': isLoading }"></i>
+          </button>
+        </div>
       </div>
     </header>
 
-    <!-- METRIC CARDS -->
-    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-      <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
-        <div>
-          <span class="text-xs uppercase tracking-wider text-gray-500 font-semibold">Today's Collections</span>
-          <div class="text-2xl font-bold text-teal-600 mt-1">₱{{ Number(todayTotalAmount).toLocaleString() }}</div>
-          <span class="text-xs text-gray-400">{{ todayCollections.length }} micro-payments recorded</span>
+    <div class="max-w-6xl mx-auto px-4 py-4">
+      <!-- SUMMARY METRICS RIBBON -->
+      <section class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+        <div class="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-xs flex items-center justify-between">
+          <div>
+            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Today's Total</span>
+            <div class="text-xl font-extrabold text-teal-700 mt-0.5">₱{{ Number(todayTotalAmount).toLocaleString() }}</div>
+            <span class="text-[11px] text-slate-500 font-medium">{{ todayCollections.length }} micro-payments</span>
+          </div>
+          <div class="w-8 h-8 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center">
+            <i class="pi pi-wallet text-sm"></i>
+          </div>
         </div>
-        <div class="w-10 h-10 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center">
-          <i class="pi pi-wallet text-lg"></i>
-        </div>
-      </div>
 
-      <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
-        <div>
-          <span class="text-xs uppercase tracking-wider text-gray-500 font-semibold">Unremitted Collections</span>
-          <div class="text-2xl font-bold text-amber-600 mt-1">₱{{ Number(unremittedTotal).toLocaleString() }}</div>
-          <span class="text-xs text-amber-600 font-medium">{{ unremittedCollections.length }} pending batch</span>
+        <div class="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-xs flex items-center justify-between">
+          <div>
+            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">To Remit</span>
+            <div class="text-xl font-extrabold text-amber-600 mt-0.5">₱{{ Number(unremittedTotal).toLocaleString() }}</div>
+            <span class="text-[11px] text-amber-700 font-medium">{{ unremittedCollections.length }} in pouch</span>
+          </div>
+          <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+            <i class="pi pi-send text-sm"></i>
+          </div>
         </div>
-        <div class="w-10 h-10 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
-          <i class="pi pi-inbox text-lg"></i>
-        </div>
-      </div>
 
-      <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
-        <div>
-          <span class="text-xs uppercase tracking-wider text-gray-500 font-semibold">Stalls Awaiting Inspection</span>
-          <div class="text-2xl font-bold text-blue-600 mt-1">{{ pendingInspections.length }}</div>
-          <span class="text-xs text-gray-400">Physical verification required</span>
+        <div class="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-xs flex items-center justify-between">
+          <div>
+            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Occupied Stalls</span>
+            <div class="text-xl font-extrabold text-slate-800 mt-0.5">{{ occupiedStalls.length }}</div>
+            <span class="text-[11px] text-slate-500 font-medium">Field route</span>
+          </div>
+          <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+            <i class="pi pi-shop text-sm"></i>
+          </div>
         </div>
-        <div class="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-          <i class="pi pi-check-square text-lg"></i>
-        </div>
-      </div>
 
-      <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
-        <div>
-          <span class="text-xs uppercase tracking-wider text-gray-500 font-semibold">Remittance Batches</span>
-          <div class="text-2xl font-bold text-emerald-600 mt-1">{{ remittances.length }}</div>
-          <span class="text-xs text-gray-400">Total submitted</span>
+        <div class="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-xs flex items-center justify-between">
+          <div>
+            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Weekly Sum</span>
+            <div class="text-xl font-extrabold text-emerald-700 mt-0.5">₱{{ Number(weekTotalAmount).toLocaleString() }}</div>
+            <span class="text-[11px] text-slate-500 font-medium">{{ weekCollections.length }} receipts</span>
+          </div>
+          <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
+            <i class="pi pi-chart-line text-sm"></i>
+          </div>
         </div>
-        <div class="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-          <i class="pi pi-send text-lg"></i>
-        </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- TABS -->
-    <div class="bg-white rounded-xl border border-gray-200 shadow-sm mb-6">
-      <div class="flex border-b border-gray-200 px-4 pt-2 gap-4">
+      <!-- DESKTOP / TABLET NAV TABS (HIDDEN ON NARROW MOBILE, VISIBLE ON SM+) -->
+      <nav class="hidden md:flex bg-white rounded-xl border border-slate-200 px-3 pt-2 gap-2 mb-5 shadow-xs">
         <button
-          class="py-3 px-4 text-sm font-semibold border-b-2 transition-colors cursor-pointer flex items-center gap-2"
-          :class="activeTab === 'collections' ? 'border-teal-600 text-teal-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
-          @click="activeTab = 'collections'"
+          type="button"
+          class="py-2.5 px-4 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2"
+          :class="activeTab === 'collect' ? 'border-teal-600 text-teal-700 bg-teal-50/50 rounded-t-lg' : 'border-transparent text-slate-500 hover:text-slate-800'"
+          @click="activeTab = 'collect'"
         >
-          <i class="pi pi-wallet"></i>
-          <span>Field Collections</span>
+          <i class="pi pi-plus-circle"></i>
+          <span>Collect</span>
         </button>
 
         <button
-          class="py-3 px-4 text-sm font-semibold border-b-2 transition-colors cursor-pointer flex items-center gap-2"
-          :class="activeTab === 'remittance' ? 'border-amber-600 text-amber-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
-          @click="activeTab = 'remittance'"
+          type="button"
+          class="py-2.5 px-4 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2"
+          :class="activeTab === 'my-collections' ? 'border-teal-600 text-teal-700 bg-teal-50/50 rounded-t-lg' : 'border-transparent text-slate-500 hover:text-slate-800'"
+          @click="activeTab = 'my-collections'"
+        >
+          <i class="pi pi-list"></i>
+          <span>My Collections</span>
+          <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-teal-100 text-teal-800 font-bold">
+            {{ todayCollections.length }}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          class="py-2.5 px-4 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2"
+          :class="activeTab === 'remit' ? 'border-amber-600 text-amber-700 bg-amber-50/50 rounded-t-lg' : 'border-transparent text-slate-500 hover:text-slate-800'"
+          @click="activeTab = 'remit'"
         >
           <i class="pi pi-send"></i>
-          <span>Treasury Remittance</span>
-          <span v-if="unremittedCollections.length > 0" class="px-2 py-0.5 rounded-full text-xs bg-amber-100 text-amber-800 font-bold">
+          <span>Remit</span>
+          <span v-if="unremittedCollections.length > 0" class="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-100 text-amber-800 font-bold">
             {{ unremittedCollections.length }}
           </span>
         </button>
 
         <button
-          class="py-3 px-4 text-sm font-semibold border-b-2 transition-colors cursor-pointer flex items-center gap-2"
-          :class="activeTab === 'inspections' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
-          @click="activeTab = 'inspections'"
+          type="button"
+          class="py-2.5 px-4 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2"
+          :class="activeTab === 'lookup' ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-lg' : 'border-transparent text-slate-500 hover:text-slate-800'"
+          @click="activeTab = 'lookup'"
         >
-          <i class="pi pi-check-square"></i>
-          <span>Stall Setup Inspections</span>
-          <span v-if="pendingInspections.length > 0" class="px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-800 font-bold">
-            {{ pendingInspections.length }}
-          </span>
+          <i class="pi pi-search"></i>
+          <span>Vendor Lookup</span>
         </button>
 
         <button
-          class="py-3 px-4 text-sm font-semibold border-b-2 transition-colors cursor-pointer flex items-center gap-2"
-          :class="activeTab === 'scanner' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
-          @click="activeTab = 'scanner'"
+          type="button"
+          class="py-2.5 px-4 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2"
+          :class="activeTab === 'profile' ? 'border-slate-700 text-slate-800 bg-slate-50/50 rounded-t-lg' : 'border-transparent text-slate-500 hover:text-slate-800'"
+          @click="activeTab = 'profile'"
         >
-          <i class="pi pi-qrcode"></i>
-          <span>QR Permit Inspector</span>
+          <i class="pi pi-user"></i>
+          <span>Profile</span>
         </button>
-      </div>
+      </nav>
 
-      <!-- TAB 1: FIELD COLLECTIONS -->
-      <div v-if="activeTab === 'collections'" class="p-4">
-        <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
-          <div>
-            <h2 class="text-lg font-bold text-gray-800 m-0">Daily Micro-Collections (₱100/day)</h2>
-            <p class="text-xs text-gray-500 m-0">Record cash collections directly in the field. Updates balance atomically.</p>
-          </div>
-          <button
-            type="button"
-            class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-semibold shadow-sm cursor-pointer flex items-center gap-1.5"
-            @click="showCollectionModal = true"
-          >
-            <i class="pi pi-plus"></i> Record Field Collection
-          </button>
-        </div>
-
-        <div v-if="collections.length === 0" class="text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-          <i class="pi pi-inbox text-4xl text-gray-400 mb-2"></i>
-          <p class="text-gray-700 font-semibold m-0">No field collections recorded yet</p>
-          <p class="text-gray-400 text-sm mt-1">Click "Record Field Collection" to log daily market vendor collections.</p>
-        </div>
-
-        <div v-else class="overflow-x-auto">
-          <table class="w-full text-left text-sm border-collapse">
-            <thead>
-              <tr class="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider border-b border-gray-200">
-                <th class="py-3 px-4">Receipt No</th>
-                <th class="py-3 px-4">Stall / Vendor</th>
-                <th class="py-3 px-4">Amount</th>
-                <th class="py-3 px-4">Date & Time</th>
-                <th class="py-3 px-4">Remittance Status</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-100">
-              <tr v-for="c in collections" :key="c.id" class="hover:bg-teal-50/30 transition-colors">
-                <td class="py-3 px-4 font-mono font-medium text-gray-800">{{ c.receipt_no }}</td>
-                <td class="py-3 px-4">
-                  <div class="font-semibold text-gray-900">{{ c.vendor_name || c.stakeholder?.business_name || 'Vendor' }}</div>
-                  <div class="text-xs text-gray-500">Stall #{{ c.stall_no || c.stakeholder?.selected_stall_id }}</div>
-                </td>
-                <td class="py-3 px-4 font-mono font-bold text-teal-700">₱{{ Number(c.amount).toLocaleString() }}</td>
-                <td class="py-3 px-4 text-xs text-gray-500">{{ formatDateTime(c.payment_date || c.created_at) }}</td>
-                <td class="py-3 px-4">
-                  <span
-                    class="px-2 py-0.5 rounded text-xs font-bold"
-                    :class="c.remittance_id ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'"
-                  >
-                    {{ c.remittance_id ? 'REMITTED' : 'UNREMITTED' }}
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- TAB 2: TREASURY REMITTANCE -->
-      <div v-if="activeTab === 'remittance'" class="p-4">
-        <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
-          <div>
-            <h2 class="text-lg font-bold text-gray-800 m-0">Treasury Remittance Batches</h2>
-            <p class="text-xs text-gray-500 m-0">Batch unremitted field collections and reconcile with the Municipal Treasury.</p>
-          </div>
-          <button
-            v-if="unremittedCollections.length > 0"
-            type="button"
-            class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-semibold shadow-sm cursor-pointer flex items-center gap-1.5"
-            @click="submitRemittanceBatch"
-            :disabled="isSubmitting"
-          >
-            <i class="pi pi-send"></i> Submit Batch of {{ unremittedCollections.length }} (₱{{ Number(unremittedTotal).toLocaleString() }})
-          </button>
-        </div>
-
-        <div v-if="remittances.length === 0" class="text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-          <i class="pi pi-send text-4xl text-gray-400 mb-2"></i>
-          <p class="text-gray-700 font-semibold m-0">No remittances submitted yet</p>
-          <p class="text-gray-400 text-sm mt-1">Collections will appear here once submitted for Treasury reconciliation.</p>
-        </div>
-
-        <div v-else class="overflow-x-auto">
-          <table class="w-full text-left text-sm border-collapse">
-            <thead>
-              <tr class="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider border-b border-gray-200">
-                <th class="py-3 px-4">Remittance No</th>
-                <th class="py-3 px-4">Collector</th>
-                <th class="py-3 px-4">Total Amount</th>
-                <th class="py-3 px-4">Collections Count</th>
-                <th class="py-3 px-4">Submitted Date</th>
-                <th class="py-3 px-4">Treasury Status</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-100">
-              <tr v-for="rem in remittances" :key="rem.id">
-                <td class="py-3 px-4 font-mono font-medium text-gray-800">{{ rem.remittance_no }}</td>
-                <td class="py-3 px-4">{{ rem.collector_name }}</td>
-                <td class="py-3 px-4 font-mono font-bold text-gray-900">₱{{ Number(rem.total_amount).toLocaleString() }}</td>
-                <td class="py-3 px-4 text-xs text-gray-600">{{ rem.collection_count }} receipts</td>
-                <td class="py-3 px-4 text-xs text-gray-500">{{ formatDateTime(rem.created_at) }}</td>
-                <td class="py-3 px-4">
-                  <span
-                    class="px-2 py-0.5 rounded text-xs font-bold"
-                    :class="rem.status === 'RECONCILED' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'"
-                  >
-                    {{ rem.status }}
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- TAB 3: STALL SETUP INSPECTIONS -->
-      <div v-if="activeTab === 'inspections'" class="p-4">
-        <div class="mb-4">
-          <h2 class="text-lg font-bold text-gray-800 m-0">Physical Stall Setup Inspections (Step 14)</h2>
-          <p class="text-xs text-gray-500 m-0">Verify physical stall condition (electrical, structural, fire safety, sanitation) before commercial clearance.</p>
-        </div>
-
-        <div v-if="pendingInspections.length === 0" class="text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-          <i class="pi pi-check-circle text-4xl text-emerald-500 mb-2"></i>
-          <p class="text-gray-700 font-semibold m-0">No stalls currently pending inspection</p>
-          <p class="text-gray-400 text-sm mt-1">All executed leases have completed physical stall verification.</p>
-        </div>
-
-        <div v-else class="overflow-x-auto">
-          <table class="w-full text-left text-sm border-collapse">
-            <thead>
-              <tr class="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider border-b border-gray-200">
-                <th class="py-3 px-4">Application</th>
-                <th class="py-3 px-4">Stall Allocated</th>
-                <th class="py-3 px-4">Applicant & Business</th>
-                <th class="py-3 px-4">Contract Status</th>
-                <th class="py-3 px-4 text-right">Inspect Action</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-100">
-              <tr v-for="app in pendingInspections" :key="app.id" class="hover:bg-blue-50/30 transition-colors">
-                <td class="py-3 px-4 font-mono font-medium">{{ app.application_no || `APP-${app.id}` }}</td>
-                <td class="py-3 px-4">
-                  <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-800">
-                    Stall #{{ app.stall?.stall_no || app.stall_id }}
-                  </span>
-                  <div class="text-xs text-gray-500 mt-0.5">{{ app.stall?.dimensions || '3x3m' }} &bull; {{ app.stall?.section?.name || 'Main' }}</div>
-                </td>
-                <td class="py-3 px-4">
-                  <div class="font-semibold text-gray-900">{{ app.stakeholder?.first_name }} {{ app.stakeholder?.last_name }}</div>
-                  <div class="text-xs text-gray-500">{{ app.stakeholder?.business_name }}</div>
-                </td>
-                <td class="py-3 px-4">
-                  <span class="px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800">
-                    3-Year Lease Executed
-                  </span>
-                </td>
-                <td class="py-3 px-4 text-right">
-                  <button
-                    type="button"
-                    class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm cursor-pointer"
-                    @click="openInspectionModal(app)"
-                  >
-                    <i class="pi pi-check-square mr-1"></i> Conduct Inspection
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- TAB 4: QR PERMIT INSPECTOR -->
-      <div v-if="activeTab === 'scanner'" class="p-4">
-        <h2 class="text-lg font-bold text-gray-800 mb-2">Authenticated Inspector Permit Scanner</h2>
-        <p class="text-xs text-gray-500 mb-4">
-          Enter Permit Number or SHA-256 Hash to verify permit validity, inspect safety clearance, and review delinquency flags.
-        </p>
-
-        <div class="flex gap-2 max-w-xl mb-6">
-          <input
-            v-model="scanIdentifier"
-            type="text"
-            class="flex-1 border border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            placeholder="e.g. MNT-PERMIT-2026-0001 or SHA-256 hash..."
-            @keyup.enter="performInspectorScan"
-          />
-          <button
-            type="button"
-            class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold cursor-pointer"
-            :disabled="isScanning || !scanIdentifier.trim()"
-            @click="performInspectorScan"
-          >
-            <i class="pi pi-search mr-1"></i> Verify Permit
-          </button>
-        </div>
-
-        <!-- SCAN RESULT DISPLAY -->
-        <div v-if="scanResult" class="bg-gray-50 rounded-xl border border-gray-200 p-6 max-w-2xl">
-          <div class="flex justify-between items-start border-b border-gray-200 pb-4 mb-4">
+      <!-- ============================================================ -->
+      <!-- FUNCTION 1: COLLECT (MOBILE-OPTIMIZED QUICK CASH RECORD) -->
+      <!-- ============================================================ -->
+      <section v-if="activeTab === 'collect'" class="space-y-4">
+        <!-- Collection Card -->
+        <div class="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-4 sm:p-6">
+          <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
             <div>
-              <span class="text-xs uppercase font-bold text-gray-500">Municipal Occupancy Permit</span>
-              <h3 class="text-xl font-bold text-gray-800 m-0">{{ scanResult.permit_no }}</h3>
+              <span class="text-[11px] font-bold text-teal-700 uppercase tracking-wider bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                FIELD CASHIERING
+              </span>
+              <h2 class="text-lg font-bold text-slate-900 mt-1 m-0">Record Daily Micro-Payment</h2>
+              <p class="text-xs text-slate-500 m-0 mt-0.5">Enter collection amount &bull; Immediately updates vendor balance in ledger</p>
             </div>
-            <span
-              class="px-3 py-1 rounded-full text-xs font-bold"
-              :class="scanResult.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'"
+            <div class="w-9 h-9 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center font-bold">
+              ₱
+            </div>
+          </div>
+
+          <form @submit.prevent="submitFieldCollection" class="space-y-4">
+            <!-- STEP 1: SELECT OR SEARCH VENDOR / STALL -->
+            <div>
+              <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                Select Vendor & Stall *
+              </label>
+
+              <!-- Search filter input for quick filter -->
+              <div class="relative mb-2">
+                <i class="pi pi-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                <input
+                  v-model="stallSearchFilter"
+                  type="text"
+                  class="w-full pl-8 pr-3 py-2 text-xs border border-slate-200 rounded-lg bg-slate-50/60 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  placeholder="Quick filter stalls by vendor name or stall #..."
+                />
+              </div>
+
+              <select
+                v-model="collectionForm.stallId"
+                class="w-full border border-slate-300 rounded-xl p-3 text-sm font-semibold text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-xs"
+                @change="onStallSelected"
+                required
+              >
+                <option value="" disabled>-- Select Occupied Stallholder --</option>
+                <option
+                  v-for="s in filteredOccupiedStalls"
+                  :key="s.id"
+                  :value="s.id"
+                >
+                  Stall #{{ s.stall_no }} &bull; {{ getStallVendorName(s) }} ({{ s.section?.name || 'Main Section' }})
+                </option>
+              </select>
+            </div>
+
+            <!-- SELECTED STALL CARD INFO (IF SELECTED) -->
+            <div v-if="selectedStallDetails" class="p-3.5 bg-gradient-to-br from-teal-50/60 to-slate-50 rounded-xl border border-teal-200/80 text-xs space-y-1.5">
+              <div class="flex justify-between items-start">
+                <div>
+                  <span class="text-[10px] text-teal-800 font-bold uppercase tracking-wider">Selected Occupant</span>
+                  <div class="font-bold text-slate-900 text-sm">{{ getStallVendorName(selectedStallDetails) }}</div>
+                  <div class="text-slate-500">{{ selectedStallDetails.occupant?.stakeholder?.business_name || 'Public Stallholder' }}</div>
+                </div>
+                <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-teal-100 text-teal-800">
+                  Stall #{{ selectedStallDetails.stall_no }}
+                </span>
+              </div>
+              <div class="pt-2 border-t border-teal-100/80 flex justify-between text-slate-600">
+                <span>Monthly Rate: <strong>₱{{ Number(selectedStallDetails.monthly_rent || 1500).toLocaleString() }}</strong></span>
+                <span>Type: <strong class="uppercase">{{ selectedStallDetails.rate_category || 'REGULAR' }}</strong></span>
+              </div>
+            </div>
+
+            <!-- STEP 2: PRESET AMOUNT BUTTONS (₱50, ₱100 DEFAULT, ₱200, ₱500) -->
+            <div>
+              <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                Collection Amount (₱) *
+              </label>
+              
+              <div class="grid grid-cols-4 gap-2 mb-2">
+                <button
+                  type="button"
+                  class="py-2.5 rounded-xl text-xs font-extrabold border transition-all cursor-pointer flex flex-col items-center"
+                  :class="collectionForm.amount === 50 ? 'bg-teal-600 text-white border-teal-600 shadow-sm scale-102' : 'bg-white text-slate-700 border-slate-200 hover:border-teal-400'"
+                  @click="collectionForm.amount = 50"
+                >
+                  <span>₱50</span>
+                  <span class="text-[9px] font-normal opacity-80">Half Day</span>
+                </button>
+
+                <button
+                  type="button"
+                  class="py-2.5 rounded-xl text-xs font-extrabold border transition-all cursor-pointer flex flex-col items-center"
+                  :class="collectionForm.amount === 100 ? 'bg-teal-600 text-white border-teal-600 shadow-sm scale-102 ring-2 ring-teal-300' : 'bg-white text-slate-700 border-slate-200 hover:border-teal-400'"
+                  @click="collectionForm.amount = 100"
+                >
+                  <span>₱100</span>
+                  <span class="text-[9px] font-semibold opacity-90">Daily Standard</span>
+                </button>
+
+                <button
+                  type="button"
+                  class="py-2.5 rounded-xl text-xs font-extrabold border transition-all cursor-pointer flex flex-col items-center"
+                  :class="collectionForm.amount === 200 ? 'bg-teal-600 text-white border-teal-600 shadow-sm scale-102' : 'bg-white text-slate-700 border-slate-200 hover:border-teal-400'"
+                  @click="collectionForm.amount = 200"
+                >
+                  <span>₱200</span>
+                  <span class="text-[9px] font-normal opacity-80">2 Days</span>
+                </button>
+
+                <button
+                  type="button"
+                  class="py-2.5 rounded-xl text-xs font-extrabold border transition-all cursor-pointer flex flex-col items-center"
+                  :class="collectionForm.amount === 500 ? 'bg-teal-600 text-white border-teal-600 shadow-sm scale-102' : 'bg-white text-slate-700 border-slate-200 hover:border-teal-400'"
+                  @click="collectionForm.amount = 500"
+                >
+                  <span>₱500</span>
+                  <span class="text-[9px] font-normal opacity-80">Advance</span>
+                </button>
+              </div>
+
+              <!-- CUSTOM AMOUNT INPUT -->
+              <div class="relative">
+                <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">₱</span>
+                <input
+                  v-model.number="collectionForm.amount"
+                  type="number"
+                  step="10"
+                  min="1"
+                  class="w-full pl-8 pr-4 py-2.5 border border-slate-300 rounded-xl text-base font-extrabold text-teal-800 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  placeholder="Enter amount..."
+                  required
+                />
+              </div>
+            </div>
+
+            <!-- NOTES / REMARKS -->
+            <div>
+              <label class="block text-xs font-bold text-slate-700 uppercase mb-1">
+                Remarks / Notes
+              </label>
+              <input
+                v-model="collectionForm.notes"
+                type="text"
+                class="w-full border border-slate-300 rounded-xl p-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500"
+                placeholder="Daily micro-collection at market stall..."
+              />
+            </div>
+
+            <!-- SUBMIT BUTTON -->
+            <button
+              type="submit"
+              class="w-full py-3.5 bg-teal-600 hover:bg-teal-700 active:scale-98 text-white rounded-xl text-sm font-extrabold shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              :disabled="isSubmitting || !collectionForm.stallId || !collectionForm.amount"
             >
-              {{ scanResult.status }}
+              <i class="pi pi-check" :class="{ 'pi-spin pi-spinner': isSubmitting }"></i>
+              <span>{{ isSubmitting ? 'Recording Micro-Payment...' : `Record ₱${Number(collectionForm.amount || 0).toLocaleString()} Collection` }}</span>
+            </button>
+          </form>
+        </div>
+
+        <!-- RECENT ACTIVITY SNIPPET -->
+        <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-xs">
+          <div class="flex justify-between items-center mb-3">
+            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider m-0">Latest Field Collections</h3>
+            <button type="button" class="text-xs font-bold text-teal-600 hover:underline cursor-pointer" @click="activeTab = 'my-collections'">
+              View All ({{ todayCollections.length }})
+            </button>
+          </div>
+
+          <div v-if="todayCollections.length === 0" class="text-center py-6 text-slate-400 text-xs">
+            <i class="pi pi-inbox text-2xl mb-1 text-slate-300"></i>
+            <p class="m-0">No collections recorded yet today.</p>
+          </div>
+
+          <div v-else class="space-y-2">
+            <div
+              v-for="c in todayCollections.slice(0, 3)"
+              :key="c.id"
+              class="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg text-xs"
+            >
+              <div>
+                <div class="font-bold text-slate-800">{{ c.vendor_name || 'Market Vendor' }}</div>
+                <div class="text-[11px] text-slate-400">Stall #{{ c.stall_no }} &bull; {{ c.receipt_no }}</div>
+              </div>
+              <div class="text-right">
+                <div class="font-extrabold text-teal-700">₱{{ Number(c.amount).toLocaleString() }}</div>
+                <span class="text-[10px] text-slate-400">{{ formatTime(c.created_at || c.payment_date) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <!-- FUNCTION 2: MY COLLECTIONS (LIST TODAY & THIS WEEK) -->
+      <!-- ============================================================ -->
+      <section v-if="activeTab === 'my-collections'" class="space-y-4">
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 mb-4 border-b border-slate-100">
+            <div>
+              <h2 class="text-base font-bold text-slate-900 m-0">My Micro-Collections Ledger</h2>
+              <p class="text-xs text-slate-500 m-0 mt-0.5">Filter collections recorded today vs this week</p>
+            </div>
+
+            <!-- TOGGLE FILTER (TODAY / WEEK) -->
+            <div class="inline-flex p-1 bg-slate-100 rounded-xl text-xs font-bold self-start sm:self-auto">
+              <button
+                type="button"
+                class="px-3 py-1.5 rounded-lg transition-all cursor-pointer"
+                :class="collectionsFilter === 'today' ? 'bg-white text-teal-800 shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                @click="collectionsFilter = 'today'"
+              >
+                Today (₱{{ Number(todayTotalAmount).toLocaleString() }})
+              </button>
+              <button
+                type="button"
+                class="px-3 py-1.5 rounded-lg transition-all cursor-pointer"
+                :class="collectionsFilter === 'week' ? 'bg-white text-teal-800 shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                @click="collectionsFilter = 'week'"
+              >
+                This Week (₱{{ Number(weekTotalAmount).toLocaleString() }})
+              </button>
+            </div>
+          </div>
+
+          <!-- LIST OF COLLECTIONS -->
+          <div v-if="displayedCollections.length === 0" class="text-center py-12 text-slate-400">
+            <i class="pi pi-receipt text-3xl mb-2 text-slate-300"></i>
+            <p class="font-semibold text-slate-700 m-0">No collections for this period</p>
+            <p class="text-xs text-slate-400 mt-1">Recorded field collections will appear here in real time.</p>
+          </div>
+
+          <div v-else class="space-y-2.5">
+            <div
+              v-for="c in displayedCollections"
+              :key="c.id"
+              class="p-3.5 bg-slate-50/70 hover:bg-teal-50/30 rounded-xl border border-slate-200/80 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+            >
+              <div class="flex items-start gap-3">
+                <div class="w-8 h-8 rounded-lg bg-teal-100 text-teal-800 flex items-center justify-center font-bold text-xs flex-shrink-0 mt-0.5">
+                  #{{ c.stall_no || '—' }}
+                </div>
+                <div>
+                  <div class="font-bold text-slate-900 text-xs sm:text-sm">{{ c.vendor_name || c.stakeholder?.business_name || 'Market Vendor' }}</div>
+                  <div class="text-[11px] text-slate-500 font-mono mt-0.5">
+                    OR Receipt: {{ c.receipt_no }} &bull; {{ formatDateTime(c.payment_date || c.created_at) }}
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200/60">
+                <span
+                  class="px-2 py-0.5 rounded text-[10px] font-bold"
+                  :class="c.remittance_id ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'"
+                >
+                  {{ c.remittance_id ? 'REMITTED' : 'IN POUCH' }}
+                </span>
+                <span class="text-sm font-extrabold text-teal-700 font-mono">
+                  ₱{{ Number(c.amount).toLocaleString('en-PH', { minimumFractionDigits: 2 }) }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <!-- FUNCTION 3: REMIT (END-OF-DAY RECONCILIATION & SLIP) -->
+      <!-- ============================================================ -->
+      <section v-if="activeTab === 'remit'" class="space-y-4">
+        <!-- Remittance Action Card -->
+        <div class="bg-gradient-to-br from-amber-500 via-amber-600 to-amber-700 text-white rounded-2xl p-5 sm:p-6 shadow-md">
+          <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white/20 border border-white/30 uppercase tracking-wider inline-block mb-2">
+            END-OF-DAY TREASURY REMITTANCE
+          </span>
+          <h2 class="text-xl sm:text-2xl font-black m-0 tracking-tight">Turn In Pouch Collections</h2>
+          <p class="text-xs text-amber-100 mt-1 max-w-md">
+            Aggregates total unremitted cash collected in the field today and generates a digital remittance slip for Municipal Treasury reconciliation.
+          </p>
+
+          <div class="mt-4 pt-4 border-t border-white/20 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <span class="text-xs uppercase text-amber-200 font-bold block">Unremitted Cash In Hand</span>
+              <div class="text-3xl font-black mt-0.5">₱{{ Number(unremittedTotal).toLocaleString() }}</div>
+              <span class="text-xs text-amber-100 font-medium">{{ unremittedCollections.length }} micro-receipts pending batch</span>
+            </div>
+
+            <button
+              type="button"
+              class="px-5 py-3 bg-white hover:bg-amber-50 text-amber-900 rounded-xl text-xs font-bold shadow-md transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              :disabled="isSubmitting || unremittedCollections.length === 0"
+              @click="submitRemittanceBatch"
+            >
+              <i class="pi pi-send" :class="{ 'pi-spin pi-spinner': isSubmitting }"></i>
+              <span>{{ isSubmitting ? 'Submitting Batch...' : `Generate Remittance Slip (₱${Number(unremittedTotal).toLocaleString()})` }}</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- REMITTANCE HISTORY -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs">
+          <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider mb-3">Remittance Batch History</h3>
+          
+          <div v-if="remittances.length === 0" class="text-center py-8 text-slate-400 text-xs">
+            <i class="pi pi-send text-3xl mb-2 text-slate-300"></i>
+            <p class="font-semibold text-slate-700 m-0">No past remittances recorded</p>
+          </div>
+
+          <div v-else class="space-y-2.5">
+            <div
+              v-for="rem in remittances"
+              :key="rem.id"
+              class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+            >
+              <div>
+                <div class="font-mono font-bold text-slate-800 text-xs sm:text-sm">{{ rem.remittance_no }}</div>
+                <div class="text-[11px] text-slate-500 mt-0.5">
+                  {{ rem.collection_count }} receipts &bull; {{ formatDateTime(rem.created_at) }}
+                </div>
+              </div>
+
+              <div class="flex items-center justify-between sm:justify-end gap-3">
+                <span
+                  class="px-2 py-0.5 rounded text-[10px] font-bold"
+                  :class="rem.status === 'RECONCILED' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'"
+                >
+                  {{ rem.status === 'RECONCILED' ? 'TREASURY RECONCILED' : 'PENDING TREASURY' }}
+                </span>
+                <span class="text-sm font-black text-slate-900 font-mono">
+                  ₱{{ Number(rem.total_amount).toLocaleString('en-PH', { minimumFractionDigits: 2 }) }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <!-- FUNCTION 4: VENDOR LOOKUP (CHECK BALANCE & OVERDUE AT STALL) -->
+      <!-- ============================================================ -->
+      <section v-if="activeTab === 'lookup'" class="space-y-4">
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs">
+          <div class="pb-3 mb-4 border-b border-slate-100">
+            <span class="text-[11px] font-bold text-blue-700 uppercase tracking-wider bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+              STALL-SIDE COMPLIANCE LOOKUP
             </span>
+            <h2 class="text-base font-bold text-slate-900 mt-1 m-0">Vendor Ledger & Delinquency Check</h2>
+            <p class="text-xs text-slate-500 m-0 mt-0.5">Quickly check outstanding balances or overdue flags while standing at the vendor stall</p>
           </div>
 
-          <div class="grid grid-cols-2 gap-4 text-sm mb-4">
-            <div>
-              <span class="text-xs text-gray-400">Tenant / Vendor:</span>
-              <div class="font-semibold text-gray-800">{{ scanResult.vendor_name }}</div>
-            </div>
-            <div>
-              <span class="text-xs text-gray-400">Assigned Stall:</span>
-              <div class="font-semibold text-gray-800">Stall #{{ scanResult.stall_no }}</div>
-            </div>
-            <div>
-              <span class="text-xs text-gray-400">Contract Ref:</span>
-              <div class="font-mono text-gray-700">{{ scanResult.contract_no }}</div>
-            </div>
-            <div>
-              <span class="text-xs text-gray-400">Valid Horizon:</span>
-              <div class="text-gray-700">{{ formatDate(scanResult.issue_date) }} &ndash; {{ formatDate(scanResult.expiration_date) }}</div>
-            </div>
-          </div>
-
-          <!-- DELINQUENCY ALERT -->
-          <div v-if="scanResult.delinquent" class="p-3 bg-red-100 border border-red-200 rounded-lg text-xs text-red-800 font-semibold mb-4">
-            <i class="pi pi-exclamation-triangle mr-1"></i>
-            OVERDUE ARREARS: Vendor has an outstanding balance of ₱{{ Number(scanResult.overdue_amount).toLocaleString() }}!
-          </div>
-
-          <div class="text-xs font-mono text-gray-400 break-all">
-            SHA-256 Digest: {{ scanResult.integrity_hash }}
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- MODAL: RECORD FIELD COLLECTION -->
-    <div v-if="showCollectionModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-        <h3 class="text-lg font-bold text-gray-900 mb-2 flex items-center gap-2">
-          <i class="pi pi-wallet text-teal-600"></i>
-          Record Field Micro-Collection
-        </h3>
-        <p class="text-xs text-gray-500 mb-4">Record ₱100/day daily micro-collection directly from the stallholder.</p>
-
-        <div class="space-y-3 mb-4">
-          <div>
-            <label class="block text-xs font-semibold text-gray-700 uppercase mb-1">Select Stall *</label>
-            <select
-              v-model="collectionForm.stallId"
-              class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-              @change="onStallSelected"
-            >
-              <option value="" disabled>-- Select occupied stall --</option>
-              <option v-for="s in occupiedStalls" :key="s.id" :value="s.id">
-                Stall #{{ s.stall_no }} &bull; {{ s.occupant?.stakeholder?.business_name || 'Vendor' }}
-              </option>
-            </select>
-          </div>
-
-          <div>
-            <label class="block text-xs font-semibold text-gray-700 uppercase mb-1">Amount (₱) *</label>
+          <!-- SEARCH INPUT -->
+          <div class="relative mb-4">
+            <i class="pi pi-search absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
             <input
-              v-model.number="collectionForm.amount"
-              type="number"
-              step="10"
-              class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 font-bold"
-              placeholder="100.00"
-            />
-          </div>
-
-          <div>
-            <label class="block text-xs font-semibold text-gray-700 uppercase mb-1">Notes / Remarks</label>
-            <input
-              v-model="collectionForm.notes"
+              v-model="vendorLookupQuery"
               type="text"
-              class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-              placeholder="Daily rental collection..."
+              class="w-full pl-10 pr-4 py-2.5 text-xs sm:text-sm border border-slate-300 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-xs"
+              placeholder="Search vendor name, business name, or stall # (e.g. 02)..."
             />
           </div>
-        </div>
 
-        <div class="flex justify-end gap-2">
-          <button
-            type="button"
-            class="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
-            @click="showCollectionModal = false"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-semibold shadow-sm cursor-pointer"
-            :disabled="isSubmitting || !collectionForm.stallId || !collectionForm.amount"
-            @click="submitFieldCollection"
-          >
-            {{ isSubmitting ? 'Recording...' : 'Record Payment' }}
-          </button>
+          <!-- VENDOR LIST CARDS -->
+          <div class="space-y-3">
+            <div
+              v-for="stall in searchedStalls"
+              :key="stall.id"
+              class="p-4 bg-slate-50/80 hover:bg-blue-50/30 rounded-xl border border-slate-200 transition-colors"
+            >
+              <div class="flex items-start justify-between gap-2 mb-2">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-9 h-9 rounded-xl bg-blue-600 text-white font-bold flex items-center justify-center text-xs flex-shrink-0">
+                    #{{ stall.stall_no }}
+                  </div>
+                  <div>
+                    <h4 class="font-bold text-slate-900 text-sm m-0">{{ getStallVendorName(stall) }}</h4>
+                    <p class="text-xs text-slate-500 m-0">{{ stall.occupant?.stakeholder?.business_name || 'Market Vendor' }} &bull; {{ stall.section?.name || 'Section' }}</p>
+                  </div>
+                </div>
+
+                <span
+                  class="px-2 py-0.5 rounded text-[10px] font-bold"
+                  :class="isStallOverdue(stall) ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'"
+                >
+                  {{ isStallOverdue(stall) ? 'OVERDUE' : 'CURRENT' }}
+                </span>
+              </div>
+
+              <div class="grid grid-cols-2 gap-2 text-xs py-2 my-2 border-y border-slate-200/60">
+                <div>
+                  <span class="text-slate-400 block text-[11px]">Dimensions & Category:</span>
+                  <span class="font-semibold text-slate-800">{{ stall.dimensions || '3x3m' }} &bull; {{ stall.rate_category || 'NEW' }}</span>
+                </div>
+                <div>
+                  <span class="text-slate-400 block text-[11px]">Monthly Due:</span>
+                  <span class="font-extrabold text-slate-900">₱{{ Number(stall.monthly_rent || 1500).toLocaleString() }}/mo</span>
+                </div>
+              </div>
+
+              <div class="flex items-center justify-between pt-1">
+                <span class="text-[11px] text-slate-500 font-medium">3-Year Triennial Lease</span>
+                <button
+                  type="button"
+                  class="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-lg shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  @click="quickCollectForStall(stall)"
+                >
+                  <i class="pi pi-wallet"></i> Collect ₱100
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <!-- FUNCTION 5: PROFILE (COLLECTOR ID & SYNC STATUS) -->
+      <!-- ============================================================ -->
+      <section v-if="activeTab === 'profile'" class="space-y-4">
+        <div class="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs max-w-xl mx-auto">
+          <div class="flex items-center gap-3.5 pb-4 mb-4 border-b border-slate-100">
+            <div class="w-14 h-14 rounded-2xl bg-teal-600 text-white flex items-center justify-center text-xl font-bold shadow-md">
+              <i class="pi pi-user"></i>
+            </div>
+            <div>
+              <span class="text-[11px] font-bold text-teal-700 uppercase tracking-wider bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                AUTHORIZED FIELD STAFF
+              </span>
+              <h2 class="text-lg font-bold text-slate-900 mt-1 m-0">{{ authStore.user?.username || 'Collector Officer' }}</h2>
+              <p class="text-xs text-slate-500 m-0">Field Revenue Collector & Market Inspector</p>
+            </div>
+          </div>
+
+          <div class="space-y-3 text-xs mb-6">
+            <div class="flex justify-between py-2 border-b border-slate-100">
+              <span class="text-slate-500">Official Collector ID:</span>
+              <span class="font-mono font-bold text-slate-800">{{ activeCollectorId }}</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-slate-100">
+              <span class="text-slate-500">Assigned Market Zone:</span>
+              <span class="font-bold text-slate-800">Public Market of Manticao (All Sectors)</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-slate-100 items-center">
+              <span class="text-slate-500">Sync Status:</span>
+              <span class="inline-flex items-center gap-1 font-bold text-emerald-700">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Online & Synced
+              </span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-slate-100">
+              <span class="text-slate-500">Last Sync:</span>
+              <span class="text-slate-700 font-medium">{{ lastSyncTime }}</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-slate-100">
+              <span class="text-slate-500">App Version:</span>
+              <span class="font-mono text-slate-600 font-semibold">Manticao RMS Mobile v2.4 (PWA)</span>
+            </div>
+          </div>
+
+          <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex justify-between items-center text-xs">
+            <div>
+              <div class="font-bold text-slate-800">Today's Micro-Collections:</div>
+              <div class="text-slate-500">{{ todayCollections.length }} payments &bull; ₱{{ Number(todayTotalAmount).toLocaleString() }}</div>
+            </div>
+            <button
+              type="button"
+              class="px-3 py-1.5 bg-teal-600 text-white rounded-lg font-bold cursor-pointer hover:bg-teal-700"
+              @click="fetchData"
+            >
+              Sync Now
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <!-- TAB: STALL SETUP INSPECTIONS (PRESERVED) -->
+      <!-- ============================================================ -->
+      <section v-if="activeTab === 'inspections'" class="space-y-4">
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs">
+          <div class="pb-3 mb-4 border-b border-slate-100">
+            <span class="text-[11px] font-bold text-blue-700 uppercase tracking-wider bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+              STEP 14 COMPLIANCE
+            </span>
+            <h2 class="text-base font-bold text-slate-900 mt-1 m-0">Physical Stall Setup Inspections</h2>
+            <p class="text-xs text-slate-500 m-0 mt-0.5">Verify physical wiring, boundary, fire safety, and sanitation before commercial operation</p>
+          </div>
+
+          <div v-if="pendingInspections.length === 0" class="text-center py-10 text-slate-400">
+            <i class="pi pi-check-circle text-4xl text-emerald-500 mb-2"></i>
+            <p class="font-semibold text-slate-800 m-0">No stalls awaiting setup inspection</p>
+          </div>
+
+          <div v-else class="space-y-3">
+            <div
+              v-for="app in pendingInspections"
+              :key="app.id"
+              class="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+            >
+              <div>
+                <div class="font-bold text-slate-900 text-sm">
+                  Stall #{{ app.stall?.stall_no || app.stall_id }} &bull; {{ app.stakeholder?.business_name }}
+                </div>
+                <div class="text-xs text-slate-500 mt-0.5">
+                  Tenant: {{ app.stakeholder?.first_name }} {{ app.stakeholder?.last_name }} &bull; {{ app.application_no || `APP-${app.id}` }}
+                </div>
+              </div>
+              <button
+                type="button"
+                class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer"
+                @click="openInspectionModal(app)"
+              >
+                <i class="pi pi-check-square mr-1"></i> Conduct Physical Inspection
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <!-- TAB: QR PERMIT SCANNER (PRESERVED) -->
+      <!-- ============================================================ -->
+      <section v-if="activeTab === 'scanner'" class="space-y-4">
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs">
+          <div class="pb-3 mb-4 border-b border-slate-100">
+            <span class="text-[11px] font-bold text-indigo-700 uppercase tracking-wider bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
+              ANTI-TAMPER VERIFICATION
+            </span>
+            <h2 class="text-base font-bold text-slate-900 mt-1 m-0">QR Permit Authenticity Scanner</h2>
+            <p class="text-xs text-slate-500 m-0 mt-0.5">Enter permit number or SHA-256 hash digest to confirm municipal authenticity</p>
+          </div>
+
+          <div class="flex gap-2 max-w-xl mb-4">
+            <input
+              v-model="scanIdentifier"
+              type="text"
+              class="flex-1 border border-slate-300 rounded-xl p-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="e.g. MNT-PERMIT-2026-0001 or SHA-256..."
+              @keyup.enter="performInspectorScan"
+            />
+            <button
+              type="button"
+              class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold cursor-pointer"
+              :disabled="isScanning || !scanIdentifier.trim()"
+              @click="performInspectorScan"
+            >
+              Verify Permit
+            </button>
+          </div>
+
+          <div v-if="scanResult" class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs space-y-2">
+            <div class="flex justify-between items-start">
+              <div>
+                <span class="text-slate-400 font-bold block">PERMIT NUMBER</span>
+                <span class="font-mono font-bold text-slate-900 text-sm">{{ scanResult.permit_no }}</span>
+              </div>
+              <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-800">
+                {{ scanResult.status }}
+              </span>
+            </div>
+            <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200">
+              <div>Vendor: <strong class="text-slate-800">{{ scanResult.vendor_name }}</strong></div>
+              <div>Stall: <strong class="text-slate-800">#{{ scanResult.stall_no }}</strong></div>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
 
-    <!-- MODAL: CONDUCT STALL SETUP INSPECTION -->
+    <!-- ============================================================ -->
+    <!-- FIXED MOBILE BOTTOM NAVIGATION BAR (PRIMARY MOBILE UX) -->
+    <!-- ============================================================ -->
+    <nav class="fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 px-2 py-1.5 shadow-2xl flex md:hidden items-center justify-around">
+      <!-- 1. Collect -->
+      <button
+        type="button"
+        class="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all cursor-pointer"
+        :class="activeTab === 'collect' ? 'text-teal-400 scale-105 font-bold' : 'text-slate-400 hover:text-slate-200'"
+        @click="activeTab = 'collect'"
+      >
+        <i class="pi pi-wallet text-lg"></i>
+        <span class="text-[10px] mt-0.5">Collect</span>
+      </button>
+
+      <!-- 2. My Collections -->
+      <button
+        type="button"
+        class="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all cursor-pointer relative"
+        :class="activeTab === 'my-collections' ? 'text-teal-400 scale-105 font-bold' : 'text-slate-400 hover:text-slate-200'"
+        @click="activeTab = 'my-collections'"
+      >
+        <i class="pi pi-list text-lg"></i>
+        <span class="text-[10px] mt-0.5">Collections</span>
+        <span v-if="todayCollections.length > 0" class="absolute top-0 right-2 w-4 h-4 bg-teal-500 text-slate-950 font-black rounded-full text-[9px] flex items-center justify-center">
+          {{ todayCollections.length }}
+        </span>
+      </button>
+
+      <!-- 3. Remit -->
+      <button
+        type="button"
+        class="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all cursor-pointer relative"
+        :class="activeTab === 'remit' ? 'text-amber-400 scale-105 font-bold' : 'text-slate-400 hover:text-slate-200'"
+        @click="activeTab = 'remit'"
+      >
+        <i class="pi pi-send text-lg"></i>
+        <span class="text-[10px] mt-0.5">Remit</span>
+        <span v-if="unremittedCollections.length > 0" class="absolute top-0 right-2 w-4 h-4 bg-amber-500 text-slate-950 font-black rounded-full text-[9px] flex items-center justify-center">
+          {{ unremittedCollections.length }}
+        </span>
+      </button>
+
+      <!-- 4. Vendor Lookup -->
+      <button
+        type="button"
+        class="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all cursor-pointer"
+        :class="activeTab === 'lookup' ? 'text-blue-400 scale-105 font-bold' : 'text-slate-400 hover:text-slate-200'"
+        @click="activeTab = 'lookup'"
+      >
+        <i class="pi pi-search text-lg"></i>
+        <span class="text-[10px] mt-0.5">Lookup</span>
+      </button>
+
+      <!-- 5. Profile -->
+      <button
+        type="button"
+        class="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all cursor-pointer"
+        :class="activeTab === 'profile' ? 'text-teal-400 scale-105 font-bold' : 'text-slate-400 hover:text-slate-200'"
+        @click="activeTab = 'profile'"
+      >
+        <i class="pi pi-user text-lg"></i>
+        <span class="text-[10px] mt-0.5">Profile</span>
+      </button>
+    </nav>
+
+    <!-- MODAL: STALL INSPECTION DECISION -->
     <div v-if="showInspectionModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-xl shadow-xl max-w-lg w-full p-6">
-        <h3 class="text-lg font-bold text-gray-900 mb-2 flex items-center gap-2">
+      <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6">
+        <h3 class="text-lg font-bold text-slate-900 mb-1 flex items-center gap-2">
           <i class="pi pi-check-square text-blue-600"></i>
-          Conduct Stall Setup Physical Inspection
+          Stall Setup Physical Inspection
         </h3>
-        <p class="text-xs text-gray-500 mb-4">
-          Inspecting Stall #{{ selectedInspectionApp?.stall?.stall_no }} for {{ selectedInspectionApp?.stakeholder?.business_name }}. Verify each physical setup safety condition.
+        <p class="text-xs text-slate-500 mb-4">
+          Inspecting Stall #{{ selectedInspectionApp?.stall?.stall_no }} for {{ selectedInspectionApp?.stakeholder?.business_name }}. Verify physical setup conditions.
         </p>
 
-        <div class="space-y-3 mb-4">
-          <label class="flex items-center gap-3 p-2 bg-gray-50 rounded-lg border border-gray-200 cursor-pointer">
+        <div class="space-y-2.5 mb-4 text-xs">
+          <label class="flex items-center gap-3 p-2 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer">
             <input type="checkbox" v-model="inspectionForm.electricalClearance" class="w-4 h-4 text-blue-600" />
             <div>
-              <div class="text-sm font-semibold text-gray-800">Electrical Clearance</div>
-              <div class="text-xs text-gray-500">Wiring compliant, circuit breaker installed, no exposed wires.</div>
+              <div class="font-bold text-slate-800">Electrical Clearance</div>
+              <div class="text-[11px] text-slate-500">Wiring compliant, circuit breaker installed.</div>
             </div>
           </label>
 
-          <label class="flex items-center gap-3 p-2 bg-gray-50 rounded-lg border border-gray-200 cursor-pointer">
+          <label class="flex items-center gap-3 p-2 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer">
             <input type="checkbox" v-model="inspectionForm.structuralClearance" class="w-4 h-4 text-blue-600" />
             <div>
-              <div class="text-sm font-semibold text-gray-800">Structural Clearance</div>
-              <div class="text-xs text-gray-500">Within 3x3m boundary, no unauthorized physical extensions.</div>
+              <div class="font-bold text-slate-800">Structural Clearance</div>
+              <div class="text-[11px] text-slate-500">Within designated 3x3m boundary.</div>
             </div>
           </label>
 
-          <label class="flex items-center gap-3 p-2 bg-gray-50 rounded-lg border border-gray-200 cursor-pointer">
+          <label class="flex items-center gap-3 p-2 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer">
             <input type="checkbox" v-model="inspectionForm.fireSafetyClearance" class="w-4 h-4 text-blue-600" />
             <div>
-              <div class="text-sm font-semibold text-gray-800">Fire Safety Clearance</div>
-              <div class="text-xs text-gray-500">Fire extinguisher accessible, no flammables blocking pathway.</div>
+              <div class="font-bold text-slate-800">Fire Safety Clearance</div>
+              <div class="text-[11px] text-slate-500">Fire extinguisher accessible.</div>
             </div>
           </label>
 
-          <label class="flex items-center gap-3 p-2 bg-gray-50 rounded-lg border border-gray-200 cursor-pointer">
+          <label class="flex items-center gap-3 p-2 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer">
             <input type="checkbox" v-model="inspectionForm.sanitationClearance" class="w-4 h-4 text-blue-600" />
             <div>
-              <div class="text-sm font-semibold text-gray-800">Sanitation & Drainage Clearance</div>
-              <div class="text-xs text-gray-500">Clean drainage connectivity, proper trash segregation bin.</div>
+              <div class="font-bold text-slate-800">Sanitation & Drainage Clearance</div>
+              <div class="text-[11px] text-slate-500">Clean drainage connectivity, proper trash bin.</div>
             </div>
           </label>
-
-          <div>
-            <label class="block text-xs font-semibold text-gray-700 uppercase mb-1">Inspector Remarks</label>
-            <textarea
-              v-model="inspectionForm.remarks"
-              rows="2"
-              class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Physical stall setup observations..."
-            ></textarea>
-          </div>
         </div>
 
         <div class="flex justify-end gap-2">
           <button
             type="button"
-            class="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
+            class="px-4 py-2 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
             @click="showInspectionModal = false"
           >
             Cancel
           </button>
           <button
             type="button"
-            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold shadow-sm cursor-pointer"
+            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-sm cursor-pointer"
             :disabled="isSubmitting"
             @click="submitInspectionDecision"
           >
@@ -511,7 +870,8 @@ import axios from 'axios';
 import { useAuthStore } from '../stores/auth';
 
 const authStore = useAuthStore();
-const activeTab = ref('collections');
+const activeTab = ref('collect');
+const collectionsFilter = ref('today');
 const isLoading = ref(false);
 const isSubmitting = ref(false);
 const isScanning = ref(false);
@@ -521,13 +881,20 @@ const remittances = ref([]);
 const applications = ref([]);
 const occupiedStalls = ref([]);
 
-const showCollectionModal = ref(false);
-const showInspectionModal = ref(false);
-
+const stallSearchFilter = ref('');
+const vendorLookupQuery = ref('');
 const scanIdentifier = ref('');
 const scanResult = ref(null);
 
+const showInspectionModal = ref(false);
 const selectedInspectionApp = ref(null);
+
+const lastSyncTime = ref(new Date().toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }));
+
+const activeCollectorId = computed(() => {
+  const uid = authStore.user?.id || '42';
+  return `MNT-COL-${String(uid).slice(-4).padStart(4, '0')}`;
+});
 
 const collectionForm = ref({
   stallId: '',
@@ -557,6 +924,23 @@ const todayTotalAmount = computed(() => {
   return todayCollections.value.reduce((sum, c) => sum + Number(c.amount || 0), 0);
 });
 
+const weekCollections = computed(() => {
+  const now = new Date();
+  const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  return collections.value.filter((c) => {
+    const d = new Date(c.payment_date || c.created_at);
+    return d >= oneWeekAgo;
+  });
+});
+
+const weekTotalAmount = computed(() => {
+  return weekCollections.value.reduce((sum, c) => sum + Number(c.amount || 0), 0);
+});
+
+const displayedCollections = computed(() => {
+  return collectionsFilter.value === 'today' ? todayCollections.value : weekCollections.value;
+});
+
 const unremittedCollections = computed(() => {
   return collections.value.filter((c) => !c.remittance_id);
 });
@@ -571,9 +955,60 @@ const pendingInspections = computed(() => {
   );
 });
 
+const filteredOccupiedStalls = computed(() => {
+  if (!stallSearchFilter.value.trim()) return occupiedStalls.value;
+  const q = stallSearchFilter.value.toLowerCase();
+  return occupiedStalls.value.filter((s) => {
+    const sNo = String(s.stall_no || '').toLowerCase();
+    const vendor = getStallVendorName(s).toLowerCase();
+    const bName = String(s.occupant?.stakeholder?.business_name || '').toLowerCase();
+    return sNo.includes(q) || vendor.includes(q) || bName.includes(q);
+  });
+});
+
+const selectedStallDetails = computed(() => {
+  if (!collectionForm.value.stallId) return null;
+  return occupiedStalls.value.find((s) => Number(s.id) === Number(collectionForm.value.stallId));
+});
+
+const searchedStalls = computed(() => {
+  if (!vendorLookupQuery.value.trim()) return occupiedStalls.value;
+  const q = vendorLookupQuery.value.toLowerCase();
+  return occupiedStalls.value.filter((s) => {
+    const sNo = String(s.stall_no || '').toLowerCase();
+    const vendor = getStallVendorName(s).toLowerCase();
+    const bName = String(s.occupant?.stakeholder?.business_name || '').toLowerCase();
+    return sNo.includes(q) || vendor.includes(q) || bName.includes(q);
+  });
+});
+
+function getStallVendorName(stall) {
+  if (!stall) return 'Vendor';
+  const st = stall.occupant?.stakeholder;
+  if (st?.first_name || st?.last_name) {
+    return `${st.first_name || ''} ${st.last_name || ''}`.trim();
+  }
+  return stall.occupant?.stakeholder?.business_name || `Vendor Stall #${stall.stall_no}`;
+}
+
+function isStallOverdue(stall) {
+  return Boolean(stall?.occupant?.is_delinquent || stall?.is_delinquent);
+}
+
+function quickCollectForStall(stall) {
+  collectionForm.value.stallId = stall.id;
+  onStallSelected();
+  activeTab.value = 'collect';
+}
+
 function formatDate(dateStr) {
   if (!dateStr) return 'N/A';
   return new Date(dateStr).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function formatTime(dateStr) {
+  if (!dateStr) return '';
+  return new Date(dateStr).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' });
 }
 
 function formatDateTime(dateStr) {
@@ -592,7 +1027,7 @@ async function fetchData() {
   try {
     const headers = { Authorization: `Bearer ${authStore.token}` };
 
-    // 1. Fetch remittances
+    // 1. Remittances
     try {
       const remRes = await axios.get('/api/collections/remittances', { headers });
       remittances.value = remRes.data?.remittances || [];
@@ -600,7 +1035,7 @@ async function fetchData() {
       remittances.value = [];
     }
 
-    // 2. Fetch applications
+    // 2. Applications
     try {
       const appRes = await axios.get('/api/applications', { headers });
       applications.value = appRes.data?.applications || [];
@@ -608,7 +1043,7 @@ async function fetchData() {
       applications.value = [];
     }
 
-    // 3. Fetch occupied stalls
+    // 3. Stalls
     try {
       const stallRes = await axios.get('/api/stalls', { headers });
       const stalls = stallRes.data?.stalls || [];
@@ -617,7 +1052,7 @@ async function fetchData() {
       occupiedStalls.value = [];
     }
 
-    // 4. Fetch payments / field collections
+    // 4. Field Collections
     try {
       const payRes = await axios.get('/api/payments', { headers });
       const allPayments = payRes.data?.payments || [];
@@ -625,6 +1060,8 @@ async function fetchData() {
     } catch (e) {
       collections.value = [];
     }
+
+    lastSyncTime.value = new Date().toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' });
   } catch (err) {
     console.error('[COLLECTOR] Fetch error:', err);
   } finally {
@@ -633,7 +1070,7 @@ async function fetchData() {
 }
 
 function onStallSelected() {
-  const stall = occupiedStalls.value.find((s) => s.id === Number(collectionForm.value.stallId));
+  const stall = occupiedStalls.value.find((s) => Number(s.id) === Number(collectionForm.value.stallId));
   if (stall?.occupant?.stakeholder_id) {
     collectionForm.value.stakeholderId = stall.occupant.stakeholder_id;
   }
@@ -643,7 +1080,7 @@ async function submitFieldCollection() {
   isSubmitting.value = true;
   try {
     const headers = { Authorization: `Bearer ${authStore.token}` };
-    await axios.post(
+    const res = await axios.post(
       '/api/collections/field',
       {
         stallId: collectionForm.value.stallId,
@@ -654,7 +1091,9 @@ async function submitFieldCollection() {
       { headers }
     );
 
-    showCollectionModal.value = false;
+    const orNo = res.data?.payment?.receipt_no || res.data?.receiptNo || 'Confirmed';
+    alert(`Payment recorded successfully!\nOfficial Receipt: ${orNo}\nAmount: ₱${Number(collectionForm.value.amount).toLocaleString()}`);
+
     collectionForm.value.stallId = '';
     collectionForm.value.amount = 100;
     await fetchData();
@@ -672,7 +1111,7 @@ async function submitRemittanceBatch() {
   isSubmitting.value = true;
   try {
     const headers = { Authorization: `Bearer ${authStore.token}` };
-    await axios.post(
+    const res = await axios.post(
       '/api/collections/remittances',
       {
         collectionIds: unremittedCollections.value.map((c) => c.id),
@@ -681,6 +1120,8 @@ async function submitRemittanceBatch() {
       { headers }
     );
 
+    const remNo = res.data?.remittance?.remittance_no || 'Submitted';
+    alert(`Remittance batch generated successfully!\nRemittance Slip: ${remNo}\nTotal: ₱${Number(unremittedTotal.value).toLocaleString()}\nPlease turn in cash to Municipal Treasurer.`);
     await fetchData();
   } catch (err) {
     alert(err.response?.data?.error || 'Failed to submit remittance batch.');
@@ -750,6 +1191,5 @@ onMounted(() => {
 <style scoped>
 .collector-dashboard {
   min-height: 100vh;
-  background-color: #f8fafc;
 }
 </style>

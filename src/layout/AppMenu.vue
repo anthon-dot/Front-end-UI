@@ -12,28 +12,32 @@ const { layoutState } = useLayout();
 const baseModel = computed(() => {
     const role = authStore.normalizedRole;
 
+    // 5. MUNICIPAL MAYOR DASHBOARD
     if (role === 'MAYOR') {
         return [
             {
-                label: 'EXECUTIVE OFFICE',
+                label: 'EXECUTIVE OVERSIGHT',
                 items: [
-                    { label: 'Mayor Dashboard', icon: 'pi pi-fw pi-home', to: '/mayor' },
-                    { label: 'LOI Approvals', icon: 'pi pi-fw pi-file-edit', to: '/mayor/approvals' },
-                    { label: 'Lease Revocations', icon: 'pi pi-fw pi-shield', to: '/mayor/revocations' },
-                    { label: 'Market Stalls', icon: 'pi pi-fw pi-map-marker', to: '/stalls' }
+                    { label: 'Executive Summary', icon: 'pi pi-fw pi-chart-line', to: '/mayor' },
+                    { label: 'Pending Approvals', icon: 'pi pi-fw pi-file-edit', to: '/mayor/approvals' },
+                    { label: 'Revocation Requests', icon: 'pi pi-fw pi-shield', to: '/mayor/revocations' },
+                    { label: 'Reports', icon: 'pi pi-fw pi-chart-bar', to: '/stalls' }
                 ]
             }
         ];
     }
 
-    if (role === 'COLLECTOR_INSPECTOR') {
+    // 7. FIELD COLLECTOR MOBILE & WEB
+    if (role === 'COLLECTOR_INSPECTOR' || role === 'COLLECTOR') {
         return [
             {
                 label: 'FIELD OPERATIONS',
                 items: [
-                    { label: 'Field Dashboard', icon: 'pi pi-fw pi-home', to: '/collector' },
-                    { label: 'Daily Collections', icon: 'pi pi-fw pi-wallet', to: '/collector' },
-                    { label: 'Treasury Remittances', icon: 'pi pi-fw pi-send', to: '/collector' }
+                    { label: 'Collect', icon: 'pi pi-fw pi-wallet', to: '/collector' },
+                    { label: 'My Collections', icon: 'pi pi-fw pi-list', to: '/collector' },
+                    { label: 'Remit', icon: 'pi pi-fw pi-send', to: '/collector' },
+                    { label: 'Vendor Lookup', icon: 'pi pi-fw pi-search', to: '/collector' },
+                    { label: 'Profile', icon: 'pi pi-fw pi-user', to: '/collector' }
                 ]
             },
             {
@@ -47,142 +51,117 @@ const baseModel = computed(() => {
         ];
     }
 
-    if (role === 'MARKET_SUPERVISOR') {
+    // 4. MARKET SUPERVISOR DASHBOARD
+    if (role === 'MARKET_SUPERVISOR' || role === 'SUPERVISOR') {
         return [
             {
-                label: 'OVERVIEW',
+                label: 'MARKET OPERATIONS',
                 items: [
-                    { label: 'Supervisor Dashboard', icon: 'pi pi-fw pi-home', to: '/supervisor' }
-                ]
-            },
-            {
-                label: 'OPERATIONS & STALLS',
-                items: [
-                    { label: 'Stall Management', icon: 'pi pi-fw pi-map-marker', to: '/supervisor/stalls' },
-                    { label: 'Contracts of Lease', icon: 'pi pi-fw pi-file-edit', to: '/supervisor/contracts' },
-                    { label: 'Archive Records', icon: 'pi pi-fw pi-inbox', to: '/supervisor/archive' }
-                ]
-            },
-            {
-                label: 'REPORTS & MONITORING',
-                items: [
-                    { label: 'Supervisor Reports', icon: 'pi pi-fw pi-chart-bar', to: '/supervisor/reports' },
-                    { label: 'Occupancy Overview', icon: 'pi pi-fw pi-chart-pie', to: '/admin/occupancy' }
+                    { label: 'Dashboard', icon: 'pi pi-fw pi-home', to: '/supervisor' },
+                    { label: 'Stall Inventory', icon: 'pi pi-fw pi-map-marker', to: '/supervisor/stalls' },
+                    { label: 'Application Review', icon: 'pi pi-fw pi-file-edit', to: '/supervisor' },
+                    { label: 'Contract Management', icon: 'pi pi-fw pi-file', to: '/supervisor/contracts' },
+                    { label: 'Occupancy Permits', icon: 'pi pi-fw pi-qrcode', to: '/supervisor/contracts' },
+                    { label: 'Stall Inspections', icon: 'pi pi-fw pi-check-square', to: '/collector' },
+                    { label: 'Delinquency Management', icon: 'pi pi-fw pi-exclamation-triangle', to: '/supervisor/reports' },
+                    { label: 'Archives', icon: 'pi pi-fw pi-inbox', to: '/supervisor/archive' }
                 ]
             }
         ];
     }
 
+    // 8. SYSTEM ADMINISTRATOR DASHBOARD
     if (role === 'ADMIN') {
         return [
             {
-                label: 'OVERVIEW',
+                label: 'SYSTEM CONFIGURATION',
+                items: [
+                    { label: 'User Management', icon: 'pi pi-fw pi-users', to: '/admin/users' },
+                    { label: 'Rate Configuration', icon: 'pi pi-fw pi-dollar', to: '/admin/rental-rates' },
+                    { label: 'System Settings', icon: 'pi pi-fw pi-cog', to: '/admin/settings' },
+                    { label: 'Audit Logs', icon: 'pi pi-fw pi-book', to: '/admin/audit-logs' },
+                    { label: 'Database Maintenance', icon: 'pi pi-fw pi-database', to: '/admin/login-history' }
+                ]
+            },
+            {
+                label: 'MODULE OVERVIEW',
                 items: [
                     { label: 'Admin Analytics', icon: 'pi pi-fw pi-chart-line', to: '/admin/dashboard' },
-                    { label: 'Supervisor Dashboard', icon: 'pi pi-fw pi-home', to: '/supervisor' }
-                ]
-            },
-            {
-                label: 'CONFIG & FORMULAS',
-                items: [
-                    { label: 'Rental Rates', icon: 'pi pi-fw pi-dollar', to: '/admin/rental-rates' },
-                    { label: 'Master Stalls', icon: 'pi pi-fw pi-building', to: '/admin/stalls' },
-                    { label: 'Stall Types', icon: 'pi pi-fw pi-tags', to: '/admin/stall-types' },
-                    { label: 'Contracts Registry', icon: 'pi pi-fw pi-file', to: '/admin/contracts' },
-                    { label: 'Billing & Payments', icon: 'pi pi-fw pi-wallet', to: '/admin/payments' }
-                ]
-            },
-            {
-                label: 'USER MANAGEMENT',
-                items: [
-                    { label: 'Users', icon: 'pi pi-fw pi-users', to: '/admin/users' },
-                    { label: 'Roles & Permissions', icon: 'pi pi-fw pi-shield', to: '/admin/roles' },
-                    { label: 'Login History', icon: 'pi pi-fw pi-history', to: '/admin/login-history' }
-                ]
-            },
-            {
-                label: 'SECURITY & SETTINGS',
-                items: [
+                    { label: 'Supervisor View', icon: 'pi pi-fw pi-building', to: '/supervisor' },
                     { label: 'BPLO Portal', icon: 'pi pi-fw pi-briefcase', to: '/bplo' },
                     { label: 'Endorsing Office', icon: 'pi pi-fw pi-check-circle', to: '/endorsing' },
-                    { label: 'Audit Logs', icon: 'pi pi-fw pi-book', to: '/admin/audit-logs' },
-                    { label: 'System Settings', icon: 'pi pi-fw pi-cog', to: '/admin/settings' }
+                    { label: 'Stall Map Registry', icon: 'pi pi-fw pi-map-marker', to: '/admin/stalls' }
                 ]
             }
         ];
     }
 
+    // 6. BPLO DASHBOARD
     if (role === 'BPLO' || role === 'BPLO_STAFF') {
         return [
             {
-                label: 'BPLO OPERATIONS',
+                label: 'BPLO REGULATORY COMPLIANCE',
                 items: [
-                    { label: 'BPLO Dashboard', icon: 'pi pi-fw pi-briefcase', to: '/bplo' },
-                    { label: 'Business Permit Review', icon: 'pi pi-fw pi-file-edit', to: '/bplo' },
+                    { label: 'Dashboard', icon: 'pi pi-fw pi-briefcase', to: '/bplo' },
+                    { label: 'Business Permit Assessment', icon: 'pi pi-fw pi-calculator', to: '/bplo' },
+                    { label: 'Release Permits', icon: 'pi pi-fw pi-check-circle', to: '/bplo' },
+                    { label: 'Returned Applications', icon: 'pi pi-fw pi-replay', to: '/bplo' },
                     { label: 'Market Stalls Map', icon: 'pi pi-fw pi-map-marker', to: '/stalls' }
                 ]
             }
         ];
     }
 
+    // 6. ENDORSING OFFICE DASHBOARD
     if (role === 'ENDORSING_OFFICE') {
         return [
             {
-                label: 'ENDORSING OFFICE',
+                label: 'ENDORSING OFFICE REVIEW',
                 items: [
-                    { label: 'Endorsement Dashboard', icon: 'pi pi-fw pi-check-circle', to: '/endorsing' },
-                    { label: 'Application Endorsements', icon: 'pi pi-fw pi-file-edit', to: '/endorsing' },
+                    { label: 'Dashboard', icon: 'pi pi-fw pi-home', to: '/endorsing' },
+                    { label: 'Endorsement Queue', icon: 'pi pi-fw pi-file-edit', to: '/endorsing' },
+                    { label: 'Returned Applications', icon: 'pi pi-fw pi-replay', to: '/endorsing' },
                     { label: 'Market Stalls Map', icon: 'pi pi-fw pi-map-marker', to: '/stalls' }
                 ]
             }
         ];
     }
 
+    // 3. TREASURER / REVENUE STAFF DASHBOARD
     if (role === 'TREASURER') {
         return [
             {
-                label: 'OVERVIEW',
+                label: 'TREASURY REVENUE OPERATIONS',
                 items: [
-                    { label: 'Dashboard', icon: 'pi pi-fw pi-home', to: '/treasurer' }
+                    { label: 'Dashboard', icon: 'pi pi-fw pi-home', to: '/treasurer' },
+                    { label: 'Vendor Search', icon: 'pi pi-fw pi-search', to: '/treasurer' },
+                    { label: 'Record Payment', icon: 'pi pi-fw pi-credit-card', to: '/treasurer/payment' },
+                    { label: 'Initial Fees', icon: 'pi pi-fw pi-check-circle', to: '/treasurer/applicant' },
+                    { label: 'Daily Remittance', icon: 'pi pi-fw pi-send', to: '/treasurer/billing' }
                 ]
             },
             {
-                label: 'MANAGEMENT',
+                label: 'FINANCIAL REPORTING & AUDIT',
                 items: [
-                    { label: 'Applicants', icon: 'pi pi-fw pi-users', to: '/treasurer/applicant' },
-                    { label: 'Billing', icon: 'pi pi-fw pi-file-edit', to: '/treasurer/billing' },
-                    { label: 'Payment Records', icon: 'pi pi-fw pi-wallet', to: '/treasurer/payment' }
-                ]
-            },
-            {
-                label: 'ANALYTICS & REPORTS',
-                items: [
-                    { label: 'Revenue Reports', icon: 'pi pi-fw pi-chart-line', to: '/treasurer/report' },
-                    { label: 'AI Analytics', icon: 'pi pi-fw pi-sparkles', to: '/treasurer/ai-reports' },
-                    { label: 'AI Notifications', icon: 'pi pi-fw pi-bell', to: '/treasurer/ai-notifications' },
-                    { label: 'Audit Logs', icon: 'pi pi-fw pi-book', to: '/audit-logs' }
+                    { label: 'Reports', icon: 'pi pi-fw pi-chart-line', to: '/treasurer/report' },
+                    { label: 'Audit Trail', icon: 'pi pi-fw pi-book', to: '/audit-logs' }
                 ]
             }
         ];
     }
 
-    // STAKEHOLDER (APPLICANT / ACTIVE VENDOR)
+    // 2. VENDOR / STAKEHOLDER PORTAL
     return [
         {
-            label: 'MY PORTAL',
+            label: 'VENDOR PORTAL',
             items: [
-                { label: 'Tenancy Dashboard', icon: 'pi pi-fw pi-home', to: '/stakeholder' },
-                { label: 'Payment History', icon: 'pi pi-fw pi-wallet', to: '/stakeholder/payments' },
-                { label: 'Market Stalls', icon: 'pi pi-fw pi-shop', to: '/stalls' },
-                { label: 'Settings & Profile', icon: 'pi pi-fw pi-cog', to: '/stakeholder/settings' }
-            ]
-        },
-        {
-            label: 'APPLICATION',
-            items: [
-                { label: 'Application Progress', icon: 'pi pi-fw pi-hourglass', to: '/application-progress' },
-                { label: 'Initial Fee Payment', icon: 'pi pi-fw pi-dollar', to: '/applicant-fee' },
-                { label: 'Requirements', icon: 'pi pi-fw pi-file-check', to: '/requirements' }
+                { label: 'Dashboard', icon: 'pi pi-fw pi-home', to: '/stakeholder' },
+                { label: 'Application Status', icon: 'pi pi-fw pi-hourglass', to: '/application-progress' },
+                { label: 'Upload Documents', icon: 'pi pi-fw pi-upload', to: '/requirements' },
+                { label: 'My Stall & Contract', icon: 'pi pi-fw pi-file-edit', to: '/stakeholder' },
+                { label: 'Billing & Payments', icon: 'pi pi-fw pi-wallet', to: '/stakeholder/payments' },
+                { label: 'Notifications', icon: 'pi pi-fw pi-bell', to: '/application-progress' },
+                { label: 'Account Settings', icon: 'pi pi-fw pi-cog', to: '/stakeholder/settings' }
             ]
         }
     ];
