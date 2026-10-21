@@ -42,7 +42,14 @@ export async function createStall(payload) {
     .select()
     .single()
 
-  if (error) throw error
+  if (error) {
+    if (error.code === '42501') {
+      const msg = 'Row Level Security (RLS) blocked stall creation. Please run supabase/migrations/20261021_fix_stalls_rls.sql or "ALTER TABLE public.stalls DISABLE ROW LEVEL SECURITY;" in Supabase SQL Editor.'
+      console.error('[stallService] RLS Error 42501:', msg, error)
+      throw new Error(msg)
+    }
+    throw error
+  }
   invalidateApiCache('stalls')
   const norm = normalizeRecord(data)
   if (img) {
@@ -85,7 +92,14 @@ export async function updateStall(id, payload) {
     .select()
     .single()
 
-  if (error) throw error
+  if (error) {
+    if (error.code === '42501') {
+      const msg = 'Row Level Security (RLS) blocked stall update. Please run supabase/migrations/20261021_fix_stalls_rls.sql or "ALTER TABLE public.stalls DISABLE ROW LEVEL SECURITY;" in Supabase SQL Editor.'
+      console.error('[stallService] RLS Error 42501:', msg, error)
+      throw new Error(msg)
+    }
+    throw error
+  }
   invalidateApiCache('stalls')
   const norm = normalizeRecord(data)
   if (updateBody.map_coordinates?.imageUrl) {
