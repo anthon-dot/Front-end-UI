@@ -946,6 +946,12 @@ import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import {
+  MARKET_CENTER as DEFAULT_CENTER,
+  MARKET_DEFAULT_ZOOM as DEFAULT_MAP_ZOOM,
+  MARKET_MIN_ZOOM as MIN_MAP_ZOOM,
+  BASEMAP_TILES
+} from '../constants/marketMap'
 
 import MarketSupervisorMenu from '../components/MarketSupervisorMenu.vue'
 import SearchField from '../components/SearchField.vue'
@@ -997,10 +1003,7 @@ watch(() => route.query.action, (action) => {
   }
 })
 
-// Default Manticao Public Market Center
-const DEFAULT_CENTER = { lat: 8.399991, lng: 124.291353 }
-const DEFAULT_MAP_ZOOM = 18
-const MIN_MAP_ZOOM = 14
+// Default Manticao Public Market Center, zoom levels & tiles: see src/constants/marketMap.js
 
 // State
 const search = ref('')
@@ -1057,25 +1060,7 @@ const form = ref({
   imageUrl: ''
 })
 
-// Basemap Tile Configurations (Authorized high-performance tiles via Leaflet)
-const BASEMAP_TILES = {
-  roadmap: {
-    url: 'https://{s}.google.com/vt/lyrs=m&apistyle=s.t:33|p.v:off,s.t:37|p.v:off,s.e:l.i|p.v:off&x={x}&y={y}&z={z}',
-    options: {
-      maxZoom: 20,
-      subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-      attribution: '&copy; Google Maps'
-    }
-  },
-  satellite: {
-    url: 'https://{s}.google.com/vt/lyrs=y&apistyle=s.t:33|p.v:off,s.t:37|p.v:off,s.e:l.i|p.v:off&x={x}&y={y}&z={z}',
-    options: {
-      maxZoom: 20,
-      subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-      attribution: '&copy; Google Maps Satellite'
-    }
-  }
-}
+// Basemap Tile Configurations: imported from src/constants/marketMap.js
 
 // Map Engine State
 const mapType = ref('roadmap') // 'roadmap' | 'satellite'

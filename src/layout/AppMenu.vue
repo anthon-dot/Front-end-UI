@@ -12,8 +12,8 @@ const { layoutState } = useLayout();
 const baseModel = computed(() => {
     const role = authStore.normalizedRole;
 
-    // 5. MUNICIPAL MAYOR DASHBOARD
-    if (role === 'MAYOR') {
+    // MAYOR'S OFFICE DASHBOARD
+    if (role === 'MAYOR_OFFICE' || role === 'MAYOR') {
         return [
             {
                 label: 'EXECUTIVE OVERSIGHT',
@@ -22,30 +22,6 @@ const baseModel = computed(() => {
                     { label: 'Pending Approvals', icon: 'pi pi-fw pi-file-edit', to: '/mayor/approvals' },
                     { label: 'Revocation Requests', icon: 'pi pi-fw pi-shield', to: '/mayor/revocations' },
                     { label: 'Reports', icon: 'pi pi-fw pi-chart-bar', to: '/stalls' }
-                ]
-            }
-        ];
-    }
-
-    // 7. FIELD COLLECTOR MOBILE & WEB
-    if (role === 'COLLECTOR_INSPECTOR' || role === 'COLLECTOR') {
-        return [
-            {
-                label: 'FIELD OPERATIONS',
-                items: [
-                    { label: 'Collect', icon: 'pi pi-fw pi-wallet', to: '/collector' },
-                    { label: 'My Collections', icon: 'pi pi-fw pi-list', to: '/collector' },
-                    { label: 'Remit', icon: 'pi pi-fw pi-send', to: '/collector' },
-                    { label: 'Vendor Lookup', icon: 'pi pi-fw pi-search', to: '/collector' },
-                    { label: 'Profile', icon: 'pi pi-fw pi-user', to: '/collector' }
-                ]
-            },
-            {
-                label: 'INSPECTIONS & SAFETY',
-                items: [
-                    { label: 'Stall Setup Inspections', icon: 'pi pi-fw pi-check-square', to: '/collector' },
-                    { label: 'QR Permit Scanner', icon: 'pi pi-fw pi-qrcode', to: '/collector' },
-                    { label: 'Market Stalls Map', icon: 'pi pi-fw pi-map-marker', to: '/stalls' }
                 ]
             }
         ];
@@ -62,7 +38,6 @@ const baseModel = computed(() => {
                     { label: 'Application Review', icon: 'pi pi-fw pi-file-edit', to: '/supervisor' },
                     { label: 'Contract Management', icon: 'pi pi-fw pi-file', to: '/supervisor/contracts' },
                     { label: 'Occupancy Permits', icon: 'pi pi-fw pi-qrcode', to: '/supervisor/contracts' },
-                    { label: 'Stall Inspections', icon: 'pi pi-fw pi-check-square', to: '/collector' },
                     { label: 'Delinquency Management', icon: 'pi pi-fw pi-exclamation-triangle', to: '/supervisor/reports' },
                     { label: 'Archives', icon: 'pi pi-fw pi-inbox', to: '/supervisor/archive' }
                 ]
@@ -70,8 +45,8 @@ const baseModel = computed(() => {
         ];
     }
 
-    // 8. SYSTEM ADMINISTRATOR DASHBOARD
-    if (role === 'ADMIN') {
+    // SYSTEM ADMINISTRATOR DASHBOARD
+    if (role === 'SYSTEM_ADMIN' || role === 'ADMIN') {
         return [
             {
                 label: 'SYSTEM CONFIGURATION',
@@ -88,40 +63,8 @@ const baseModel = computed(() => {
                 items: [
                     { label: 'Admin Analytics', icon: 'pi pi-fw pi-chart-line', to: '/admin/dashboard' },
                     { label: 'Supervisor View', icon: 'pi pi-fw pi-building', to: '/supervisor' },
-                    { label: 'BPLO Portal', icon: 'pi pi-fw pi-briefcase', to: '/bplo' },
-                    { label: 'Endorsing Office', icon: 'pi pi-fw pi-check-circle', to: '/endorsing' },
-                    { label: 'Stall Map Registry', icon: 'pi pi-fw pi-map-marker', to: '/admin/stalls' }
-                ]
-            }
-        ];
-    }
-
-    // 6. BPLO DASHBOARD
-    if (role === 'BPLO' || role === 'BPLO_STAFF') {
-        return [
-            {
-                label: 'BPLO REGULATORY COMPLIANCE',
-                items: [
-                    { label: 'Dashboard', icon: 'pi pi-fw pi-briefcase', to: '/bplo' },
-                    { label: 'Business Permit Assessment', icon: 'pi pi-fw pi-calculator', to: '/bplo' },
-                    { label: 'Release Permits', icon: 'pi pi-fw pi-check-circle', to: '/bplo' },
-                    { label: 'Returned Applications', icon: 'pi pi-fw pi-replay', to: '/bplo' },
-                    { label: 'Market Stalls Map', icon: 'pi pi-fw pi-map-marker', to: '/stalls' }
-                ]
-            }
-        ];
-    }
-
-    // 6. ENDORSING OFFICE DASHBOARD
-    if (role === 'ENDORSING_OFFICE') {
-        return [
-            {
-                label: 'ENDORSING OFFICE REVIEW',
-                items: [
-                    { label: 'Dashboard', icon: 'pi pi-fw pi-home', to: '/endorsing' },
-                    { label: 'Endorsement Queue', icon: 'pi pi-fw pi-file-edit', to: '/endorsing' },
-                    { label: 'Returned Applications', icon: 'pi pi-fw pi-replay', to: '/endorsing' },
-                    { label: 'Market Stalls Map', icon: 'pi pi-fw pi-map-marker', to: '/stalls' }
+                    { label: 'Contracts Management', icon: 'pi pi-fw pi-file', to: '/supervisor/contracts' },
+                    { label: 'Stall Map Registry', icon: 'pi pi-fw pi-map-marker', to: '/supervisor/stalls' }
                 ]
             }
         ];
@@ -144,6 +87,8 @@ const baseModel = computed(() => {
                 label: 'FINANCIAL REPORTING & AUDIT',
                 items: [
                     { label: 'Reports', icon: 'pi pi-fw pi-chart-line', to: '/treasurer/report' },
+                    { label: 'AI Reports', icon: 'pi pi-fw pi-sparkles', to: '/treasurer/ai-reports' },
+                    { label: 'AI Notifications', icon: 'pi pi-fw pi-bell', to: '/treasurer/ai-notifications' },
                     { label: 'Audit Trail', icon: 'pi pi-fw pi-book', to: '/audit-logs' }
                 ]
             }
@@ -157,10 +102,8 @@ const baseModel = computed(() => {
             items: [
                 { label: 'Dashboard', icon: 'pi pi-fw pi-home', to: '/stakeholder' },
                 { label: 'Application Status', icon: 'pi pi-fw pi-hourglass', to: '/application-progress' },
-                { label: 'Upload Documents', icon: 'pi pi-fw pi-upload', to: '/requirements' },
                 { label: 'My Stall & Contract', icon: 'pi pi-fw pi-file-edit', to: '/stakeholder' },
                 { label: 'Billing & Payments', icon: 'pi pi-fw pi-wallet', to: '/stakeholder/payments' },
-                { label: 'Notifications', icon: 'pi pi-fw pi-bell', to: '/application-progress' },
                 { label: 'Account Settings', icon: 'pi pi-fw pi-cog', to: '/stakeholder/settings' }
             ]
         }

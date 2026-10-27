@@ -43,7 +43,7 @@ const portalHomeRoute = computed(() => {
         case 'BPLO_STAFF': return '/bplo';
         case 'ENDORSING_OFFICE': return '/endorsing';
         case 'COLLECTOR':
-        case 'COLLECTOR_INSPECTOR': return '/collector';
+        case 'COLLECTOR_INSPECTOR': return '/supervisor';
         case 'VENDOR':
         case 'APPLICANT':
         case 'STAKEHOLDER': return '/stakeholder';

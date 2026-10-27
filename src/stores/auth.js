@@ -25,19 +25,33 @@ export function normalizeWorkflowRole(role) {
   const normalized = normalizeRole(role)
 
   const aliases = {
-    ADMIN: 'ADMIN',
+    // 1. SYSTEM_ADMIN
+    ADMIN: 'SYSTEM_ADMIN',
+    SYSTEM_ADMIN: 'SYSTEM_ADMIN',
+    SYSADMIN: 'SYSTEM_ADMIN',
+
+    // 2. MAYOR_OFFICE
+    MAYOR: 'MAYOR_OFFICE',
+    MAYOR_OFFICE: 'MAYOR_OFFICE',
+    MUNICIPAL_MAYOR: 'MAYOR_OFFICE',
+    MAYORS_OFFICE: 'MAYOR_OFFICE',
+
+    // 3. MARKET_SUPERVISOR
     SUPERVISOR: 'MARKET_SUPERVISOR',
     MARKETSUPERVISOR: 'MARKET_SUPERVISOR',
     MARKET_SUPERVISOR: 'MARKET_SUPERVISOR',
-    MAYOR: 'MAYOR',
-    MUNICIPAL_MAYOR: 'MAYOR',
+    COLLECTOR: 'MARKET_SUPERVISOR',
+    INSPECTOR: 'MARKET_SUPERVISOR',
+    COLLECTOR_INSPECTOR: 'MARKET_SUPERVISOR',
+
+    // 4. TREASURER
     TREASURER: 'TREASURER',
-    COLLECTOR: 'COLLECTOR_INSPECTOR',
-    INSPECTOR: 'COLLECTOR_INSPECTOR',
-    COLLECTOR_INSPECTOR: 'COLLECTOR_INSPECTOR',
+
+    // 5. STAKEHOLDER
     TENANT: 'STAKEHOLDER',
     VENDOR: 'STAKEHOLDER',
     APPLICANT: 'STAKEHOLDER',
+    STAKEHOLDER: 'STAKEHOLDER',
     USER: 'STAKEHOLDER'
   }
 
@@ -45,9 +59,13 @@ export function normalizeWorkflowRole(role) {
 }
 
 export const useAuthStore = defineStore('auth', () => {
+  const DEFAULT_DEMO_UUID = '00000000-0000-0000-0000-000000000001'
+  const rawUid = localStorage.getItem('userId') || ''
+  const initialUid = rawUid === 'demo-user-1' ? DEFAULT_DEMO_UUID : rawUid
+
   const token = ref(localStorage.getItem(AUTH_TOKEN_KEY) || '')
   const role = ref(localStorage.getItem('role') || '')
-  const userId = ref(localStorage.getItem('userId') || '')
+  const userId = ref(initialUid)
   const stakeholderId = ref(localStorage.getItem('stakeholderId') || '')
   const user = ref(null)
 
@@ -57,7 +75,9 @@ export const useAuthStore = defineStore('auth', () => {
   })
   const roles = computed(() => normalizedRole.value ? [normalizedRole.value] : [])
   const resolvedUserId = computed(() => {
-    return userId.value || tokenPayload.value?.sub || tokenPayload.value?.userId || tokenPayload.value?.id || ''
+    let id = userId.value || tokenPayload.value?.sub || tokenPayload.value?.userId || tokenPayload.value?.id || ''
+    if (id === 'demo-user-1') id = DEFAULT_DEMO_UUID
+    return id
   })
   const isAuthenticated = computed(() => Boolean(token.value))
   const isTokenExpired = computed(() => {
@@ -68,7 +88,9 @@ export const useAuthStore = defineStore('auth', () => {
   function setSession(session = {}) {
     token.value = session.token || ''
     role.value = session.role || ''
-    userId.value = session.userId ? String(session.userId) : ''
+    let incomingUid = session.userId ? String(session.userId) : ''
+    if (incomingUid === 'demo-user-1') incomingUid = DEFAULT_DEMO_UUID
+    userId.value = incomingUid
     stakeholderId.value = session.stakeholderId ? String(session.stakeholderId) : ''
     user.value = session.user || null
 
@@ -116,8 +138,14 @@ export const useAuthStore = defineStore('auth', () => {
 
     inFlightHydration = (async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession()
-        if (session?.access_token) {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        if (sessionError) {
+          const errStr = String(sessionError.message || '').toLowerCase()
+          if (errStr.includes('refresh') || errStr.includes('invalid') || errStr.includes('token')) {
+            localStorage.removeItem('supabase.auth.token')
+            localStorage.removeItem(AUTH_TOKEN_KEY)
+          }
+        } else if (session?.access_token) {
           token.value = session.access_token
           userId.value = session.user.id
           localStorage.setItem(AUTH_TOKEN_KEY, session.access_token)
@@ -136,7 +164,11 @@ export const useAuthStore = defineStore('auth', () => {
           }
         }
       } catch (e) {
-        // Ignore network errors on hydration
+        const errStr = String(e?.message || '').toLowerCase()
+        if (errStr.includes('refresh') || errStr.includes('invalid') || errStr.includes('token')) {
+          localStorage.removeItem('supabase.auth.token')
+          localStorage.removeItem(AUTH_TOKEN_KEY)
+        }
       } finally {
         inFlightHydration = null
       }

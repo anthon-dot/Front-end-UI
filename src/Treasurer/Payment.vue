@@ -296,154 +296,184 @@
                   <span class="text-xs text-slate-400">Select one option</span>
                 </div>
                 
-                <div class="grid grid-cols-3 gap-2.5 sm:gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-3">
                   
-                  <!-- Card 01: Advance payment -->
+                  <!-- Card 01: Stall Rights Fee -->
+                  <div
+                    @click="setCategory('STALL_RIGHTS_FEE')"
+                    class="group border rounded-xl p-3 flex flex-col justify-between min-h-[125px] cursor-pointer transition-all duration-200 select-none relative overflow-hidden active:scale-[0.98]"
+                    :class="activeCategory === 'STALL_RIGHTS_FEE'
+                      ? 'border-2 border-emerald-600 bg-emerald-50/50 shadow-md ring-2 ring-emerald-500/20'
+                      : 'border-slate-200 bg-white hover:border-emerald-300 hover:bg-slate-50/80 hover:shadow-sm'"
+                  >
+                    <div 
+                      v-if="activeCategory === 'STALL_RIGHTS_FEE'" 
+                      class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-500"
+                    ></div>
+                    <div class="flex items-center justify-between mb-2">
+                      <span 
+                        class="text-xs font-bold font-mono transition-colors"
+                        :class="activeCategory === 'STALL_RIGHTS_FEE' ? 'text-emerald-700' : 'text-slate-400 group-hover:text-slate-600'"
+                      >01</span>
+                      <div 
+                        class="w-5 h-5 rounded-full flex items-center justify-center transition-all duration-200"
+                        :class="activeCategory === 'STALL_RIGHTS_FEE' 
+                          ? 'bg-emerald-600 text-white scale-100 shadow-emerald-200 ring-2 ring-emerald-100 check-pop' 
+                          : 'border-2 border-slate-200 bg-slate-50/80 text-transparent group-hover:border-emerald-300 group-hover:bg-emerald-50/50'"
+                      >
+                        <i class="pi pi-check text-[10px] font-black transition-transform duration-200" :class="activeCategory === 'STALL_RIGHTS_FEE' ? 'scale-100' : 'scale-0'"></i>
+                      </div>
+                    </div>
+                    <div>
+                      <div class="text-xs sm:text-sm font-bold leading-tight" :class="activeCategory === 'STALL_RIGHTS_FEE' ? 'font-extrabold text-emerald-950' : 'text-slate-800'">
+                        Stall Rights Fee
+                      </div>
+                      <div class="text-[11px] mt-1 leading-normal" :class="activeCategory === 'STALL_RIGHTS_FEE' ? 'text-emerald-800/80' : 'text-slate-500'">
+                        ₱5k regular / ₱7k corner
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Card 02: Advance Rental Payment -->
                   <div
                     @click="setCategory('ADVANCE_PAYMENT')"
-                    class="group border rounded-xl sm:rounded-2xl p-3 sm:p-4 flex flex-col justify-between min-h-[120px] sm:min-h-[135px] cursor-pointer transition-all duration-200 select-none relative overflow-hidden active:scale-[0.98]"
+                    class="group border rounded-xl p-3 flex flex-col justify-between min-h-[125px] cursor-pointer transition-all duration-200 select-none relative overflow-hidden active:scale-[0.98]"
                     :class="activeCategory === 'ADVANCE_PAYMENT'
                       ? 'border-2 border-emerald-600 bg-emerald-50/50 shadow-md ring-2 ring-emerald-500/20'
                       : 'border-slate-200 bg-white hover:border-emerald-300 hover:bg-slate-50/80 hover:shadow-sm'"
                   >
-                    <!-- Active top accent glow line -->
                     <div 
                       v-if="activeCategory === 'ADVANCE_PAYMENT'" 
                       class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-500"
                     ></div>
-
-                    <div class="flex items-center justify-between mb-2 sm:mb-3">
+                    <div class="flex items-center justify-between mb-2">
                       <span 
-                        class="text-xs sm:text-sm font-bold font-mono transition-colors"
+                        class="text-xs font-bold font-mono transition-colors"
                         :class="activeCategory === 'ADVANCE_PAYMENT' ? 'text-emerald-700' : 'text-slate-400 group-hover:text-slate-600'"
-                      >01</span>
-
-                      <!-- Interactive Green Check Indicator -->
+                      >02</span>
                       <div 
-                        class="w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 shadow-2xs"
+                        class="w-5 h-5 rounded-full flex items-center justify-center transition-all duration-200"
                         :class="activeCategory === 'ADVANCE_PAYMENT' 
                           ? 'bg-emerald-600 text-white scale-100 shadow-emerald-200 ring-2 ring-emerald-100 check-pop' 
                           : 'border-2 border-slate-200 bg-slate-50/80 text-transparent group-hover:border-emerald-300 group-hover:bg-emerald-50/50'"
                       >
-                        <i 
-                          class="pi pi-check text-[11px] font-black transition-transform duration-200"
-                          :class="activeCategory === 'ADVANCE_PAYMENT' ? 'scale-100' : 'scale-0'"
-                        ></i>
+                        <i class="pi pi-check text-[10px] font-black transition-transform duration-200" :class="activeCategory === 'ADVANCE_PAYMENT' ? 'scale-100' : 'scale-0'"></i>
                       </div>
                     </div>
-
                     <div>
-                      <div 
-                        class="text-xs sm:text-sm leading-tight transition-colors"
-                        :class="activeCategory === 'ADVANCE_PAYMENT' ? 'font-extrabold text-emerald-950' : 'font-bold text-slate-800 group-hover:text-slate-900'"
-                      >
-                        Advance payment
+                      <div class="text-xs sm:text-sm font-bold leading-tight" :class="activeCategory === 'ADVANCE_PAYMENT' ? 'font-extrabold text-emerald-950' : 'text-slate-800'">
+                        Advance Rental
                       </div>
-                      <div 
-                        class="text-[11px] sm:text-xs mt-1 leading-normal transition-colors"
-                        :class="activeCategory === 'ADVANCE_PAYMENT' ? 'text-emerald-800/80' : 'text-slate-500'"
-                      >
-                        Payment received in advance
+                      <div class="text-[11px] mt-1 leading-normal" :class="activeCategory === 'ADVANCE_PAYMENT' ? 'text-emerald-800/80' : 'text-slate-500'">
+                        Two (2) months advance rent
                       </div>
                     </div>
                   </div>
 
-                  <!-- Card 02: Business permit / Application payment -->
-                  <div
-                    @click="setCategory('APPLICATION_FEE')"
-                    class="group border rounded-xl sm:rounded-2xl p-3 sm:p-4 flex flex-col justify-between min-h-[120px] sm:min-h-[135px] cursor-pointer transition-all duration-200 select-none relative overflow-hidden active:scale-[0.98]"
-                    :class="isPermitOrApp(activeCategory)
-                      ? 'border-2 border-emerald-600 bg-emerald-50/50 shadow-md ring-2 ring-emerald-500/20'
-                      : 'border-slate-200 bg-white hover:border-emerald-300 hover:bg-slate-50/80 hover:shadow-sm'"
-                  >
-                    <!-- Active top accent glow line -->
-                    <div 
-                      v-if="isPermitOrApp(activeCategory)" 
-                      class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-500"
-                    ></div>
-
-                    <div class="flex items-center justify-between mb-2 sm:mb-3">
-                      <span 
-                        class="text-xs sm:text-sm font-bold font-mono transition-colors"
-                        :class="isPermitOrApp(activeCategory) ? 'text-emerald-700' : 'text-slate-400 group-hover:text-slate-600'"
-                      >02</span>
-
-                      <!-- Interactive Green Check Indicator -->
-                      <div 
-                        class="w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 shadow-2xs"
-                        :class="isPermitOrApp(activeCategory) 
-                          ? 'bg-emerald-600 text-white scale-100 shadow-emerald-200 ring-2 ring-emerald-100 check-pop' 
-                          : 'border-2 border-slate-200 bg-slate-50/80 text-transparent group-hover:border-emerald-300 group-hover:bg-emerald-50/50'"
-                      >
-                        <i 
-                          class="pi pi-check text-[11px] font-black transition-transform duration-200"
-                          :class="isPermitOrApp(activeCategory) ? 'scale-100' : 'scale-0'"
-                        ></i>
-                      </div>
-                    </div>
-
-                    <div>
-                      <div 
-                        class="text-xs sm:text-sm leading-tight transition-colors"
-                        :class="isPermitOrApp(activeCategory) ? 'font-extrabold text-emerald-950' : 'font-bold text-slate-800 group-hover:text-slate-900'"
-                      >
-                        Business permit / Application
-                      </div>
-                      <div 
-                        class="text-[11px] sm:text-xs mt-1 leading-normal transition-colors"
-                        :class="isPermitOrApp(activeCategory) ? 'text-emerald-800/80' : 'text-slate-500'"
-                      >
-                        Application fee & business permit
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Card 03: Contract stall payment -->
+                  <!-- Card 03: Monthly Stall Rental -->
                   <div
                     @click="setCategory('RENT_PAYMENT')"
-                    class="group border rounded-xl sm:rounded-2xl p-3 sm:p-4 flex flex-col justify-between min-h-[120px] sm:min-h-[135px] cursor-pointer transition-all duration-200 select-none relative overflow-hidden active:scale-[0.98]"
+                    class="group border rounded-xl p-3 flex flex-col justify-between min-h-[125px] cursor-pointer transition-all duration-200 select-none relative overflow-hidden active:scale-[0.98]"
                     :class="activeCategory === 'RENT_PAYMENT'
                       ? 'border-2 border-emerald-600 bg-emerald-50/50 shadow-md ring-2 ring-emerald-500/20'
                       : 'border-slate-200 bg-white hover:border-emerald-300 hover:bg-slate-50/80 hover:shadow-sm'"
                   >
-                    <!-- Active top accent glow line -->
                     <div 
                       v-if="activeCategory === 'RENT_PAYMENT'" 
                       class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-500"
                     ></div>
-
-                    <div class="flex items-center justify-between mb-2 sm:mb-3">
+                    <div class="flex items-center justify-between mb-2">
                       <span 
-                        class="text-xs sm:text-sm font-bold font-mono transition-colors"
+                        class="text-xs font-bold font-mono transition-colors"
                         :class="activeCategory === 'RENT_PAYMENT' ? 'text-emerald-700' : 'text-slate-400 group-hover:text-slate-600'"
                       >03</span>
-
-                      <!-- Interactive Green Check Indicator -->
                       <div 
-                        class="w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 shadow-2xs"
+                        class="w-5 h-5 rounded-full flex items-center justify-center transition-all duration-200"
                         :class="activeCategory === 'RENT_PAYMENT' 
                           ? 'bg-emerald-600 text-white scale-100 shadow-emerald-200 ring-2 ring-emerald-100 check-pop' 
                           : 'border-2 border-slate-200 bg-slate-50/80 text-transparent group-hover:border-emerald-300 group-hover:bg-emerald-50/50'"
                       >
-                        <i 
-                          class="pi pi-check text-[11px] font-black transition-transform duration-200"
-                          :class="activeCategory === 'RENT_PAYMENT' ? 'scale-100' : 'scale-0'"
-                        ></i>
+                        <i class="pi pi-check text-[10px] font-black transition-transform duration-200" :class="activeCategory === 'RENT_PAYMENT' ? 'scale-100' : 'scale-0'"></i>
                       </div>
                     </div>
-
                     <div>
-                      <div 
-                        class="text-xs sm:text-sm leading-tight transition-colors"
-                        :class="activeCategory === 'RENT_PAYMENT' ? 'font-extrabold text-emerald-950' : 'font-bold text-slate-800 group-hover:text-slate-900'"
-                      >
-                        Contract stall payment
+                      <div class="text-xs sm:text-sm font-bold leading-tight" :class="activeCategory === 'RENT_PAYMENT' ? 'font-extrabold text-emerald-950' : 'text-slate-800'">
+                        Monthly Rental
                       </div>
+                      <div class="text-[11px] mt-1 leading-normal" :class="activeCategory === 'RENT_PAYMENT' ? 'text-emerald-800/80' : 'text-slate-500'">
+                        Regular monthly stall payment
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Card 04: Other Applicable Fees and Charges -->
+                  <div
+                    @click="setCategory('OTHER_FEES')"
+                    class="group border rounded-xl p-3 flex flex-col justify-between min-h-[125px] cursor-pointer transition-all duration-200 select-none relative overflow-hidden active:scale-[0.98]"
+                    :class="activeCategory === 'OTHER_FEES'
+                      ? 'border-2 border-emerald-600 bg-emerald-50/50 shadow-md ring-2 ring-emerald-500/20'
+                      : 'border-slate-200 bg-white hover:border-emerald-300 hover:bg-slate-50/80 hover:shadow-sm'"
+                  >
+                    <div 
+                      v-if="activeCategory === 'OTHER_FEES'" 
+                      class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-500"
+                    ></div>
+                    <div class="flex items-center justify-between mb-2">
+                      <span 
+                        class="text-xs font-bold font-mono transition-colors"
+                        :class="activeCategory === 'OTHER_FEES' ? 'text-emerald-700' : 'text-slate-400 group-hover:text-slate-600'"
+                      >04</span>
                       <div 
-                        class="text-[11px] sm:text-xs mt-1 leading-normal transition-colors"
-                        :class="activeCategory === 'RENT_PAYMENT' ? 'text-emerald-800/80' : 'text-slate-500'"
+                        class="w-5 h-5 rounded-full flex items-center justify-center transition-all duration-200"
+                        :class="activeCategory === 'OTHER_FEES' 
+                          ? 'bg-emerald-600 text-white scale-100 shadow-emerald-200 ring-2 ring-emerald-100 check-pop' 
+                          : 'border-2 border-slate-200 bg-slate-50/80 text-transparent group-hover:border-emerald-300 group-hover:bg-emerald-50/50'"
                       >
-                        Stall payment under a contract
+                        <i class="pi pi-check text-[10px] font-black transition-transform duration-200" :class="activeCategory === 'OTHER_FEES' ? 'scale-100' : 'scale-0'"></i>
+                      </div>
+                    </div>
+                    <div>
+                      <div class="text-xs sm:text-sm font-bold leading-tight" :class="activeCategory === 'OTHER_FEES' ? 'font-extrabold text-emerald-950' : 'text-slate-800'">
+                        Other Fees
+                      </div>
+                      <div class="text-[11px] mt-1 leading-normal" :class="activeCategory === 'OTHER_FEES' ? 'text-emerald-800/80' : 'text-slate-500'">
+                        Application & authorized charges
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Card 05: Business Permit–Related Payments -->
+                  <div
+                    @click="setCategory('BUSINESS_PERMIT_PAYMENT')"
+                    class="group border rounded-xl p-3 flex flex-col justify-between min-h-[125px] cursor-pointer transition-all duration-200 select-none relative overflow-hidden active:scale-[0.98]"
+                    :class="activeCategory === 'BUSINESS_PERMIT_PAYMENT'
+                      ? 'border-2 border-emerald-600 bg-emerald-50/50 shadow-md ring-2 ring-emerald-500/20'
+                      : 'border-slate-200 bg-white hover:border-emerald-300 hover:bg-slate-50/80 hover:shadow-sm'"
+                  >
+                    <div 
+                      v-if="activeCategory === 'BUSINESS_PERMIT_PAYMENT'" 
+                      class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-500"
+                    ></div>
+                    <div class="flex items-center justify-between mb-2">
+                      <span 
+                        class="text-xs font-bold font-mono transition-colors"
+                        :class="activeCategory === 'BUSINESS_PERMIT_PAYMENT' ? 'text-emerald-700' : 'text-slate-400 group-hover:text-slate-600'"
+                      >05</span>
+                      <div 
+                        class="w-5 h-5 rounded-full flex items-center justify-center transition-all duration-200"
+                        :class="activeCategory === 'BUSINESS_PERMIT_PAYMENT' 
+                          ? 'bg-emerald-600 text-white scale-100 shadow-emerald-200 ring-2 ring-emerald-100 check-pop' 
+                          : 'border-2 border-slate-200 bg-slate-50/80 text-transparent group-hover:border-emerald-300 group-hover:bg-emerald-50/50'"
+                      >
+                        <i class="pi pi-check text-[10px] font-black transition-transform duration-200" :class="activeCategory === 'BUSINESS_PERMIT_PAYMENT' ? 'scale-100' : 'scale-0'"></i>
+                      </div>
+                    </div>
+                    <div>
+                      <div class="text-xs sm:text-sm font-bold leading-tight" :class="activeCategory === 'BUSINESS_PERMIT_PAYMENT' ? 'font-extrabold text-emerald-950' : 'text-slate-800'">
+                        Business Permit
+                      </div>
+                      <div class="text-[11px] mt-1 leading-normal" :class="activeCategory === 'BUSINESS_PERMIT_PAYMENT' ? 'text-emerald-800/80' : 'text-slate-500'">
+                        Treasury fee for BPLO permit
                       </div>
                     </div>
                   </div>
@@ -675,7 +705,22 @@
           </div>
 
           <!-- Body -->
-          <div class="p-6 sm:p-7 overflow-y-auto flex-1 space-y-5">
+          <div class="p-6 sm:p-7 overflow-y-auto flex-1 space-y-5" id="printable-payment-receipt">
+            <!-- Official Municipal Header -->
+            <div style="text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 0.75rem; margin-bottom: 0.75rem;">
+              <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: #475569;">
+                Republic of the Philippines &bull; Province of Misamis Oriental
+              </div>
+              <div style="font-weight: 800; font-size: 1.05rem; color: #0f172a;">
+                MUNICIPALITY OF MANTICAO
+              </div>
+              <div style="font-size: 0.85rem; font-weight: 700; color: #1e3a8a;">
+                OFFICE OF THE MUNICIPAL TREASURER
+              </div>
+              <div style="font-size: 0.95rem; font-weight: 800; color: #047857; margin-top: 4px;">
+                OFFICIAL RECEIPT (CASH COLLECTION)
+              </div>
+            </div>
             
             <!-- Amount & Receipt Highlight Card -->
             <div class="bg-gradient-to-br from-emerald-50/70 via-white to-emerald-50/30 p-5 rounded-2xl border border-emerald-200/80 flex items-center justify-between shadow-xs">
@@ -781,14 +826,37 @@
           </div>
 
           <!-- Footer -->
-          <div class="p-4 sm:p-5 border-t border-slate-200/80 bg-white flex items-center justify-end gap-3 flex-shrink-0">
+          <div class="p-4 sm:p-5 border-t border-slate-200/80 bg-white flex items-center justify-between gap-3 flex-shrink-0 flex-wrap">
+            <div class="flex items-center gap-2">
+              <Button 
+                label="Close" 
+                icon="pi pi-times" 
+                outlined 
+                severity="secondary" 
+                @click="closeDetailsModal"
+                class="!px-4 !py-2 !rounded-xl !font-bold text-xs sm:text-sm"
+              />
+              <Button 
+                label="Export Word" 
+                icon="pi pi-file-word" 
+                severity="help" 
+                @click="exportReceiptWord(selectedPaymentDetails)"
+                class="!px-4 !py-2 !rounded-xl !font-bold text-xs sm:text-sm"
+              />
+              <Button 
+                label="Export PDF" 
+                icon="pi pi-file-pdf" 
+                severity="danger" 
+                @click="exportReceiptPdf(selectedPaymentDetails)"
+                class="!px-4 !py-2 !rounded-xl !font-bold text-xs sm:text-sm"
+              />
+            </div>
             <Button 
-              label="Close" 
-              icon="pi pi-times" 
-              outlined 
-              severity="secondary" 
-              @click="closeDetailsModal"
-              class="!px-5 !py-2.5 !rounded-xl !font-bold text-sm"
+              label="Print Receipt" 
+              icon="pi pi-print" 
+              severity="success" 
+              @click="printPaymentReceipt"
+              class="!px-4 !py-2 !rounded-xl !font-bold text-xs sm:text-sm"
             />
           </div>
 
@@ -816,6 +884,7 @@ import InputNumber from 'primevue/inputnumber'
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import Tag from 'primevue/tag'
+import { exportToWord, exportToPdf, printElement } from '../utils/exportUtils'
 
 // =========================
 // STATE
@@ -1260,11 +1329,13 @@ function onStakeholderBlur() {
 
 function generateReceiptNo(type = selectedPaymentType.value) {
   const prefixMap = {
+    STALL_RIGHTS_FEE: 'SRF',
     ADVANCE_PAYMENT: 'ADV',
-    APPLICATION_FORM: 'BP',
-    BUSINESS_PERMIT_PAYMENT: 'BP',
-    APPLICATION_FEE: 'BP',
-    RENT_PAYMENT: 'RNT'
+    RENT_PAYMENT: 'RNT',
+    OTHER_FEES: 'OTH',
+    APPLICATION_FEE: 'APP',
+    APPLICATION_FORM: 'APP',
+    BUSINESS_PERMIT_PAYMENT: 'BP'
   }
   const prefix = prefixMap[type] || 'OR'
   const now = new Date()
@@ -1287,9 +1358,16 @@ function selectStakeholderForType(s, type) {
   form.value.referenceNo = form.value.referenceNo || ''
   form.value.receiptNo = generateReceiptNo(type)
 
-  if (type === 'ADVANCE_PAYMENT') {
-    const stall = getStakeholderStall(s)
-    const monthlyRent = Number(stall?.monthlyRent || stall?.monthly_rent || stall?.rent || 1500)
+  const stall = getStakeholderStall(s)
+  const isCorner = (stall?.stallType || stall?.stall_type || '').toUpperCase().includes('CORNER')
+  const monthlyRent = Number(stall?.monthlyRent || stall?.monthly_rent || stall?.rent || 1500)
+
+  if (type === 'STALL_RIGHTS_FEE') {
+    form.value.totalAdvanceAmount = null
+    selectedBillingId.value = null
+    // ₱5,000 for regular stall, ₱7,000 for corner stall
+    form.value.amount = isCorner ? 7000 : 5000
+  } else if (type === 'ADVANCE_PAYMENT') {
     // 2 months advance payment required baseline from selected stall or stakeholder record
     const recordedTotal = Number(s.totalAdvanceAmount || s.total_advance_amount || 0)
     const required2Months = recordedTotal > 0 ? recordedTotal : (monthlyRent * 2)
@@ -1306,12 +1384,17 @@ function selectStakeholderForType(s, type) {
       form.value.amount = Number(unpaids[0].balance || 0)
     } else {
       selectedBillingId.value = null
-      form.value.amount = null
+      form.value.amount = monthlyRent
     }
-  } else if (isPermitOrApp(type)) {
+  } else if (type === 'OTHER_FEES' || type === 'APPLICATION_FEE' || type === 'APPLICATION_FORM') {
     form.value.totalAdvanceAmount = null
     selectedBillingId.value = null
-    form.value.amount = s.applicantFeeAmount ? Number(s.applicantFeeAmount) : null
+    form.value.amount = s.applicantFeeAmount ? Number(s.applicantFeeAmount) : 150
+  } else if (type === 'BUSINESS_PERMIT_PAYMENT') {
+    form.value.totalAdvanceAmount = null
+    selectedBillingId.value = null
+    // Payments assessed and recorded by the Treasury as part of the business permit application process
+    form.value.amount = Number(s.total_fees_assessment || 2890.60)
   }
 }
 
@@ -1366,10 +1449,17 @@ function initials(nameOrFirst, last) {
 
 function formatType(type) {
   if (!type) return ''
-  if (isPermitOrApp(type)) {
-    return 'Business Permit / Application'
+  const map = {
+    STALL_RIGHTS_FEE: 'Stall Rights Fee',
+    ADVANCE_PAYMENT: 'Advance Rental Payment',
+    RENT_PAYMENT: 'Monthly Stall Rental',
+    OTHER_FEES: 'Other Applicable Fees',
+    APPLICATION_FEE: 'Application Fee',
+    APPLICATION_FORM: 'Application Form Fee',
+    BUSINESS_PERMIT_PAYMENT: 'Business Permit Payment',
+    FIELD_COLLECTION: 'Field Collection'
   }
-  return type.replaceAll('_', ' ')
+  return map[type] || type.replaceAll('_', ' ')
 }
 
 function formatDate(date) {
@@ -1405,10 +1495,11 @@ const canRecord = computed(() => {
 })
 
 const confirmBtnLabel = computed(() => {
-  if (!activeCategory.value) return 'Record Payment'
-  if (activeCategory.value === 'ADVANCE_PAYMENT') return 'Record Advance Payment'
-  if (isPermitOrApp(activeCategory.value)) return 'Record Business Permit / Application Payment'
-  if (activeCategory.value === 'RENT_PAYMENT') return 'Record Rent Payment'
+  if (activeCategory.value === 'STALL_RIGHTS_FEE') return 'Record Stall Rights Fee'
+  if (activeCategory.value === 'ADVANCE_PAYMENT') return 'Record Advance Rental Payment'
+  if (activeCategory.value === 'RENT_PAYMENT') return 'Record Monthly Stall Rental'
+  if (activeCategory.value === 'OTHER_FEES') return 'Record Other Applicable Fees'
+  if (activeCategory.value === 'BUSINESS_PERMIT_PAYMENT') return 'Record Business Permit Payment'
   return 'Record Payment'
 })
 
@@ -1421,7 +1512,7 @@ const submitButtonText = computed(() => {
   if (activeCategory.value === 'RENT_PAYMENT' && selectedStakeholderBillings.value.length > 0 && !selectedBillingId.value) {
     return 'Select billing'
   }
-  return 'Record payment'
+  return confirmBtnLabel.value
 })
 
 // =========================
@@ -1509,7 +1600,7 @@ async function recordPayment() {
       amount: Number(form.value.amount),
       referenceNo: form.value.referenceNo,
       receiptNo: form.value.receiptNo || generateReceiptNo(activeCategory.value),
-      paymentType: isPermitOrApp(activeCategory.value) ? 'APPLICATION_FEE' : activeCategory.value,
+      paymentType: activeCategory.value,
       paymentDate: form.value.dateReceived ? new Date(form.value.dateReceived).toISOString() : new Date().toISOString()
     }
 
@@ -1583,6 +1674,28 @@ async function recordPayment() {
   } finally {
     isSubmitting.value = false
   }
+}
+
+function printPaymentReceipt() {
+  printElement('printable-payment-receipt')
+}
+
+function exportReceiptWord(p) {
+  const pay = p || selectedPaymentDetails.value
+  const targetId = 'printable-payment-receipt'
+  const orNum = pay?.receiptNo || pay?.receipt_no || `PAY-${pay?.id || 'Official'}`
+  exportToWord(targetId, `Official_Receipt_${orNum}`, {
+    title: `OFFICIAL RECEIPT - ${orNum}`
+  })
+}
+
+function exportReceiptPdf(p) {
+  const pay = p || selectedPaymentDetails.value
+  const targetId = 'printable-payment-receipt'
+  const orNum = pay?.receiptNo || pay?.receipt_no || `PAY-${pay?.id || 'Official'}`
+  exportToPdf(targetId, `Official_Receipt_${orNum}.pdf`, {
+    title: `OFFICIAL RECEIPT - ${orNum}`
+  })
 }
 </script>
 

@@ -1,4 +1,4 @@
-import { prepareContractForApplication, executeContract } from '../services/contractService.js';
+import { prepareContractForApplication, executeContract, recordContractSigning, verifyContractInitialPayments } from '../services/contractService.js';
 import { supabase } from '../config/supabase.js';
 import { ROLES } from '../config/constants.js';
 
@@ -11,7 +11,44 @@ export async function prepareContract(req, res, next) {
     });
     return res.status(201).json({
       success: true,
-      message: 'Draft 3-year Contract of Lease prepared successfully in PENDING_APPROVAL status.',
+      message: 'Draft 5-year Contract of Lease prepared successfully in PENDING_EXECUTION status.',
+      contract
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function recordSigning(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { signedDate, remarks } = req.body;
+    const contract = await recordContractSigning(id, {
+      userId: req.user.id,
+      signedDate,
+      remarks
+    });
+    return res.json({
+      success: true,
+      message: 'Contract physical signing recorded successfully.',
+      contract
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function verifyInitialPayments(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { remarks } = req.body;
+    const contract = await verifyContractInitialPayments(id, {
+      userId: req.user.id,
+      remarks
+    });
+    return res.json({
+      success: true,
+      message: 'Initial payments verified successfully.',
       contract
     });
   } catch (err) {
@@ -28,7 +65,7 @@ export async function execute(req, res, next) {
     });
     return res.json({
       success: true,
-      message: 'Contract executed successfully.',
+      message: 'Contract activated successfully.',
       contract
     });
   } catch (err) {

@@ -463,6 +463,13 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import {
+  MARKET_CENTER as DEFAULT_CENTER,
+  MARKET_DEFAULT_ZOOM as DEFAULT_MAP_ZOOM,
+  MARKET_MIN_ZOOM as MIN_MAP_ZOOM,
+  MARKET_MAX_ZOOM,
+  BASEMAP_TILES
+} from '../constants/marketMap'
 
 const props = defineProps({
   rows: {
@@ -473,9 +480,7 @@ const props = defineProps({
 
 const emit = defineEmits(['edit', 'add', 'add-with-location', 'delete', 'update-location'])
 
-const DEFAULT_CENTER = { lat: 8.399773, lng: 124.291353 }
-const DEFAULT_MAP_ZOOM = 19
-const MIN_MAP_ZOOM = 15
+// Market center, zoom levels & tiles come from src/constants/marketMap.js
 
 // State
 const viewMode = ref('map')
@@ -612,28 +617,20 @@ function initMap() {
     center: [DEFAULT_CENTER.lat, DEFAULT_CENTER.lng],
     zoom: DEFAULT_MAP_ZOOM,
     minZoom: MIN_MAP_ZOOM,
-    maxZoom: 20,
+    maxZoom: MARKET_MAX_ZOOM,
     zoomControl: true
   })
 
   // Google Maps Clean Road Layer (No Watermark, No POIs)
   const googleStreets = L.tileLayer(
-    'https://{s}.google.com/vt/lyrs=m&apistyle=s.t:33|p.v:off,s.t:37|p.v:off,s.e:l.i|p.v:off&x={x}&y={y}&z={z}',
-    {
-      maxZoom: 20,
-      subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-      attribution: '&copy; Google Maps'
-    }
+    BASEMAP_TILES.roadmap.url,
+    BASEMAP_TILES.roadmap.options
   ).addTo(mapInstance)
 
   // Google Maps Hybrid Satellite Layer (No POIs)
   const googleSatellite = L.tileLayer(
-    'https://{s}.google.com/vt/lyrs=y&apistyle=s.t:33|p.v:off,s.t:37|p.v:off,s.e:l.i|p.v:off&x={x}&y={y}&z={z}',
-    {
-      maxZoom: 20,
-      subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-      attribution: '&copy; Google Maps Satellite'
-    }
+    BASEMAP_TILES.satellite.url,
+    BASEMAP_TILES.satellite.options
   )
 
   L.control.layers({

@@ -147,7 +147,7 @@ export async function submitApplication(applicationData) {
     address: applicationData.address || '',
     selected_stall_id: stallId ? Number(stallId) : null,
     total_advance_amount: advanceRent,
-    application_status: 'PENDING'
+    application_status: 'SUBMITTED'
   }
 
   if (exSh?.id) {
@@ -178,8 +178,8 @@ export async function submitApplication(applicationData) {
       stakeholder_id: stakeholder.id,
       user_id: user.id,
       stall_id: stallId ? Number(stallId) : 1,
-      status: 'PENDING_SUPERVISOR_REVIEW',
-      current_holding_office: 'Market Supervisor',
+      status: 'SUBMITTED',
+      current_holding_office: "Mayor's Office",
       calculated_stall_rights_fee: stallRightsFee,
       calculated_advance_rent: advanceRent,
       total_initial_amount_due: totalInitial,

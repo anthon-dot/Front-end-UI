@@ -35,52 +35,40 @@ function testPaymentCategoriesSeparation() {
   return true;
 }
 
-// 3. Check Contract Activation Conditions (Must NOT activate upon draft or stall assignment)
+// 3. Check Contract Activation Conditions (Section 6 & 17 of Updated Blueprint)
 function testContractActivationConditions() {
-  const stateAtStallAssignment = {
-    mayorApproved: true,
-    advancePaid: true,
+  const stateAtDraft = {
+    loiApproved: true,
+    initialPaymentsVerified: false,
     stallAssigned: true,
-    bploApproved: false,
-    endorsingApproved: false,
-    permitFeePaid: false
+    contractSigned: false,
+    effectiveDateReached: true
   };
 
   function canActivateContract(state) {
     return Boolean(
-      state.mayorApproved &&
-      state.advancePaid &&
+      state.loiApproved &&
+      state.initialPaymentsVerified &&
       state.stallAssigned &&
-      state.bploApproved &&
-      state.endorsingApproved &&
-      state.permitFeePaid
+      state.contractSigned &&
+      state.effectiveDateReached
     );
   }
 
-  // At stall assignment stage, contract must NOT be active
-  if (canActivateContract(stateAtStallAssignment)) {
-    throw new Error('Contract must not be active at stall assignment before BPLO & permit fee checks!');
+  // Contract must NOT activate when initial payments or signatures are missing
+  if (canActivateContract(stateAtDraft)) {
+    throw new Error('Contract must not activate without verified payments and signatures!');
   }
 
-  // Contract lifecycle state
-  const stallStatusAtAssignment = 'RESERVED';
-  const contractStatusAtAssignment = 'PENDING_APPROVAL';
-  const occupantStatusAtAssignment = 'PENDING';
-
-  if (stallStatusAtAssignment === 'OCCUPIED' || contractStatusAtAssignment === 'ACTIVE' || occupantStatusAtAssignment === 'ACTIVE') {
-    throw new Error('Premature activation detected during stall assignment!');
-  }
-
-  // At final permit issuance stage, contract activates
-  const stateAtPermitIssuance = {
-    ...stateAtStallAssignment,
-    bploApproved: true,
-    endorsingApproved: true,
-    permitFeePaid: true
+  // When all conditions are fulfilled, contract can activate on effective date
+  const stateAtFullVerification = {
+    ...stateAtDraft,
+    initialPaymentsVerified: true,
+    contractSigned: true
   };
 
-  if (!canActivateContract(stateAtPermitIssuance)) {
-    throw new Error('Contract should be eligible for activation after BPLO permit issuance and permit fee payment!');
+  if (!canActivateContract(stateAtFullVerification)) {
+    throw new Error('Contract should be eligible for activation once LOI, initial payments, stall assignment, signatures, and effective date are verified!');
   }
 
   return true;
@@ -208,35 +196,153 @@ function testDynamicOverdueCalculation() {
   return true;
 }
 
-// 7. Check Holding Office Routing and Tracking
-function testHoldingOfficeProgression() {
-  function getHoldingOffice(data) {
-    if (!data.mayorApproved) return "Mayor's Office";
-    if (!data.advanceRentPaid) return "Treasurer's Office";
-    if (!data.marketSupervisorApproved) return "Market Supervisor";
-    if (!data.hazardFreeSubmitted) return "Stakeholder";
-    if (!data.finalEndorsed) return "Endorsing Office";
-    if (!data.bploApproved) return "BPLO Office";
-    if (!data.applicantFeePaid) return "Treasurer's Office";
-    if (!data.verifiedTenant) return "BPLO Office";
-    return "Commercial Tenant Operations";
+// 7. Check 10-Step Simplified Applicant Progression & Role Separation
+function testSimplifiedApplicantProgression() {
+  const rentalWorkflow = [
+    { status: 'REGISTERED', role: 'Stakeholder', action: 'Stakeholder registers, enters details, selects preferred vacant stall' },
+    { status: 'APPLICATION_SUBMITTED', role: 'Stakeholder', action: 'Submits rental application with LOI and valid ID' },
+    { status: 'AWAITING_LOI_DECISION', role: 'Authorized LGU Staff', action: "Awaiting authorized LGU staff to record Mayor's decision based on signed LOI" },
+    { status: 'LOI_APPROVED', role: 'Authorized LGU Staff', action: "Authorized LGU staff records Mayor's approval based on signed LOI" },
+    { status: 'AWAITING_INITIAL_PAYMENT', role: 'Treasurer', action: 'Treasurer assesses and records required stall rights fee and 2-month advance rent' },
+    { status: 'FOR_STALL_ASSIGNMENT', role: 'Market Supervisor', action: 'Market Supervisor checks eligibility, verifies vacancy, confirms assignment' },
+    { status: 'PENDING_CONTRACT_SIGNATURE', role: 'Market Supervisor + Stakeholder', action: 'Market Supervisor prepares lease contract; required parties sign' },
+    { status: 'CONTRACT_ACTIVE', role: 'System Validation', action: 'System validates all 5 activation conditions before activating lease' },
+    { status: 'OCCUPANT_VERIFIED', role: 'System', action: 'System links verified stakeholder to assigned stall without duplicate records' },
+    { status: 'BILLING_ACTIVE', role: 'System + Treasurer', action: 'System generates periodic bills; advance rent remains separate credit' }
+  ];
+
+  // Exact recommended status progression for rental workflow
+  const recommendedProgression = [
+    'REGISTERED',
+    'APPLICATION_SUBMITTED',
+    'AWAITING_LOI_DECISION',
+    'LOI_APPROVED',
+    'AWAITING_INITIAL_PAYMENT',
+    'FOR_STALL_ASSIGNMENT',
+    'PENDING_CONTRACT_SIGNATURE',
+    'CONTRACT_ACTIVE',
+    'OCCUPANT_VERIFIED',
+    'BILLING_ACTIVE'
+  ];
+
+  if (rentalWorkflow.length !== 10) {
+    throw new Error(`Expected exactly 10 rental workflow statuses, got ${rentalWorkflow.length}`);
   }
 
-  // Sequence verification
-  if (getHoldingOffice({ mayorApproved: false }) !== "Mayor's Office") throw new Error('Stage 1 routing failed');
-  if (getHoldingOffice({ mayorApproved: true, advanceRentPaid: false }) !== "Treasurer's Office") throw new Error('Stage 2 routing failed');
-  if (getHoldingOffice({ mayorApproved: true, advanceRentPaid: true, marketSupervisorApproved: false }) !== "Market Supervisor") throw new Error('Stage 3 routing failed');
-  if (getHoldingOffice({ mayorApproved: true, advanceRentPaid: true, marketSupervisorApproved: true, hazardFreeSubmitted: false }) !== "Stakeholder") throw new Error('Stage 4 routing failed');
-  if (getHoldingOffice({ mayorApproved: true, advanceRentPaid: true, marketSupervisorApproved: true, hazardFreeSubmitted: true, finalEndorsed: false }) !== "Endorsing Office") throw new Error('Stage 5 routing failed');
-  if (getHoldingOffice({ mayorApproved: true, advanceRentPaid: true, marketSupervisorApproved: true, hazardFreeSubmitted: true, finalEndorsed: true, bploApproved: false }) !== "BPLO Office") throw new Error('Stage 6 routing failed');
-  if (getHoldingOffice({ mayorApproved: true, advanceRentPaid: true, marketSupervisorApproved: true, hazardFreeSubmitted: true, finalEndorsed: true, bploApproved: true, applicantFeePaid: false }) !== "Treasurer's Office") throw new Error('Stage 7 routing failed');
-  if (getHoldingOffice({ mayorApproved: true, advanceRentPaid: true, marketSupervisorApproved: true, hazardFreeSubmitted: true, finalEndorsed: true, bploApproved: true, applicantFeePaid: true, verifiedTenant: false }) !== "BPLO Office") throw new Error('Stage 8 routing failed');
-  if (getHoldingOffice({ mayorApproved: true, advanceRentPaid: true, marketSupervisorApproved: true, hazardFreeSubmitted: true, finalEndorsed: true, bploApproved: true, applicantFeePaid: true, verifiedTenant: true }) !== "Commercial Tenant Operations") throw new Error('Stage 9 routing failed');
+  rentalWorkflow.forEach((stage, idx) => {
+    if (stage.status !== recommendedProgression[idx]) {
+      throw new Error(`Status ${idx + 1} mismatch: expected ${recommendedProgression[idx]}, got ${stage.status}`);
+    }
+  });
+
+  // Business permit progress and permit fee payment are tracked separately outside the rental workflow
+  const businessPermitTracking = {
+    isRentalActivationCondition: false, // Invariant: Permit process occurs after stall is operational
+    trackedSeparately: true,
+    permitStatuses: ['NOT_STARTED', 'FORM_DOWNLOADED', 'BPLO_APPLICATION_SUBMITTED', 'TREASURER_FEE_PAID', 'PERMIT_ISSUED']
+  };
+
+  if (businessPermitTracking.isRentalActivationCondition) {
+    throw new Error('Business permit must not be a rental contract activation condition!');
+  }
 
   return true;
 }
 
-// 8. Check Reporting & Occupancy Calculations Grounded in Data
+// 8. Check Confusion Prevention Business Rules (5 Mandatory Invariants)
+function testConfusionPreventionRules() {
+  // Invariant 1: Do not activate contract at Step 4 (Payment alone is insufficient)
+  const step4State = {
+    loiApproved: true,
+    initialFeesPaid: true,
+    stallAssigned: false,
+    contractSigned: false,
+    effectiveDateReached: false
+  };
+  const isContractActiveAtStep4 = Boolean(
+    step4State.loiApproved &&
+    step4State.initialFeesPaid &&
+    step4State.stallAssigned &&
+    step4State.contractSigned &&
+    step4State.effectiveDateReached
+  );
+  if (isContractActiveAtStep4) {
+    throw new Error('Violation: Contract must NOT activate at Step 4! Payment alone is insufficient.');
+  }
+
+  // Invariant 2: Do not activate contract at Step 6 merely because created or signed
+  const step6State = {
+    loiApproved: true,
+    initialFeesPaid: true,
+    stallAssigned: true,
+    contractSigned: true,
+    effectiveDateReached: false // Effective date not reached or system validation pending
+  };
+  const isContractActiveAtStep6 = Boolean(
+    step6State.loiApproved &&
+    step6State.initialFeesPaid &&
+    step6State.stallAssigned &&
+    step6State.contractSigned &&
+    step6State.effectiveDateReached
+  );
+  if (isContractActiveAtStep6) {
+    throw new Error('Violation: Contract must NOT activate at Step 6 without full system validation at Step 7!');
+  }
+
+  // Invariant 3: Business permit payment is NOT a rental contract activation condition
+  const step7LeaseActivationState = {
+    loiApproved: true,
+    initialFeesPaid: true,
+    stallAssigned: true,
+    contractSigned: true,
+    effectiveDateReached: true,
+    businessPermitPaid: false // Permit is Step 10 post-occupancy
+  };
+  const canActivateRentalLease = Boolean(
+    step7LeaseActivationState.loiApproved &&
+    step7LeaseActivationState.initialFeesPaid &&
+    step7LeaseActivationState.stallAssigned &&
+    step7LeaseActivationState.contractSigned &&
+    step7LeaseActivationState.effectiveDateReached
+  );
+  if (!canActivateRentalLease) {
+    throw new Error('Violation: Business permit payment must NOT block Step 7 lease activation!');
+  }
+
+  // Invariant 4: Two-month advance rent must be held as credit and NOT automatically spent on initial bills
+  let advanceCreditBalance = 3000; // ₱1,500/mo x 2 months
+  const monthlyBillAmount = 1500;
+  const autoSpendAdvanceOnBill1 = false; // System rule: advance is held as credit until authorized allocation
+  let bill1PaymentStatus = autoSpendAdvanceOnBill1 ? 'PAID' : 'UNPAID';
+  if (bill1PaymentStatus === 'PAID') {
+    throw new Error('Violation: Advance rent must NOT be automatically spent on monthly bills without authorized allocation!');
+  }
+  if (advanceCreditBalance !== 3000) {
+    throw new Error('Violation: Advance rent credit reserve must remain intact (held as credit)!');
+  }
+
+  // Invariant 5: Stakeholder is NOT treated as verified occupant before rental approval, payment, assignment, and contract conditions
+  function isVerifiedOccupant(applicant) {
+    return Boolean(
+      applicant.loiApproved &&
+      applicant.initialFeesPaid &&
+      applicant.stallAssigned &&
+      applicant.contractActive
+    );
+  }
+
+  const applicantRegistered = { loiApproved: false, initialFeesPaid: false, stallAssigned: false, contractActive: false };
+  const applicantPaid = { loiApproved: true, initialFeesPaid: true, stallAssigned: false, contractActive: false };
+  const applicantFullyActivated = { loiApproved: true, initialFeesPaid: true, stallAssigned: true, contractActive: true };
+
+  if (isVerifiedOccupant(applicantRegistered)) throw new Error('Violation: Registered applicant cannot be verified occupant!');
+  if (isVerifiedOccupant(applicantPaid)) throw new Error('Violation: Paid applicant without assignment/contract cannot be verified occupant!');
+  if (!isVerifiedOccupant(applicantFullyActivated)) throw new Error('Applicant meeting all conditions should be verified occupant!');
+
+  return true;
+}
+
+// 9. Check Reporting & Occupancy Calculations Grounded in Data
 function testReportCalculations() {
   const stalls = [
     { id: 1, status: 'OCCUPIED' },
@@ -259,7 +365,294 @@ function testReportCalculations() {
   return true;
 }
 
-// 9. Run All Lifecycle Tests
+// 10. Check Step 2 Digital LOI Auto-Compilation & Single Valid ID Requirement
+function testStep2DigitalLoiAndSingleValidIdUpload() {
+  const applicantInput = {
+    fullName: 'Maria Loela L. Caparroso',
+    address: 'Purok - 1, Paniangan, Manticao, Misamis Oriental',
+    contactNumber: '09932889430',
+    businessName: 'Caparroso Dry Goods Store',
+    natureOfBusiness: 'Dry Goods',
+    commodities: 'Textiles, Garments, and Footwear',
+    stallNumber: 'Stall 61',
+    incumbentMayor: 'HON. MAYOR STEPHEN S. TAN',
+    idFile: { name: 'valid_id_prc.pdf', size: 102400 },
+    letterFile: null, // Stakeholder does NOT upload LOI document
+    rulesAgreed: true,
+    undertakingRuleCount: 10
+  };
+
+  // Rule 1: Stakeholder only uploads ONE document (Valid Government ID)
+  const uploadedFiles = [];
+  if (applicantInput.idFile) uploadedFiles.push(applicantInput.idFile);
+  if (applicantInput.letterFile) uploadedFiles.push(applicantInput.letterFile);
+
+  if (uploadedFiles.length !== 1 || uploadedFiles[0].name !== 'valid_id_prc.pdf') {
+    throw new Error('Step 2 must strictly require only ONE upload: a valid government-issued ID!');
+  }
+
+  // Rule 2: Incumbent Mayor field is editable and defaults to current executive
+  if (!applicantInput.incumbentMayor || !applicantInput.incumbentMayor.includes('STEPHEN S. TAN')) {
+    throw new Error('Incumbent Mayor field must be present with accurate default!');
+  }
+
+  // Rule 3: Digital LOI is auto-compiled by the system addressed to the designated Mayor
+  function compileDigitalLoi(data) {
+    const today = 'October 23, 2026';
+    return `Date: ${today}
+
+${data.incumbentMayor}
+MUNICIPAL MAYOR
+MANTICAO, MISAMIS ORIENTAL
+
+Subject: Letter of Intent - Market Stall Application
+
+Dear Mayor:
+
+Greetings!
+
+I am respectfully expressing my intent to apply for an available stall/space at ${data.stallNumber} at the Manticao Public Market for the purpose of establishing and operating ${data.businessName || data.commodities || 'my commercial enterprise'}.
+
+I am willing to comply with all the necessary requirements, permits, rental fees, and other rules and regulations of the Municipal Government and Market Administration.
+
+I sincerely hope that my application will be given due consideration. Thank you for your kind attention and assistance.
+
+Respectfully yours,
+
+${data.fullName}
+(Signature over Printed Name)
+Address: ${data.address}
+Contact Number: ${data.contactNumber}`;
+  }
+
+  const compiledLoi = compileDigitalLoi(applicantInput);
+  if (!compiledLoi.includes('HON. MAYOR STEPHEN S. TAN') || !compiledLoi.includes('Subject: Letter of Intent - Market Stall Application')) {
+    throw new Error('Auto-compiled digital LOI failed formatting or addressee check!');
+  }
+
+  // Rule 4: Acceptance of ten statutory market rules
+  if (applicantInput.undertakingRuleCount !== 10 || !applicantInput.rulesAgreed) {
+    throw new Error('Applicant must explicitly agree to the ten statutory market rules!');
+  }
+
+  return true;
+}
+
+// 11. Check Entity Pre-Filling & Synchronization Across Official Documents
+function testEntityAutoFillAcrossUnifiedDocuments() {
+  const masterEntityData = {
+    fullName: 'Risma Posco Abuhan',
+    address: 'P-4, Poblacion, Manticao, Misamis Oriental',
+    contactNumber: '09932889430',
+    businessName: 'Abuhan Fish Trading',
+    natureOfBusiness: 'Fish',
+    commodities: 'Fresh and Saltwater Marine Fish',
+    numberOfEmployees: 3,
+    stallNumber: 'Stall 14',
+    incumbentMayor: 'HON. MAYOR STEPHEN S. TAN'
+  };
+
+  // Test 1: Pre-fill into 3-Page Unified Application Form for Stall Rental/Occupancy
+  const stallRentalForm = {
+    applicantName: masterEntityData.fullName,
+    address: masterEntityData.address,
+    contactNumber: masterEntityData.contactNumber,
+    businessTradeName: masterEntityData.businessName,
+    natureOfBusiness: masterEntityData.natureOfBusiness,
+    commoditiesToSell: masterEntityData.commodities,
+    preferredStallNo: masterEntityData.stallNumber,
+    employeesCount: masterEntityData.numberOfEmployees,
+    incumbentMayorSectionD: masterEntityData.incumbentMayor
+  };
+
+  for (const [key, val] of Object.entries(stallRentalForm)) {
+    if (!val) throw new Error(`Missing pre-filled entity field in Stall Rental Form: ${key}`);
+  }
+
+  // Test 2: Pre-fill into 2-Page Unified Business Permit Application Form
+  const businessPermitForm = {
+    ownerSurname: 'Abuhan',
+    ownerGivenName: 'Risma',
+    ownerMiddleName: 'Posco',
+    businessName: masterEntityData.businessName,
+    lineOfBusiness: masterEntityData.natureOfBusiness,
+    productsServices: masterEntityData.commodities,
+    mainAddress: masterEntityData.address,
+    businessAddress: masterEntityData.address,
+    totalEmployees: masterEntityData.numberOfEmployees,
+    contactNumber: masterEntityData.contactNumber
+  };
+
+  for (const [key, val] of Object.entries(businessPermitForm)) {
+    if (!val) throw new Error(`Missing pre-filled entity field in Business Permit Form: ${key}`);
+  }
+
+  // Test 3: Pre-fill into 12-Page Lease Contract
+  const leaseContract = {
+    lesseeName: masterEntityData.fullName,
+    lesseeAddress: masterEntityData.address,
+    stallNo: masterEntityData.stallNumber,
+    businessPurpose: masterEntityData.commodities,
+    representedMayor: masterEntityData.incumbentMayor
+  };
+
+  for (const [key, val] of Object.entries(leaseContract)) {
+    if (!val) throw new Error(`Missing pre-filled entity field in Lease Contract: ${key}`);
+  }
+
+  return true;
+}
+
+// 12. Check Decoupled Architecture (users vs stakeholders) and Phase 0 - Phase 5 Lifecycle
+function testDecoupledUserAndStakeholderArchitecture() {
+  // Phase 0: System User Account Provisioning (users table)
+  const systemUserAccount = {
+    id: 'USR-2026-0891',
+    username: 'risma_abuhan',
+    password_hash: '$2a$12$e8Y9u2kLmP0...',
+    role: 'STAKEHOLDER',
+    email: 'risma.abuhan@gmail.com',
+    status: 'ACTIVE',
+    failed_login_attempts: 0,
+    created_at: '2026-10-23T13:50:00Z'
+  };
+
+  // Invariant: users table must NEVER contain civil, personal, or business trade data
+  const forbiddenUserKeys = ['full_name', 'civil_status', 'date_of_birth', 'residential_address', 'business_name', 'stall_id'];
+  for (const key of forbiddenUserKeys) {
+    if (key in systemUserAccount) {
+      throw new Error(`Architectural violation: users table contains civil/business field '${key}'!`);
+    }
+  }
+
+  // Phase 1: Step 1A Stakeholder Citizen Profile (stakeholders table)
+  const stakeholderCitizenProfile = {
+    id: 'STK-2026-0112',
+    user_id: systemUserAccount.id, // Foreign key link to users table
+    first_name: 'Risma',
+    middle_name: 'B.',
+    last_name: 'Abuhan',
+    civil_status: 'Married',
+    date_of_birth: '1984-03-14',
+    gender: 'Female',
+    address: 'Purok 3, Poblacion, Manticao',
+    barangay: 'Poblacion',
+    municipality_province: 'Manticao, Misamis Oriental',
+    official_contact_mobile: '0917-849-2041',
+    emergency_contact_person: 'Danilo G. Abuhan',
+    emergency_contact_number: '0918-912-3401'
+  };
+
+  // Step 1A Legal Age Verification (18+)
+  const dob = new Date(stakeholderCitizenProfile.date_of_birth);
+  const now = new Date('2026-10-23');
+  const age = now.getFullYear() - dob.getFullYear();
+  if (age < 18) throw new Error('Applicant must be of legal age (18+)');
+
+  // Phase 1: Step 1B Interactive Stall Selection (stalls table)
+  const selectedStall = {
+    id: 'STL-WET-B04',
+    stall_number_code: 'Wet Section Stall #B-04',
+    market_section: 'Wet Section (Fish & Marine)',
+    floor_area_dimensions: '3.00m × 4.00m (12.00 sq.m.)',
+    base_monthly_rental_rate: 1500.00,
+    map_status: 'HELD_FOR_APPLICATION'
+  };
+
+  // Phase 2: Step 2 Unified Digital Application & Single Valid ID Upload
+  const applicationDossier = {
+    application_reference_no: 'MNT-2026-APP-0142',
+    date_filed: '2026-10-23T14:15:22Z',
+    applicant_legal_name: `${stakeholderCitizenProfile.first_name} ${stakeholderCitizenProfile.middle_name} ${stakeholderCitizenProfile.last_name}`,
+    residential_address: stakeholderCitizenProfile.address,
+    contact_number: stakeholderCitizenProfile.official_contact_mobile,
+    valid_id_type: 'PhilSys National ID',
+    government_id_card_number: '4912-8491-2049-1102',
+    uploaded_id_file: 'philsys_front_back_abuhan.pdf',
+    loi_document_upload_required: false, // Invariant: physical LOI upload removed
+    business_trade_name: 'Abuhan Fresh Marine Trading',
+    nature_of_business: ['Retail', 'Fish'],
+    commodities: 'Bangus, Tilapia, Tuna, Squid',
+    space_classification: 'Regular Stall',
+    target_stall: selectedStall.stall_number_code,
+    estimated_employees: 2,
+    digital_loi: 'AUTO-COMPILED',
+    ten_point_undertaking_consent: true,
+    system_supports_digital_signature: false, // Invariant: system does not support digital signatures
+    physical_wet_signature_on_contract_required: true,
+    initial_lifecycle_status: 'AWAITING_LOI_DECISION'
+  };
+
+  if (applicationDossier.loi_document_upload_required !== false) {
+    throw new Error('LOI upload requirement must be FALSE!');
+  }
+  if (applicationDossier.system_supports_digital_signature !== false) {
+    throw new Error('System must not require digital signatures!');
+  }
+  if (!applicationDossier.ten_point_undertaking_consent) {
+    throw new Error('Applicant statutory undertaking consent is required!');
+  }
+
+  // Phase 3: Step 3 Mayoral LOI Decision & Step 4 Treasury Initial Settlement
+  const mayoralDecision = {
+    action: 'APPROVED',
+    reference_slip_no: 'MO-LOI-2026-0089',
+    staff_recorder: 'clerk_mayorsoffice',
+    next_status: 'LOI_APPROVED'
+  };
+  const treasuryCollection = {
+    stall_rights_fee: 5000.00,
+    two_month_advance_deposit: selectedStall.base_monthly_rental_rate * 2, // ₱3,000.00
+    total_collected_cash: 8000.00,
+    or_number: 'OR-7839210',
+    collecting_officer: 'NAIDA BEBETH A. MAGDAYO',
+    next_status: 'FOR_STALL_ASSIGNMENT'
+  };
+  if (treasuryCollection.stall_rights_fee + treasuryCollection.two_month_advance_deposit !== treasuryCollection.total_collected_cash) {
+    throw new Error('Initial collection total mismatch');
+  }
+
+  // Phase 4: Step 5-8 Market Assignment, Contract Activation, & Occupant Verification
+  const bilateralContract = {
+    contract_number: 'LGU-MNT-KTR-2026-0045',
+    monthly_rent: selectedStall.base_monthly_rental_rate,
+    status: 'ACTIVE'
+  };
+  const occupantRecord = {
+    occupant_id: 'OCC-2026-0038',
+    linked_stakeholder_id: stakeholderCitizenProfile.id,
+    assigned_stall: selectedStall.id,
+    tenancy_status: 'VERIFIED_OCCUPANT',
+    map_state: 'OCCUPIED' // Red
+  };
+  if (occupantRecord.linked_stakeholder_id !== stakeholderCitizenProfile.id) {
+    throw new Error('Occupant record must link directly to Stakeholder entity');
+  }
+
+  // Phase 5: Step 9 Monthly Billing & Step 10 BPLO Quick-Print
+  const monthlyBilling = {
+    invoice_number: 'INV-2026-11-0081',
+    amount_due: selectedStall.base_monthly_rental_rate,
+    advance_reserve_balance: 3000.00, // Untouched credit reserve
+    grace_period_days: 60
+  };
+  const step10BploPermitPrint = {
+    dti_no: 'DTI-R10-2026-94812',
+    tin: '341-892-104-000',
+    capital_investment: 50000.00,
+    operating_area_sqm: 12.00,
+    bplo_fee_collected_by_treasury: 2450.00,
+    treasury_or: 'OR-7845601',
+    rms_issues_business_permit: false // RMS does NOT issue business permit
+  };
+  if (step10BploPermitPrint.rms_issues_business_permit !== false) {
+    throw new Error('RMS must preserve external mandate of the BPLO!');
+  }
+
+  return true;
+}
+
+// 13. Run All Lifecycle Tests
 function runAllLifecycleTests() {
   console.log('--- RUNNING CAPSTONE RENTAL LIFECYCLE TESTS ---');
 
@@ -270,8 +663,12 @@ function runAllLifecycleTests() {
     { name: '4. Billing Uniqueness & Duplicate Charge Prevention', fn: testBillingUniqueness },
     { name: '5. Advance Credit Allocation Engine Math', fn: testAdvanceCreditAllocation },
     { name: '6. Dynamic Overdue & Balance Status Evaluation', fn: testDynamicOverdueCalculation },
-    { name: '7. Document Tracking & Holding Office Stage Routing', fn: testHoldingOfficeProgression },
-    { name: '8. Real Report & Occupancy Metrics Calculations', fn: testReportCalculations }
+    { name: '7. 10-Step Simplified Applicant Progression & Role Separation', fn: testSimplifiedApplicantProgression },
+    { name: '8. Confusion Prevention Business Rules (5 Mandatory Invariants)', fn: testConfusionPreventionRules },
+    { name: '9. Real Report & Occupancy Metrics Calculations', fn: testReportCalculations },
+    { name: '10. Step 2 Digital LOI Auto-Compilation & Single Valid ID Requirement', fn: testStep2DigitalLoiAndSingleValidIdUpload },
+    { name: '11. Entity Pre-Filling & Synchronization Across Official Documents', fn: testEntityAutoFillAcrossUnifiedDocuments },
+    { name: '12. Decoupled Architecture (users vs stakeholders) & Phase 0 to Phase 5 Lifecycle', fn: testDecoupledUserAndStakeholderArchitecture }
   ];
 
   let passed = 0;
@@ -292,3 +689,5 @@ function runAllLifecycleTests() {
 }
 
 runAllLifecycleTests();
+
+

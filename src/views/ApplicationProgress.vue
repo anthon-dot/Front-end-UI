@@ -29,7 +29,7 @@
           outlined
           size="small"
           :loading="isRefreshing"
-          @click="loadProgress(false)"
+          @click="loadProgress(false, true)"
         />
         <Button
           label="Log Out"
@@ -70,6 +70,40 @@
             </strong>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Official Municipal Application Documents Action Strip -->
+    <div class="mb-6 bg-white rounded-2xl p-4 shadow-xs border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-lg flex-shrink-0">
+          <i class="pi pi-file-check"></i>
+        </div>
+        <div>
+          <strong class="text-sm text-slate-800 font-bold block">Official Municipal Application Documents</strong>
+          <span class="text-xs text-slate-500">
+            Official stall rental application documents: 5-Page Unified Application Form and Letter of Intent to Mayor Stephen S. Tan.
+          </span>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <Button
+          label="Unified Application Form (5 Pages)"
+          icon="pi pi-file-pdf"
+          severity="primary"
+          size="small"
+          class="font-semibold shadow-xs"
+          @click="showUnifiedFormModal = true"
+        />
+        <Button
+          label="Letter of Intent"
+          icon="pi pi-file-edit"
+          severity="secondary"
+          outlined
+          size="small"
+          class="font-semibold"
+          @click="showLoiModal = true"
+        />
       </div>
     </div>
 
@@ -137,23 +171,17 @@
 
       <!-- If NO stall is selected: Inline Stall Selector with live preview and confirm -->
       <div v-else class="stall-inline-picker">
-        <div class="picker-row">
-          <div class="picker-input-wrap">
-            <label class="picker-label">Available Market Stalls <span class="text-rose-500">*</span></label>
-            <div class="relative">
-              <select
-                v-model="inlineSelectedStallId"
-                class="inline-stall-select"
-                aria-label="Select market stall"
-              >
-                <option :value="null" disabled>-- Choose a vacant market stall from registry --</option>
-                <option v-for="st in availableStalls" :key="st.id" :value="st.id">
-                  Stall #{{ st.stallNo }} &bull; {{ st.stallType }} &bull; ₱{{ Number(st.monthlyRent || 0).toLocaleString() }}/mo
-                </option>
-              </select>
-            </div>
-          </div>
+        <div class="mb-3">
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+            Select Vacant Market Stall (Map View - Only Vacant Stalls Displayed) <span class="text-rose-500">*</span>
+          </label>
+          <VacantStallMapPicker
+            v-model="inlineSelectedStallId"
+            :stalls="stallsList"
+          />
+        </div>
 
+        <div class="flex items-center justify-end mt-3 mb-2">
           <Button
             label="Confirm & Reserve Stall"
             icon="pi pi-check"
@@ -200,51 +228,6 @@
     <div v-else-if="errorMessage" class="state-box error">{{ errorMessage }}</div>
 
     <section v-else class="panel">
-      <!-- Hazard-Free Stall Confirmation Callout when Steps 1-5 are Green -->
-      <div v-if="isSteps1To5Green" class="hazard-callout-card" :class="{ 'is-confirmed': hasHazardFreeDoc }">
-        <div class="hazard-callout-icon">
-          <i :class="hasHazardFreeDoc ? 'pi pi-check-circle' : 'pi pi-exclamation-triangle'"></i>
-        </div>
-        <div class="hazard-callout-text">
-          <div class="hazard-callout-title">
-            <strong>{{ hasHazardFreeDoc ? 'Stall Hazard-Free Confirmation Submitted' : 'Action Required: Hazard-Free Stall Confirmation' }}</strong>
-            <Tag
-              :value="hasHazardFreeDoc ? 'VERIFIED' : 'UPLOAD REQUIRED'"
-              :severity="hasHazardFreeDoc ? 'success' : 'warn'"
-              rounded
-            />
-          </div>
-          <p>
-            {{
-              hasHazardFreeDoc
-                ? 'Your Hazard-Free Stall Confirmation has been recorded and submitted for Market Inspector verification.'
-                : 'Steps 1–5 have been approved! Please upload your Hazard-Free Stall Confirmation so the Market Inspector and Supervisor can proceed with stall setup verification.'
-            }}
-          </p>
-          <small v-if="hazardDocInfo" class="hazard-doc-filename">
-            📄 {{ hazardDocInfo.name }}
-          </small>
-        </div>
-        <div class="hazard-callout-actions">
-          <a
-            v-if="hasHazardFreeDoc && hazardDocInfo?.url"
-            :href="hazardDocInfo.url"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="btn-view-doc"
-          >
-            <i class="pi pi-file"></i> View Document
-          </a>
-          <Button
-            :label="hasHazardFreeDoc ? 'Re-upload' : 'Upload Confirmation'"
-            :icon="hasHazardFreeDoc ? 'pi pi-sync' : 'pi pi-upload'"
-            :severity="hasHazardFreeDoc ? 'secondary' : 'primary'"
-            size="small"
-            @click="openHazardModal"
-          />
-        </div>
-      </div>
-
       <Timeline :value="steps" align="alternate" class="workflow-timeline">
         <template #marker="{ item }">
           <span :class="['circle', item.status]">{{ item.id }}</span>
@@ -253,8 +236,17 @@
         <template #content="{ item }">
           <div class="step-card">
             <div>
-              <h2>{{ item.title }}</h2>
-              <p>{{ item.description }}</p>
+              <div class="flex items-center gap-2 mb-1.5 flex-wrap">
+                <span class="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded" style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;">
+                  <i class="pi pi-user mr-1"></i> Role: {{ item.role }}
+                </span>
+              </div>
+              <h2 style="font-size: 1.05rem; font-weight: 800; color: #0f172a; margin: 2px 0 6px;">
+                Step {{ item.id }}: {{ item.title }}
+              </h2>
+              <p style="font-size: 0.85rem; color: #475569; margin: 0 0 10px; line-height: 1.5;">
+                {{ item.description }}
+              </p>
 
               <!-- Step 1 Designated Stall Context -->
               <div v-if="item.id === 1" class="timeline-step-stall-box">
@@ -286,18 +278,10 @@
                 </div>
               </div>
 
-              <!-- Step 2 Mayor's Office Approval Context -->
-              <div v-if="item.id === 2" class="timeline-step-stall-box">
-                <span class="text-xs text-slate-600 block">
-                  <i class="pi pi-shield text-indigo-600 mr-1"></i>
-                  Office of the Municipal Mayor: Review of Letter of Intent & Valid Identification.
-                </span>
-              </div>
-
-              <!-- Step 3 Advance Payment Calculation Breakdown -->
-              <div v-if="item.id === 3" class="timeline-step-stall-box">
+              <!-- Step 4 Advance Payment Calculation Breakdown -->
+              <div v-if="item.id === 4" class="timeline-step-stall-box">
                 <div v-if="stallInfo">
-                  <span class="text-xs text-slate-500 block">2-Month Required Advance Baseline:</span>
+                  <span class="text-xs text-slate-500 block">Required 2-Month Advance (Held as Credit):</span>
                   <strong class="text-xs text-emerald-600 block mt-0.5">
                     ₱{{ (Number(stallInfo.monthlyRent || stallInfo.monthly_rent || 0) * 2).toLocaleString() }}
                     <span class="text-slate-400 font-normal"> (₱{{ Number(stallInfo.monthlyRent || stallInfo.monthly_rent || 0).toLocaleString() }}/mo × 2 months)</span>
@@ -306,6 +290,14 @@
                 <div v-else>
                   <span class="text-xs text-slate-400 italic">Select a stall to compute your 2-month required advance payment.</span>
                 </div>
+              </div>
+
+              <!-- Step 10 External BPLO Guidance -->
+              <div v-if="item.id === 10" class="timeline-step-stall-box" style="background: #f0fdf4; border: 1px solid #bbf7d0;">
+                <span class="text-xs text-emerald-800 block">
+                  <i class="pi pi-info-circle mr-1"></i>
+                  External BPLO Process: Access the official Business Permit application form on your dashboard, submit to the BPLO office, and pay the assessed fee to the Municipal Treasurer.
+                </span>
               </div>
             </div>
             <Tag :value="statusLabel(item.status)" :severity="statusSeverity(item.status)" />
@@ -319,14 +311,6 @@
           <p>Upload the missing documents before dashboard access is enabled.</p>
         </div>
         <Button label="Upload Requirements" icon="pi pi-upload" @click="router.push('/requirements')" />
-      </div>
-
-      <div v-if="applicantFeeRequired" class="fee-callout">
-        <div>
-          <strong>Business permit payment required.</strong>
-          <p>Dashboard access opens after the Treasurer records your business permit payment.</p>
-        </div>
-        <Button label="View Payment Status" icon="pi pi-wallet" @click="router.push('/applicant-fee')" />
       </div>
 
       <!-- Application Returned For Correction Notice -->
@@ -490,7 +474,7 @@
 
     <!-- Dedicated Select Stall Modal -->
     <div v-if="showSelectStallModal" class="hazard-modal-backdrop" @click.self="closeSelectStallModal">
-      <div class="hazard-modal-card" style="max-width: 520px;">
+      <div class="hazard-modal-card" style="max-width: 960px; width: 95vw;">
         <div class="hazard-modal-header">
           <div class="hazard-header-title">
             <div class="hazard-icon-circle" style="background: #f59e0b; color: #fff;">
@@ -498,7 +482,7 @@
             </div>
             <div>
               <h3>Select Market Stall</h3>
-              <p>Choose an available stall to establish your 2-month advance payment baseline</p>
+              <p>Choose an available vacant stall on the interactive market map to establish your 2-month advance payment baseline</p>
             </div>
           </div>
           <button class="hazard-btn-close" @click="closeSelectStallModal">
@@ -507,18 +491,14 @@
         </div>
 
         <div class="hazard-modal-body">
-          <div class="field mb-4">
-            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Available Market Stalls</label>
-            <select v-model="selectedModalStallId" class="stall-select-input w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none" style="padding: 10px; border-radius: 10px; width: 100%;">
-              <option :value="null" disabled>-- Choose a vacant market stall --</option>
-              <option v-for="st in availableStalls" :key="st.id" :value="st.id">
-                Stall #{{ st.stallNo }} &bull; {{ st.stallType }} &bull; ₱{{ Number(st.monthlyRent || 0).toLocaleString() }}/month
-              </option>
-            </select>
-          </div>
+          <VacantStallMapPicker
+            v-model="selectedModalStallId"
+            :stalls="stallsList"
+            @select-stall="handleModalStallSelect"
+          />
 
           <!-- Calculation Preview Box -->
-          <div v-if="modalStallInfo" class="p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl mb-3" style="background: #fffbeb; border: 1.5px solid #fde68a; border-radius: 12px; padding: 14px;">
+          <div v-if="modalStallInfo" class="p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl mt-3 mb-3" style="background: #fffbeb; border: 1.5px solid #fde68a; border-radius: 12px; padding: 14px;">
             <div class="flex items-center justify-between mb-2">
               <span class="text-xs font-bold text-amber-900">Stall #{{ modalStallInfo.stallNo }} ({{ modalStallInfo.stallType }})</span>
               <Tag value="2-MONTH BASELINE" severity="warn" rounded class="text-[10px]" />
@@ -565,6 +545,43 @@
         </div>
       </div>
     </div>
+
+    <!-- Official 5-Page Unified Application Form Modal (Rental/Occupancy) -->
+    <UnifiedApplicationFormModal
+      v-if="showUnifiedFormModal"
+      :visible="showUnifiedFormModal"
+      :application-data="unifiedApplicationData"
+      :application="unifiedApplicationData"
+      role="APPLICANT"
+      @close="showUnifiedFormModal = false"
+      @acknowledge="handleApplicantAcknowledge"
+    />
+
+    <!-- Official Letter of Intent Modal (Image 4) -->
+    <LetterOfIntentModal
+      v-if="showLoiModal"
+      :visible="showLoiModal"
+      :applicant-name="applicantFullName"
+      :applicant-address="stakeholder?.address || ''"
+      :applicant-contact="stakeholder?.contact || ''"
+      :business-nature="stakeholder?.natureOfBusiness || stakeholder?.businessType || ''"
+      :preferred-stall="stallInfo?.stallNo ? `Stall #${stallInfo.stallNo}` : ''"
+      :commodities="stakeholder?.productsCommodities || ''"
+      :existing-loi-content="stakeholder?.loiContent || ''"
+      :incumbent-mayor="stakeholder?.incumbentMayor || stakeholder?.incumbent_mayor || 'HON. MAYOR STEPHEN S. TAN'"
+      @close="showLoiModal = false"
+    />
+
+    <!-- Official 12-Page Contract & Mirroring Dossier -->
+    <PrintableDossier
+      v-if="showPrintableDossierModal"
+      :visible="showPrintableDossierModal"
+      :application="printableApplicationPayload"
+      :applicant="printableApplicantPayload"
+      :stall="printableStallPayload"
+      :mayor-official="printableMayorPayload"
+      @close="showPrintableDossierModal = false"
+    />
   </main>
 </template>
 
@@ -587,10 +604,247 @@ import Button from 'primevue/button'
 import Tag from 'primevue/tag'
 import Timeline from 'primevue/timeline'
 import Toast from 'primevue/toast'
+import UnifiedApplicationFormModal from '../components/UnifiedApplicationFormModal.vue'
+import LetterOfIntentModal from '../components/LetterOfIntentModal.vue'
+import VacantStallMapPicker from '../components/VacantStallMapPicker.vue'
+import PrintableDossier from '../components/documents/PrintableDossier.vue'
 
 const router = useRouter()
 const toast = useToast()
 const authStore = useAuthStore()
+
+// Modals State
+const showUnifiedFormModal = ref(false)
+const showLoiModal = ref(false)
+const showPrintableDossierModal = ref(false)
+
+const printableApplicationPayload = computed(() => {
+  const s = stakeholder.value || {}
+  const st = stallInfo.value || {}
+  return {
+    application_number: s.applicationNo || applicationTrackingNo.value || 'APP-2026-0012',
+    trade_name: s.businessName || s.tradeName || 'Commercial Enterprise',
+    nature_of_business: s.natureOfBusiness || s.businessType || 'General Retail',
+    commodities_to_sell: s.productsCommodities || s.commodities || 'Authorized Goods',
+    estimated_employees: Number(s.employeeCount || s.estimatedEmployees || 1),
+    valid_id_type: s.validIdType || 'Government ID',
+    valid_id_number: s.validIdNo || s.validIdNumber || 'ID-VERIFIED-2026',
+    current_status: s.applicationStatus || 'APPLICATION_SUBMITTED',
+    created_at: s.createdAt || new Date().toISOString(),
+    contract_number: s.contractNo || 'CNT-2026-0142',
+    contract_start_date: s.contractStartDate || '2026-10-14',
+    contract_end_date: s.contractEndDate || '2031-10-14',
+    treasury_or_number: s.officialReceiptNo || s.orNumber || 'OR-3675241',
+    treasury_payment_date: s.paymentDate || new Date().toISOString(),
+    advance_rent_paid: Number(st.monthlyRent || 2300) * 2,
+    stall_rights_paid: 5000,
+    mayor_decision_ref_no: 'RES-2026-MAYOR-012'
+  }
+})
+
+const printableApplicantPayload = computed(() => {
+  const s = stakeholder.value || {}
+  return {
+    full_name: applicantFullName.value,
+    civil_status: s.civilStatus || 'Married',
+    citizenship: s.citizenship || 'Filipino',
+    residential_address: s.address || 'Poblacion, Manticao, Misamis Oriental',
+    contact_number: s.contact || s.phone || '09932889430'
+  }
+})
+
+const printableStallPayload = computed(() => {
+  const st = stallInfo.value || {}
+  return {
+    stall_number: st.stallNo || '61',
+    section_name: st.info || st.section || 'Phase 3 and 4 / Dry Goods Section',
+    stall_type: st.stallType || 'REGULAR_STALL',
+    floor_area_sqm: st.area || 12,
+    monthly_rental_rate: Number(st.monthlyRent || 2300),
+    stall_rights_fee: 5000
+  }
+})
+
+const printableMayorPayload = computed(() => {
+  return {
+    full_name: 'HON. STEPHEN S. TAN',
+    position_title: 'Municipal Mayor',
+    is_incumbent: true
+  }
+})
+
+const applicantFullName = computed(() => {
+  const s = stakeholder.value
+  if (!s) return 'Applicant'
+  return [s.firstName || s.first_name, s.middleName || s.middle_name, s.lastName || s.last_name].filter(Boolean).join(' ') || s.name || 'Applicant'
+})
+
+const unifiedApplicationData = computed(() => {
+  const s = stakeholder.value || {}
+  const st = stallInfo.value || {}
+  return {
+    ...s,
+    id: s.id || s.stakeholderId || s.applicationId,
+    applicationNo: s.applicationNo || applicationTrackingNo.value,
+    firstName: s.firstName || s.first_name,
+    middleName: s.middleName || s.middle_name,
+    lastName: s.lastName || s.last_name,
+    address: s.address,
+    contact: s.contact,
+    validIdType: s.validIdType || s.valid_id_type || 'National ID (PhilSys)',
+    validIdNo: s.validIdNo || s.valid_id_no || '',
+    businessName: s.businessName || s.business_name,
+    businessType: s.businessType || s.business_type,
+    natureOfBusiness: s.natureOfBusiness || s.nature_of_business,
+    otherNatureOfBusiness: s.otherNatureOfBusiness || s.other_nature_of_business,
+    productsCommodities: s.productsCommodities || s.products_commodities,
+    stallSpaceType: s.stallSpaceType || s.stall_space_type || 'Regular Stall',
+    preferredStallNo: st.stallNo || st.number || s.preferredStallNo || '',
+    estimatedEmployees: s.estimatedEmployees || s.estimated_employees || 1,
+    undertakingAgreed: s.undertakingAgreed ?? true,
+    loiUrl: s.loiUrl || requirements.value?.letter?.url,
+    validIdUrl: s.validIdUrl || requirements.value?.id?.url,
+    loiContent: s.loiContent || '',
+    incumbentMayor: s.incumbentMayor || s.incumbent_mayor || 'HON. MAYOR STEPHEN S. TAN',
+    monthlyRent: st.monthlyRent || st.monthly_rent || s.monthlyRent || 0,
+    marketOfficeStatus: s.marketOfficeStatus || 'Complete',
+    marketOfficeStallRecommended: s.marketOfficeStallRecommended || st.stallNo || '',
+    marketOfficeSection: s.marketOfficeSection || st.stallType || '',
+    marketOfficeNature: s.marketOfficeNature || s.businessType || '',
+    marketOfficeRemarks: s.marketOfficeRemarks || 'Recommended for Mayor & Treasury assessment.',
+    treasuryFeeMonthly: s.treasuryFeeMonthly || st.monthlyRent || st.monthly_rent || 0,
+    treasuryFeeOther: s.treasuryFeeOther || 0,
+    treasuryFeeSecurityDeposit: s.treasuryFeeSecurityDeposit || (Number(st.monthlyRent || st.monthly_rent || 0) * 2),
+    treasuryTotalDue: s.treasuryTotalDue || (Number(st.monthlyRent || st.monthly_rent || 0) * 3),
+    treasuryRemarks: s.treasuryRemarks || '',
+    finalRecommendation: s.finalRecommendation || (s.marketApprovalStatus === 'APPROVED' ? 'RECOMMENDED' : 'PENDING'),
+    mayorDecision: s.mayorDecision || (s.marketApprovalStatus === 'APPROVED' ? 'APPROVED' : (s.applicationStatus === 'APPROVED' ? 'APPROVED' : 'PENDING')),
+    mayorRemarks: s.mayorRemarks || s.mayor_remarks || '',
+    mayorDecisionDate: s.mayorDecisionDate || s.mayor_approved_at || null,
+    assignedStallNo: s.assignedStallNo || st.stallNo || '',
+    assignedMarketSection: s.assignedMarketSection || st.stallType || '',
+    assignedMonthlyRent: s.assignedMonthlyRent || st.monthlyRent || st.monthly_rent || 0,
+    paymentOrNo: s.paymentOrNo || s.official_receipt_no || '',
+    paymentAmount: s.paymentAmount || s.total_initial_amount_paid || 0,
+    applicantAcknowledged: s.applicantAcknowledged ?? false,
+    applicantAcknowledgedDate: s.applicantAcknowledgedDate || null
+  }
+})
+
+// Unified Business Permit 2-Page Form Payload (Images 1-4)
+const businessPermitApplicationData = computed(() => {
+  const s = stakeholder.value || {}
+  const st = stallInfo.value || {}
+  return {
+    ...s,
+    incumbentMayor: s.incumbentMayor || s.incumbent_mayor || 'HON. MAYOR STEPHEN S. TAN',
+    id: s.id || s.stakeholderId || s.applicationId,
+    applicationNo: s.applicationNo || applicationTrackingNo.value || 'BP-2026-0782',
+    trackingNumber: s.trackingNumber || s.applicationNo || applicationTrackingNo.value || 'BP-2026-0782',
+    businessIdNumber: s.businessIdNumber || (s.id ? `BIN-9024-${String(s.id).padStart(4, '0')}` : 'BIN-9024-0041'),
+    applicationType: s.applicationType || 'NEW',
+    paymentMode: s.paymentMode || 'Annually',
+    orgType: s.orgType || 'Sole Proprietor',
+    orgGender: s.orgGender || 'Female',
+    dtiSecCdaRegNo: s.dtiSecCdaRegNo || '',
+    tinNo: s.tinNo || '',
+    tradeNameFranchise: s.tradeNameFranchise || s.businessName || 'ABUHAN FISH VENDOR STALL',
+    businessName: s.tradeNameFranchise || s.businessName || 'ABUHAN FISH VENDOR STALL',
+    businessType: s.businessType || 'Retail',
+    mainHouseBldgNo: s.mainHouseBldgNo || 'P-4',
+    mainBldgName: s.mainBldgName || '',
+    mainLotNo: s.mainLotNo || '',
+    mainBlockNo: s.mainBlockNo || '',
+    mainStreet: s.mainStreet || 'P-4',
+    mainSubdivision: s.mainSubdivision || '',
+    mainBarangay: s.mainBarangay || 'POBLACION',
+    mainDistrict: s.mainDistrict || '',
+    mainMunicipality: s.mainMunicipality || 'MANTICAO',
+    mainProvince: s.mainProvince || 'MISAMIS OR.',
+    mainZipCode: s.mainZipCode || '9024',
+    telephoneNo: s.telephoneNo || '',
+    mobileNo: s.mobileNo || s.contact || '09932889970',
+    contact: s.mobileNo || s.contact || '09932889970',
+    email: s.email || '',
+    ownerSurname: s.ownerSurname || s.lastName || 'ABUHAN',
+    ownerGivenName: s.ownerGivenName || s.firstName || 'RISMA',
+    ownerMiddleName: s.ownerMiddleName || s.middleName || 'PORCO',
+    ownerSuffix: s.ownerSuffix || '',
+    corpPresidentSurname: s.corpPresidentSurname || '',
+    corpPresidentGivenName: s.corpPresidentGivenName || '',
+    corpPresidentMiddleName: s.corpPresidentMiddleName || '',
+    corpPresidentSuffix: s.corpPresidentSuffix || '',
+    corpCitizenship: s.corpCitizenship || 'Filipino',
+    businessAreaSqm: s.businessAreaSqm || 9,
+    totalFloorAreaSqm: s.totalFloorAreaSqm || 9,
+    numEmployeesMale: s.numEmployeesMale || 0,
+    numEmployeesFemale: s.numEmployeesFemale || 1,
+    numEmployeesLguResiding: s.numEmployeesLguResiding || 1,
+    deliveryVehiclesVanTruck: s.deliveryVehiclesVanTruck || 0,
+    deliveryVehiclesMotorcycle: s.deliveryVehiclesMotorcycle || 0,
+    locSameAsMain: s.locSameAsMain ?? true,
+    locHouseBldgNo: s.locHouseBldgNo || s.mainHouseBldgNo || 'P-4',
+    locStreet: s.locStreet || s.mainStreet || 'P-4',
+    locBarangay: s.locBarangay || s.mainBarangay || 'POBLACION',
+    locMunicipality: s.locMunicipality || s.mainMunicipality || 'MANTICAO',
+    locProvince: s.locProvince || s.mainProvince || 'MISAMIS OR.',
+    locZipCode: s.locZipCode || s.mainZipCode || '9024',
+    propertyOwned: s.propertyOwned ?? true,
+    taxDecNo: s.taxDecNo || '',
+    propertyIdNo: s.propertyIdNo || '',
+    taxIncentivesEnjoyed: s.taxIncentivesEnjoyed ?? false,
+    businessActivity: s.businessActivity || 'Main Office',
+    businessLines: s.businessLines || [
+      { lineOfBusiness: 'Fish Vendor / Wet Section Trade', psic: '', units: 1, capitalization: 50000, grossSales: 0 }
+    ],
+    preferredStallNo: st.stallNo ? `Stall #${st.stallNo}` : (s.preferredStallNo ? `Stall #${s.preferredStallNo}` : 'Market Stall #WS-01'),
+    bploApprovedBy: s.bploApprovedBy || 'JUNE CLYDE D. PATILANO',
+    bploDesignation: s.bploDesignation || 'LRCO II/BPLO Designate',
+    bploDateSigned: s.bploDateSigned || new Date(),
+    marketOfficeVerifiedBy: s.marketOfficeVerifiedBy || 'EDGAR EYANA',
+    marketOfficeVerifiedRemarks: s.marketOfficeVerifiedRemarks || 'FISH VENDOR OK',
+    treasurerVerifiedBy: s.treasurerVerifiedBy || 'J. ANDANA',
+    treasurerVerifiedDate: s.treasurerVerifiedDate || new Date(),
+    totalFeesAssessment: s.totalFeesAssessment || 2890.60,
+    businessPermitOrNo: s.businessPermitOrNo || s.paymentOrNo || '3675241',
+    perjuryDeclarationAgreed: true
+  }
+})
+
+function handleModalStallSelect(stall) {
+  if (stall?.id) {
+    selectedModalStallId.value = Number(stall.id)
+  }
+}
+
+async function handleApplicantAcknowledge() {
+  try {
+    const appId = stakeholder.value?.id || stakeholder.value?.stakeholderId || stakeholder.value?.applicationId
+    if (!appId) return
+
+    await api.put(`/applications/${appId}`, {
+      applicantAcknowledged: true,
+      applicantAcknowledgedDate: new Date().toISOString()
+    })
+
+    toast.add({
+      severity: 'success',
+      summary: 'Occupancy Acknowledged',
+      detail: 'You have digitally confirmed and acknowledged your market stall rental authorization.',
+      life: 4000
+    })
+
+    await loadProgress(true)
+  } catch (err) {
+    console.error('[ApplicationProgress] acknowledge error:', err)
+    toast.add({
+      severity: 'error',
+      summary: 'Acknowledgment Error',
+      detail: err.message || 'Could not record acknowledgment.',
+      life: 4000
+    })
+  }
+}
 
 async function logout() {
   if (pollTimer) clearInterval(pollTimer)
@@ -753,43 +1007,96 @@ const applicationTrackingNo = computed(() => {
   return data.applicationNo || (data.id ? `APP-${data.id}` : 'APP-PENDING')
 })
 
+const currentWorkflowStatusFormatted = computed(() => {
+  const data = stakeholder.value
+  if (!data) return 'REGISTERED'
+  return data.applicationStatus || data.application_status || 'APPLICATION_SUBMITTED'
+})
+
 const currentHoldingOffice = computed(() => {
   const data = stakeholder.value
   if (!data) return "Market Supervisor"
   const s = String(data.applicationStatus || data.application_status || '').toUpperCase()
   if (s.includes('REJECTED')) return 'Disapproved'
-  if (['COMPLETED', 'ACTIVE_VENDOR', 'FULLY_APPROVED'].includes(s) || data.verifiedTenant || data.verified_tenant) return 'Active Market Tenancy'
-  if (s === 'BUSINESS_PERMIT_ELIGIBLE') return 'Market Administration'
-  if (s === 'PENDING_INSPECTION' || (data.contractId && !data.hazardFreeConfirmed)) return 'Field Inspector'
-  if (s === 'PAID_READY_FOR_CONTRACT' || (data.advancePaymentPaid && !data.contractId)) return 'Market Supervisor'
-  if (s === 'PENDING_TREASURER_PAYMENT' || (data.mayorApproved && !data.advancePaymentPaid)) return "Treasurer's Office"
-  if (s === 'PENDING_MAYOR_APPROVAL' || data.marketSupervisorApproved) return "Mayor's Office"
-  return 'Market Supervisor'
+  if (s === 'RETURNED_FOR_CORRECTION') return "Mayor's Office / Authorized Staff"
+  if (['SUBMITTED', 'PENDING_MAYOR_APPROVAL'].includes(s)) return "Mayor's Office"
+  if (['APPROVED_PENDING_ADVANCE_PAYMENT', 'PENDING_TREASURER_PAYMENT'].includes(s)) return "Treasurer's Office"
+  if (['ADVANCE_PAID', 'PENDING_SUPERVISOR_REVIEW'].includes(s)) return 'Market Supervisor'
+  if (['CONTRACT_PREPARED', 'FEES_CLEARED', 'ACTIVE_OCCUPANT'].includes(s)) return 'Market Operations & Treasury'
+  if (['BILLING_ACTIVE', 'COMPLETED', 'FULLY_APPROVED'].includes(s) || data.verifiedTenant || data.verified_tenant) return 'Market Operations & Billing'
+  if (s === 'OCCUPANT_VERIFIED') return 'System (Tenancy Registry)'
+  if (s === 'CONTRACT_ACTIVE') return 'System Validation'
+  if (s === 'PENDING_CONTRACT_SIGNATURE') return 'Market Supervisor & Stakeholder'
+  if (s === 'FOR_STALL_ASSIGNMENT') return 'Market Supervisor'
+  if (s === 'AWAITING_INITIAL_PAYMENT' || s === 'LOI_APPROVED' || (data.mayorApproved && !data.advancePaymentPaid)) return "Treasurer's Office"
+  if (s === 'AWAITING_LOI_DECISION' || s === 'SUBMITTED' || s === 'APPLICATION_SUBMITTED' || s === 'UNDER_REVIEW') return "Mayor's Office / Authorized Staff"
+  return 'Stakeholder'
 })
 
 const currentOfficeAction = computed(() => {
-  const office = currentHoldingOffice.value
-  if (office === 'Market Supervisor') {
-    if (stakeholder.value?.advancePaymentPaid) return 'Awaiting Market Supervisor preparation and execution of 3-Year Contract of Lease.'
-    return 'Awaiting Market Supervisor initial review and endorsement of application and Letter of Intent.'
-  }
-  if (office === "Mayor's Office") return 'Awaiting Municipal Mayor review and approval of endorsed Letter of Intent.'
-  if (office === "Treasurer's Office") return 'Awaiting Treasurer validation and receipting of Stall Rights fee and 2-Month Advance Rental payment.'
-  if (office === 'Field Inspector') return 'Awaiting Field Market Inspector physical stall setup verification (electrical, structural, fire safety, sanitation).'
-  if (office === 'Market Administration') return 'Stall setup verified. Business permit processing step is now eligible.'
-  if (office === 'Active Market Tenancy') return 'Onboarding complete! Your market stall occupancy, permit, and 3-Year lease contract are active.'
-  return 'Processing commercial stall rental application.'
+  const data = stakeholder.value
+  const s = String(data?.applicationStatus || data?.application_status || '').toUpperCase()
+  if (s === 'REGISTERED') return 'Account registered. Select your preferred vacant stall and submit your rental application.'
+  if (['APPLICATION_SUBMITTED', 'AWAITING_LOI_DECISION', 'SUBMITTED', 'UNDER_REVIEW', 'PENDING_MAYOR_APPROVAL'].includes(s)) return "Rental application submitted and awaiting the Mayor's LOI decision."
+  if (s === 'LOI_APPROVED') return "LOI approved. Routing to Municipal Treasurer for assessment of stall rights fee and 2-month advance rent."
+  if (['AWAITING_INITIAL_PAYMENT', 'PENDING_TREASURER_PAYMENT', 'APPROVED_PENDING_ADVANCE_PAYMENT'].includes(s)) return "Mayor approved the application. Awaiting the Treasurer's cash advance payment and Official Receipt."
+  if (['FOR_STALL_ASSIGNMENT', 'PENDING_SUPERVISOR_REVIEW', 'ADVANCE_PAID'].includes(s)) return "Advance payment recorded. The Market Supervisor is assigning a vacant stall and preparing the lease contract."
+  if (s === 'CONTRACT_PREPARED') return 'The Market Supervisor prepared the lease contract. Awaiting the Treasurer’s final application or regulatory fee.'
+  if (s === 'FEES_CLEARED' || s === 'ACTIVE_OCCUPANT') return 'Required fees are cleared and the stakeholder account is active.'
+  if (s === 'PENDING_CONTRACT_SIGNATURE') return "Market Supervisor preparing lease contract for bilateral signature."
+  if (s === 'CONTRACT_ACTIVE') return "System validation passed: Lease activated across all 5 verification conditions."
+  if (s === 'OCCUPANT_VERIFIED') return "System verified occupant record linked to assigned stall without duplicate."
+  if (['BILLING_ACTIVE', 'COMPLETED', 'FULLY_APPROVED'].includes(s) || data?.verifiedTenant) return "Rental billing active per contract schedule. Advance rent held as segregated credit reserve."
+  return 'Review your application status and complete any required actions.'
+})
+
+const currentStageTitle = computed(() => {
+  const data = stakeholder.value
+  if (!data) return 'Step 1: Stakeholder Registration & Stall Selection'
+  const s = String(data.applicationStatus || data.application_status || '').toUpperCase()
+  if (s === 'REGISTERED') return 'Step 1: Registration Complete & Stall Selection'
+  if (['APPLICATION_SUBMITTED', 'AWAITING_LOI_DECISION', 'SUBMITTED', 'UNDER_REVIEW', 'PENDING_MAYOR_APPROVAL'].includes(s)) return "Step 3: Record Mayor's LOI Decision"
+  if (s === 'LOI_APPROVED' || s === 'AWAITING_INITIAL_PAYMENT' || s === 'PENDING_TREASURER_PAYMENT' || s === 'APPROVED_PENDING_ADVANCE_PAYMENT') return 'Step 4: Pay Initial Rental Fees'
+  if (s === 'PENDING_SUPERVISOR_REVIEW' || s === 'ADVANCE_PAID') return 'Step 5: Review & Assign Stall'
+  if (['CONTRACT_PREPARED', 'FEES_CLEARED', 'ACTIVE_OCCUPANT'].includes(s)) return 'Step 6: Contract & Account Activation'
+  if (s === 'FOR_STALL_ASSIGNMENT') return 'Step 5: Review & Assign Stall'
+  if (s === 'PENDING_CONTRACT_SIGNATURE') return 'Step 6: Prepare & Sign Contract'
+  if (s === 'CONTRACT_ACTIVE') return 'Step 7: Activate Lease'
+  if (s === 'OCCUPANT_VERIFIED') return 'Step 8: Occupant Verified'
+  if (s === 'BILLING_ACTIVE' || data?.verifiedTenant) return 'Step 9: Rental Billing Active'
+  if (s === 'COMPLETED' || s === 'FULLY_APPROVED') return 'Step 10: Business Permit Stage'
+  return 'Step 2: Submit Rental Application'
+})
+
+const currentActingRole = computed(() => {
+  const data = stakeholder.value
+  if (!data) return 'Stakeholder'
+  const s = String(data.applicationStatus || data.application_status || '').toUpperCase()
+  if (s === 'REGISTERED') return 'Stakeholder'
+  if (['APPLICATION_SUBMITTED', 'AWAITING_LOI_DECISION', 'SUBMITTED', 'UNDER_REVIEW', 'PENDING_MAYOR_APPROVAL'].includes(s)) return 'Municipal Mayor'
+  if (s === 'LOI_APPROVED' || s === 'AWAITING_INITIAL_PAYMENT' || s === 'PENDING_TREASURER_PAYMENT' || s === 'APPROVED_PENDING_ADVANCE_PAYMENT') return 'Treasurer'
+  if (s === 'ADVANCE_PAID') return 'Market Supervisor'
+  if (s === 'CONTRACT_PREPARED' || s === 'FEES_CLEARED') return 'Treasurer / System'
+  if (s === 'FOR_STALL_ASSIGNMENT') return 'Market Supervisor'
+  if (s === 'PENDING_CONTRACT_SIGNATURE') return 'Market Supervisor + Stakeholder'
+  if (s === 'CONTRACT_ACTIVE') return 'System Validation'
+  if (s === 'OCCUPANT_VERIFIED') return 'System'
+  if (s === 'BILLING_ACTIVE') return 'System + Treasurer'
+  if (s === 'COMPLETED' || s === 'FULLY_APPROVED') return 'Stakeholder + BPLO + Treasurer'
+  return 'Stakeholder'
 })
 
 const steps = ref([
-  { id: 1, title: 'Application & LOI Submitted', description: 'Letter of Intent, Valid ID, and stall selection submitted. Stall reserved as PENDING.', status: 'pending' },
-  { id: 2, title: 'Market Supervisor Endorsement', description: 'Market Supervisor reviews application documents and endorses to Municipal Mayor.', status: 'pending' },
-  { id: 3, title: "Mayor's Office LOI Approval", description: 'Municipal Mayor evaluates endorsed Letter of Intent and authorizes stall allocation.', status: 'pending' },
-  { id: 4, title: 'Initial Fees Payment (Stall Rights + Advance)', description: 'Treasurer validates and records Stall Rights fee + 2 Months Advance Rent with Official Receipt.', status: 'pending' },
-  { id: 5, title: '3-Year Contract of Lease Execution', description: 'Market Supervisor executes official 3-Year Contract of Lease and generates digital Occupancy Permit.', status: 'pending' },
-  { id: 6, title: 'Physical Stall Setup Inspection', description: 'Field Market Inspector verifies electrical, structural, fire safety, and sanitation compliance.', status: 'pending' },
-  { id: 7, title: 'Business Permit Eligibility', description: 'Business permit processing step becomes eligible according to approved workflow.', status: 'pending' },
-  { id: 8, title: 'Active Vendor Activation & Permit Issuance', description: 'Occupancy permit issued with QR code & SHA-256 integrity hash; recurring billing initiated.', status: 'pending' }
+  { id: 1, role: 'Stakeholder / Applicant', title: 'Stakeholder Registration & Stall Selection', description: 'The prospective vendor creates an account on the portal and browses the interactive stall map to select a preferred vacant stall or table space.', status: 'pending' },
+  { id: 2, role: 'Stakeholder / Applicant', title: 'Unified Digital Application & Valid ID Upload', description: 'Applicant fills out Unified Application Form with personal/business details and Incumbent Mayor. The system automatically compiles the formal LOI from saved data (no document upload for LOI). Only 1 document is uploaded: a clear copy of a valid government-issued ID.', status: 'pending' },
+  { id: 3, role: 'MAYOR_OFFICE', title: "Mayoral LOI Decision Recording", description: "The physical printed and hand-signed LOI is submitted to the Office of the Mayor. MAYOR_OFFICE records physical receipt, official approval or rejection, and document reference.", status: 'pending' },
+  { id: 4, role: 'Municipal Treasurer', title: 'Assessment & Payment of Initial Rental Fees', description: 'Treasury assesses Stall Rights Fee and Two-Month Advance Rent deposit. Payment is recorded in cash against an issued Official Receipt (OR). Advance rent is held intact as segregated reserve.', status: 'pending' },
+  { id: 5, role: 'Market Supervisor', title: 'Market Office Evaluation & Official Stall Assignment', description: 'Market Supervisor verifies applicant eligibility, checks physical stall boundaries and sanitation compliance, and officially locks in the stall assignment on the map to prevent double-allocation.', status: 'pending' },
+  { id: 6, role: 'Market Supervisor & Stakeholder', title: 'Lease Contract Preparation & Signing', description: 'The system drafts the official Contract of Lease incorporating assigned stall number, agreed rental rate, billing schedule, and municipal clauses. Both parties execute and record signed contract status.', status: 'pending' },
+  { id: 7, role: 'System Validation Engine', title: 'Automated Lease Activation Verification', description: 'The system automatically verifies all five mandatory conditions (LOI approval, verified initial Treasury payment with valid OR, confirmed non-conflicting stall, bilateral signatures, effective date arrival) before transitioning to ACTIVE.', status: 'pending' },
+  { id: 8, role: 'System Engine', title: 'Occupant Verification', description: 'Upon contract activation, the system links the verified stakeholder to the active stall registry, creating a verified occupant profile without generating duplicate stakeholder records.', status: 'pending' },
+  { id: 9, role: 'System Engine & Municipal Treasurer', title: 'Periodic Rental Billing Commences', description: 'Recurring rental statements generated per lease terms. Advance rent deposit remains untouched unless authorized manual allocation is approved; 2-month grace period applies before overdue notices.', status: 'pending' },
+  { id: 10, role: 'Stakeholder, External BPLO & Municipal Treasurer', title: 'Post-Occupancy Commercial Business Permitting', description: 'Once operational under active lease, stakeholder downloads official Unified Business Permit form from portal, submits physically to external BPLO, and pays assessed permit fee to Treasurer.', status: 'pending' }
 ])
 
 const isSteps1To5Green = computed(() => {
@@ -972,8 +1279,9 @@ const applicantFeeRequired = computed(() => {
     data.final_endorsed === true
 })
 
-async function loadProgress(isSilent = false) {
+async function loadProgress(isSilent = false, refreshStalls = false) {
   if (isSilent) {
+    if (isRefreshing.value || isLoading.value) return
     isRefreshing.value = true
   } else {
     isLoading.value = true
@@ -981,17 +1289,19 @@ async function loadProgress(isSilent = false) {
   errorMessage.value = ''
 
   try {
-    // Also refresh available stalls
-    try {
-      const rawStalls = await fetchStalls()
-      stallsList.value = (rawStalls || []).map(s => ({
-        id: s.id,
-        stallNo: s.stall_no || s.stallNo || s.number,
-        stallType: s.stall_type || s.stallType || s.info || 'Standard Stall',
-        monthlyRent: Number(s.monthly_rent ?? s.monthlyRent ?? 1500),
-        status: String(s.status || 'AVAILABLE').toUpperCase()
-      }))
-    } catch (_) {}
+    // Only refresh stalls when explicitly requested or initially empty
+    if (refreshStalls || !stallsList.value || stallsList.value.length === 0) {
+      try {
+        const rawStalls = await fetchStalls()
+        stallsList.value = (rawStalls || []).map(s => ({
+          id: s.id,
+          stallNo: s.stall_no || s.stallNo || s.number,
+          stallType: s.stall_type || s.stallType || s.info || 'Standard Stall',
+          monthlyRent: Number(s.monthly_rent ?? s.monthlyRent ?? 1500),
+          status: String(s.status || 'AVAILABLE').toUpperCase()
+        }))
+      } catch (_) {}
+    }
 
     let resolvedUserId = authStore.resolvedUserId || localStorage.getItem('userId')
     if (!resolvedUserId || resolvedUserId === 'null' || resolvedUserId === 'undefined') {
@@ -1054,214 +1364,295 @@ function applyStepStatuses(data) {
     step.status = 'pending'
   })
 
-  // 1. Application & LOI Submitted
+  const currentStatus = String(data.applicationStatus || data.application_status || '').toUpperCase()
+
+  // STEP 1 — Stakeholder registers (Stakeholder)
+  // Account created, personal & business details recorded, preferred vacant stall selected
+  const hasStallSelected = Boolean(data.stall || data.selectedStallId || data.selected_stall_id || data.preferredStallNo)
+  const stallName = data.stall?.stallNo || data.stall?.number || data.preferredStallNo || data.selectedStallId
   steps.value[0].status = 'approved'
-  const stallName = data.stall?.stallNo || data.stall?.number || data.selectedStallId
   if (stallName) {
-    steps.value[0].description = `Application & Letter of Intent submitted for Stall #${stallName} (Reserved - Occupant status: PENDING).`
-  }
-
-  // 2. Market Supervisor Review & Endorsement
-  const hasSupervisorEndorsed = Boolean(
-    data.marketSupervisorApproved ||
-    data.market_supervisor_approved ||
-    data.marketApprovalStatus === 'APPROVED' ||
-    data.supervisorEndorsedAt ||
-    data.supervisor_endorsed_at ||
-    data.mayorApproved ||
-    data.advancePaymentPaid ||
-    data.contractId ||
-    data.verifiedTenant ||
-    [
-      'PENDING_MAYOR_APPROVAL',
-      'PENDING_TREASURER_PAYMENT',
-      'PAID_READY_FOR_CONTRACT',
-      'PENDING_INSPECTION',
-      'INSPECTION_PASSED',
-      'BUSINESS_PERMIT_ELIGIBLE',
-      'COMPLETED'
-    ].includes(data.applicationStatus || data.application_status)
-  )
-
-  if (hasSupervisorEndorsed) {
-    steps.value[1].status = 'approved'
-    steps.value[1].description = 'Market Supervisor has reviewed documents and officially endorsed application to the Municipal Mayor.'
+    steps.value[0].description = `Registered account with personal/business details and selected preferred Stall #${stallName} on market map.`
   } else {
-    steps.value[1].status = 'pending'
-    steps.value[1].description = 'Application documents and stall availability undergoing Market Supervisor review.'
+    steps.value[0].status = 'needs-action'
+    steps.value[0].description = 'Account registered. Please select your preferred vacant stall on the market map.'
   }
 
-  // 3. Municipal Mayor LOI Approval
-  const hasMayorApproved = Boolean(
+  // STEP 2 — Submit rental application (Stakeholder)
+  // Submits the Letter of Intent (LOI), valid ID, and application documents for Mayor review
+  const hasSubmittedApp = Boolean(
+    data.loiUrl ||
+    data.letterDocumentUrl ||
+    data.validIdUrl ||
+    data.idDocumentUrl ||
+    data.documentsSubmitted ||
+    currentStatus !== 'REGISTERED'
+  )
+  if (hasSubmittedApp) {
+    steps.value[1].status = 'approved'
+    steps.value[1].description = 'Unified Application Form, signed Letter of Intent (LOI) to Mayor Stephen S. Tan, and Valid Government ID submitted.'
+  } else {
+    steps.value[1].status = 'needs-action'
+    steps.value[1].description = 'Please submit your Letter of Intent (LOI), Valid ID, and rental application documents.'
+  }
+
+  // STEP 3 — Record Mayor's LOI decision (MAYOR_OFFICE)
+  // MAYOR_OFFICE records the Mayor's approval/rejection based on the signed physical LOI
+  const isMayorApproved = Boolean(
+    data.loiApprovalStatus === 'APPROVED' ||
+    data.loi_approval_status === 'APPROVED' ||
+    data.loiStatus === 'APPROVED' ||
+    data.loi_status === 'APPROVED' ||
     data.mayorApproved ||
     data.mayor_approved ||
     data.mayorDecision === 'APPROVED' ||
     data.mayor_decision === 'APPROVED' ||
-    data.treasurerApproved ||
-    data.advancePaymentPaid ||
-    data.contractId ||
-    data.verifiedTenant ||
     [
-      'PENDING_TREASURER_PAYMENT',
-      'PAID_READY_FOR_CONTRACT',
-      'PENDING_INSPECTION',
-      'INSPECTION_PASSED',
-      'BUSINESS_PERMIT_ELIGIBLE',
-      'COMPLETED'
-    ].includes(data.applicationStatus || data.application_status)
+      'APPROVED_PENDING_ADVANCE_PAYMENT',
+      'ADVANCE_PAID',
+      'CONTRACT_PREPARED',
+      'FEES_CLEARED',
+      'ACTIVE_OCCUPANT',
+      'LOI_APPROVED',
+      'AWAITING_INITIAL_PAYMENT',
+      'FOR_STALL_ASSIGNMENT',
+      'PENDING_CONTRACT_SIGNATURE',
+      'CONTRACT_ACTIVE',
+      'OCCUPANT_VERIFIED',
+      'BILLING_ACTIVE',
+      'COMPLETED',
+      'FULLY_APPROVED'
+    ].includes(currentStatus)
   )
 
-  if (hasMayorApproved) {
+  const isMayorRejected = (
+    data.loiApprovalStatus === 'REJECTED' ||
+    data.loi_approval_status === 'REJECTED' ||
+    data.loiStatus === 'REJECTED' ||
+    data.loi_status === 'REJECTED' ||
+    currentStatus === 'MAYOR_REJECTED' ||
+    currentStatus === 'REJECTED' ||
+    data.mayorDecision === 'REJECTED' ||
+    data.mayor_decision === 'REJECTED'
+  )
+
+  const isMayorReturned = (
+    currentStatus === 'RETURNED_FOR_CORRECTION' ||
+    data.mayorDecision === 'RETURNED_FOR_CORRECTION' ||
+    data.mayor_decision === 'RETURNED_FOR_CORRECTION'
+  )
+
+  if (isMayorRejected) {
+    steps.value[2].status = 'rejected'
+    const mayorName = data.incumbentMunicipalMayor || data.incumbent_municipal_mayor || 'Municipal Mayor'
+    steps.value[2].description = `Letter of Intent rejected by ${mayorName}.${data.loiRemarks || data.loi_remarks || data.mayorRemarks ? ' Remarks: ' + (data.loiRemarks || data.loi_remarks || data.mayorRemarks) : ''}`
+  } else if (isMayorReturned) {
+    steps.value[2].status = 'needs-action'
+    steps.value[2].description = `Returned for correction by Municipal Mayor: ${data.loiRemarks || data.loi_remarks || data.mayorRemarks || 'Please update your submitted documents.'}`
+  } else if (isMayorApproved) {
     steps.value[2].status = 'approved'
-    steps.value[2].description = 'Letter of Intent (LOI) officially approved by the Municipal Mayor. Initial fee instructions generated.'
-  } else if (hasSupervisorEndorsed) {
+    steps.value[2].description = `Office of the Municipal Mayor recorded official APPROVAL on the Letter of Intent (Ref: ${data.loiApprovalReference || data.loi_approval_reference || data.loiReferenceNo || 'Approved'}).`
+  } else if (data.loiStatus === 'RECEIVED' || data.loi_status === 'RECEIVED') {
     steps.value[2].status = 'pending'
-    steps.value[2].description = 'Endorsed application routed to Municipal Mayor for executive decision.'
+    steps.value[2].description = "Physical signed Letter of Intent has been RECEIVED by the Office of the Mayor. Mayoral review and decision recording in progress."
+  } else if (hasSubmittedApp) {
+    steps.value[2].status = 'pending'
+    steps.value[2].description = "Letter of Intent generated and awaiting physical submission / review by the Office of the Municipal Mayor."
   }
 
-  // 4. Initial Fees Payment (Stall Rights + 2 Months Advance Rent)
+  // STEP 4 — Pay initial rental fees (Treasurer)
+  // After LOI approval, Treasurer assesses and records required stall rights fee and two-month advance rent payment
   const monthlyRent = Number(data.stall?.monthlyRent || data.stall?.monthly_rent || 1500)
   const reqAdvance = Number(data.totalAdvanceAmount || data.total_advance_amount || (monthlyRent * 2))
   const stallRights = Number(data.calculatedStallRightsFee || data.calculated_stall_rights_fee || 5000)
   const totalInitial = stallRights + reqAdvance
-  const paidAdvance = Number(data.advanceBalance || data.advance_balance || data.advancePaymentAmount || data.advance_payment_amount || 0)
 
   const hasInitialPaid = Boolean(
     data.advancePaymentPaid ||
     data.advance_payment_paid ||
+    data.initialFeesPaid ||
+    data.initial_fees_paid ||
     data.treasurerPaid ||
     data.treasurer_paid ||
-    data.contractId ||
-    data.verifiedTenant ||
+    data.applicantFeePaid ||
+    data.applicant_fee_paid ||
     [
-      'PAID_READY_FOR_CONTRACT',
-      'PENDING_INSPECTION',
-      'INSPECTION_PASSED',
-      'BUSINESS_PERMIT_ELIGIBLE',
-      'COMPLETED'
-    ].includes(data.applicationStatus || data.application_status)
+      'FOR_STALL_ASSIGNMENT',
+      'ADVANCE_PAID',
+      'CONTRACT_PREPARED',
+      'FEES_CLEARED',
+      'ACTIVE_OCCUPANT',
+      'PENDING_CONTRACT_SIGNATURE',
+      'CONTRACT_PREPARED',
+      'FEES_CLEARED',
+      'ACTIVE_OCCUPANT',
+      'CONTRACT_ACTIVE',
+      'ACTIVE_OCCUPANT',
+      'OCCUPANT_VERIFIED',
+      'ACTIVE_OCCUPANT',
+      'BILLING_ACTIVE',
+      'ACTIVE_OCCUPANT',
+      'COMPLETED',
+      'FULLY_APPROVED'
+    ].includes(currentStatus)
   )
 
   if (hasInitialPaid) {
     steps.value[3].status = 'approved'
-    const dt = data.advancePaymentDate || data.advance_payment_date
-    steps.value[3].description = `Initial fees (₱${stallRights.toLocaleString()} rights + ₱${reqAdvance.toLocaleString()} advance) confirmed and receipted by Treasurer.${dt ? ' Receipted on ' + new Date(dt).toLocaleDateString() + '.' : ''}`
-  } else if (hasMayorApproved) {
+    const orNum = data.advancePaymentOr || data.official_receipt_no || data.advanceReceiptNo || ''
+    steps.value[3].description = `Treasurer assessed and recorded Stall Rights Fee (₱${stallRights.toLocaleString()}) and 2-Month Advance Rent (₱${reqAdvance.toLocaleString()}) under O.R. ${orNum || 'Recorded'}. Advance rent is held as credit.`
+  } else if (isMayorApproved) {
     steps.value[3].status = 'needs-action'
-    steps.value[3].description = `Please settle total initial fee of ₱${totalInitial.toLocaleString()} with the Municipal Treasurer to proceed with contract drafting.`
+    steps.value[3].description = `LOI approved. Please pay assessed Stall Rights Fee (₱${stallRights.toLocaleString()}) and 2-Month Advance Rent (₱${reqAdvance.toLocaleString()}) to the Municipal Treasurer. Advance rent is held as credit.`
   }
 
-  // 5. 3-Year Contract of Lease Execution
-  const hasContractExecuted = Boolean(
-    data.contractId ||
-    data.contract_id ||
-    data.contractExecutedAt ||
-    data.contract_executed_at ||
-    data.verifiedTenant ||
+  // STEP 5 — Review and assign stall (Market Supervisor)
+  // Market Supervisor checks eligibility, verifies stall is available, and confirms assignment
+  const isStallAssigned = Boolean(
+    data.stallAssigned ||
+    data.stall_assigned ||
+    data.marketSupervisorAssigned ||
+    data.market_supervisor_assigned ||
+    data.marketSupervisorApproved ||
+    data.market_supervisor_approved ||
     [
-      'PENDING_INSPECTION',
-      'INSPECTION_PASSED',
-      'BUSINESS_PERMIT_ELIGIBLE',
-      'COMPLETED'
-    ].includes(data.applicationStatus || data.application_status)
+      'PENDING_CONTRACT_SIGNATURE',
+      'CONTRACT_ACTIVE',
+      'OCCUPANT_VERIFIED',
+      'BILLING_ACTIVE',
+      'COMPLETED',
+      'FULLY_APPROVED'
+    ].includes(currentStatus)
   )
 
-  if (hasContractExecuted) {
+  if (isStallAssigned) {
     steps.value[4].status = 'approved'
-    steps.value[4].description = 'Authoritative 3-Year Contract of Lease executed by Market Supervisor. Occupancy Permit generated.'
+    steps.value[4].description = `Market Supervisor verified applicant eligibility, confirmed stall vacancy, and officially assigned Stall #${stallName || 'Assigned'}.`
   } else if (hasInitialPaid) {
     steps.value[4].status = 'pending'
-    steps.value[4].description = 'Payment confirmed. Market Supervisor preparing 3-Year Contract of Lease for execution.'
+    steps.value[4].description = 'Initial fees recorded. Market Supervisor is checking eligibility, verifying stall vacancy, and confirming stall assignment.'
   }
 
-  // 6. Physical Stall Setup Inspection
-  const hasInspectionPassed = Boolean(
-    data.hazardFreeConfirmed ||
-    data.hazard_free_confirmed ||
-    data.inspectionPassed ||
-    data.inspection_passed ||
-    data.verifiedTenant ||
+  // STEP 6 — Prepare and sign contract (Market Supervisor + Stakeholder)
+  // Market Supervisor prepares lease contract. Required parties sign it.
+  const isContractSigned = Boolean(
+    data.contractSigned ||
+    data.contract_signed ||
+    data.contractSignedAt ||
+    data.contract_signed_at ||
     [
-      'INSPECTION_PASSED',
-      'BUSINESS_PERMIT_ELIGIBLE',
-      'COMPLETED'
-    ].includes(data.applicationStatus || data.application_status)
+      'CONTRACT_ACTIVE',
+      'OCCUPANT_VERIFIED',
+      'BILLING_ACTIVE',
+      'COMPLETED',
+      'FULLY_APPROVED'
+    ].includes(currentStatus)
   )
 
-  if (hasInspectionPassed) {
+  if (isContractSigned) {
     steps.value[5].status = 'approved'
-    steps.value[5].description = 'Field Market Inspector verified physical stall setup: electrical, structural, fire safety, and sanitation cleared.'
-  } else if (hasContractExecuted) {
+    steps.value[5].description = 'Lease contract prepared by Market Supervisor and signed by both Market Supervisor and Stakeholder.'
+  } else if (isStallAssigned) {
     steps.value[5].status = 'needs-action'
-    steps.value[5].description = 'Stall allocated. Field Market Inspector physical setup verification pending.'
+    steps.value[5].description = 'Stall assigned. Market Supervisor preparing lease contract for bilateral signature.'
   }
 
-  // 7. Business Permit Step Eligibility
-  const isBusinessPermitEligible = Boolean(
-    hasInspectionPassed ||
-    data.verifiedTenant ||
+  // STEP 7 — Activate lease (System validation)
+  // System checks LOI approval, verified initial payments, stall assignment, signed contract, and effective date before activating lease
+  const isLeaseActivated = Boolean(
+    data.contractActive ||
+    data.contract_active ||
+    data.leaseActivated ||
+    data.lease_activated ||
     [
-      'BUSINESS_PERMIT_ELIGIBLE',
-      'COMPLETED'
-    ].includes(data.applicationStatus || data.application_status)
+      'CONTRACT_ACTIVE',
+      'OCCUPANT_VERIFIED',
+      'BILLING_ACTIVE',
+      'COMPLETED',
+      'FULLY_APPROVED'
+    ].includes(currentStatus)
   )
 
-  if (isBusinessPermitEligible) {
+  if (isLeaseActivated) {
     steps.value[6].status = 'approved'
-    steps.value[6].description = 'Prerequisites completed. Commercial business permit step enabled for processing.'
-  } else if (hasContractExecuted) {
+    steps.value[6].description = 'System validation passed: Verified LOI approval, initial payments, stall assignment, signed contract, and effective date. Lease is ACTIVE.'
+  } else if (isContractSigned) {
     steps.value[6].status = 'pending'
-    steps.value[6].description = 'Awaiting stall physical verification before enabling business permit processing.'
+    steps.value[6].description = 'System validating 5 mandatory conditions (LOI approval, initial payments, stall assignment, signed contract, effective date) for lease activation.'
   }
 
-  // 8. Active Vendor Activation & Municipal Occupancy Permit
-  const isFullyActivated = Boolean(
+  // STEP 8 — Create or verify occupant record (System)
+  // System links verified stakeholder to assigned stall and active contract without creating duplicates
+  const isOccupantVerified = Boolean(
+    data.occupantVerified ||
+    data.occupant_verified ||
     data.verifiedTenant ||
     data.verified_tenant ||
     data.verifiedStakeholder ||
-    data.onboardingStatus === 'ACTIVE_VENDOR' ||
-    data.onboarding_status === 'ACTIVE_VENDOR' ||
-    data.applicationStatus === 'COMPLETED' ||
-    data.application_status === 'COMPLETED'
+    data.verified_stakeholder ||
+    [
+      'OCCUPANT_VERIFIED',
+      'BILLING_ACTIVE',
+      'COMPLETED',
+      'FULLY_APPROVED'
+    ].includes(currentStatus)
   )
 
-  if (isFullyActivated) {
+  if (isOccupantVerified) {
     steps.value[7].status = 'approved'
-    steps.value[7].description = 'Active Vendor tenancy active! Municipal Occupancy Permit issued with QR code & SHA-256 integrity verification.'
-  } else if (isBusinessPermitEligible) {
+    steps.value[7].description = `System verified and linked stakeholder to Stall #${stallName || 'Assigned'} and active lease contract as official occupant without duplicates.`
+  } else if (isLeaseActivated) {
     steps.value[7].status = 'pending'
-    steps.value[7].description = 'Market Administration final review & activation queued.'
+    steps.value[7].description = 'Awaiting system to verify and link occupant record to assigned stall.'
   }
 
-  // Rejection check
-  const isRejected = (
-    data.applicationStatus === 'REJECTED' ||
-    data.application_status === 'REJECTED' ||
-    data.applicationStatus === 'SUPERVISOR_REJECTED' ||
-    data.applicationStatus === 'MAYOR_REJECTED' ||
-    data.marketApprovalStatus === 'REJECTED'
+  // STEP 9 — Start rental billing (System + Treasurer)
+  // System generates bills according to contract's billing schedule. Advance rent remains separate credit until authorized allocation
+  const isBillingActive = Boolean(
+    data.billingActive ||
+    data.billing_active ||
+    [
+      'BILLING_ACTIVE',
+      'COMPLETED',
+      'FULLY_APPROVED'
+    ].includes(currentStatus)
   )
 
-  if (isRejected) {
-    if (data.applicationStatus === 'MAYOR_REJECTED') {
-      steps.value[2].status = 'rejected'
-      steps.value[2].description = 'Letter of Intent rejected by the Municipal Mayor. Stall reservation released.'
-    } else {
-      steps.value[1].status = 'rejected'
-      steps.value[1].description = 'Application rejected by Market Supervisor during document review.'
-    }
-  } else if (
-    data.applicationStatus === 'RETURNED_FOR_CORRECTION' ||
-    data.application_status === 'RETURNED_FOR_CORRECTION' ||
-    data.mayorDecision === 'RETURNED_FOR_CORRECTION'
-  ) {
-    steps.value[2].status = 'needs-action'
-    steps.value[2].description = `Returned for correction by Municipal Mayor: ${data.mayorRemarks || data.mayor_remarks || 'Please update your submitted documents.'}`
+  if (isBillingActive) {
+    steps.value[8].status = 'approved'
+    steps.value[8].description = 'Periodic rental billing generated according to contract schedule. 2-month advance rent remains held as segregated credit.'
+  } else if (isOccupantVerified) {
+    steps.value[8].status = 'pending'
+    steps.value[8].description = 'Occupant verified. Ready for periodic rental billing generation and advance credit management.'
   }
 
-  // Auto-pop Hazard-Free Confirmation modal if steps 1-5 are green and not yet uploaded
-  if (isSteps1To5Green.value && !hasHazardFreeDoc.value && !hasDismissedAutoPop.value) {
-    showHazardModal.value = true
+  // STEP 10 — Business permit process (Stakeholder + External BPLO + Treasurer)
+  // Post-occupancy: stall set up & operational, download permit form, apply through external BPLO, pay assessed fee to Treasurer
+  const isPermitComplete = Boolean(
+    data.businessPermitCompleted ||
+    data.business_permit_completed ||
+    data.businessPermitReleased ||
+    data.business_permit_released ||
+    currentStatus === 'COMPLETED' || currentStatus === 'ACTIVE_OCCUPANT'
+  )
+  const isPermitFeePaid = Boolean(
+    data.businessPermitFeePaid ||
+    data.business_permit_fee_paid ||
+    data.bploPaid
+  )
+
+  if (isPermitComplete) {
+    steps.value[9].status = 'approved'
+    steps.value[9].description = 'Business permit process completed with external BPLO and permit fee payment recorded by Treasurer.'
+  } else if (isPermitFeePaid) {
+    steps.value[9].status = 'approved'
+    steps.value[9].description = 'Business permit fee paid to Treasurer. External BPLO clearance and permit documentation on file.'
+  } else if (isBillingActive || isOccupantVerified) {
+    steps.value[9].status = 'needs-action'
+    steps.value[9].description = 'Post-occupancy requirement: Download business permit form from your dashboard, apply at external BPLO, and settle assessed permit fee with the Municipal Treasurer.'
+  } else {
+    steps.value[9].status = 'pending'
+    steps.value[9].description = 'Post-occupancy step: Applies once the stall is set up and operational under an active lease contract.'
   }
 }
 
@@ -1280,10 +1671,12 @@ function statusSeverity(status) {
 }
 
 onMounted(() => {
-  loadProgress(false)
+  loadProgress(false, true)
   pollTimer = setInterval(() => {
-    loadProgress(true)
-  }, 8000)
+    if (!document.hidden) {
+      loadProgress(true, false)
+    }
+  }, 20000)
 })
 
 onUnmounted(() => {

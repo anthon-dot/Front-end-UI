@@ -656,7 +656,27 @@
 							@click="printContract"
 						>
 							<i class="pi pi-print"></i>
-							Print Official Agreement
+							Print Agreement
+						</button>
+
+						<button
+							v-if="selectedContract"
+							class="btn-small"
+							style="background: #2563eb; color: #ffffff; border: none; padding: 0.65rem 1.1rem; border-radius: 8px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem;"
+							@click="exportContractWord(selectedContract)"
+						>
+							<i class="pi pi-file-word"></i>
+							Export Word (.doc)
+						</button>
+
+						<button
+							v-if="selectedContract"
+							class="btn-small"
+							style="background: #dc2626; color: #ffffff; border: none; padding: 0.65rem 1.1rem; border-radius: 8px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem;"
+							@click="exportContractPdf(selectedContract)"
+						>
+							<i class="pi pi-file-pdf"></i>
+							Export PDF
 						</button>
 
 						<button
@@ -918,6 +938,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '../services/api'
 import sampleContracts from '../data/contracts.js'
+import { exportToWord, exportToPdf, printElement } from '../utils/exportUtils'
 import MarketSupervisorMenu from '../components/MarketSupervisorMenu.vue'
 import SearchField from '../components/SearchField.vue'
 import { systemMessage } from '../utils/systemMessage'
@@ -980,7 +1001,7 @@ function openCreateContractModal() {
 	const now = new Date()
 	const startStr = now.toISOString().split('T')[0]
 	const end = new Date(now)
-	end.setFullYear(end.getFullYear() + 3)
+	end.setFullYear(end.getFullYear() + 5)
 	const endStr = end.toISOString().split('T')[0]
 
 	createForm.value = {
@@ -1026,6 +1047,19 @@ async function submitCreateContract() {
 		const stallNum = st ? (st.stallNo || st.stall_no || st.number) : 'TBD'
 		const contractRef = `CON-${Date.now().toString().slice(-6)}`
 
+		const snapshot = {
+			contract_no: contractRef,
+			stakeholder_name: s ? getStakeholderFullName(s) : 'Lessee',
+			business_name: s?.businessName || '',
+			stall_no: stallNum,
+			monthly_rent: Number(createForm.value.monthlyRent),
+			billing_frequency: createForm.value.billingFrequency,
+			start_date: createForm.value.startDate,
+			end_date: createForm.value.endDate,
+			template_version: 'v1.0',
+			generated_at: new Date().toISOString()
+		}
+
 		const payload = {
 			contractNo: contractRef,
 			ref: contractRef,
@@ -1038,9 +1072,11 @@ async function submitCreateContract() {
 			endDate: createForm.value.endDate,
 			monthlyRent: Number(createForm.value.monthlyRent),
 			billingFrequency: createForm.value.billingFrequency,
-			status: 'DRAFT',
+			status: 'PENDING_EXECUTION',
 			terms: createForm.value.terms,
-			initial_payments_verified: true
+			initial_payments_verified: false,
+			contract_snapshot_json: snapshot,
+			document_template_version: 'v1.0'
 		}
 
 		try {
@@ -1052,7 +1088,7 @@ async function submitCreateContract() {
 		contracts.value.unshift({ ...payload, id: Date.now() })
 		saveContractsToStorage()
 		createContractModal.value = false
-		systemMessage.success(`Contract draft ${contractRef} prepared successfully for ${payload.stakeholderName}!`, 'Draft Prepared')
+		systemMessage.success(`Contract ${contractRef} generated with status PENDING_EXECUTION for ${payload.stakeholderName}! Ready for physical signing.`, 'Contract Generated')
 	} catch (err) {
 		console.error(err)
 		systemMessage.error(`Failed to create contract: ${err.message || err}`, 'Creation Failed')
@@ -1622,24 +1658,30 @@ function isContractInitialPaymentsVerified(c) {
 async function signContractAction(c) {
 	const refName = c.contractNo || c.ref || 'this contract'
 	const confirmed = await systemMessage.confirm(
-		`Record authorized signatures for ${refName}? This confirms both the Lessee and the Market Supervisor have executed the lease agreement.`,
+		`Record physical handwritten signing for ${refName}? This confirms both the Lessee and the Market Supervisor have physically signed the printed lease agreement.`,
 		{
-			title: 'Sign Lease Contract',
-			acceptLabel: 'Confirm Signatures',
+			title: 'Record Contract Signing',
+			acceptLabel: 'Confirm Physical Signing',
 			rejectLabel: 'Cancel'
 		}
 	)
 	if (!confirmed) return
 
 	try {
+		const today = new Date().toISOString().split('T')[0]
 		if (c.id) {
-			await api.post(`/contracts/${c.id}/sign`, { signedByStakeholder: true, signedByLgu: true })
+			await api.post(`/contracts/${c.id}/record-signing`, {
+				signedDate: today,
+				remarks: 'Physical lease contract signed by hand by both parties.'
+			})
 		}
 		c.signed_by_stakeholder = true
 		c.signed_by_lgu = true
+		c.signed_date = today
 		c.signed_at = new Date().toISOString()
+		c.status = 'PENDING_EXECUTION'
 		saveContractsToStorage()
-		systemMessage.success(`Signatures for ${refName} recorded successfully!`, 'Contract Signed')
+		systemMessage.success(`Physical signing for ${refName} recorded successfully! Ready for Treasurer initial payments verification & activation.`, 'Signing Recorded')
 	} catch (err) {
 		console.error('Sign error:', err)
 		systemMessage.error(err.message || 'Failed to record signatures.', 'Sign Failed')
@@ -1731,7 +1773,25 @@ async function revokeContractAction(c) {
 }
 
 function printContract() {
-	window.print()
+	printElement('printable-contract')
+}
+
+function exportContractWord(c) {
+	const contract = c || selectedContract.value
+	const targetId = 'printable-contract'
+	const filename = `Contract_Lease_${contract?.contractNo || contract?.ref || 'Official'}`
+	exportToWord(targetId, filename, {
+		title: `CONTRACT OF LEASE - ${contract?.contractNo || 'OFFICIAL'}`
+	})
+}
+
+function exportContractPdf(c) {
+	const contract = c || selectedContract.value
+	const targetId = 'printable-contract'
+	const filename = `Contract_Lease_${contract?.contractNo || contract?.ref || 'Official'}.pdf`
+	exportToPdf(targetId, filename, {
+		title: `CONTRACT OF LEASE - ${contract?.contractNo || 'OFFICIAL'}`
+	})
 }
 
 // =============================

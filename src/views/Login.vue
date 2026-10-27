@@ -94,23 +94,20 @@
           Quick Role Access (Dev / Demo)
         </p>
         <div class="quick-role-buttons flex flex-wrap gap-2 justify-center" style="display: flex; flex-wrap: wrap; gap: 0.35rem; justify-content: center;">
-          <button type="button" @click="quickLogin('ADMIN')" class="p-button p-button-sm p-button-outlined" style="font-size: 0.75rem; padding: 0.3rem 0.6rem; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; color: #334155; cursor: pointer;">
-            <i class="pi pi-cog" style="margin-right: 4px; font-size: 0.75rem;"></i>Admin
+          <button type="button" @click="quickLogin('SYSTEM_ADMIN')" class="p-button p-button-sm p-button-outlined" style="font-size: 0.75rem; padding: 0.3rem 0.6rem; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; color: #334155; cursor: pointer;">
+            <i class="pi pi-cog" style="margin-right: 4px; font-size: 0.75rem;"></i>System Admin
           </button>
-          <button type="button" @click="quickLogin('MAYOR')" class="p-button p-button-sm p-button-outlined" style="font-size: 0.75rem; padding: 0.3rem 0.6rem; border-radius: 6px; border: 1px solid #fde68a; background: #fffbeb; color: #b45309; cursor: pointer;">
-            <i class="pi pi-crown" style="margin-right: 4px; font-size: 0.75rem;"></i>Mayor
+          <button type="button" @click="quickLogin('MAYOR_OFFICE')" class="p-button p-button-sm p-button-outlined" style="font-size: 0.75rem; padding: 0.3rem 0.6rem; border-radius: 6px; border: 1px solid #fde68a; background: #fffbeb; color: #b45309; cursor: pointer;">
+            <i class="pi pi-crown" style="margin-right: 4px; font-size: 0.75rem;"></i>Mayor's Office
           </button>
           <button type="button" @click="quickLogin('MARKET_SUPERVISOR')" class="p-button p-button-sm p-button-outlined" style="font-size: 0.75rem; padding: 0.3rem 0.6rem; border-radius: 6px; border: 1px solid #bfdbfe; background: #eff6ff; color: #1d4ed8; cursor: pointer;">
-            <i class="pi pi-building" style="margin-right: 4px; font-size: 0.75rem;"></i>Supervisor
+            <i class="pi pi-building" style="margin-right: 4px; font-size: 0.75rem;"></i>Market Supervisor
           </button>
           <button type="button" @click="quickLogin('TREASURER')" class="p-button p-button-sm p-button-outlined" style="font-size: 0.75rem; padding: 0.3rem 0.6rem; border-radius: 6px; border: 1px solid #a7f3d0; background: #ecfdf5; color: #047857; cursor: pointer;">
             <i class="pi pi-wallet" style="margin-right: 4px; font-size: 0.75rem;"></i>Treasurer
           </button>
-          <button type="button" @click="quickLogin('COLLECTOR_INSPECTOR')" class="p-button p-button-sm p-button-outlined" style="font-size: 0.75rem; padding: 0.3rem 0.6rem; border-radius: 6px; border: 1px solid #99f6e4; background: #f0fdfa; color: #0f766e; cursor: pointer;">
-            <i class="pi pi-qrcode" style="margin-right: 4px; font-size: 0.75rem;"></i>Collector
-          </button>
-          <button type="button" @click="quickLogin('APPLICANT')" class="p-button p-button-sm p-button-outlined" style="font-size: 0.75rem; padding: 0.3rem 0.6rem; border-radius: 6px; border: 1px solid #e9d5ff; background: #faf5ff; color: #7e22ce; cursor: pointer;">
-            <i class="pi pi-user" style="margin-right: 4px; font-size: 0.75rem;"></i>Applicant
+          <button type="button" @click="quickLogin('STAKEHOLDER')" class="p-button p-button-sm p-button-outlined" style="font-size: 0.75rem; padding: 0.3rem 0.6rem; border-radius: 6px; border: 1px solid #fed7aa; background: #fff7ed; color: #c2410c; cursor: pointer;">
+            <i class="pi pi-id-card" style="margin-right: 4px; font-size: 0.75rem;"></i>Stakeholder
           </button>
         </div>
       </div>
@@ -154,8 +151,9 @@ function toggleShow() {
 }
 
 function quickLogin(targetRole) {
+  const demoUuid = '00000000-0000-0000-0000-000000000001'
   const token = 'eyJhbGciOiJIUzI1NiJ9.' + btoa(JSON.stringify({
-    sub: 'demo-user-1',
+    sub: demoUuid,
     role: targetRole,
     exp: Math.floor(Date.now() / 1000) + 86400 * 7
   })) + '.sig'
@@ -163,33 +161,32 @@ function quickLogin(targetRole) {
   authStore.setSession({
     token,
     role: targetRole,
-    userId: 'demo-user-1',
-    user: { name: 'Demo ' + targetRole, email: targetRole.toLowerCase() + '@manticao.gov.ph' }
+    userId: demoUuid,
+    user: { id: demoUuid, name: 'Demo ' + targetRole, email: targetRole.toLowerCase() + '@manticao.gov.ph' }
   })
 
-  if (targetRole === 'ADMIN') router.push('/admin/dashboard')
+  if (targetRole === 'SYSTEM_ADMIN' || targetRole === 'ADMIN') router.push('/admin/dashboard')
   else if (targetRole === 'MARKET_SUPERVISOR') router.push('/supervisor')
-  else if (targetRole === 'MAYOR') router.push('/mayor')
+  else if (targetRole === 'MAYOR_OFFICE' || targetRole === 'MAYOR') router.push('/mayor')
   else if (targetRole === 'TREASURER') router.push('/treasurer')
-  else if (targetRole === 'COLLECTOR_INSPECTOR') router.push('/collector')
-  else router.push('/application-progress')
+  else router.push('/stakeholder')
 }
 
 // =====================
 // LOGIN
 // =====================
 const MUNICIPAL_STAFF_MAP = {
-  admin: 'admin@manticao.market',
-  market_supervisor: 'supervisor@manticao.gov.ph',
+  admin: 'admin@manticao.gov.ph',
+  system_admin: 'admin@manticao.gov.ph',
   supervisor: 'supervisor@manticao.gov.ph',
+  market_supervisor: 'supervisor@manticao.gov.ph',
   mayor: 'mayor@manticao.gov.ph',
+  mayor_office: 'mayor@manticao.gov.ph',
   municipal_mayor: 'mayor@manticao.gov.ph',
   treasurer: 'treasurer@manticao.gov.ph',
-  collector: 'collector@manticao.gov.ph',
-  inspector: 'collector@manticao.gov.ph',
-  collector_inspector: 'collector@manticao.gov.ph',
-  applicant: 'applicant@manticao.market',
-  vendor: 'vendor@manticao.market'
+  stakeholder: 'stakeholder@manticao.gov.ph',
+  applicant: 'stakeholder@manticao.gov.ph',
+  vendor: 'stakeholder@manticao.gov.ph'
 }
 
 async function onSubmit() {
@@ -200,6 +197,46 @@ async function onSubmit() {
     const inputIdentifier = username.value.trim()
     const rawPassword = password.value
     const lowerId = inputIdentifier.toLowerCase()
+
+    // 0. Check registered temporary applicant accounts first
+    try {
+      const rawTemp = localStorage.getItem('manticao_temp_accounts') || '{}'
+      const tempAccounts = JSON.parse(rawTemp)
+      const match = tempAccounts[lowerId]
+      if (match) {
+        if (match.password !== rawPassword) {
+          throw new Error('Invalid username or password. Please verify your credentials and try again.')
+        }
+
+        const fakeToken = 'eyJhbGciOiJIUzI1NiJ9.' + btoa(JSON.stringify({
+          sub: match.id,
+          username: match.username,
+          role: match.role || 'APPLICANT',
+          exp: Math.floor(Date.now() / 1000) + 86400 * 14
+        })) + '.sig'
+
+        authStore.setSession({
+          token: fakeToken,
+          role: match.role || 'APPLICANT',
+          userId: match.id,
+          user: {
+            id: match.id,
+            name: match.username,
+            username: match.username,
+            email: match.email,
+            role: match.role || 'APPLICANT'
+          }
+        })
+
+        if (match.stallId) localStorage.setItem('preferred_stall_id', String(match.stallId))
+        if (match.stallNo) localStorage.setItem('preferred_stall_no', String(match.stallNo))
+
+        router.push('/business-application')
+        return
+      }
+    } catch (tempErr) {
+      if (tempErr.message?.includes('Invalid')) throw tempErr
+    }
 
     let emailToAuth = inputIdentifier
     if (!inputIdentifier.includes('@')) {
@@ -268,7 +305,38 @@ async function onSubmit() {
     }
 
     if (authResult.error) {
-      // If municipal account was not yet created in Supabase Auth due to email rate limits, authenticate directly
+      // 1. Check temporary accounts registry for registered applicant accounts
+      try {
+        const rawTemp = localStorage.getItem('manticao_temp_accounts') || '{}'
+        const tempAccounts = JSON.parse(rawTemp)
+        const match = tempAccounts[lowerId]
+        if (match && match.password === rawPassword) {
+          const fakeToken = 'eyJhbGciOiJIUzI1NiJ9.' + btoa(JSON.stringify({
+            sub: match.id,
+            username: match.username,
+            role: match.role || 'APPLICANT',
+            exp: Math.floor(Date.now() / 1000) + 86400 * 14
+          })) + '.sig'
+
+          authStore.setSession({
+            token: fakeToken,
+            role: match.role || 'APPLICANT',
+            userId: match.id,
+            user: {
+              id: match.id,
+              name: match.username,
+              username: match.username,
+              email: match.email,
+              role: match.role || 'APPLICANT'
+            }
+          })
+
+          router.push('/business-application')
+          return
+        }
+      } catch (_) {}
+
+      // 2. If municipal account was not yet created in Supabase Auth due to email rate limits, authenticate directly
       if (MUNICIPAL_STAFF_MAP[lowerId]) {
         const staffRole = lowerId === 'admin'
           ? 'ADMIN'
@@ -321,48 +389,39 @@ async function onSubmit() {
       tokenPresent:     Boolean(authStore.token)
     })
 
-    // ─── 5. ROLE-BASED ROUTING ────────────────────────────────────────────────
+    // ─── 5. ROLE-BASED ROUTING (5 CANONICAL ROLES) ───────────────────────────
 
-    // ADMIN
-    if (role === 'ADMIN') {
-      console.log('[AUTH] ✅ ADMIN — navigating to /admin/dashboard')
+    // 1. SYSTEM ADMINISTRATOR
+    if (role === 'SYSTEM_ADMIN' || role === 'ADMIN') {
+      console.log('[AUTH] ✅ SYSTEM_ADMIN — navigating to /admin/dashboard')
       router.push('/admin/dashboard')
       return
     }
 
-    // MARKET SUPERVISOR
-    if (role === 'MARKET_SUPERVISOR') {
+    // 2. MARKET SUPERVISOR
+    if (role === 'MARKET_SUPERVISOR' || role === 'SUPERVISOR') {
       console.log('[AUTH] ✅ MARKET_SUPERVISOR — navigating to /supervisor')
       router.push('/supervisor')
       return
     }
 
-    // MUNICIPAL MAYOR
-    if (role === 'MAYOR') {
-      console.log('[AUTH] ✅ MAYOR — navigating to /mayor')
+    // 3. MAYOR'S OFFICE
+    if (role === 'MAYOR_OFFICE' || role === 'MAYOR') {
+      console.log('[AUTH] ✅ MAYOR_OFFICE — navigating to /mayor')
       router.push('/mayor')
       return
     }
 
-    // TREASURER
+    // 4. MUNICIPAL TREASURER
     if (role === 'TREASURER') {
       console.log('[AUTH] ✅ TREASURER — navigating to /treasurer')
       router.push('/treasurer')
       return
     }
 
-    // COLLECTOR / INSPECTOR
-    if (role === 'COLLECTOR_INSPECTOR' || role === 'COLLECTOR') {
-      console.log('[AUTH] ✅ COLLECTOR_INSPECTOR — navigating to /collector')
-      router.push('/collector')
-      return
-    }
-
-
-
-    // STAKEHOLDER (APPLICANT / ACTIVE VENDOR)
+    // 5. STAKEHOLDER (APPLICANT / TENANT / VENDOR)
     if (role === 'STAKEHOLDER' || role === 'APPLICANT' || role === 'VENDOR') {
-      console.log('[AUTH] ✅ STAKEHOLDER — navigating to /application-progress (router guard handles redirect)')
+      console.log('[AUTH] ✅ STAKEHOLDER — navigating to /application-progress')
       router.push('/application-progress')
       return
     }

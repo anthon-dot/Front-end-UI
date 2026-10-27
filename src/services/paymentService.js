@@ -22,8 +22,8 @@ export async function createPayment(payload) {
   const billingId = payload.billingId || payload.billing?.id || null
 
   let canonicalType = payload.paymentType || 'RENT_PAYMENT'
-  if (['APPLICATION_FEE', 'BUSINESS_PERMIT_PAYMENT'].includes(canonicalType)) {
-    canonicalType = 'APPLICATION_FEE'
+  if (canonicalType === 'APPLICATION_FORM') {
+    canonicalType = 'OTHER_FEES'
   }
 
   // 1. Prioritize Spring Boot backend API to ensure authoritative transaction, activation, and billing generation
@@ -47,13 +47,34 @@ export async function createPayment(payload) {
   }
 
   // 2. Supabase fallback
+  let linkedApplication = null
+  if (stakeholderId) {
+    const { data: application, error: applicationError } = await supabase
+      .from('stakeholder_applications')
+      .select('id, status, amount_paid, stakeholder:stakeholders(first_name,last_name,full_name), stall:stalls(stall_no)')
+      .eq('stakeholder_id', Number(stakeholderId))
+      .order('id', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (applicationError) throw applicationError
+    linkedApplication = application
+  }
+  const isAdvancePayment = payload.paymentType === 'ADVANCE_PAYMENT' || payload.paymentType === 'ADVANCE_RENT'
+  const isFinalFee = canonicalType === 'APPLICATION_FEE' && linkedApplication?.status === 'CONTRACT_PREPARED'
+  if (isAdvancePayment && linkedApplication && linkedApplication.status !== 'APPROVED_PENDING_ADVANCE_PAYMENT') {
+    throw new Error('Mayor approval is required before the Treasurer can record the advance payment.')
+  }
+
   const { data, error } = await supabase
     .from('payments')
     .insert({
       stakeholder_id: stakeholderId,
+      application_id: linkedApplication?.id || payload.applicationId || null,
       billing_id: billingId,
       amount: payload.amount,
       payment_type: canonicalType,
+      payment_method: 'CASH',
+      payment_stage: isAdvancePayment ? 'ADVANCE' : (isFinalFee ? 'REGULATORY' : 'OTHER'),
       reference_no: payload.referenceNo || '',
       receipt_no: receiptNo,
       payment_date: payload.paymentDate || new Date().toISOString()
@@ -62,6 +83,25 @@ export async function createPayment(payload) {
     .single()
 
   if (error) throw error
+
+  if (linkedApplication && stakeholderId) {
+    const { data: { user } } = await supabase.auth.getUser()
+    const payerName = [linkedApplication.stakeholder?.first_name, linkedApplication.stakeholder?.last_name].filter(Boolean).join(' ') || linkedApplication.stakeholder?.full_name || ''
+    const stallNo = linkedApplication.stall?.stall_no || ''
+    if (!payerName || !stallNo) throw new Error('Applicant name and stall number are required to issue the official receipt.')
+    const receiptPayload = {
+      payment_id: data.id,
+      receipt_no: receiptNo,
+      official_receipt_number: receiptNo,
+      payer_name: payerName,
+      stall_no: stallNo,
+      amount_paid: Number(payload.amount || 0),
+      payment_type: canonicalType,
+      issued_by: user?.id || null
+    }
+    const { error: receiptError } = await supabase.from('payment_receipts').insert(receiptPayload)
+    if (receiptError) throw receiptError
+  }
 
   // 2a. If RENT_PAYMENT with billing, update billing status and balance
   if (billingId) {
@@ -83,7 +123,6 @@ export async function createPayment(payload) {
   }
 
   // 2b. If ADVANCE_PAYMENT or ADVANCE_RENT, update stakeholder advance balance and insert advance_credits record
-  const isAdvancePayment = payload.paymentType === 'ADVANCE_PAYMENT' || payload.paymentType === 'ADVANCE_RENT'
   if (isAdvancePayment && stakeholderId) {
     try {
       const amountVal = Number(payload.amount || 0)
@@ -110,7 +149,8 @@ export async function createPayment(payload) {
           advance_balance: newAdvance,
           total_advance_amount: totalAdv,
           advance_payment_paid: true,
-          advance_payment_completed: newAdvance >= totalAdv
+          advance_payment_completed: newAdvance >= totalAdv,
+          application_status: 'ADVANCE_PAID'
         }
         if (sData.advance_payment_amount !== undefined) {
           updatePayload.advance_payment_amount = newAdvance
@@ -127,9 +167,18 @@ export async function createPayment(payload) {
 
         // Update stakeholder_applications
         try {
-          await supabase.from('stakeholder_applications').update({
-            initial_advance_rent_paid: true
-          }).or(`stakeholder_id.eq.${stakeholderId}${sData.user_id ? `,user_id.eq.${sData.user_id}` : ''}`)
+          if (linkedApplication?.id) {
+            await supabase.from('stakeholder_applications').update({
+              status: 'ADVANCE_PAID',
+              initial_advance_rent_paid: true,
+              initial_advance_paid_at: new Date().toISOString(),
+              initial_advance_receipt_no: receiptNo,
+              treasurer_receipt_no: receiptNo,
+              treasurer_recorded_at: new Date().toISOString(),
+              amount_paid: Number(linkedApplication.amount_paid || 0) + amountVal,
+              current_holding_office: 'Market Supervisor'
+            }).eq('id', linkedApplication.id).eq('status', 'APPROVED_PENDING_ADVANCE_PAYMENT')
+          }
         } catch (_) {}
 
         // Non-blocking advance notification dispatch
@@ -179,16 +228,15 @@ export async function createPayment(payload) {
       }
       await supabase.from('stakeholders').update(updateData).eq('id', stakeholderId)
 
-      // Sync stakeholder_applications table if stakeholder_id or user_id exists
-      try {
-        await supabase.from('stakeholder_applications').update({
-          amount_paid: amountVal,
-          treasurer_receipt_no: receiptNo,
-          treasurer_recorded_at: nowIso,
-          status: 'PAID_READY_FOR_CONTRACT'
-        }).eq('stakeholder_id', stakeholderId)
-      } catch (appErr) {
-        console.warn('[paymentService] Notice updating stakeholder_applications:', appErr)
+      if (isFinalFee && linkedApplication?.id) {
+        const { error: appErr } = await supabase.from('stakeholder_applications').update({
+          status: 'FEES_CLEARED',
+          amount_paid: Number(linkedApplication.amount_paid || 0) + amountVal,
+          regulatory_fee_receipt_no: receiptNo,
+          regulatory_fee_paid_at: nowIso,
+          current_holding_office: 'System Activation'
+        }).eq('id', linkedApplication.id).eq('status', 'CONTRACT_PREPARED')
+        if (appErr) console.warn('[paymentService] Notice updating stakeholder_applications:', appErr)
       }
 
       // Trigger backend activation evaluation if API is available

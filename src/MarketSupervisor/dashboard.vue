@@ -255,6 +255,18 @@
               <!-- Actions -->
               <td style="text-align: right;">
                 <div class="btn-action-group" style="justify-content: flex-end;">
+                  <!-- Unified Form (5 Pages) -->
+                  <button
+                    type="button"
+                    class="btn-unified-form"
+                    style="padding: 6px 11px; font-size: 11px; font-weight: 700; border-radius: 8px; background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;"
+                    @click.stop="openUnifiedForm(app)"
+                    title="Review & complete Section VI.A Evaluation on Official 5-Page Form"
+                  >
+                    <i class="pi pi-file-check"></i>
+                    <span>Unified Form (5 Pages)</span>
+                  </button>
+
                   <!-- View Details -->
                   <button
                     type="button"
@@ -511,8 +523,8 @@
               <i class="pi pi-check-circle text-emerald-500"></i>
               Approved by Market Supervisor
             </span>
-            <span v-else-if="!hasAdvancePayment(selected)" class="text-xs text-rose-600 font-medium">
-              <i class="pi pi-exclamation-circle text-xs mr-1"></i>Advance payment must be completed before approval
+            <span v-else-if="!hasAdvancePayment(selected)" class="text-xs text-amber-600 font-medium">
+              <i class="pi pi-info-circle text-xs mr-1"></i>Advance payment pending (can be settled with Treasury)
             </span>
           </div>
 
@@ -709,6 +721,15 @@
         <Button label="Close" icon="pi pi-times" text @click="showImagePreview = false" class="text-slate-600" />
       </template>
     </Dialog>
+
+    <!-- Official 3-Page Unified Application Form Modal (Market Supervisor - Mr. Edgar Eyana) -->
+    <UnifiedApplicationFormModal
+      :visible="showUnifiedFormModal"
+      :application-data="selectedUnifiedData"
+      role="SUPERVISOR"
+      @close="showUnifiedFormModal = false"
+      @submit-evaluation="handleSupervisorEvaluationSubmit"
+    />
   </div>
 </template>
 
@@ -723,6 +744,7 @@ import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import Tag from 'primevue/tag'
 import { systemMessage } from '../utils/systemMessage'
+import UnifiedApplicationFormModal from '../components/UnifiedApplicationFormModal.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -735,6 +757,146 @@ const isLoading = ref(false)
 const showModal = ref(false)
 const selected = ref({})
 const isApproving = ref(false)
+
+// Unified Form Modal State
+const showUnifiedFormModal = ref(false)
+const selectedUnifiedData = ref({})
+
+// Business Permit Form Modal State (Images 1-4)
+const showBusinessPermitModal = ref(false)
+const selectedBusinessPermitData = ref({})
+
+function openBusinessPermitForm(app) {
+  selectedBusinessPermitData.value = {
+    ...app,
+    id: app.id || app.applicationId,
+    applicationNo: app.applicationNo || (app.id ? `BP-2026-${String(app.id).padStart(3, '0')}` : 'BP-2026-0782'),
+    trackingNumber: app.trackingNumber || app.applicationNo || 'BP-2026-0782',
+    businessIdNumber: app.businessIdNumber || (app.id ? `BIN-9024-${String(app.id).padStart(4, '0')}` : 'BIN-9024-0041'),
+    applicationType: app.applicationType || 'NEW',
+    paymentMode: app.paymentMode || 'Annually',
+    orgType: app.orgType || 'Sole Proprietor',
+    orgGender: app.orgGender || 'Female',
+    dtiSecCdaRegNo: app.dtiSecCdaRegNo || '',
+    tinNo: app.tinNo || '',
+    tradeNameFranchise: app.tradeNameFranchise || app.businessName || 'ABUHAN FISH VENDOR STALL',
+    businessName: app.tradeNameFranchise || app.businessName || 'ABUHAN FISH VENDOR STALL',
+    businessType: app.businessType || 'Retail',
+    mainHouseBldgNo: app.mainHouseBldgNo || 'P-4',
+    mainBldgName: app.mainBldgName || '',
+    mainLotNo: app.mainLotNo || '',
+    mainBlockNo: app.mainBlockNo || '',
+    mainStreet: app.mainStreet || 'P-4',
+    mainSubdivision: app.mainSubdivision || '',
+    mainBarangay: app.mainBarangay || 'POBLACION',
+    mainDistrict: app.mainDistrict || '',
+    mainMunicipality: app.mainMunicipality || 'MANTICAO',
+    mainProvince: app.mainProvince || 'MISAMIS OR.',
+    mainZipCode: app.mainZipCode || '9024',
+    mobileNo: app.mobileNo || app.contact || '09932889970',
+    ownerSurname: app.ownerSurname || app.lastName || 'ABUHAN',
+    ownerGivenName: app.ownerGivenName || app.firstName || 'RISMA',
+    ownerMiddleName: app.ownerMiddleName || app.middleName || 'PORCO',
+    businessAreaSqm: app.businessAreaSqm || 9,
+    totalFloorAreaSqm: app.totalFloorAreaSqm || 9,
+    numEmployeesMale: app.numEmployeesMale || 0,
+    numEmployeesFemale: app.numEmployeesFemale || 1,
+    numEmployeesLguResiding: app.numEmployeesLguResiding || 1,
+    deliveryVehiclesVanTruck: app.deliveryVehiclesVanTruck || 0,
+    deliveryVehiclesMotorcycle: app.deliveryVehiclesMotorcycle || 0,
+    propertyOwned: app.propertyOwned ?? true,
+    taxIncentivesEnjoyed: app.taxIncentivesEnjoyed ?? false,
+    businessActivity: app.businessActivity || 'Main Office',
+    businessLines: app.businessLines || [
+      { lineOfBusiness: 'Fish Vendor / Wet Section Trade', psic: '', units: 1, capitalization: 50000, grossSales: 0 }
+    ],
+    bploApprovedBy: app.bploApprovedBy || 'JUNE CLYDE D. PATILANO',
+    bploDesignation: app.bploDesignation || 'LRCO II/BPLO Designate',
+    bploDateSigned: app.bploDateSigned || new Date(),
+    marketOfficeVerifiedBy: 'EDGAR EYANA',
+    marketOfficeVerifiedRemarks: app.marketOfficeVerifiedRemarks || 'FISH VENDOR OK',
+    treasurerVerifiedBy: app.treasurerVerifiedBy || 'J. ANDANA',
+    treasurerVerifiedDate: app.treasurerVerifiedDate || new Date(),
+    totalFeesAssessment: app.totalFeesAssessment || 2890.60,
+    businessPermitOrNo: app.businessPermitOrNo || '3675241',
+    perjuryDeclarationAgreed: true
+  }
+  showBusinessPermitModal.value = true
+}
+
+function openUnifiedForm(app) {
+  selectedUnifiedData.value = {
+    id: app.id || app.applicationId,
+    applicationNo: app.applicationNo || `APP-${app.id}`,
+    firstName: app.firstName,
+    middleName: app.middleName,
+    lastName: app.lastName,
+    address: app.address,
+    contact: app.contact,
+    validIdType: app.validIdType || app.valid_id_type || 'National ID (PhilSys)',
+    validIdNo: app.validIdNo || app.valid_id_no || '',
+    businessName: app.businessName,
+    businessType: app.businessType,
+    natureOfBusiness: app.natureOfBusiness || [],
+    otherNatureOfBusiness: app.otherNatureOfBusiness || '',
+    productsCommodities: app.productsCommodities || '',
+    stallSpaceType: app.stallSpaceType || 'Regular Stall',
+    preferredStallNo: app.selectedStall?.stallNo || app.preferredStallNo || '',
+    estimatedEmployees: app.estimatedEmployees || 1,
+    undertakingAgreed: true,
+    loiUrl: app.loiUrl || app.letter_document_url,
+    validIdUrl: app.validIdUrl || app.id_document_url,
+    loiContent: app.loiContent || '',
+    monthlyRent: app.selectedStall?.monthlyRent || 1500,
+    marketOfficeStatus: app.marketOfficeStatus || 'Complete',
+    marketOfficeStallRecommended: app.marketOfficeStallRecommended || app.selectedStall?.stallNo || '',
+    marketOfficeSection: app.marketOfficeSection || app.selectedStall?.stallType || 'Standard',
+    marketOfficeNature: app.marketOfficeNature || app.businessType || '',
+    marketOfficeRemarks: app.marketOfficeRemarks || 'Recommended for Mayoral and Treasury review.',
+    treasuryFeeMonthly: app.treasuryFeeMonthly || app.selectedStall?.monthlyRent || 1500,
+    treasuryFeeOther: app.treasuryFeeOther || 5000,
+    treasuryFeeSecurityDeposit: app.treasuryFeeSecurityDeposit || (Number(app.selectedStall?.monthlyRent || 1500) * 2),
+    treasuryTotalDue: app.treasuryTotalDue || ((Number(app.selectedStall?.monthlyRent || 1500) * 3) + 5000),
+    treasuryRemarks: app.treasuryRemarks || '',
+    finalRecommendation: app.finalRecommendation || 'RECOMMENDED',
+    mayorDecision: app.mayorDecision || 'PENDING',
+    mayorRemarks: app.mayorRemarks || '',
+    mayorDecisionDate: app.mayorDecisionDate || null,
+    assignedStallNo: app.assignedStallNo || app.selectedStall?.stallNo || '',
+    assignedMarketSection: app.assignedMarketSection || app.selectedStall?.stallType || '',
+    assignedMonthlyRent: app.assignedMonthlyRent || app.selectedStall?.monthlyRent || 1500,
+    paymentOrNo: app.paymentOrNo || '',
+    paymentAmount: app.paymentAmount || 0,
+    applicantAcknowledged: app.applicantAcknowledged ?? false
+  }
+  showUnifiedFormModal.value = true
+}
+
+async function handleSupervisorEvaluationSubmit(evaluation) {
+  try {
+    const appId = evaluation.id || selectedUnifiedData.value.id
+    await api.put(`/applications/${appId}`, {
+      marketOfficeStatus: evaluation.status,
+      marketOfficeStallRecommended: evaluation.stallRecommended,
+      marketOfficeSection: evaluation.marketSection,
+      marketOfficeNature: evaluation.natureOfBusiness,
+      marketOfficeRemarks: evaluation.remarks,
+      finalRecommendation: evaluation.finalRecommendation || 'RECOMMENDED'
+    })
+    await systemMessage.alert('Market Office Evaluation (Section VI.A) successfully recorded.', {
+      title: 'Evaluation Submitted',
+      severity: 'success'
+    })
+    showUnifiedFormModal.value = false
+    await refreshData()
+  } catch (err) {
+    console.error('[MarketSupervisor] Evaluation error:', err)
+    await systemMessage.alert(err.message || 'Could not save Market Office evaluation.', {
+      title: 'Submission Error',
+      severity: 'error'
+    })
+  }
+}
 
 // Quick Stall Assignment State
 const showAssignStallModal = ref(false)
@@ -907,7 +1069,7 @@ function isAlreadyApproved(app) {
   if (app.marketSupervisorApproved === true || app.market_supervisor_approved === true) return true
   if (String(app.marketApprovalStatus || '').toUpperCase() === 'APPROVED') return true
   const appStatus = String(app.applicationStatus || '').toUpperCase()
-  return ['PENDING_BPLO_APPROVAL', 'APPROVED', 'COMPLETED', 'FULLY_APPROVED'].includes(appStatus)
+  return ['PAID_READY_FOR_CONTRACT', 'PENDING_BPLO_APPROVAL', 'APPROVED', 'COMPLETED', 'FULLY_APPROVED'].includes(appStatus)
 }
 
 function canApprove(app) {
@@ -921,8 +1083,7 @@ function canApprove(app) {
   const marketStatus = String(app.marketApprovalStatus || 'PENDING').toUpperCase()
   const isPending = marketStatus === 'PENDING' || marketStatus === 'FOR_APPROVAL'
 
-  // An application must have advance payment verified before it is eligible for Market Supervisor approval
-  return isPending && hasAdvancePayment(app)
+  return isPending
 }
 
 // ===================================

@@ -19,7 +19,11 @@ const userRole = computed(() => {
 
 const displayRole = computed(() => {
     const r = userRole.value;
-    if (r === 'MARKET_SUPERVISOR' || r === 'ADMIN') return 'Market Supervisor';
+    if (r === 'SYSTEM_ADMIN' || r === 'ADMIN') return 'System Administrator';
+    if (r === 'MARKET_SUPERVISOR' || r === 'SUPERVISOR') return 'Market Supervisor';
+    if (r === 'MAYOR_OFFICE' || r === 'MAYOR') return "Mayor's Office";
+    if (r === 'TREASURER') return 'Municipal Treasurer';
+    if (r === 'STAKEHOLDER') return 'Stakeholder';
     return r;
 });
 

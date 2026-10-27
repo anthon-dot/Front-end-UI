@@ -310,32 +310,19 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { supabase } from '../config/supabase'
 import api from '../services/api'
+import {
+  MARKET_CENTER as DEFAULT_CENTER,
+  MARKET_DEFAULT_ZOOM as DEFAULT_ZOOM,
+  MARKET_MIN_ZOOM as MIN_ZOOM,
+  MARKET_MAX_ZOOM,
+  BASEMAP_TILES,
+  isNearMarket,
+  offsetFromMarket
+} from '../constants/marketMap'
 
 const router = useRouter()
 
-// Baseline Center: Manticao Central Public Market, Misamis Oriental
-const DEFAULT_CENTER = { lat: 8.5293, lng: 124.2885 }
-const DEFAULT_ZOOM = 19
-const MIN_ZOOM = 16
-
-const BASEMAP_TILES = {
-  roadmap: {
-    url: 'https://{s}.google.com/vt/lyrs=m&apistyle=s.t:33|p.v:off,s.t:37|p.v:off,s.e:l.i|p.v:off&x={x}&y={y}&z={z}',
-    options: {
-      maxZoom: 20,
-      subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-      attribution: '&copy; Google Maps'
-    }
-  },
-  satellite: {
-    url: 'https://{s}.google.com/vt/lyrs=y&apistyle=s.t:33|p.v:off,s.t:37|p.v:off,s.e:l.i|p.v:off&x={x}&y={y}&z={z}',
-    options: {
-      maxZoom: 20,
-      subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-      attribution: '&copy; Google Maps Satellite'
-    }
-  }
-}
+// Market center, zoom levels & tiles come from src/constants/marketMap.js
 
 // Reactive State
 const stalls = ref([])
@@ -353,13 +340,13 @@ let markerGroup = null
 
 // Fallback seed stalls for smooth presentation if offline
 const SEED_FALLBACK_STALLS = [
-  { id: 1, stallNo: 'WS-01', sectionName: 'Wet Section (Fish & Meat)', stallType: 'Wet Section Stall', rateCategory: 'NEW', dimensions: '3m x 3m', areaSqm: 9, monthlyRent: 3500, stallRightsFee: 5000, status: 'AVAILABLE', lat: 8.52915, lng: 124.28825 },
-  { id: 2, stallNo: 'WS-02', sectionName: 'Wet Section (Fish & Meat)', stallType: 'Wet Section Stall', rateCategory: 'NEW', dimensions: '3m x 3m', areaSqm: 9, monthlyRent: 3500, stallRightsFee: 5000, status: 'OCCUPIED', lat: 8.52925, lng: 124.28835 },
-  { id: 3, stallNo: 'DG-01', sectionName: 'Dry Goods & Groceries', stallType: 'Dry Goods Stall', rateCategory: 'OLD', dimensions: '3m x 3m', areaSqm: 9, monthlyRent: 2000, stallRightsFee: 3000, status: 'AVAILABLE', lat: 8.52935, lng: 124.28845 },
-  { id: 4, stallNo: 'DG-02', sectionName: 'Dry Goods & Groceries', stallType: 'Dry Goods Stall', rateCategory: 'OLD', dimensions: '3m x 3m', areaSqm: 9, monthlyRent: 2000, stallRightsFee: 3000, status: 'OCCUPIED', lat: 8.52945, lng: 124.28855 },
-  { id: 5, stallNo: 'FC-01', sectionName: 'Food Court & Eatery', stallType: 'Food Court Eatery', rateCategory: 'NEW', dimensions: '4m x 3m', areaSqm: 12, monthlyRent: 4000, stallRightsFee: 5000, status: 'AVAILABLE', lat: 8.52955, lng: 124.28865 },
-  { id: 6, stallNo: 'VG-01', sectionName: 'Vegetables & Fruits', stallType: 'Vegetable & Fruit Stall', rateCategory: 'OLD', dimensions: '3m x 2m', areaSqm: 6, monthlyRent: 1500, stallRightsFee: 3000, status: 'PENDING', lat: 8.52965, lng: 124.28875 },
-  { id: 7, stallNo: 'CP-01', sectionName: 'Commercial Perimeter Block', stallType: 'Commercial Perimeter Stall', rateCategory: 'NEW', dimensions: '4m x 4m', areaSqm: 16, monthlyRent: 5000, stallRightsFee: 6000, status: 'AVAILABLE', lat: 8.52975, lng: 124.28885 }
+  { id: 1, stallNo: 'WS-01', sectionName: 'Wet Section (Fish & Meat)', stallType: 'Wet Section Stall', rateCategory: 'NEW', dimensions: '3m x 3m', areaSqm: 9, monthlyRent: 3500, stallRightsFee: 5000, status: 'AVAILABLE', ...offsetFromMarket(-0.00015, -0.00025) },
+  { id: 2, stallNo: 'WS-02', sectionName: 'Wet Section (Fish & Meat)', stallType: 'Wet Section Stall', rateCategory: 'NEW', dimensions: '3m x 3m', areaSqm: 9, monthlyRent: 3500, stallRightsFee: 5000, status: 'OCCUPIED', ...offsetFromMarket(-0.00005, -0.00015) },
+  { id: 3, stallNo: 'DG-01', sectionName: 'Dry Goods & Groceries', stallType: 'Dry Goods Stall', rateCategory: 'OLD', dimensions: '3m x 3m', areaSqm: 9, monthlyRent: 2000, stallRightsFee: 3000, status: 'AVAILABLE', ...offsetFromMarket(0.00005, -0.00005) },
+  { id: 4, stallNo: 'DG-02', sectionName: 'Dry Goods & Groceries', stallType: 'Dry Goods Stall', rateCategory: 'OLD', dimensions: '3m x 3m', areaSqm: 9, monthlyRent: 2000, stallRightsFee: 3000, status: 'OCCUPIED', ...offsetFromMarket(0.00015, 0.00005) },
+  { id: 5, stallNo: 'FC-01', sectionName: 'Food Court & Eatery', stallType: 'Food Court Eatery', rateCategory: 'NEW', dimensions: '4m x 3m', areaSqm: 12, monthlyRent: 4000, stallRightsFee: 5000, status: 'AVAILABLE', ...offsetFromMarket(0.00025, 0.00015) },
+  { id: 6, stallNo: 'VG-01', sectionName: 'Vegetables & Fruits', stallType: 'Vegetable & Fruit Stall', rateCategory: 'OLD', dimensions: '3m x 2m', areaSqm: 6, monthlyRent: 1500, stallRightsFee: 3000, status: 'PENDING', ...offsetFromMarket(0.00035, 0.00025) },
+  { id: 7, stallNo: 'CP-01', sectionName: 'Commercial Perimeter Block', stallType: 'Commercial Perimeter Stall', rateCategory: 'NEW', dimensions: '4m x 4m', areaSqm: 16, monthlyRent: 5000, stallRightsFee: 6000, status: 'AVAILABLE', ...offsetFromMarket(0.00045, 0.00035) }
 ]
 
 // Available Sections for Dropdown
@@ -455,7 +442,7 @@ async function loadStallsData() {
       // Fallback directly to Supabase client
       const { data, error } = await supabase
         .from('stalls')
-        .select('*, section:sections(*)')
+        .select('*')
         .order('stall_no')
       if (!error && Array.isArray(data) && data.length) {
         rawList = data
@@ -488,7 +475,7 @@ async function loadStallsData() {
       }
 
       // If coordinates missing, assign deterministic spot inside Manticao Public Market perimeter
-      if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
+      if (!isNearMarket(lat, lng)) {
         const col = index % 5
         const row = Math.floor(index / 5)
         lat = Number((DEFAULT_CENTER.lat + (row * 0.00018) - 0.00035).toFixed(6))
@@ -537,7 +524,7 @@ function initOrUpdateMap() {
       center: [DEFAULT_CENTER.lat, DEFAULT_CENTER.lng],
       zoom: DEFAULT_ZOOM,
       minZoom: MIN_ZOOM,
-      maxZoom: 20,
+      maxZoom: MARKET_MAX_ZOOM,
       zoomControl: false,
       scrollWheelZoom: true
     })

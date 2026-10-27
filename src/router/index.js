@@ -30,6 +30,11 @@ const routes = [
     component: () => import("../views/Unauthorized.vue")
   },
   {
+    path: "/forgot-password",
+    name: "ForgotPassword",
+    component: () => import("../views/ForgotPassword.vue")
+  },
+  {
     path: "/",
     component: () => import("../layout/AppLayout.vue"),
     children: [
@@ -214,6 +219,16 @@ const routes = [
     meta: { roles: ['APPLICANT', 'TENANT', 'STAKEHOLDER'], onboardingRoute: true }
   },
   {
+    path: '/apply',
+    name: 'NewApplication',
+    component: () => import('../views/applicant/NewApplicationView.vue'),
+    meta: { roles: ['APPLICANT', 'TENANT', 'STAKEHOLDER', 'ADMIN'], onboardingRoute: true }
+  },
+  {
+    path: '/new-applicant',
+    redirect: '/apply'
+  },
+  {
     path: "/treasurer/applicant",
     name: "Applicant",
     component: () => import("../Treasurer/Applicant.vue"),
@@ -347,41 +362,39 @@ const routes = [
     path: '/mayor',
     name: 'Mayor',
     component: () => import('../Mayor/MayorDashboard.vue'),
-    meta: { roles: ['ADMIN', 'MAYOR'] }
+    meta: { roles: ['ADMIN', 'MAYOR', 'MAYOR_OFFICE'] }
   },
   {
     path: '/mayor/approvals',
     name: 'MayorApprovals',
     component: () => import('../Mayor/MayorDashboard.vue'),
-    meta: { roles: ['ADMIN', 'MAYOR'] }
+    meta: { roles: ['ADMIN', 'MAYOR', 'MAYOR_OFFICE'] }
   },
   {
     path: '/mayor/revocations',
     name: 'MayorRevocations',
     component: () => import('../Mayor/MayorDashboard.vue'),
-    meta: { roles: ['ADMIN', 'MAYOR'] }
+    meta: { roles: ['ADMIN', 'MAYOR', 'MAYOR_OFFICE'] }
   },
   {
     path: '/collector',
-    name: 'CollectorInspector',
-    component: () => import('../CollectorInspector/CollectorInspectorDashboard.vue'),
-    meta: { roles: ['ADMIN', 'COLLECTOR_INSPECTOR'] }
+    redirect: '/supervisor'
   },
   {
     path: '/inspector',
-    redirect: '/collector'
+    redirect: '/supervisor'
   },
   {
     path: '/collector/remittances',
-    redirect: '/collector'
+    redirect: '/treasurer/billing'
   },
   {
     path: '/inspector/inspections',
-    redirect: '/collector'
+    redirect: '/supervisor'
   },
   {
     path: '/inspector/scan',
-    redirect: '/collector'
+    redirect: '/supervisor'
   },
   {
     path: '/stakeholder/settings',
@@ -447,7 +460,7 @@ router.beforeEach(async (to) => {
   isNavigating.value = true
   const authStore = useAuthStore()
   const stakeholderStore = useStakeholderStore()
-  const publicRoutes = ['Landing', 'Login', 'CreateAccount', 'Unauthorized']
+  const publicRoutes = ['Landing', 'Login', 'CreateAccount', 'ForgotPassword', 'Unauthorized']
 
   if (publicRoutes.includes(to.name)) {
     return true
@@ -531,11 +544,17 @@ router.beforeEach(async (to) => {
           stakeholder.finalEndorsed === true
         )
 
-      if (feeReady && to.name !== 'ApplicantFee') {
+      if (feeReady && to.name !== 'ApplicantFee' && to.name !== 'Stakeholder') {
         return { name: 'ApplicantFee' }
       }
 
-      if (to.name === 'ApplicationProgress' || to.name === 'ApplicantFee') {
+      if (
+        to.name === 'ApplicationProgress' ||
+        to.name === 'ApplicantFee' ||
+        to.name === 'Stakeholder' ||
+        to.name === 'StakeholderPayments' ||
+        to.name === 'StakeholderSettings'
+      ) {
         return true
       }
 

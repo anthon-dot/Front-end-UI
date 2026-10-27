@@ -122,6 +122,16 @@
           <Column header="Actions" alignFrozen="right" :frozen="true">
             <template #body="{ data }">
               <div class="flex items-center gap-1.5 flex-wrap">
+                <Button
+                  label="Unified Form (5 Pages)"
+                  icon="pi pi-file-pdf"
+                  size="small"
+                  severity="secondary"
+                  outlined
+                  class="!py-1 !px-2 text-xs font-bold"
+                  @click="openUnifiedForm(data)"
+                  v-tooltip="'View & Assess Unified Application Form (5 Pages)'"
+                />
                 <Button icon="pi pi-eye" text rounded severity="secondary" @click="openModal(data)" v-tooltip="'View Applicant Details'" />
                 <Button
                   label="Requirements"
@@ -603,6 +613,17 @@
           </div>
         </template>
       </Dialog>
+
+      <!-- Official 3-Page Unified Application Form Modal (Treasury Assessment - Naida Bebeth A. Magdayo) -->
+      <UnifiedApplicationFormModal
+        v-if="showUnifiedFormModal"
+        :visible="showUnifiedFormModal"
+        :application-data="selectedUnifiedData"
+        role="TREASURER"
+        @close="showUnifiedFormModal = false"
+        @submit-evaluation="handleTreasurerAssessmentSubmit"
+      />
+
     </main>
   </div>
 </template>
@@ -625,6 +646,7 @@ import InputText from 'primevue/inputtext'
 import { useToast } from "primevue/usetoast"
 import { useConfirm } from 'primevue/useconfirm'
 import { systemMessage } from '../utils/systemMessage'
+import UnifiedApplicationFormModal from '../components/UnifiedApplicationFormModal.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -645,6 +667,154 @@ const filters = ref({
 const showModal = ref(false)
 const selectedApplicant = ref({})
 const approvingId = ref(null)
+
+// Unified Application Form Modal State
+const showUnifiedFormModal = ref(false)
+const selectedUnifiedData = ref({})
+
+// Business Permit Form Modal State (Images 1-4)
+const showBusinessPermitModal = ref(false)
+const selectedBusinessPermitData = ref({})
+
+function openBusinessPermitForm(data) {
+  selectedBusinessPermitData.value = {
+    ...data,
+    id: data.id || data.stakeholderId || data.applicationId,
+    applicationNo: data.applicationNo || (data.id ? `BP-2026-${String(data.id).padStart(3, '0')}` : 'BP-2026-0782'),
+    trackingNumber: data.trackingNumber || data.applicationNo || 'BP-2026-0782',
+    businessIdNumber: data.businessIdNumber || (data.id ? `BIN-9024-${String(data.id).padStart(4, '0')}` : 'BIN-9024-0041'),
+    applicationType: data.applicationType || 'NEW',
+    paymentMode: data.paymentMode || 'Annually',
+    orgType: data.orgType || 'Sole Proprietor',
+    orgGender: data.orgGender || 'Female',
+    dtiSecCdaRegNo: data.dtiSecCdaRegNo || '',
+    tinNo: data.tinNo || '',
+    tradeNameFranchise: data.tradeNameFranchise || data.businessName || 'ABUHAN FISH VENDOR STALL',
+    businessName: data.tradeNameFranchise || data.businessName || 'ABUHAN FISH VENDOR STALL',
+    businessType: data.businessType || 'Retail',
+    mainHouseBldgNo: data.mainHouseBldgNo || 'P-4',
+    mainBldgName: data.mainBldgName || '',
+    mainLotNo: data.mainLotNo || '',
+    mainBlockNo: data.mainBlockNo || '',
+    mainStreet: data.mainStreet || 'P-4',
+    mainSubdivision: data.mainSubdivision || '',
+    mainBarangay: data.mainBarangay || 'POBLACION',
+    mainDistrict: data.mainDistrict || '',
+    mainMunicipality: data.mainMunicipality || 'MANTICAO',
+    mainProvince: data.mainProvince || 'MISAMIS OR.',
+    mainZipCode: data.mainZipCode || '9024',
+    mobileNo: data.mobileNo || data.contact || '09932889970',
+    ownerSurname: data.ownerSurname || data.lastName || 'ABUHAN',
+    ownerGivenName: data.ownerGivenName || data.firstName || 'RISMA',
+    ownerMiddleName: data.ownerMiddleName || data.middleName || 'PORCO',
+    businessAreaSqm: data.businessAreaSqm || 9,
+    totalFloorAreaSqm: data.totalFloorAreaSqm || 9,
+    numEmployeesMale: data.numEmployeesMale || 0,
+    numEmployeesFemale: data.numEmployeesFemale || 1,
+    numEmployeesLguResiding: data.numEmployeesLguResiding || 1,
+    deliveryVehiclesVanTruck: data.deliveryVehiclesVanTruck || 0,
+    deliveryVehiclesMotorcycle: data.deliveryVehiclesMotorcycle || 0,
+    propertyOwned: data.propertyOwned ?? true,
+    taxIncentivesEnjoyed: data.taxIncentivesEnjoyed ?? false,
+    businessActivity: data.businessActivity || 'Main Office',
+    businessLines: data.businessLines || [
+      { lineOfBusiness: 'Fish Vendor / Wet Section Trade', psic: '', units: 1, capitalization: 50000, grossSales: 0 }
+    ],
+    bploApprovedBy: data.bploApprovedBy || 'JUNE CLYDE D. PATILANO',
+    bploDesignation: data.bploDesignation || 'LRCO II/BPLO Designate',
+    bploDateSigned: data.bploDateSigned || new Date(),
+    marketOfficeVerifiedBy: data.marketOfficeVerifiedBy || 'EDGAR EYANA',
+    marketOfficeVerifiedRemarks: data.marketOfficeVerifiedRemarks || 'FISH VENDOR OK',
+    treasurerVerifiedBy: data.treasurerVerifiedBy || 'J. ANDANA',
+    treasurerVerifiedDate: data.treasurerVerifiedDate || new Date(),
+    totalFeesAssessment: data.totalFeesAssessment || 2890.60,
+    businessPermitOrNo: data.businessPermitOrNo || data.officialReceiptNo || '3675241',
+    perjuryDeclarationAgreed: true
+  }
+  showBusinessPermitModal.value = true
+}
+
+function openUnifiedForm(data) {
+  selectedUnifiedData.value = {
+    id: data.id || data.stakeholderId || data.applicationId,
+    applicationNo: data.applicationNo || `APP-${data.id}`,
+    firstName: data.firstName,
+    middleName: data.middleName,
+    lastName: data.lastName,
+    address: data.address,
+    contact: data.contact,
+    validIdType: data.validIdType || data.valid_id_type || 'National ID (PhilSys)',
+    validIdNo: data.validIdNo || data.valid_id_no || '',
+    businessName: data.businessName,
+    businessType: data.businessType,
+    natureOfBusiness: data.natureOfBusiness || [],
+    otherNatureOfBusiness: data.otherNatureOfBusiness || '',
+    productsCommodities: data.productsCommodities || '',
+    stallSpaceType: data.stallSpaceType || 'Regular Stall',
+    preferredStallNo: data.stallNumber || data.stallNo || '',
+    estimatedEmployees: data.estimatedEmployees || 1,
+    undertakingAgreed: true,
+    loiUrl: data.loiUrl || data.letterUrl,
+    validIdUrl: data.validIdUrl || data.idUrl,
+    loiContent: data.loiContent || '',
+    monthlyRent: data.monthlyRent || 1500,
+    marketOfficeStatus: 'Complete',
+    marketOfficeStallRecommended: data.stallNumber || data.stallNo || '',
+    marketOfficeSection: data.stallType || 'Standard',
+    marketOfficeNature: data.businessType || '',
+    marketOfficeRemarks: 'Recommended by Market Office.',
+    treasuryFeeMonthly: data.treasuryFeeMonthly || data.monthlyRent || 1500,
+    treasuryFeeOther: data.treasuryFeeOther || data.stallRightsFee || 5000,
+    treasuryFeeSecurityDeposit: data.treasuryFeeSecurityDeposit || (Number(data.monthlyRent || 1500) * 2),
+    treasuryTotalDue: data.treasuryTotalDue || ((Number(data.monthlyRent || 1500) * 3) + 5000),
+    treasuryRemarks: data.treasuryRemarks || '',
+    finalRecommendation: 'RECOMMENDED',
+    mayorDecision: data.mayorDecision || 'APPROVED',
+    mayorRemarks: data.mayorRemarks || '',
+    mayorDecisionDate: data.mayorDecisionDate || null,
+    assignedStallNo: data.assignedStallNo || data.stallNumber || data.stallNo || '',
+    assignedMarketSection: data.assignedMarketSection || data.stallType || '',
+    assignedMonthlyRent: data.assignedMonthlyRent || data.monthlyRent || 1500,
+    paymentOrNo: data.paymentOrNo || data.officialReceiptNo || '',
+    paymentAmount: data.paymentAmount || data.totalInitialAmountPaid || 0,
+    applicantAcknowledged: data.applicantAcknowledged ?? false
+  }
+  showUnifiedFormModal.value = true
+}
+
+async function handleTreasurerAssessmentSubmit(assessment) {
+  try {
+    const appId = assessment.id || selectedUnifiedData.value.id
+    await api.put(`/applications/${appId}`, {
+      treasuryFeeMonthly: assessment.monthlyFee,
+      treasuryFeeOther: assessment.otherFees,
+      treasuryFeeSecurityDeposit: assessment.securityDeposit,
+      treasuryTotalDue: assessment.totalDue,
+      treasuryRemarks: assessment.remarks,
+      assignedStallNo: assessment.assignedStallNo,
+      assignedMarketSection: assessment.assignedMarketSection,
+      assignedMonthlyRent: assessment.assignedMonthlyRent,
+      paymentOrNo: assessment.officialReceiptNo,
+      paymentAmount: assessment.amountPaid
+    })
+    toast.add({
+      severity: 'success',
+      summary: 'Assessment Saved',
+      detail: 'Official Treasury assessment and official receipt details recorded.',
+      life: 4000
+    })
+    showUnifiedFormModal.value = false
+    await loadStakeholders()
+  } catch (err) {
+    console.error('[Applicant] Assessment error:', err)
+    toast.add({
+      severity: 'error',
+      summary: 'Save Failed',
+      detail: err.message || 'Could not record assessment.',
+      life: 4000
+    })
+  }
+}
 
 // Requirements Modal
 const showRequirementsModal = ref(false)

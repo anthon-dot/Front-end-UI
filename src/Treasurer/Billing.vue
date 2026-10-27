@@ -769,10 +769,26 @@
         v-model:visible="detailsDialogVisible" 
         modal 
         header="Billing Statement Details" 
-        :style="{ width: '520px', maxWidth: '95vw' }"
+        :style="{ width: '560px', maxWidth: '95vw' }"
         :dismissableMask="true"
       >
-        <div v-if="selectedBill" class="space-y-4 pt-2">
+        <div v-if="selectedBill" id="printable-billing-statement" class="space-y-4 pt-2">
+          <!-- Official Municipal Header -->
+          <div style="text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 0.75rem; margin-bottom: 0.75rem;">
+            <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: #475569;">
+              Republic of the Philippines &bull; Province of Misamis Oriental
+            </div>
+            <div style="font-weight: 800; font-size: 1rem; color: #0f172a;">
+              MUNICIPALITY OF MANTICAO
+            </div>
+            <div style="font-size: 0.85rem; font-weight: 700; color: #1e3a8a;">
+              OFFICE OF THE MUNICIPAL TREASURER
+            </div>
+            <div style="font-size: 0.95rem; font-weight: 800; color: #047857; margin-top: 4px;">
+              OFFICIAL RENTAL BILLING STATEMENT
+            </div>
+          </div>
+
           <!-- Top Invoice Header -->
           <div class="flex items-center justify-between pb-3 border-b border-slate-100">
             <div>
@@ -824,14 +840,30 @@
         </div>
 
         <template #footer>
-          <div class="flex items-center justify-between gap-2 w-full pt-3">
-            <Button 
-              label="Close" 
-              severity="secondary" 
-              outlined 
-              size="small" 
-              @click="detailsDialogVisible = false" 
-            />
+          <div class="flex items-center justify-between gap-2 w-full pt-3 flex-wrap">
+            <div class="flex items-center gap-2">
+              <Button 
+                label="Close" 
+                severity="secondary" 
+                outlined 
+                size="small" 
+                @click="detailsDialogVisible = false" 
+              />
+              <Button 
+                label="Export Word" 
+                icon="pi pi-file-word" 
+                severity="help" 
+                size="small" 
+                @click="exportStatementWord(selectedBill)" 
+              />
+              <Button 
+                label="Export PDF" 
+                icon="pi pi-file-pdf" 
+                severity="danger" 
+                size="small" 
+                @click="exportStatementPdf(selectedBill)" 
+              />
+            </div>
             <div class="flex items-center gap-2">
               <Button 
                 v-if="selectedBill && selectedBill.status !== 'PAID'"
@@ -1084,6 +1116,7 @@ import Tag from 'primevue/tag'
 import Dialog from 'primevue/dialog'
 import Toast from 'primevue/toast'
 import systemMessage from '../utils/systemMessage'
+import { exportToWord, exportToPdf, printElement } from '../utils/exportUtils'
 
 const router = useRouter()
 const route = useRoute()
@@ -1538,6 +1571,24 @@ function collectPayment(row) {
 function openBillDetails(row) {
   selectedBill.value = row
   detailsDialogVisible.value = true
+}
+
+function exportStatementWord(b) {
+  const bill = b || selectedBill.value
+  const targetId = 'printable-billing-statement'
+  const filename = `Billing_Statement_${bill?.id || bill?.billingNo || 'Official'}`
+  exportToWord(targetId, filename, {
+    title: `MUNICIPAL BILLING STATEMENT - ${bill?.id || 'STATEMENT'}`
+  })
+}
+
+function exportStatementPdf(b) {
+  const bill = b || selectedBill.value
+  const targetId = 'printable-billing-statement'
+  const filename = `Billing_Statement_${bill?.id || bill?.billingNo || 'Official'}.pdf`
+  exportToPdf(targetId, filename, {
+    title: `MUNICIPAL BILLING STATEMENT - ${bill?.id || 'STATEMENT'}`
+  })
 }
 
 /* =========================

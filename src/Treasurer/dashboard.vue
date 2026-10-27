@@ -301,7 +301,7 @@ onMounted(async () => {
     try {
       const appRes = await api.get('/applications', { headers })
       const apps = appRes.data?.applications || (Array.isArray(appRes.data) ? appRes.data : [])
-      pendingInitialFeesCount.value = apps.filter(a => a.status === 'MAYOR_APPROVED' || a.status === 'PENDING_INITIAL_FEE' || a.status === 'PENDING_TREASURER_PAYMENT').length
+      pendingInitialFeesCount.value = apps.filter(a => ['APPROVED_PENDING_ADVANCE_PAYMENT', 'MAYOR_APPROVED', 'PENDING_INITIAL_FEE', 'PENDING_TREASURER_PAYMENT'].includes(a.status)).length
     } catch (e) {
       console.warn('Error loading applications for initial fees count:', e)
     }

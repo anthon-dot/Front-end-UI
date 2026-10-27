@@ -46,7 +46,7 @@
           </button>
         </nav>
 
-        <div class="report-grid">
+        <div class="report-grid" id="printable-ai-report">
           <section class="analytics-area">
             <div v-if="activeTab === 'occupancy'" class="chart-grid">
               <article class="chart-card">
@@ -113,11 +113,15 @@
               <i class="pi pi-sparkles"></i>
               Generate Recommendation
             </button>
-            <button class="ghost-btn" @click="exportReport">
+            <button class="ghost-btn" @click="exportWord" title="Export as Word document">
+              <i class="pi pi-file-word"></i>
+              Export Word
+            </button>
+            <button class="ghost-btn" @click="exportReport" title="Export as PDF document">
               <i class="pi pi-file-pdf"></i>
               Export PDF
             </button>
-            <button class="ghost-btn" @click="exportExcel">
+            <button class="ghost-btn" @click="exportExcel" title="Export as spreadsheet">
               <i class="pi pi-file-excel"></i>
               Export Excel
             </button>
@@ -145,6 +149,7 @@ import {
   exportAIReportExcel,
   exportAIReportPdf
 } from '../services/aiReportService'
+import { exportToWord, exportToPdf } from '../utils/exportUtils'
 
 const tabs = [
   { id: 'occupancy', label: 'Occupancy Report', icon: 'pi pi-chart-pie' },
@@ -309,14 +314,37 @@ function downloadBlob(blob, filename) {
   URL.revokeObjectURL(url)
 }
 
+function exportWord() {
+  exportToWord('printable-ai-report', `AI_Market_Report_${activeTab.value}_${new Date().toISOString().slice(0, 10)}.doc`, {
+    title: `AI Intelligence Report - ${activeTab.value.toUpperCase()}`
+  })
+}
+
 async function exportReport() {
-  const response = await exportAIReportPdf()
-  downloadBlob(response.data, 'ai-market-report.pdf')
+  try {
+    const response = await exportAIReportPdf()
+    if (response && response.data) {
+      downloadBlob(response.data, `ai-market-report-${activeTab.value}.pdf`)
+      return
+    }
+  } catch (e) {
+    console.warn('Backend PDF endpoint unavailable, using client-side PDF export:', e)
+  }
+  // Client-side fallback
+  exportToPdf('printable-ai-report', `AI_Market_Report_${activeTab.value}_${new Date().toISOString().slice(0, 10)}.pdf`, {
+    title: `AI Market Intelligence Report (${activeTab.value})`
+  })
 }
 
 async function exportExcel() {
-  const response = await exportAIReportExcel()
-  downloadBlob(response.data, 'ai-market-report.xlsx')
+  try {
+    const response = await exportAIReportExcel()
+    if (response && response.data) {
+      downloadBlob(response.data, 'ai-market-report.xlsx')
+    }
+  } catch (e) {
+    console.warn('Backend Excel endpoint unavailable:', e)
+  }
 }
 
 watch(activeTab, () => {

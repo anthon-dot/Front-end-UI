@@ -28,13 +28,17 @@
           </button>
 
           <template v-if="activeTab === 'due-soon'">
-            <button class="btn-success" @click="exportToExcel" title="Export as spreadsheet">
-              <i class="pi pi-file-excel"></i>
-              <span>Export Excel</span>
+            <button class="btn-primary-outline" @click="exportDueContractsWord" title="Export as Word document">
+              <i class="pi pi-file-word"></i>
+              <span>Export Word</span>
             </button>
             <button class="btn-danger-outline" @click="exportToPDF" title="Export printable PDF report">
               <i class="pi pi-file-pdf"></i>
               <span>Export PDF</span>
+            </button>
+            <button class="btn-success" @click="exportToExcel" title="Export as spreadsheet">
+              <i class="pi pi-file-excel"></i>
+              <span>Export Excel</span>
             </button>
             <button class="btn-primary" @click="printReport" title="Print document">
               <i class="pi pi-print"></i>
@@ -43,6 +47,14 @@
           </template>
 
           <template v-else-if="activeTab === 'occupancy'">
+            <button class="btn-primary-outline" @click="exportOccupancyWord" title="Export as Word document">
+              <i class="pi pi-file-word"></i>
+              <span>Export Word</span>
+            </button>
+            <button class="btn-danger-outline" @click="exportOccupancyPDF" title="Export printable PDF report">
+              <i class="pi pi-file-pdf"></i>
+              <span>Export PDF</span>
+            </button>
             <button class="btn-success" @click="exportOccupancyToExcel" title="Export occupancy spreadsheet">
               <i class="pi pi-file-excel"></i>
               <span>Export Excel</span>
@@ -215,7 +227,7 @@
           </div>
 
           <!-- CONTRACTS TABLE CARD -->
-          <div class="table-card print-card">
+          <div class="table-card print-card" id="printable-due-contracts">
             <div class="table-header">
               <div>
                 <h2>Expiring Lease Contracts Directory</h2>
@@ -507,7 +519,7 @@
             </div>
           </div>
 
-          <div class="table-card print-card">
+          <div class="table-card print-card" id="printable-occupancy-registry">
             <div class="table-header">
               <div>
                 <h2>Stall Occupancy & Tenant Assignment Registry</h2>
@@ -904,6 +916,14 @@
             <i class="pi pi-send"></i>
             {{ isSendingNoticeEmail ? 'Sending Notice...' : 'Email Notice to Stakeholder' }}
           </button>
+          <button class="btn-outline" @click="exportNoticeWord(noticeModalContract)" title="Export notice to Word document">
+            <i class="pi pi-file-word"></i>
+            Export Word
+          </button>
+          <button class="btn-outline" @click="exportNoticePdf(noticeModalContract)" title="Export notice to PDF document">
+            <i class="pi pi-file-pdf"></i>
+            Export PDF
+          </button>
           <button class="btn-outline" @click="printNotice">
             <i class="pi pi-print"></i>
             Print Notice
@@ -988,6 +1008,7 @@ import {
 
 import { jsPDF } from 'jspdf'
 import * as XLSX from 'xlsx'
+import { exportToWord, exportToPdf } from '../utils/exportUtils'
 
 import ReportForm from './ReportForm.vue'
 import api from '../services/api'
@@ -1590,6 +1611,38 @@ function exportToPDF() {
 
 function printReport() {
   window.print()
+}
+
+function exportDueContractsWord() {
+  exportToWord('printable-due-contracts', `Market_Supervisor_Expiring_Contracts_${new Date().toISOString().slice(0, 10)}.doc`, {
+    title: 'OFFICE OF THE MARKET SUPERVISOR — EXPIRING LEASE CONTRACTS REPORT'
+  })
+}
+
+function exportOccupancyWord() {
+  exportToWord('printable-occupancy-registry', `Market_Supervisor_Occupancy_Registry_${new Date().toISOString().slice(0, 10)}.doc`, {
+    title: 'OFFICE OF THE MARKET SUPERVISOR — STALL OCCUPANCY REGISTRY'
+  })
+}
+
+function exportOccupancyPDF() {
+  exportToPdf('printable-occupancy-registry', `Market_Supervisor_Occupancy_Registry_${new Date().toISOString().slice(0, 10)}.pdf`, {
+    title: 'OFFICE OF THE MARKET SUPERVISOR — STALL OCCUPANCY REGISTRY'
+  })
+}
+
+function exportNoticeWord(contract) {
+  const name = (contract?.stakeholderName || 'Stakeholder').replace(/\s+/g, '_')
+  exportToWord('notice-document', `Notice_of_Lease_Expiration_${name}.doc`, {
+    title: 'OFFICIAL NOTICE OF LEASE EXPIRATION'
+  })
+}
+
+function exportNoticePdf(contract) {
+  const name = (contract?.stakeholderName || 'Stakeholder').replace(/\s+/g, '_')
+  exportToPdf('notice-document', `Notice_of_Lease_Expiration_${name}.pdf`, {
+    title: 'OFFICIAL NOTICE OF LEASE EXPIRATION'
+  })
 }
 
 // ==========================================

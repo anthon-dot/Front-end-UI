@@ -88,36 +88,43 @@ export async function recordPayment({
         current_holding_office: 'Market Supervisor'
       })
       .eq('stakeholder_id', stakeholder.id);
-  } else if (paymentType === PAYMENT_TYPES.BUSINESS_PERMIT_PAYMENT) {
-    // Record Business Permit Fee payment confirmed by Treasurer
-    await supabase
-      .from('stakeholders')
-      .update({
-        business_permit_fee_paid: true,
-        business_permit_paid_at: paymentDate,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', stakeholder.id);
-
+  } else if (paymentType === PAYMENT_TYPES.STALL_RIGHTS_FEE) {
+    // 1. Stall Rights Fee (₱5,000 regular / ₱7,000 corner stall)
     await supabase
       .from('stakeholder_applications')
       .update({
-        status: APPLICATION_STATUS.PENDING_BPLO_RELEASE,
-        business_permit_fee_paid: true,
+        regulatory_fee_receipt_no: receiptNo,
+        regulatory_fee_paid_at: paymentDate,
+        amount_paid: paymentAmount,
+        updated_at: new Date().toISOString()
+      })
+      .eq('stakeholder_id', stakeholder.id);
+  } else if (paymentType === PAYMENT_TYPES.BUSINESS_PERMIT_PAYMENT) {
+    // 5. Business Permit–Related Payments (Assessed & recorded by Treasury for BPLO process)
+    await supabase
+      .from('stakeholder_applications')
+      .update({
         business_permit_receipt_no: receiptNo,
-        current_holding_office: 'BPLO Office',
         updated_at: new Date().toISOString()
       })
       .eq('stakeholder_id', stakeholder.id);
 
     await supabase.from('notifications').insert({
-      target_role: ROLES.BPLO,
       title: 'Business Permit Fee Confirmed Paid',
-      message: `Business Permit Fee for ${stakeholder.business_name} (Stall #${stakeholder.stall?.stall_no || 'N/A'}) confirmed paid under OR #${receiptNo}. Ready for permit release.`,
+      message: `Business permit fee for ${stakeholder.business_name || 'Stakeholder'} confirmed paid at Treasury under OR #${receiptNo}. Recorded for BPLO processing.`,
       notification_type: 'BPLO_PAYMENT_CONFIRMED',
       related_entity_type: 'stakeholders',
       related_entity_id: String(stakeholder.id)
     });
+  } else if (paymentType === PAYMENT_TYPES.OTHER_FEES || paymentType === PAYMENT_TYPES.APPLICATION_FEE) {
+    // 4. Other Applicable Fees and Charges
+    await supabase
+      .from('stakeholder_applications')
+      .update({
+        amount_paid: paymentAmount,
+        updated_at: new Date().toISOString()
+      })
+      .eq('stakeholder_id', stakeholder.id);
   } else if (billingId) {
     // Allocate to specific billing record
     const { data: bill } = await supabase

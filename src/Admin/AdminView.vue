@@ -427,19 +427,16 @@ const reportInitialTab = computed(() => {
 })
 
 const baseRoleOptions = [
-  { label: 'System Administrator', value: 'ADMIN' },
+  { label: 'System Administrator', value: 'SYSTEM_ADMIN' },
+  { label: "Mayor's Office", value: 'MAYOR_OFFICE' },
   { label: 'Market Supervisor', value: 'MARKET_SUPERVISOR' },
-  { label: 'Municipal Mayor', value: 'MAYOR' },
   { label: 'Municipal Treasurer', value: 'TREASURER' },
-  { label: 'Field Collector / Inspector', value: 'COLLECTOR_INSPECTOR' },
-  { label: 'Active Vendor', value: 'VENDOR' },
-  { label: 'Applicant', value: 'APPLICANT' }
+  { label: 'Stakeholder', value: 'STAKEHOLDER' }
 ]
 
 function normalizeRoleForDialog(role) {
   if (!role) return 'MARKET_SUPERVISOR'
   const upper = String(role).replace('ROLE_', '').trim().toUpperCase()
-  if (upper === 'ADMIN') return 'ADMIN'
   return normalizeWorkflowRole(upper) || upper
 }
 

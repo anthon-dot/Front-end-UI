@@ -43,6 +43,12 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN
     CREATE TYPE application_status_enum AS ENUM (
         'DRAFT',
+        'SUBMITTED',
+        'APPROVED_PENDING_ADVANCE_PAYMENT',
+        'ADVANCE_PAID',
+        'CONTRACT_PREPARED',
+        'FEES_CLEARED',
+        'ACTIVE_OCCUPANT',
         'PENDING_SUPERVISOR_REVIEW',
         'SUPERVISOR_REJECTED',
         'PENDING_MAYOR_APPROVAL',
@@ -111,6 +117,7 @@ CREATE TABLE IF NOT EXISTS public.user_profiles (
     email VARCHAR(255),
     phone_number VARCHAR(50),
     role user_role_enum NOT NULL DEFAULT 'APPLICANT',
+    account_status VARCHAR(20) NOT NULL DEFAULT 'PENDING' CHECK (account_status IN ('PENDING', 'ACTIVE', 'LOCKED', 'DEACTIVATED')),
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -282,8 +289,8 @@ CREATE TABLE IF NOT EXISTS public.stakeholder_applications (
     stakeholder_id BIGINT NOT NULL REFERENCES public.stakeholders(id) ON DELETE CASCADE,
     user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
     stall_id BIGINT NOT NULL REFERENCES public.stalls(id) ON DELETE RESTRICT,
-    status application_status_enum NOT NULL DEFAULT 'PENDING_SUPERVISOR_REVIEW',
-    current_holding_office VARCHAR(100) NOT NULL DEFAULT 'Market Supervisor',
+    status application_status_enum NOT NULL DEFAULT 'SUBMITTED',
+    current_holding_office VARCHAR(100) NOT NULL DEFAULT 'Office of the Mayor',
     loi_url TEXT,
     valid_id_url TEXT,
     calculated_stall_rights_fee NUMERIC(12, 2) NOT NULL DEFAULT 5000.00,
@@ -294,12 +301,21 @@ CREATE TABLE IF NOT EXISTS public.stakeholder_applications (
     supervisor_endorsed_at TIMESTAMPTZ,
     supervisor_remarks TEXT,
     mayor_approved_at TIMESTAMPTZ,
+    mayor_approval_status VARCHAR(30) NOT NULL DEFAULT 'PENDING',
+    mayor_reviewed_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
     mayor_decision VARCHAR(50),
     mayor_remarks TEXT,
     treasurer_receipt_no VARCHAR(100),
     treasurer_recorded_at TIMESTAMPTZ,
+    initial_advance_paid_at TIMESTAMPTZ,
+    initial_advance_receipt_no VARCHAR(100),
     contract_prepared_at TIMESTAMPTZ,
+    contract_file_path TEXT,
+    contract_uploaded_at TIMESTAMPTZ,
     contract_executed_at TIMESTAMPTZ,
+    regulatory_fee_receipt_no VARCHAR(100),
+    regulatory_fee_paid_at TIMESTAMPTZ,
+    activated_at TIMESTAMPTZ,
     bplo_status VARCHAR(50) DEFAULT 'PENDING',
     bplo_approved_at TIMESTAMPTZ,
     bplo_remarks TEXT,
@@ -381,6 +397,18 @@ CREATE TABLE IF NOT EXISTS public.contracts (
     executed_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.stall_assignments (
+    id BIGSERIAL PRIMARY KEY,
+    application_id BIGINT NOT NULL UNIQUE REFERENCES public.stakeholder_applications(id) ON DELETE CASCADE,
+    stakeholder_id BIGINT NOT NULL REFERENCES public.stakeholders(id) ON DELETE CASCADE,
+    stall_id BIGINT NOT NULL REFERENCES public.stalls(id) ON DELETE RESTRICT,
+    contract_id BIGINT UNIQUE REFERENCES public.contracts(id) ON DELETE SET NULL,
+    assigned_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    effectivity_date DATE NOT NULL,
+    status VARCHAR(30) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'RELINQUISHED', 'TERMINATED'))
 );
 
 -- Occupancy Permits (Digital Permit with QR Verification)
@@ -471,9 +499,11 @@ CREATE TABLE IF NOT EXISTS public.payments (
     reference_no VARCHAR(120),
     billing_id BIGINT REFERENCES public.billings(id) ON DELETE SET NULL,
     stakeholder_id BIGINT NOT NULL REFERENCES public.stakeholders(id) ON DELETE RESTRICT,
+    application_id BIGINT REFERENCES public.stakeholder_applications(id) ON DELETE SET NULL,
     amount NUMERIC(12, 2) NOT NULL,
     payment_type payment_type_canonical_enum NOT NULL,
     payment_channel VARCHAR(50) NOT NULL DEFAULT 'CASH', -- 'CASH', 'FIELD_COLLECTOR', 'ONLINE'
+    payment_method VARCHAR(20) NOT NULL DEFAULT 'CASH' CHECK (payment_method = 'CASH'),
     cashier_or_collector_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
     cashier_name VARCHAR(150),
     remittance_id BIGINT,
@@ -489,6 +519,7 @@ CREATE INDEX IF NOT EXISTS idx_payments_receipt ON public.payments(receipt_no);
 CREATE TABLE IF NOT EXISTS public.payment_receipts (
     id BIGSERIAL PRIMARY KEY,
     receipt_no VARCHAR(100) NOT NULL UNIQUE,
+    official_receipt_number VARCHAR(100) UNIQUE,
     payment_id BIGINT NOT NULL REFERENCES public.payments(id) ON DELETE CASCADE,
     payer_name VARCHAR(200) NOT NULL,
     stall_no VARCHAR(100) NOT NULL,

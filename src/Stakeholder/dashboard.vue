@@ -478,6 +478,31 @@
               @click="toast.add({ severity: 'info', summary: 'Application Status', detail: `Status: ${appStatusDisplay}`, life: 3000 })"
             />
             <Button
+              label="Stall Occupancy Form"
+              icon="pi pi-file"
+              severity="secondary"
+              size="small"
+              @click="openUnifiedAppModal"
+              title="View and Export Unified Stall Rental/Occupancy Form (Word/PDF)"
+            />
+            <Button
+              label="Letter of Intent"
+              icon="pi pi-envelope"
+              severity="secondary"
+              size="small"
+              @click="openLoiModal"
+              title="View and Export Letter of Intent to Mayor (Word/PDF)"
+            />
+            <Button
+              label="Complete Dossier"
+              icon="pi pi-folder"
+              severity="secondary"
+              outlined
+              size="small"
+              @click="openDossierModal"
+              title="View and Export Complete Municipal Document Dossier (Word/PDF)"
+            />
+            <Button
               v-if="userApplication?.status === 'NEEDS_CORRECTION'"
               label="View Correction Notes"
               icon="pi pi-exclamation-triangle"
@@ -610,21 +635,58 @@
             <tbody>
               <tr>
                 <td>
-                  <strong>Letter of Intent (LOI)</strong>
-                  <div style="font-size: 0.8rem; color: #64748b;">Formal letter expressing intent to lease market stall</div>
+                  <strong>Unified Stall Rental / Occupancy Form</strong>
+                  <div style="font-size: 0.8rem; color: #64748b;">Republic of the Philippines &bull; Manticao Public Market Form</div>
                 </td>
-                <td>{{ userApplication?.loiUrl ? 'Letter_of_Intent_Manticao.pdf' : 'LOI_Submitted.pdf' }}</td>
+                <td>Unified_Stall_Rental_Occupancy_Form.docx</td>
+                <td>
+                  <Tag value="Official LGU Format" severity="info" size="small" icon="pi pi-file" />
+                </td>
+                <td>
+                  <Button
+                    label="Open Form (Word / PDF)"
+                    icon="pi pi-file-export"
+                    severity="primary"
+                    size="small"
+                    @click="openUnifiedAppModal"
+                  />
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <strong>Letter of Intent (LOI) to Municipal Mayor</strong>
+                  <div style="font-size: 0.8rem; color: #64748b;">Formal letter to Hon. Mayor Stephen S. Tan</div>
+                </td>
+                <td>Letter_of_Intent_Manticao.docx</td>
                 <td>
                   <Tag value="Approved by Mayor's Office" severity="success" size="small" icon="pi pi-check" />
                 </td>
                 <td>
                   <Button
-                    label="Preview LOI"
-                    icon="pi pi-eye"
+                    label="View / Export LOI"
+                    icon="pi pi-file-export"
                     severity="secondary"
-                    outlined
                     size="small"
-                    @click="openPreviewDocument('Letter of Intent', userApplication?.loiUrl)"
+                    @click="openLoiModal"
+                  />
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <strong>Complete Document Dossier</strong>
+                  <div style="font-size: 0.8rem; color: #64748b;">Full 12-page unified package with all government annexes</div>
+                </td>
+                <td>Manticao_Unified_Dossier.docx</td>
+                <td>
+                  <Tag value="All Sections Included" severity="success" size="small" icon="pi pi-folder" />
+                </td>
+                <td>
+                  <Button
+                    label="Export Dossier (Word/PDF)"
+                    icon="pi pi-download"
+                    severity="help"
+                    size="small"
+                    @click="openDossierModal"
                   />
                 </td>
               </tr>
@@ -1327,41 +1389,111 @@
       </div>
 
       <!-- ========================================================
-           TAB 8: BUSINESS PERMIT FEE (STEP 10 & 11)
+           TAB 8: BUSINESS PERMIT FORMS & RESOURCES (EXTERNAL BPLO PROCESS)
            ======================================================== -->
       <div v-if="activeSection === 'business-permit-fee'" class="card-panel">
         <div class="panel-header">
           <div>
             <h3 class="panel-title">
               <i class="pi pi-shield"></i>
-              Business Permit Fee Assessment & Payment
+              Business Permit Forms & Resources
             </h3>
-            <p class="panel-sub">Separate BPLO assessment and Treasury cash collection</p>
+            <p class="panel-sub">Official LGU downloadable forms, BPLO external procedure, and recorded Treasury receipts</p>
           </div>
           <div class="btn-action-group">
             <Button
-              label="View Assessment Details"
-              icon="pi pi-info-circle"
-              severity="secondary"
+              label="Unified Application Form (5 Pages)"
+              icon="pi pi-file-pdf"
+              severity="primary"
               size="small"
-              @click="showBploAssessmentModal = true"
+              @click="openUnifiedAppModal"
+              title="Open Unified Stall Rental Form (Export Word / PDF)"
             />
             <Button
-              label="View Payment Instructions"
-              icon="pi pi-book"
+              label="Letter of Intent"
+              icon="pi pi-envelope"
               severity="secondary"
               outlined
               size="small"
-              @click="toast.add({ severity: 'info', summary: 'Payment Instructions', detail: 'Present assessment reference BPA-2026-001 at the Treasurer window.', life: 4000 })"
-            />
-            <Button
-              label="View Receipt"
-              icon="pi pi-receipt"
-              severity="primary"
-              size="small"
-              @click="openBploReceipt"
+              @click="openLoiModal"
+              title="Open Letter of Intent to Mayor (Export Word / PDF)"
             />
           </div>
+        </div>
+
+        <!-- Official Forms Download Banner -->
+        <div style="background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%); border: 1px solid #bfdbfe; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+            <div>
+              <span style="font-size: 0.78rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #1e40af;">Official LGU Documents (Manticao Public Market)</span>
+              <h4 style="margin: 0.25rem 0 0.5rem; color: #0f172a; font-size: 1.25rem; font-weight: 800;">
+                Unified Application Forms & Resource Access
+              </h4>
+              <p style="margin: 0; color: #334155; font-size: 0.9rem; max-width: 650px;">
+                Download or export approved official forms in <strong>Microsoft Word (.doc)</strong> or <strong>PDF</strong>. Fill in required details, print copies, and submit to the external BPLO or Market Supervisor Office.
+              </p>
+            </div>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+              <Button
+                label="Unified Application Form (5 Pages)"
+                icon="pi pi-file-pdf"
+                severity="primary"
+                size="small"
+                @click="openUnifiedAppModal"
+              />
+              <Button
+                label="Letter of Intent"
+                icon="pi pi-envelope"
+                severity="secondary"
+                outlined
+                size="small"
+                @click="openLoiModal"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- 4-Step External Process Advisory -->
+        <h4 style="margin: 1.25rem 0 0.75rem; color: #0f172a; font-size: 1.05rem; font-weight: 700;">
+          Official 4-Step Business Permit Workflow
+        </h4>
+        <div class="sakai-table-wrap" style="margin-bottom: 1.5rem;">
+          <table class="sakai-table">
+            <thead>
+              <tr>
+                <th>Step</th>
+                <th>Stage & Action</th>
+                <th>Responsible Office</th>
+                <th>RMS Interaction</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>1</strong></td>
+                <td><strong>Download & Fill Form</strong><br><span style="font-size: 0.8rem; color: #64748b;">Export Unified Application Form for Business Permit</span></td>
+                <td>Stakeholder / Vendor</td>
+                <td><Tag value="RMS Document Access" severity="info" size="small" /></td>
+              </tr>
+              <tr>
+                <td><strong>2</strong></td>
+                <td><strong>Submit Application & Requirements</strong><br><span style="font-size: 0.8rem; color: #64748b;">Inspect endorsements, zoning, fire safety & health</span></td>
+                <td>BPLO (External Office)</td>
+                <td><Tag value="External Office Procedure" severity="secondary" size="small" /></td>
+              </tr>
+              <tr>
+                <td><strong>3</strong></td>
+                <td><strong>Pay Assessed Fee in Cash</strong><br><span style="font-size: 0.8rem; color: #64748b;">Present BPLO Tax Order of Payment at window</span></td>
+                <td>Municipal Treasurer's Office</td>
+                <td><Tag value="Cash Transaction" severity="warn" size="small" /></td>
+              </tr>
+              <tr>
+                <td><strong>4</strong></td>
+                <td><strong>Record Payment & Issue Official Receipt</strong><br><span style="font-size: 0.8rem; color: #64748b;">Treasurer enters payment date, amount, and OR #</span></td>
+                <td>Municipal Treasurer</td>
+                <td><Tag value="RMS Treasury Record" severity="success" size="small" /></td>
+              </tr>
+            </tbody>
+          </table>
         </div>
 
         <!-- Step 11 Business Permit Fee Card -->
@@ -1395,24 +1527,60 @@
           </div>
         </div>
 
+        <!-- Optional Upload Field for Assessment or Issued Permit Copy -->
+        <div style="background: #f8fafc; border: 1px dashed #94a3b8; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;">
+            <div>
+              <h4 style="margin: 0; font-size: 1.05rem; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 0.5rem;">
+                <i class="pi pi-upload" style="color: #2563eb;"></i>
+                Optional Document Retention Uploads
+              </h4>
+              <p style="margin: 4px 0 0; font-size: 0.85rem; color: #64748b;">
+                Upload copies of your external BPLO assessment or issued business permit for municipal file retention.
+              </p>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
+            <!-- Assessment Upload Card -->
+            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem;">
+              <div style="font-weight: 700; font-size: 0.9rem; color: #1e293b; margin-bottom: 0.35rem;">
+                BPLO Assessment Order / Tax Order
+              </div>
+              <div style="font-size: 0.8rem; color: #64748b; margin-bottom: 0.75rem;">
+                {{ uploadedAssessmentFile ? `${uploadedAssessmentFile.name} (${uploadedAssessmentFile.size})` : 'No assessment file uploaded yet' }}
+              </div>
+              <label class="p-button p-component p-button-sm p-button-secondary p-button-outlined" style="cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem;">
+                <input type="file" accept=".pdf,.doc,.docx,image/*" @change="handleAssessmentFileUpload" style="display: none;" />
+                <i class="pi pi-upload"></i>
+                <span>{{ uploadedAssessmentFile ? 'Replace Assessment' : 'Upload Assessment' }}</span>
+              </label>
+            </div>
+
+            <!-- Issued Permit Upload Card -->
+            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem;">
+              <div style="font-weight: 700; font-size: 0.9rem; color: #1e293b; margin-bottom: 0.35rem;">
+                Issued Mayor's Business Permit Copy
+              </div>
+              <div style="font-size: 0.8rem; color: #64748b; margin-bottom: 0.75rem;">
+                {{ uploadedPermitFile ? `${uploadedPermitFile.name} (${uploadedPermitFile.size})` : 'No permit copy uploaded yet' }}
+              </div>
+              <label class="p-button p-component p-button-sm p-button-secondary p-button-outlined" style="cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem;">
+                <input type="file" accept=".pdf,.doc,.docx,image/*" @change="handlePermitFileUpload" style="display: none;" />
+                <i class="pi pi-upload"></i>
+                <span>{{ uploadedPermitFile ? 'Replace Permit Copy' : 'Upload Permit Copy' }}</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
         <!-- Step 11 Advisory Note -->
         <div class="notice-callout">
           <i class="pi pi-info-circle"></i>
           <div>
-            <strong>Educational Compliance Rule:</strong> Paying the business permit fee records the official receipt at the Treasury window. Permit issuance remains part of the external BPLO process. The application does not falsely claim the permit has been released merely because the fee was paid.
+            <strong>Educational & Access Notice:</strong> Paying the business permit fee records the official receipt at the Treasury window. Permit issuance remains part of the external BPLO process. The RMS does not falsely claim the permit has been released merely because the fee was paid.
           </div>
         </div>
-
-        <!-- Treasurer's Procedure Guide -->
-        <h4 style="margin: 1.5rem 0 0.75rem; color: #0f172a; font-size: 1.05rem; font-weight: 700;">
-          Treasurer's Collection Procedure
-        </h4>
-        <ol style="padding-left: 1.5rem; line-height: 1.8; color: #334155;">
-          <li>Cashier verifies BPLO assessment evidence or assessment reference (BPA-2026-001).</li>
-          <li>Cashier confirms the amount payable (₱1,500.00).</li>
-          <li>Cashier receives cash payment and records receipt reference.</li>
-          <li>Transaction is saved in system and stakeholder status updates to Paid.</li>
-        </ol>
       </div>
 
       <!-- ========================================================
@@ -1617,7 +1785,7 @@
             <Button icon="pi pi-times" text rounded @click="showBillDetailModal = false" />
           </div>
 
-          <div class="modal-body">
+          <div class="modal-body" id="printable-stakeholder-bill">
             <div class="detail-grid">
               <div class="detail-item">
                 <span class="detail-label">Bill Number</span>
@@ -1670,8 +1838,10 @@
           </div>
 
           <div class="modal-footer">
-            <Button label="Download Bill" icon="pi pi-download" severity="secondary" @click="downloadBill(selectedBill)" />
-            <Button label="Close" severity="primary" @click="showBillDetailModal = false" />
+            <Button label="Export Word (.doc)" icon="pi pi-file-word" severity="help" size="small" @click="downloadBillWord(selectedBill)" />
+            <Button label="Export PDF" icon="pi pi-file-pdf" severity="danger" size="small" @click="downloadBillPdf(selectedBill)" />
+            <Button label="Print" icon="pi pi-print" severity="secondary" size="small" @click="printBill" />
+            <Button label="Close" severity="primary" size="small" @click="showBillDetailModal = false" />
           </div>
         </div>
       </div>
@@ -1684,7 +1854,7 @@
             <Button icon="pi pi-times" text rounded @click="showReceiptModal = false" />
           </div>
 
-          <div class="modal-body">
+          <div class="modal-body" id="printable-stakeholder-receipt">
             <div style="background: #ffffff; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 1.5rem; text-align: center; margin-bottom: 1rem;">
               <div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b;">Republic of the Philippines &bull; Manticao, Misamis Oriental</div>
               <h4 style="margin: 0.25rem 0 0.5rem; font-size: 1.2rem; font-weight: 800; color: #0f172a;">OFFICE OF THE MUNICIPAL TREASURER</h4>
@@ -1726,8 +1896,10 @@
           </div>
 
           <div class="modal-footer">
-            <Button label="Download Receipt" icon="pi pi-download" severity="secondary" @click="downloadReceipt(selectedReceipt)" />
-            <Button label="Close" severity="primary" @click="showReceiptModal = false" />
+            <Button label="Export Word (.doc)" icon="pi pi-file-word" severity="help" size="small" @click="downloadReceiptWord(selectedReceipt)" />
+            <Button label="Export PDF" icon="pi pi-file-pdf" severity="danger" size="small" @click="downloadReceiptPdf(selectedReceipt)" />
+            <Button label="Print" icon="pi pi-print" severity="secondary" size="small" @click="printReceipt" />
+            <Button label="Close" severity="primary" size="small" @click="showReceiptModal = false" />
           </div>
         </div>
       </div>
@@ -1741,7 +1913,7 @@
           </div>
 
           <div class="modal-body">
-            <div class="contract-paper">
+            <div class="contract-paper" id="stakeholder-printable-contract">
               <div class="contract-paper-header">
                 <div class="contract-seal">Republic of the Philippines &bull; Province of Misamis Oriental</div>
                 <h4 class="contract-paper-title">MUNICIPAL GOVERNMENT OF MANTICAO</h4>
@@ -1798,8 +1970,10 @@
           </div>
 
           <div class="modal-footer">
-            <Button label="Print Agreement" icon="pi pi-print" severity="secondary" @click="printContract" />
-            <Button label="Close" severity="primary" @click="closeContractModal" />
+            <Button label="Export Word (.doc)" icon="pi pi-file-word" severity="help" size="small" @click="exportContractWord" />
+            <Button label="Export PDF" icon="pi pi-file-pdf" severity="danger" size="small" @click="exportContractPdf" />
+            <Button label="Print Agreement" icon="pi pi-print" severity="secondary" size="small" @click="printContract" />
+            <Button label="Close" severity="primary" size="small" @click="closeContractModal" />
           </div>
         </div>
       </div>
@@ -2036,6 +2210,19 @@
           </div>
         </div>
       </div>
+      <!-- 10. Unified Application Form Modal (Rental/Occupancy - 5 Pages) -->
+      <UnifiedApplicationFormModal
+        v-if="showUnifiedAppModal"
+        v-model:visible="showUnifiedAppModal"
+        :application-data="currentDossierData"
+      />
+
+      <!-- 11. Letter of Intent Modal -->
+      <LetterOfIntentModal
+        v-if="showLoiModal"
+        v-model:visible="showLoiModal"
+        :loi-data="currentDossierData"
+      />
     </main>
   </div>
 </template>
@@ -2050,9 +2237,12 @@ import Tag from 'primevue/tag'
 
 import StakeholderMenu from '../components/StakeholderMenu.vue'
 import Notification from '../components/Notification.vue'
+import UnifiedApplicationFormModal from '../components/UnifiedApplicationFormModal.vue'
+import LetterOfIntentModal from '../components/LetterOfIntentModal.vue'
+import { exportToWord, exportToPdf, printElement } from '../utils/exportUtils'
 import { useAuthStore } from '../stores/auth'
 import { supabase } from '../config/supabase'
-import api, { normalizeRecord } from '../services/api'
+import api, { normalizeRecord, isUuid } from '../services/api'
 import {
   getStakeholderNotifications,
   markAllNotificationsAsRead,
@@ -2110,6 +2300,35 @@ const showNoticeModal = ref(false)
 const selectedNotice = ref(null)
 const showRenewalModal = ref(false)
 const renewalRemarks = ref('')
+
+// Export & Official Form Modals
+const showUnifiedAppModal = ref(false)
+const showBusinessPermitModal = ref(false)
+const showLoiModal = ref(false)
+const showDossierModal = ref(false)
+const uploadedAssessmentFile = ref(null)
+const uploadedPermitFile = ref(null)
+
+const currentDossierData = computed(() => {
+  const p = stakeholderProfile.value || {}
+  const app = userApplication.value || {}
+  return {
+    applicantName: p.name || fullName.value,
+    businessName: p.business || p.businessName || 'Cruz Vegetable Store',
+    contactNumber: p.contact || '0917-889-1234',
+    address: p.address || 'Poblacion, Manticao, Misamis Oriental',
+    validIdType: 'Philippine National ID',
+    idNumber: '4218-9901-2245',
+    businessType: 'Retail & Vegetable Stall',
+    stallNo: assignedStallNo.value || 'A-012',
+    monthlyRent: monthlyRentRate.value || 3000,
+    capitalization: 50000,
+    grossSales: 120000,
+    applicationNo: app.applicationNo || 'APP-2026-001',
+    dateFiled: '2026-10-21',
+    receiptNo: 'OR-2026-001'
+  }
+})
 
 const businessPermitAssessment = ref({
   refNo: 'BPA-2026-001',
@@ -2584,12 +2803,116 @@ function openPreviewDocument(title, url) {
   else toast.add({ severity: 'info', summary: title, detail: 'Document archived on municipal file.', life: 3000 })
 }
 
+function openUnifiedAppModal() {
+  showUnifiedAppModal.value = true
+}
+
+function openBusinessPermitModal() {
+  showBusinessPermitModal.value = true
+}
+
+function openLoiModal() {
+  showLoiModal.value = true
+}
+
+function openDossierModal() {
+  showDossierModal.value = true
+}
+
+function handleAssessmentFileUpload(ev) {
+  const file = ev.target.files && ev.target.files[0]
+  if (file) {
+    uploadedAssessmentFile.value = {
+      name: file.name,
+      size: `${(file.size / 1024).toFixed(1)} KB`,
+      uploadedAt: new Date().toLocaleDateString()
+    }
+    toast.add({
+      severity: 'success',
+      summary: 'Assessment Document Uploaded',
+      detail: `Attached ${file.name} for municipal records retention.`,
+      life: 3500
+    })
+  }
+}
+
+function handlePermitFileUpload(ev) {
+  const file = ev.target.files && ev.target.files[0]
+  if (file) {
+    uploadedPermitFile.value = {
+      name: file.name,
+      size: `${(file.size / 1024).toFixed(1)} KB`,
+      uploadedAt: new Date().toLocaleDateString()
+    }
+    toast.add({
+      severity: 'success',
+      summary: 'Permit Document Uploaded',
+      detail: `Attached issued permit copy ${file.name}.`,
+      life: 3500
+    })
+  }
+}
+
 function downloadBill(b) {
-  toast.add({ severity: 'success', summary: 'Bill Downloaded', detail: `Downloaded official bill ${b?.billingNo || 'BILL-001'}.`, life: 2500 })
+  selectedBill.value = b
+  showBillDetailModal.value = true
+  downloadBillWord(b)
+}
+
+function downloadBillWord(b) {
+  const bill = b || selectedBill.value
+  exportToWord('printable-stakeholder-bill', `Billing_Statement_${bill?.billingNo || bill?.id || 'BILL'}`, {
+    title: `MUNICIPAL BILLING STATEMENT - ${bill?.billingNo || 'BILL'}`
+  })
+}
+
+function downloadBillPdf(b) {
+  const bill = b || selectedBill.value
+  exportToPdf('printable-stakeholder-bill', `Billing_Statement_${bill?.billingNo || bill?.id || 'BILL'}.pdf`, {
+    title: `MUNICIPAL BILLING STATEMENT - ${bill?.billingNo || 'BILL'}`
+  })
+}
+
+function printBill() {
+  printElement('printable-stakeholder-bill')
 }
 
 function downloadReceipt(p) {
-  toast.add({ severity: 'success', summary: 'Receipt Downloaded', detail: `Downloaded official receipt ${p?.receiptNo || 'OR-2026-001'}.`, life: 2500 })
+  selectedReceipt.value = p
+  showReceiptModal.value = true
+  downloadReceiptWord(p)
+}
+
+function downloadReceiptWord(p) {
+  const r = p || selectedReceipt.value
+  exportToWord('printable-stakeholder-receipt', `Official_Receipt_${r?.receiptNo || r?.ref || 'OR'}`, {
+    title: `OFFICIAL RECEIPT - ${r?.receiptNo || 'OR'}`
+  })
+}
+
+function downloadReceiptPdf(p) {
+  const r = p || selectedReceipt.value
+  exportToPdf('printable-stakeholder-receipt', `Official_Receipt_${r?.receiptNo || r?.ref || 'OR'}.pdf`, {
+    title: `OFFICIAL RECEIPT - ${r?.receiptNo || 'OR'}`
+  })
+}
+
+function printReceipt() {
+  printElement('printable-stakeholder-receipt')
+}
+
+function exportContractWord() {
+  const c = activeContractRecord.value
+  exportToWord('stakeholder-printable-contract', `Lease_Contract_${c?.contractNo || c?.ref || 'MC-2026-001'}`, {
+    title: `CONTRACT OF LEASE - ${c?.contractNo || 'OFFICIAL'}`
+  })
+}
+
+function exportContractPdf() {
+  const c = activeContractRecord.value
+  exportToPdf('stakeholder-printable-contract', `Lease_Contract_${c?.contractNo || c?.ref || 'MC-2026-001'}.pdf`, {
+    title: `CONTRACT OF LEASE - ${c?.contractNo || 'OFFICIAL'}`
+  })
 }
 
 function openAdvanceReceipt() {
@@ -2617,7 +2940,7 @@ function openBploReceipt() {
 }
 
 function printContract() {
-  window.print()
+  printElement('stakeholder-printable-contract')
 }
 
 // ----------------------------------------------------
@@ -2632,7 +2955,7 @@ async function loadAllData(background = false) {
 
     // 1. Fetch Stakeholder
     let stData = null
-    if (resolvedUserId) {
+    if (resolvedUserId && isUuid(resolvedUserId)) {
       const { data: stByUid } = await supabase
         .from('stakeholders')
         .select('*, occupant:occupants(*, stall:stalls!occupants_stall_id_fkey(*)), selectedStall:stalls!selected_stall_id(*)')
@@ -2641,13 +2964,22 @@ async function loadAllData(background = false) {
       if (stByUid) stData = normalizeRecord(stByUid)
     }
 
-    if (!stData && stakeholderId) {
+    if (!stData && stakeholderId && (!isNaN(Number(stakeholderId)) || isUuid(stakeholderId))) {
       const { data: stById } = await supabase
         .from('stakeholders')
         .select('*, occupant:occupants(*, stall:stalls!occupants_stall_id_fkey(*)), selectedStall:stalls!selected_stall_id(*)')
         .eq('id', stakeholderId)
         .maybeSingle()
       if (stById) stData = normalizeRecord(stById)
+    }
+
+    if (!stData) {
+      try {
+        const rawSh = localStorage.getItem('manticao_stakeholders') || '{}'
+        const shMap = JSON.parse(rawSh)
+        const found = Object.values(shMap).find(s => String(s.user_id) === String(resolvedUserId) || String(s.userId) === String(resolvedUserId) || String(s.id) === String(stakeholderId))
+        if (found) stData = normalizeRecord(found)
+      } catch (_) {}
     }
 
     if (!stData) {
@@ -2669,19 +3001,30 @@ async function loadAllData(background = false) {
     stakeholderProfile.value = stData
 
     // 2. Fetch User Formal Application
-    try {
-      const { data: appData } = await supabase
-        .from('stakeholder_applications')
-        .select('*, stall:stalls(*)')
-        .eq('user_id', resolvedUserId)
-        .order('id', { ascending: false })
-        .limit(1)
-        .maybeSingle()
+    if (resolvedUserId && isUuid(resolvedUserId)) {
+      try {
+        const { data: appData } = await supabase
+          .from('stakeholder_applications')
+          .select('*, stall:stalls(*)')
+          .eq('user_id', resolvedUserId)
+          .order('id', { ascending: false })
+          .limit(1)
+          .maybeSingle()
 
-      if (appData) {
-        userApplication.value = normalizeRecord(appData)
-      }
-    } catch (_) {}
+        if (appData) {
+          userApplication.value = normalizeRecord(appData)
+        }
+      } catch (_) {}
+    }
+
+    if (!userApplication.value) {
+      try {
+        const rawApps = localStorage.getItem('manticao_applications') || '[]'
+        const apps = JSON.parse(rawApps)
+        const foundApp = apps.find(a => String(a.user_id) === String(resolvedUserId) || String(a.userId) === String(resolvedUserId))
+        if (foundApp) userApplication.value = normalizeRecord(foundApp)
+      } catch (_) {}
+    }
 
     if (!userApplication.value) {
       userApplication.value = {

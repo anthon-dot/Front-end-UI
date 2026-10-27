@@ -271,6 +271,7 @@
               <tr class="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider border-b border-gray-200">
                 <th class="py-3 px-4">Application</th>
                 <th class="py-3 px-4">Applicant & Business</th>
+                <th class="py-3 px-4">LOI Reference & Status</th>
                 <th class="py-3 px-4">Stall Allocated</th>
                 <th class="py-3 px-4">Calculated Fees</th>
                 <th class="py-3 px-4">Endorsement Remarks</th>
@@ -290,15 +291,34 @@
                   <div class="text-xs text-gray-500">{{ app.stakeholder?.business_name }} &bull; {{ app.stakeholder?.business_type }}</div>
                 </td>
                 <td class="py-3 px-4">
+                  <div class="font-mono text-xs font-bold text-amber-900">
+                    {{ app.loi_reference_no || app.loiReferenceNo || 'NOT GENERATED' }}
+                  </div>
+                  <span
+                    class="inline-block px-2 py-0.5 rounded text-[11px] font-semibold mt-1"
+                    :class="{
+                      'bg-emerald-100 text-emerald-800': app.loi_status === 'APPROVED' || app.loi_approval_status === 'APPROVED',
+                      'bg-red-100 text-red-800': app.loi_status === 'REJECTED' || app.loi_approval_status === 'REJECTED',
+                      'bg-blue-100 text-blue-800': app.loi_status === 'RECEIVED',
+                      'bg-amber-100 text-amber-800': app.loi_status === 'PRINTED' || app.loi_status === 'GENERATED' || !app.loi_status
+                    }"
+                  >
+                    {{ app.loi_status || 'PENDING' }}
+                  </span>
+                  <div v-if="app.loi_received_at" class="text-[10px] text-gray-500 mt-0.5">
+                    Recv: {{ formatDate(app.loi_received_at) }}
+                  </div>
+                </td>
+                <td class="py-3 px-4">
                   <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-800">
                     Stall #{{ app.stall?.stall_no || app.stall_id }}
                   </span>
                   <div class="text-xs text-gray-500 mt-0.5">{{ app.stall?.dimensions || '3x3m' }} ({{ app.stall?.rate_category || 'NEW' }})</div>
                 </td>
                 <td class="py-3 px-4 font-mono">
-                  <div class="text-xs text-gray-500">Stall Rights: ₱{{ Number(app.calculated_stall_rights_fee || 5000).toLocaleString() }}</div>
-                  <div class="text-xs text-gray-500">2 Mos Advance: ₱{{ Number(app.calculated_advance_rent || 3000).toLocaleString() }}</div>
-                  <div class="font-bold text-gray-800">Total: ₱{{ Number(app.total_initial_amount_due || 8000).toLocaleString() }}</div>
+                  <div class="text-xs text-gray-500">Stall Rights: ₱{{ Number(app.calculated_stall_rights_fee ?? 0).toLocaleString() }}</div>
+                  <div class="text-xs text-gray-500">2 Mos Advance: ₱{{ Number(app.calculated_advance_rent ?? 0).toLocaleString() }}</div>
+                  <div class="font-bold text-gray-800">Total: ₱{{ Number(app.total_initial_amount_due ?? 0).toLocaleString() }}</div>
                 </td>
                 <td class="py-3 px-4 text-xs text-gray-600 max-w-xs">
                   <p class="italic m-0">{{ app.supervisor_remarks || 'Endorsed for Mayoral Approval.' }}</p>
@@ -308,15 +328,34 @@
                   <div class="flex items-center justify-end gap-1.5 flex-wrap">
                     <button
                       type="button"
+                      class="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                      title="Inspect official 5-page Unified Application Form"
+                      @click="openUnifiedForm(app)"
+                    >
+                      <i class="pi pi-file-check mr-1"></i> Unified Form (5 Pages)
+                    </button>
+                    <button
+                      type="button"
                       class="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
-                      title="Inspect uploaded application and LOI document"
+                      title="Inspect generated official LOI document"
                       @click="openViewLoiDialog(app)"
                     >
                       <i class="pi pi-file-pdf mr-1"></i> View LOI
                     </button>
                     <button
+                      v-if="!app.loi_received_at"
+                      type="button"
+                      class="px-2.5 py-1.5 bg-cyan-50 hover:bg-cyan-100 text-cyan-800 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                      title="Record physical receipt of signed paper LOI at Mayor's Office"
+                      @click="recordLoiReceived(app)"
+                    >
+                      <i class="pi pi-inbox mr-1"></i> Record Received
+                    </button>
+                    <button
                       type="button"
                       class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors cursor-pointer"
+                      :disabled="isSubmitting"
+                      title="Approve the received signed LOI"
                       @click="openApprovalDialog(app)"
                     >
                       <i class="pi pi-check mr-1"></i> Approve LOI
@@ -332,6 +371,8 @@
                     <button
                       type="button"
                       class="px-2.5 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                      :disabled="isSubmitting"
+                      title="Reject the received signed LOI"
                       @click="openRejectDialog(app)"
                     >
                       <i class="pi pi-times mr-1"></i> Reject
@@ -580,7 +621,7 @@
           Approve Letter of Intent
         </h3>
         <p class="text-sm text-gray-600 mb-4">
-          Approving this Letter of Intent for <strong>{{ selectedApp?.stakeholder?.first_name }} {{ selectedApp?.stakeholder?.last_name }}</strong> will advance the application to <strong>PENDING_TREASURER_PAYMENT</strong> for recording of Stall Rights fee and 2-month advance rental.
+          Approving this Letter of Intent for <strong>{{ selectedApp?.stakeholder?.first_name }} {{ selectedApp?.stakeholder?.last_name }}</strong> will advance the application to <strong>APPROVED_PENDING_ADVANCE_PAYMENT</strong> for the Treasurer to record the advance payment.
         </p>
 
         <div class="mb-4">
@@ -615,7 +656,7 @@
           <button
             type="button"
             class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold shadow-sm cursor-pointer"
-            :disabled="isSubmitting"
+            :disabled="isSubmitting || !selectedApp?.loi_received_at || !signedDocumentRef.trim()"
             @click="submitMayorDecision(true)"
           >
             {{ isSubmitting ? 'Processing...' : 'Confirm Approval' }}
@@ -891,6 +932,36 @@
         </div>
       </div>
     </div>
+
+    <!-- Unified Application Form Modal -->
+    <UnifiedApplicationFormModal
+      v-if="showUnifiedFormModal"
+      :visible="showUnifiedFormModal"
+      :application-data="selectedUnifiedAppData"
+      role="MAYOR"
+      @close="showUnifiedFormModal = false"
+      @saved="fetchData"
+    />
+
+    <!-- Official Verbatim Letter of Intent Modal (Generated Document, No Upload) -->
+    <LetterOfIntentModal
+      v-if="showLetterOfIntentModal"
+      :visible="showLetterOfIntentModal"
+      :application-id="selectedApp?.id"
+      :loi-reference-no="selectedApp?.loi_reference_no || selectedApp?.loiReferenceNo"
+      :applicant-data="{
+        firstName: selectedApp?.stakeholder?.first_name || selectedApp?.first_name,
+        middleName: selectedApp?.stakeholder?.middle_name || selectedApp?.middle_name,
+        lastName: selectedApp?.stakeholder?.last_name || selectedApp?.last_name,
+        address: selectedApp?.stakeholder?.address || selectedApp?.address,
+        contact: selectedApp?.stakeholder?.contact || selectedApp?.contact,
+        stallNo: selectedApp?.stall?.stall_no || selectedApp?.stall_id,
+        businessType: selectedApp?.stakeholder?.business_type || selectedApp?.business_type,
+        commodities: selectedApp?.products_commodities || selectedApp?.business_type
+      }"
+      :is-read-only="true"
+      @close="showLetterOfIntentModal = false"
+    />
   </div>
 </template>
 
@@ -898,6 +969,8 @@
 import { ref, computed, onMounted } from 'vue';
 import api from '../services/api';
 import { useAuthStore } from '../stores/auth';
+import UnifiedApplicationFormModal from '../components/UnifiedApplicationFormModal.vue';
+import LetterOfIntentModal from '../components/LetterOfIntentModal.vue';
 
 const authStore = useAuthStore();
 const activeTab = ref('summary');
@@ -923,7 +996,11 @@ const showApprovalModal = ref(false);
 const showRejectModal = ref(false);
 const showReturnModal = ref(false);
 const showViewLoiModal = ref(false);
+const showLetterOfIntentModal = ref(false);
 const showRevokeModal = ref(false);
+const showUnifiedFormModal = ref(false);
+const selectedUnifiedAppData = ref({});
+
 
 const selectedApp = ref(null);
 const selectedRevocation = ref(null);
@@ -933,18 +1010,21 @@ const revocationReason = ref('');
 
 const pendingApplications = computed(() => {
   return applications.value.filter(
-    (app) => app.status === 'PENDING_MAYOR_APPROVAL' || (app.market_supervisor_approved && !app.mayor_decision)
+    (app) => app.status === 'SUBMITTED' &&
+      !app.mayor_decision &&
+      app.loi_approval_status !== 'APPROVED' &&
+      app.loi_approval_status !== 'REJECTED'
   );
 });
 
 const decidedApplications = computed(() => {
   return applications.value.filter(
-    (app) => app.mayor_decision || app.status === 'PENDING_TREASURER_PAYMENT' || app.status === 'PAID_READY_FOR_CONTRACT' || app.status === 'COMPLETED' || app.status === 'MAYOR_REJECTED'
+    (app) => app.mayor_decision || app.loi_approval_status === 'APPROVED' || app.loi_approval_status === 'REJECTED' || app.status === 'APPROVED_PENDING_ADVANCE_PAYMENT' || app.status === 'ADVANCE_PAID' || app.status === 'CONTRACT_PREPARED' || app.status === 'FEES_CLEARED' || app.status === 'ACTIVE_OCCUPANT' || app.status === 'MAYOR_REJECTED'
   );
 });
 
 const pendingCount = computed(() => pendingApplications.value.length);
-const approvedCount = computed(() => applications.value.filter((a) => a.mayor_decision === 'APPROVED' || a.mayor_approved_at).length);
+const approvedCount = computed(() => applications.value.filter((a) => a.mayor_decision === 'APPROVED' || a.mayor_approved_at || a.loi_approval_status === 'APPROVED').length);
 
 function formatDate(dateStr) {
   if (!dateStr) return 'N/A';
@@ -962,7 +1042,7 @@ async function fetchData() {
 
     // 1. Fetch applications
     try {
-      const appRes = await api.get('/applications', { headers });
+      const appRes = await api.get('/applications', { headers, remoteOnly: true });
       applications.value = appRes.data?.applications || (Array.isArray(appRes.data) ? appRes.data : []);
     } catch (e) {
       applications.value = [];
@@ -1008,23 +1088,39 @@ async function fetchData() {
   }
 }
 
+async function recordLoiReceived(app) {
+  try {
+    isSubmitting.value = true;
+    const headers = { Authorization: `Bearer ${authStore.token}` };
+    await api.post(`/applications/${app.id}/loi/record-received`, {}, { headers });
+    app.loi_status = 'RECEIVED';
+    app.loi_received_at = new Date().toISOString();
+    alert(`Physical signed Letter of Intent for Application #${app.application_no || app.id} recorded as RECEIVED by Office of the Mayor.`);
+    await fetchData();
+  } catch (err) {
+    alert(err.response?.data?.error || err.message || 'Failed to record LOI receipt.');
+  } finally {
+    isSubmitting.value = false;
+  }
+}
+
 function openApprovalDialog(app) {
   selectedApp.value = app;
-  decisionRemarks.value = 'Approved for municipal stall rights and 2-month advance rental payment.';
-  signedDocumentRef.value = `LOI-${app?.application_no || app?.id || Date.now().toString().slice(-6)}`;
+  decisionRemarks.value = '';
+  signedDocumentRef.value = app.loi_approval_reference || `MO-APPR-${app.application_no || app.id}`;
   showApprovalModal.value = true;
 }
 
 function openReturnDialog(app) {
   selectedApp.value = app;
-  decisionRemarks.value = 'Please re-submit with the following corrections: ';
+  decisionRemarks.value = '';
   signedDocumentRef.value = '';
   showReturnModal.value = true;
 }
 
 function openViewLoiDialog(app) {
   selectedApp.value = app;
-  showViewLoiModal.value = true;
+  showLetterOfIntentModal.value = true;
 }
 
 function openRejectDialog(app) {
@@ -1032,6 +1128,55 @@ function openRejectDialog(app) {
   decisionRemarks.value = '';
   signedDocumentRef.value = '';
   showRejectModal.value = true;
+}
+
+function openUnifiedForm(app) {
+  selectedApp.value = app;
+  selectedUnifiedAppData.value = {
+    id: app.id,
+    applicationNo: app.application_no || '',
+    firstName: app.stakeholder?.first_name || app.stakeholder?.firstName,
+    middleName: app.stakeholder?.middle_name || app.stakeholder?.middleName,
+    lastName: app.stakeholder?.last_name || app.stakeholder?.lastName,
+    address: app.stakeholder?.address,
+    contact: app.stakeholder?.contact,
+    validIdType: app.stakeholder?.valid_id_type || app.valid_id_type || '',
+    validIdNo: app.stakeholder?.valid_id_no || app.valid_id_no || '',
+    businessName: app.stakeholder?.business_name || app.stakeholder?.businessName,
+    businessType: app.stakeholder?.business_type || app.stakeholder?.businessType,
+    natureOfBusiness: app.nature_of_business || app.stakeholder?.nature_of_business || [],
+    otherNatureOfBusiness: app.other_nature_of_business || app.stakeholder?.other_nature_of_business || '',
+    productsCommodities: app.products_commodities || app.stakeholder?.products_commodities || '',
+    stallSpaceType: app.stall_space_type || app.stakeholder?.stall_space_type || '',
+    preferredStallNo: app.stall?.stall_no || app.stall_id || '',
+    estimatedEmployees: app.estimated_employees ?? app.stakeholder?.estimated_employees ?? 0,
+    undertakingAgreed: app.undertaking_agreed ?? false,
+    loiUrl: app.loi_document_url || app.loiUrl || app.letter_document_url,
+    validIdUrl: app.valid_id_document_url || app.validIdUrl || app.id_document_url,
+    loiContent: app.loi_content || app.loiContent || '',
+    monthlyRent: app.stall?.monthly_rent ?? 0,
+    marketOfficeStatus: app.market_office_status || '',
+    marketOfficeStallRecommended: app.recommended_stall_no || app.market_office_recommended_stall || '',
+    marketOfficeSection: app.recommended_market_section || app.market_office_section || '',
+    marketOfficeNature: app.stakeholder?.business_type || '',
+    marketOfficeRemarks: app.supervisor_remarks || '',
+    treasuryFeeMonthly: app.stall?.monthly_rent ?? 0,
+    treasuryFeeOther: app.calculated_stall_rights_fee ?? 0,
+    treasuryFeeSecurityDeposit: app.calculated_advance_rent ?? 0,
+    treasuryTotalDue: app.total_initial_amount_due ?? 0,
+    treasuryRemarks: app.treasury_remarks || '',
+    finalRecommendation: app.final_recommendation || (app.market_approval_status === 'APPROVED' ? 'RECOMMENDED' : 'PENDING'),
+    mayorDecision: app.mayor_approval_status === 'APPROVED' ? 'APPROVED' : (app.status === 'APPROVED' ? 'APPROVED' : 'PENDING'),
+    mayorRemarks: app.mayor_remarks || '',
+    mayorDecisionDate: app.mayor_approved_at || null,
+    assignedStallNo: app.stall?.stall_no || '',
+    assignedMarketSection: app.assigned_market_section || '',
+    assignedMonthlyRent: app.assigned_monthly_rental ?? 0,
+    paymentOrNo: app.receipt_number || app.official_receipt_no || '',
+    paymentAmount: app.total_initial_amount_paid || 0,
+    applicantAcknowledged: app.applicant_acknowledged ?? false
+  };
+  showUnifiedFormModal.value = true;
 }
 
 async function submitMayorDecision(decisionType) {
@@ -1043,6 +1188,16 @@ async function submitMayorDecision(decisionType) {
     const decValue = isApproved ? 'APPROVED' : (isCorrection ? 'RETURNED_FOR_CORRECTION' : 'REJECTED');
 
     const headers = { Authorization: `Bearer ${authStore.token}` };
+    if (!selectedApp.value.loi_received_at && !isCorrection) {
+      selectedApp.value.loi_received_at = new Date().toISOString();
+    }
+    if (isApproved && !signedDocumentRef.value.trim()) {
+      signedDocumentRef.value = `MO-APPR-${selectedApp.value.application_no || selectedApp.value.id}`;
+    }
+    if (!isApproved && !decisionRemarks.value.trim()) {
+      throw new Error(isCorrection ? 'Enter the required corrections.' : 'Enter a reason for rejection.');
+    }
+
     await api.put(
       `/applications/${selectedApp.value.id}/mayor-review`,
       {
@@ -1059,6 +1214,7 @@ async function submitMayorDecision(decisionType) {
     showRejectModal.value = false;
     showReturnModal.value = false;
     showViewLoiModal.value = false;
+    showLetterOfIntentModal.value = false;
     selectedApp.value = null;
     await fetchData();
   } catch (err) {
